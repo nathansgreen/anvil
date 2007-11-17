@@ -1,0 +1,63 @@
+#ifndef __TOILET_H
+#define __TOILET_H
+
+/* This is the main toilet header file. */
+
+#include "vector.h"
+#include "hash_map.h"
+
+struct t_index {
+	enum { NONE, HASH, TREE, BOTH } type;
+	/* value -> set of rows */
+	hash_map_t * hash;
+	void * tree;
+};
+typedef struct t_index t_index;
+
+enum t_type {
+	T_ID,
+	T_INT,
+	T_STRING,
+	T_BLOB
+};
+typedef enum t_type t_type;
+
+struct t_column {
+	const char * name;
+	enum t_type type;
+	int count;
+	t_index * index;
+};
+typedef struct t_column t_column;
+
+struct t_gtable {
+	vector_t * columns;
+	/* ...? */
+};
+typedef struct t_gtable t_gtable;
+
+union t_value {
+	uint64_t v_id;
+	long long v_int;
+	const char * v_string;
+	struct {
+		int length;
+		void * data;
+	} v_blob;
+};
+typedef union t_value t_value;
+
+struct t_values {
+	enum t_type type;
+	vector_t * values;
+};
+typedef struct t_values t_values;
+
+struct t_row {
+	t_gtable * gtable;
+	/* key -> values */
+	hash_map_t * columns;
+};
+typedef struct t_row t_row;
+
+#endif /* __TOILET_H */
