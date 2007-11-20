@@ -46,6 +46,8 @@
 	<li>knows about every column name in any of its rows</li>
 	<li>sparse in the sense that not every row has the same columns</li>
 	<li>columns can be indexed, indices are stored as hashes and/or trees</li>
+	<li>the id column is automatically generated</li>
+	<li>id can be used like "foreign keys" in any row</li>
 </ul>
 
 </p>
@@ -56,12 +58,14 @@
 	Row a, b, c;
 	a["name"] = apple;
 	a["baked_good"] = pie;
+	a["price"] = 0.53;
 
 	b["name"] = banana;
 	b["baked_good"] = bread;
 	b["baked_good"] = muffin;
 	
 	c["name"] = cantaloupe;
+	c["price"] = 1.00;
 
 	toilet.insert(a);
 	toilet.insert(b);
@@ -71,16 +75,18 @@
 
 <table border="1">
 <caption><em>The gtable looks like</em></caption>
-<tr><th>id <th>name      <th colspan=2>baked_good
-<tr><td>1  <td>apple     <td colspan=2>pie
-<tr><td>2  <td>banana    <td>bread<td>muffin
-<tr><td>3  <td>cantaloupe<td>
+<tr><th>id <th>name      <th colspan=2>baked_good  <th>price
+<tr><td>1  <td>apple     <td colspan=2>pie	   <td>0.53
+<tr><td>2  <td>banana    <td>bread<td>muffin       <td>
+<tr><td>3  <td>cantaloupe<td colspan=2>		   <td>1.00
 </table>
 <br/>
 <strong>Querying</strong>
 <p>
-	TBD
+	A simple query can be gtable.get_row(id). We still haven't thought of a nice way to 
+	query the columns of a gtable. We would like to use the query system to help give 
+	performance hints to the column indexes.
 </p>
-
+More to come...
 </body>
 </html>
