@@ -36,8 +36,11 @@ struct t_gtable {
 };
 typedef struct t_gtable t_gtable;
 
+/* this should be uint64_t later, but we need better hash maps */
+typedef uint32_t t_row_id;
+
 union t_value {
-	uint64_t v_id;
+	t_row_id v_id;
 	long long v_int;
 	const char * v_string;
 	struct {
@@ -59,5 +62,19 @@ struct t_row {
 	hash_map_t * columns;
 };
 typedef struct t_row t_row;
+
+struct toilet {
+	/* ... */
+};
+typedef struct toilet toilet;
+
+toilet * toilet_open(const char * path);
+int toilet_close(toilet * toilet);
+
+/* TODO: figure out how to handle memory management for t_* structure pointers */
+
+t_row * toilet_row(toilet * toilet, t_row_id id);
+
+t_values * row_value(t_row * row, const char * name);
 
 #endif /* __TOILET_H */
