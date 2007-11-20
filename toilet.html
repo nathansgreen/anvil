@@ -24,10 +24,63 @@
 			}
 			-->
 		</style>
-	</head>
+		</head>
 <body>
 <h2>TOILET </h2>
-<h5>Named in anticipation of writing "The TOILET Paper" </h5>
+<h4>Named in anticipation of writing "The TOILET Paper" </h4>
+
+<p>
+<strong>Rows</strong>
+<ul>
+	<li>basic data structure represented as a multi hash map</li>
+	<li>indexed by a string representing the column name</li>
+	<li>row["column"] returns an iterator over the possibly many values</li>
+	<li>every row has a globally unique id across multiple gtables</li> 
+</ul>
+</p>
+
+<p>
+<strong>Gtable - "Generalized Table"</strong>
+<ul>
+	<li>contains rows</li>
+	<li>contains every column of all its rows</li>
+	<li>sparse in the sense that not every row has the same columns</li>
+	<li>columns can be indexed, indexes are stored as hashes and/or trees</li>
+</ul>
+
+</p>
+
+
+<pre>
+	Gtable toilet;
+	Row a, b, c;
+	a["name"] = apple;
+	a["baked_good"] = pie;
+
+	b["name"] = banana;
+	b["baked_good"] = bread;
+	b["baked_good"] = muffin;
+	
+	c["name"] = cantaloupe;
+
+	toilet.insert(a);
+	toilet.insert(b);
+	toilet.insert(c);
+
+</pre>
+
+<table border="1">
+<caption><em>The gtable looks like</em></caption>
+<tr><th>id <th>name      <th colspan=2>baked_good
+<tr><td>1  <td>apple     <td colspan=2>pie
+<tr><td>2  <td>banana    <td>bread<td>muffin
+<tr><td>3  <td>cantaloupe<td>
+</table>
+<br/>
+<strong>Querying</strong>
+<p>
+	TBD
+</p>
 
 </body>
 </html>
