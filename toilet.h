@@ -1,3 +1,7 @@
+/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+ * of the University of California. It is distributed under the terms of
+ * version 2 of the GNU GPL. See the file LICENSE for details. */
+
 #ifndef __TOILET_H
 #define __TOILET_H
 
@@ -5,10 +9,11 @@
 
 #include "vector.h"
 #include "hash_map.h"
+#include "hash_set.h"
 
 struct t_index {
 	enum { NONE, HASH, TREE, BOTH } type;
-	/* value -> set of rows */
+	/* value -> rowset */
 	hash_map_t * hash;
 	void * tree;
 };
@@ -32,7 +37,6 @@ typedef struct t_column t_column;
 
 struct t_gtable {
 	vector_t * columns;
-	/* ...? */
 	/* internal stuff now */
 	int out_count;
 };
@@ -80,15 +84,23 @@ struct toilet {
 };
 typedef struct toilet toilet;
 
-struct t_query {
-	/* XXX ... */
-};
-typedef struct t_query t_query;
-
 struct t_rowset {
-	/* XXX ... */
+	vector_t * rows;
+	hash_set_t * ids;
+	/* internal stuff now */
+	int out_count;
 };
 typedef struct t_rowset t_rowset;
+
+struct t_query {
+	/* the content in here should allow some sort
+	 * of convenient querying on a single gtable */
+	/* XXX: for now, we just query for a single field having a specific value */
+	const char * name;
+	enum t_type type;
+	t_value value;
+};
+typedef struct t_query t_query;
 
 /* databases */
 
@@ -127,20 +139,21 @@ t_values * toilet_row_value(t_row * row, const char * key);
 
 /* remove all values */
 int toilet_row_remove_values(t_row * row, const char * key);
+/* append a new value (it will be copied) */
+int toilet_row_append_value(t_row * row, const char * key, t_type type, t_value * value);
 /* replace all values with a new one (it will be copied) */
-int toilet_row_replace_values(t_row * row, const char * key, t_value * value);
+int toilet_row_replace_values(t_row * row, const char * key, t_type type, t_value * value);
 
 /* remove a single value */
 int toilet_value_remove(t_values * values, int index);
 /* append a new value (it will be copied) */
-int toilet_value_append(t_values * values, t_value * value);
+int toilet_value_append(t_values * values, t_type type, t_value * value);
 /* update a single value (it will be copied) */
 int toilet_value_update(t_values * values, int index, t_value * value);
 
 /* queries */
 
-t_rowset * toilet_query(toilet * toilet, t_query * query);
-t_rowset * toilet_query_gtable(t_gtable * gtable, t_query * query);
+t_rowset * toilet_query(t_gtable * gtable, t_query * query);
 int toilet_put_rowset(t_rowset * rowset);
 
 #define ROWS(r) ((r)->count)
