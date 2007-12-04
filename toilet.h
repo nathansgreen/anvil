@@ -20,10 +20,10 @@ struct t_index {
 typedef struct t_index t_index;
 
 enum t_type {
-	T_ID,
-	T_INT,
-	T_STRING,
-	T_BLOB
+	T_ID = 0,
+	T_INT = 1,
+	T_STRING = 2,
+	T_BLOB = 3
 };
 typedef enum t_type t_type;
 
@@ -73,10 +73,15 @@ struct t_row {
 };
 typedef struct t_row t_row;
 
+#define ID_SIZE 16
+
 struct toilet {
-	/* all internal stuff */
+	uint8_t id[ID_SIZE];
+	t_row_id next_row;
+	/* internal stuff now */
 	const char * path;
 	int path_fd;
+	int row_fd;
 	/* cache of gtables currently out */
 	hash_map_t * gtables;
 	/* cache of rows currently out */
@@ -120,7 +125,7 @@ int toilet_put_gtable(t_gtable * gtable);
 
 /* rows */
 
-t_row * toilet_new_row(t_gtable * gtable);
+t_row * toilet_new_row(toilet * toilet, t_gtable * gtable);
 int toilet_drop_row(t_row * row);
 
 t_row * toilet_get_row(toilet * toilet, t_row_id id);

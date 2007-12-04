@@ -294,7 +294,7 @@ uint64_t bf64_decipher(bf_ctx * bfc, uint64_t val)
 
 #if 0
 #include <stdio.h>
-int main(int argc, char **argv)
+int main(int argc, char * argv[])
 {
 	char key[] = "should be random";
 	uint32_t i = 0;
