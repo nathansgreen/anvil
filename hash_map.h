@@ -23,8 +23,8 @@ typedef struct chain_elt chain_elt_t;
 typedef struct hash_map hash_map_t;
 
 struct hash_map_elt {
-	void * key;
-	void * val;
+	const void * key;
+	const void * val;
 };
 
 struct chain_elt;
@@ -52,17 +52,17 @@ size_t hash_map_size(const hash_map_t * hm);
 bool   hash_map_empty(const hash_map_t * hm);
 // Insert the given key-val pair, updating k's v if k exists.
 // Returns 0 or 1 on success, or -ENOMEM.
-int    hash_map_insert(hash_map_t * hm, void * k, void * v);
+int    hash_map_insert(hash_map_t * hm, const void * k, const void * v);
 // Remove the given key-val pair, does not destory key or val.
 // Returns k's value on success, NULL if k is not in the hash_map.
-void * hash_map_erase(hash_map_t * hm, const void * k);
+const void * hash_map_erase(hash_map_t * hm, const void * k);
 // Change the mapping from oldk->val to be newk->val.
 // Returns 0 on success, -EEXIST if newk exists, or -ENOENT if oldk does not exist.
-int    hash_map_change_key(hash_map_t * hm, void * oldk, void * newk);
+int    hash_map_change_key(hash_map_t * hm, const void * oldk, const void * newk);
 // Remove all key-val pairs, does not destroy keys or vals.
 void   hash_map_clear(hash_map_t * hm);
 // Return the val associated with k.
-void * hash_map_find_val(const hash_map_t * hm, const void * k);
+const void * hash_map_find_val(const hash_map_t * hm, const void * k);
 // Return the key and val associated with k.
 hash_map_elt_t hash_map_find_elt(const hash_map_t * hm, const void * k);
 // Return a pointer to the internal key and val associated with k.
@@ -86,8 +86,8 @@ const struct vector * hash_map_max_sizes(const hash_map_t * hm);
 // Iteration (current)
 
 struct hash_map_it2 {
-	void * key; // key of the current map entry
-	void * val; // value of the current map entry
+	const void * key; // key of the current map entry
+	const void * val; // value of the current map entry
 	struct {
 		hash_map_t * hm;
 		size_t next_bucket;
@@ -126,7 +126,7 @@ void hash_map_it_init(hash_map_it_t * it, hash_map_t * hm);
 // - Returns NULL when the end of the hash map is reached.
 // - Behavior is undefined if you begin iterating, modify hm, and then continue
 //   iterating using the old hm_it. (Define HASH_MAP_IT_MOD_DEBUG to detect.)
-void * hash_map_val_next(hash_map_it_t * it);
+const void * hash_map_val_next(hash_map_it_t * it);
 // Iterate through the hash map values using hm_it.
 // - key is NULL when the end of the hash map is reached.
 // - Behavior is undefined if you begin iterating, modify hm, and then continue

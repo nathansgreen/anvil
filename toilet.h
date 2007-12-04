@@ -30,12 +30,13 @@ typedef enum t_type t_type;
 struct t_column {
 	const char * name;
 	enum t_type type;
-	int count;
+	unsigned int count;
 	t_index * index;
 };
 typedef struct t_column t_column;
 
 struct t_gtable {
+	const char * name;
 	vector_t * columns;
 	/* internal stuff now */
 	int out_count;
@@ -118,7 +119,7 @@ int toilet_new_gtable(toilet * toilet, const char * name);
 int toilet_drop_gtable(t_gtable * gtable);
 
 t_gtable * toilet_get_gtable(toilet * toilet, const char * name);
-int toilet_put_gtable(t_gtable * gtable);
+void toilet_put_gtable(toilet * toilet, t_gtable * gtable);
 
 #define COLUMNS(g) vector_size((g)->columns)
 #define COLUMN(g, i) ((t_column *) vector_elt((g)->columns, (i)))
@@ -129,7 +130,7 @@ int toilet_new_row(toilet * toilet, t_gtable * gtable);
 int toilet_drop_row(t_row * row);
 
 t_row * toilet_get_row(toilet * toilet, t_row_id id);
-int toilet_put_row(t_row * row);
+void toilet_put_row(t_row * row);
 
 #define ID(r) ((r)->id)
 

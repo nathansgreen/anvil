@@ -115,7 +115,7 @@ static void chain_elt_pool_free_all(void)
 	chain_elt_free_all();
 }
 
-static chain_elt_t * chain_elt_create(const hash_map_t * hm, void * k, void * v)
+static chain_elt_t * chain_elt_create(const hash_map_t * hm, const void * k, const void * v)
 {
 	chain_elt_t * elt = chain_elt_alloc();
 	elt->elt.key = k;
@@ -300,7 +300,7 @@ bool hash_map_empty(const hash_map_t * hm)
 	return (hm->size == 0);
 }
 
-int hash_map_insert(hash_map_t * hm, void * k, void * v)
+int hash_map_insert(hash_map_t * hm, const void * k, const void * v)
 {
 	Dprintf("%s(%p, %p, %p)\n", __FUNCTION__, hm, k, v);
 	const size_t elt_num = hash(hm, k);
@@ -425,11 +425,11 @@ static chain_elt_t * erase_chain_elt(hash_map_t * hm, const void * k)
 	return k_chain;
 }
 
-void * hash_map_erase(hash_map_t * hm, const void * k)
+const void * hash_map_erase(hash_map_t * hm, const void * k)
 {
 	Dprintf("%s(%p, %p)\n", __FUNCTION__, hm, k);
 	chain_elt_t * k_chain;
-	void * v;
+	const void * v;
 
 	k_chain = erase_chain_elt(hm, k);
 	if (!k_chain)
@@ -454,7 +454,7 @@ void * hash_map_erase(hash_map_t * hm, const void * k)
 	return v;
 }
 
-int hash_map_change_key(hash_map_t * hm, void * oldk, void * newk)
+int hash_map_change_key(hash_map_t * hm, const void * oldk, const void * newk)
 {
 	Dprintf("%s(%p, %p, %p)\n", __FUNCTION__, hm, oldk, newk);
 	chain_elt_t * head;
@@ -552,7 +552,7 @@ static __inline hash_map_elt_t * hash_map_find_internal(const hash_map_t * hm, c
 	return &k_chain->elt;
 }
 
-void * hash_map_find_val(const hash_map_t * hm, const void * k)
+const void * hash_map_find_val(const hash_map_t * hm, const void * k)
 {
 	hash_map_elt_t * hme = hash_map_find_internal(hm, k);
 	if (!hme)
@@ -790,7 +790,7 @@ hash_map_elt_t hash_map_elt_next(hash_map_it_t * it)
 	return no_elt;
 }
 
-void * hash_map_val_next(hash_map_it_t * it)
+const void * hash_map_val_next(hash_map_it_t * it)
 {
 	return hash_map_elt_next(it).val;
 }

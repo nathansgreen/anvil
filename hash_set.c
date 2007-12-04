@@ -56,10 +56,10 @@ bool hash_set_empty(const hash_set_t * hs)
 	return hash_map_empty(hs);
 }
 
-int hash_set_insert(hash_set_t * hs, void * v)
+int hash_set_insert(hash_set_t * hs, const void * v)
 {
 	/* 1 is just some nonzero value */
-	return hash_map_insert(hs, v, (void *) 1);
+	return hash_map_insert(hs, v, (const void *) 1);
 }
 
 int hash_set_erase(hash_set_t * hs, const void * v)
@@ -102,7 +102,7 @@ void hash_set_it_init(hash_set_it_t * it, hash_set_t * hs)
 	hash_map_it_init(it, hs);
 }
 
-void * hash_set_val_next(hash_set_it_t * it)
+const void * hash_set_val_next(hash_set_it_t * it)
 {
 	return hash_map_val_next(it);
 }

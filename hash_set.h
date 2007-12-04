@@ -28,7 +28,7 @@ size_t hash_set_size(const hash_set_t * hs);
 bool   hash_set_empty(const hash_set_t * hs);
 // Insert the given value.
 // Returns 0 or 1 on success, or -ENOMEM.
-int    hash_set_insert(hash_set_t * hs, void * v);
+int    hash_set_insert(hash_set_t * hs, const void * v);
 // Remove the given value. Does not destroy the value.
 // Returns 0 on success, or -ENOENT if v is not in the hash_set.
 int    hash_set_erase(hash_set_t * hs, const void * v);
@@ -63,6 +63,6 @@ void hash_set_it_init(hash_set_it_t * it, hash_set_t * hs);
 // - Returns NULL when the end of the hash set is reached.
 // - Behavior is undefined if you begin iterating, modify hs, and then continue
 //   iterating using the old hs_it. (Define HASH_MAP_IT_MOD_DEBUG to detect.)
-void * hash_set_val_next(hash_set_it_t * it);
+const void * hash_set_val_next(hash_set_it_t * it);
 
 #endif /* !HASH_SET_H */
