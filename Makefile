@@ -13,7 +13,7 @@ toilet: $(OBJECTS)
 clean:
 	rm -f toilet *.o .depend
 
-.depend:
+.depend: $(SOURCES)
 	gcc -MM *.c > .depend
 
 -include .depend

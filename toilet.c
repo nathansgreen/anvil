@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "toilet.h"
 #include "hash_map.h"
@@ -7,14 +8,16 @@
 
 /* This initial implementation of Toilet stores databases using the file system.
  * Each gtable gets a subdirectory in the database directory, and has
- * subdirectories "columns" and "rows" that store the gtable metadata and data,
- * respectively. The "rows" directory stores a tree of subdirectories: each row
- * ID (32-bit numbers for now) is written in hexadecimal and each two digits
- * form a subdirectory name. The last such subdirectory contains a directory for
- * each key in the row, and in these directories are files containing the values
- * for that key, one per file. */
+ * subdirectories "columns" and "indices" that store the gtable metadata and
+ * indices, respectively. The database-wide "rows" directory stores a tree of
+ * subdirectories: each row ID (32-bit numbers for now) is written in
+ * hexadecimal and each two digits form a subdirectory name. The last such
+ * subdirectory contains a directory for each key in the row, and in these
+ * directories are files containing the values for that key, one per file. */
 
-/* [db]/                                      The top level database
+/* Here is a map of the database directory structure:
+ *
+ * [db]/                                      The top level database
  * [db]/toilet-version                        Version of this database
  * [db]/toilet-id                             This database's ID
  * [db]/next-row                              Next row ID source value
@@ -22,9 +25,12 @@
  * [db]/[gt1]/columns/                        The column specifiers
  * [db]/[gt1]/columns/[col1]                  A particular column
  * [db]/[gt1]/columns/[col2]...               More columns...
+ * [db]/[gt1]/indices/[col1]/...              Index data for a column
+ * [db]/[gt1]/indices/[col2]/...              More index data...
  * [db]/[gt2]/...                             More gtables...
  * [db]/rows/                                 The rows in all gtables
  * [db]/rows/XX/XX/XX/XX/                     A row directory
+ * [db]/rows/XX/XX/XX/XX/gtable->             Symlink to the gtable
  * [db]/rows/XX/XX/XX/XX/[key1]/              A key in that row
  * [db]/rows/XX/XX/XX/XX/[key1]/0             A value of that key
  * [db]/rows/XX/XX/XX/XX/[key1]/1...          More values...
@@ -159,12 +165,67 @@ int toilet_close(toilet * toilet)
 
 /* gtables */
 
-t_gtable * toilet_new_gtable(toilet * toilet, const char * name)
+int toilet_new_gtable(toilet * toilet, const char * name)
 {
+	int r, cwd_fd, id_fd;
+	uint32_t data[2];
+	
+	/* already exists and in hash? */
+	if(hash_map_find_val(toilet->gtables, name))
+		return -EEXIST;
+	
+	cwd_fd = open(".", 0);
+	if(cwd_fd < 0)
+		return cwd_fd;
+	fchdir(toilet->path_fd);
+	
+	/* will fail if the gtable already exists */
+	if((r = mkdir(name, 0775)) < 0)
+		goto fail_create;
+	if((r = chdir(name)) < 0)
+		goto fail_chdir;
+	if((r = mkdir("columns", 0775)) < 0)
+		goto fail_inside_1;
+	if((r = mkdir("indices", 0775)) < 0)
+		goto fail_inside_2;
+	id_fd = open("columns/id", O_WRONLY | O_CREAT, 0664);
+	if(id_fd < 0)
+	{
+		r = id_fd;
+		goto fail_id_1;
+	}
+	data[0] = 0;
+	data[1] = T_ID;
+	r = write(id_fd, data, sizeof(data));
+	close(id_fd);
+	if(r != sizeof(data))
+		goto fail_id_2;
+	
+	fchdir(cwd_fd);
+	close(cwd_fd);
+	return 0;
+	
+fail_id_2:
+	unlink("columns/id");
+fail_id_1:
+	rmdir("indices");
+fail_inside_2:
+	rmdir("columns");
+fail_inside_1:
+	chdir("..");
+fail_chdir:
+	rmdir(name);
+fail_create:
+	fchdir(cwd_fd);
+	close(cwd_fd);
+	/* make sure it's an error value */
+	return (r < 0) ? r : -1;
 }
 
 int toilet_drop_gtable(t_gtable * gtable)
 {
+	/* XXX */
+	return -ENOSYS;
 }
 
 t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
@@ -190,16 +251,64 @@ static int toilet_new_row_id(toilet * toilet, t_row_id * row)
 	return 0;
 }
 
-t_row * toilet_new_row(toilet * toilet, t_gtable * gtable)
+static const char * row_formats[] = {
+	"rows",
+	"rows/%02x",
+	"rows/%02x/%02x",
+	"rows/%02x/%02x/%02x",
+	"rows/%02x/%02x/%02x/%02x"
+};
+#define ROW_FORMATS (sizeof(row_formats) / sizeof(row_formats[0]))
+
+int toilet_new_row(toilet * toilet, t_gtable * gtable)
 {
-	t_row_id id;
-	if(toilet_new_row_id(toilet, &id) < 0)
-		return NULL;
+	int i, r, cwd_fd, row_fd;
+	char row[] = "rows/xx/xx/xx/xx";
+	union {
+		t_row_id id;
+		uint8_t bytes[sizeof(t_row_id)];
+	} id;
+	cwd_fd = open(".", 0);
+	if(cwd_fd < 0)
+		return cwd_fd;
+	fchdir(toilet->path_fd);
+	if((r = toilet_new_row_id(toilet, &id.id)) < 0)
+		goto fail;
+	for(i = 0; i < ROW_FORMATS; i++)
+	{
+		sprintf(row, row_formats[i], id.bytes[0], id.bytes[1], id.bytes[2], id.bytes[3]);
+		row_fd = open(row, 0);
+		if(row_fd < 0)
+		{
+			if((r = mkdir(row, 0775)) < 0)
+				goto fail;
+			row_fd = open(row, 0);
+			if(row_fd < 0)
+			{
+				r = row_fd;
+				goto fail;
+			}
+		}
+		else
+			/* make sure the row doesn't already exist */
+			assert(i != ROW_FORMATS - 1);
+		if(i < ROW_FORMATS - 1)
+			close(row_fd);
+	}
+	fchdir(row_fd);
 	/* XXX ... */
+	
+fail:
+	fchdir(cwd_fd);
+	close(cwd_fd);
+	/* make sure it's an error value */
+	return (r < 0) ? r : -1;
 }
 
 int toilet_drop_row(t_row * row)
 {
+	/* XXX */
+	return -ENOSYS;
 }
 
 t_row * toilet_get_row(toilet * toilet, t_row_id id)

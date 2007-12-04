@@ -114,7 +114,7 @@ int toilet_close(toilet * toilet);
 
 /* gtables */
 
-t_gtable * toilet_new_gtable(toilet * toilet, const char * name);
+int toilet_new_gtable(toilet * toilet, const char * name);
 int toilet_drop_gtable(t_gtable * gtable);
 
 t_gtable * toilet_get_gtable(toilet * toilet, const char * name);
@@ -125,7 +125,7 @@ int toilet_put_gtable(t_gtable * gtable);
 
 /* rows */
 
-t_row * toilet_new_row(toilet * toilet, t_gtable * gtable);
+int toilet_new_row(toilet * toilet, t_gtable * gtable);
 int toilet_drop_row(t_row * row);
 
 t_row * toilet_get_row(toilet * toilet, t_row_id id);
@@ -141,6 +141,8 @@ t_values * toilet_row_value(t_row * row, const char * key);
 #define TYPE(v) ((v)->type)
 #define VALUES(v) vector_size((v)->values)
 #define VALUE(v, i) ((t_value *) vector_elt((v)->values, (i)))
+
+/* NOTE: none of the following functions may be applied to the automatic "id" column */
 
 /* remove all values */
 int toilet_row_remove_values(t_row * row, const char * key);
