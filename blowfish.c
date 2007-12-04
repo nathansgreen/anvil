@@ -28,7 +28,7 @@
 #include "blowfish.h"
 #include "blowfish_data.h"
 
-inline uint32_t bf_F(const bf_ctx * bfc, uint32_t x)
+static inline uint32_t bf_F(const bf_ctx * bfc, uint32_t x)
 {
 	return ((bfc->S[0][x >> 24] + bfc->S[1][x >> 16 & 0xff]) ^ bfc->S[2][x >> 8 & 0xff]) + bfc->S[3][x & 0xff];
 }
@@ -71,7 +71,7 @@ void bf_decipher(const bf_ctx * bfc, uint32_t * xl, uint32_t * xr)
 	*xl = Xr ^ bfc->P[0];
 }
 
-void bf_initstate(bf_ctx * bfc)
+static void bf_initstate(bf_ctx * bfc)
 {
 	const uint32_t * idp = pihex;
 	int i, j;
@@ -84,7 +84,7 @@ void bf_initstate(bf_ctx * bfc)
 			bfc->S[i][j] = *idp++;
 }
 
-void bf_keysched(bf_ctx * bfc, const void * _key, size_t keybytes)
+static void bf_keysched(bf_ctx * bfc, const void * _key, size_t keybytes)
 {
 	const uint8_t * key = (const uint8_t *) _key;
 	unsigned i, keypos;
