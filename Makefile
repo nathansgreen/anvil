@@ -5,7 +5,7 @@ OBJECTS=$(SOURCES:.c=.o)
 .PHONY: clean
 
 %.o: %.c
-	gcc -c $< -O3
+	gcc -c $< -O2 $(CFLAGS)
 
 toilet: $(OBJECTS)
 	gcc -o toilet $(OBJECTS)

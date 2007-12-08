@@ -12,7 +12,7 @@
 #include "hash_set.h"
 
 struct t_index {
-	enum { NONE, HASH, TREE, BOTH } type;
+	enum { I_NONE, I_HASH, I_TREE, I_BOTH } type;
 	/* value -> rowset */
 	hash_map_t * hash;
 	void * tree;
@@ -109,6 +109,9 @@ struct t_query {
 typedef struct t_query t_query;
 
 /* databases */
+
+int toilet_new(const char * path);
+/* there is no "toilet_drop()" because you can do that with rm -rf */
 
 toilet * toilet_open(const char * path);
 int toilet_close(toilet * toilet);

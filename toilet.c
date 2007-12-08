@@ -6,6 +6,7 @@
 #include "toilet.h"
 #include "hash_map.h"
 #include "blowfish.h"
+#include "diskhash.h"
 
 /* This initial implementation of Toilet stores databases using the file system.
  * Each gtable gets a subdirectory in the database directory, and has
@@ -52,6 +53,76 @@
  * on their behavior. To do this, we put an increasing counter through a 32-bit
  * blowfish encryption and use the result as the row ID. The database ID is used
  * as the key. This gives us a random automorphism on the 32-bit integers. */
+
+int toilet_new(const char * path)
+{
+	int r, cwd_fd, fd;
+	FILE * version;
+	uint8_t id[ID_SIZE];
+	t_row_id next = 0;
+	
+	cwd_fd = open(".", 0);
+	if(cwd_fd < 0)
+		return cwd_fd;
+	r = mkdir(path, 0775);
+	if(r < 0)
+		goto fail_mkdir;
+	r = chdir(path);
+	if(r < 0)
+		goto fail_chdir;
+	
+	version = fopen("toilet-version", "w");
+	if(!version)
+		goto fail_version;
+	fprintf(version, "0\n");
+	fclose(version);
+	
+	fd = open("/dev/urandom", O_RDONLY);
+	if(fd < 0)
+		goto fail_id_1;
+	r = read(fd, &id, sizeof(id));
+	close(fd);
+	if(r != sizeof(id))
+		goto fail_id_1;
+	fd = open("toilet-id", O_WRONLY | O_CREAT, 0664);
+	if(fd < 0)
+		goto fail_id_1;
+	r = write(fd, &id, sizeof(id));
+	close(fd);
+	if(r != sizeof(id))
+		goto fail_id_2;
+	
+	fd = open("next-row", O_WRONLY | O_CREAT, 0664);
+	if(fd < 0)
+		goto fail_id_2;
+	r = write(fd, &next, sizeof(next));
+	close(fd);
+	if(r != sizeof(next))
+		goto fail_next;
+	
+	r = mkdir("rows", 0775);
+	if(r < 0)
+		goto fail_next;
+	
+	fchdir(cwd_fd);
+	close(cwd_fd);
+	return 0;
+	
+fail_next:
+	unlink("next-row");
+fail_id_2:
+	unlink("toilet-id");
+fail_id_1:
+	unlink("toilet-version");
+fail_version:
+	fchdir(cwd_fd);
+fail_chdir:
+	rmdir(path);
+fail_mkdir:
+	close(cwd_fd);
+	/* make sure it's an error value */
+	return (r < 0) ? r : -1;
+}
 
 /* This function returns a toilet pointer. That is, a sign like this:
  * 
@@ -200,6 +271,10 @@ int toilet_new_gtable(toilet * toilet, const char * name)
 	r = write(id_fd, data, sizeof(data));
 	close(id_fd);
 	if(r != sizeof(data))
+		goto fail_id_2;
+	
+	r = diskhash_init("indices/id.dh", DH_U32, DH_NONE);
+	if(r < 0)
 		goto fail_id_2;
 	
 	fchdir(cwd_fd);

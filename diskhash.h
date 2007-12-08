@@ -8,10 +8,10 @@
 #include <stdint.h>
 
 typedef enum {
-	NONE,
-	U32,
-	U64,
-	STR
+	DH_NONE,
+	DH_U32,
+	DH_U64,
+	DH_STR
 } dh_type_t;
 
 typedef union {

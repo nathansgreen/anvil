@@ -3,6 +3,8 @@
 /* create a new diskhash using the specified store path */
 int diskhash_init(const char * store, dh_type_t key_type, dh_type_t val_type)
 {
+	/* XXX */
+	return mkdir(store, 0775);
 }
 
 /* basically just rm -rf */
