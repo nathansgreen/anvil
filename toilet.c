@@ -1,3 +1,7 @@
+/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+ * of the University of California. It is distributed under the terms of
+ * version 2 of the GNU GPL. See the file LICENSE for details. */
+
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -7,6 +11,7 @@
 #include "hash_map.h"
 #include "blowfish.h"
 #include "diskhash.h"
+#include "index.h"
 
 /* This initial implementation of Toilet stores databases using the file system.
  * Each gtable gets a subdirectory in the database directory, and has
@@ -309,50 +314,6 @@ int toilet_drop_gtable(t_gtable * gtable)
 }
 
 /* assumes we're already in the gtable/columns directory */
-static t_index * toilet_get_index(const char * name)
-{
-	t_index * index;
-	int cwd_fd = open(".", 0);
-	if(cwd_fd < 0)
-		return NULL;
-	index = malloc(sizeof(*index));
-	if(!index)
-		goto fail_malloc;
-	index->type = I_NONE;
-	if(chdir("../indices") < 0)
-		goto fail_chdir;
-	if(chdir(name) < 0)
-		goto fail_chdir;
-	index->hash.disk = diskhash_open("dh");
-	if(index->hash.disk)
-	{
-		index->type |= I_HASH;
-		index->hash.cache = hash_map_create();
-		if(!index->hash.cache)
-			goto fail_hash;
-	}
-	/* XXX: tree */
-	
-	fchdir(cwd_fd);
-	close(cwd_fd);
-	return index;
-	
-	if(index->hash.disk)
-fail_hash:
-		diskhash_close(index->hash.disk);
-fail_chdir:
-	free(index);
-fail_malloc:
-	fchdir(cwd_fd);
-	close(cwd_fd);
-	return NULL;
-}
-
-static void toilet_free_index(t_index * index)
-{
-}
-
-/* assumes we're already in the gtable/columns directory */
 static t_column * toilet_get_column(const char * name)
 {
 	int fd;
@@ -381,7 +342,7 @@ static t_column * toilet_get_column(const char * name)
 		case T_BLOB:
 			/* placate compiler */ ;
 	}
-	column->index = toilet_get_index(name);
+	column->index = toilet_get_index("../indices", name);
 	if(!column->index)
 		goto fail_read;
 	
@@ -399,7 +360,7 @@ fail_name:
 
 static void toilet_free_column(t_column * column)
 {
-	/* XXX column->index */
+	toilet_free_index(column->index);
 	free((char *) column->name);
 	free(column);
 }
