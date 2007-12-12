@@ -9,8 +9,7 @@
 #include "diskhash.h"
 #include "index.h"
 
-/* assumes we're already in the gtable/columns directory */
-t_index * toilet_get_index(const char * path, const char * name)
+t_index * toilet_open_index(const char * path, const char * name)
 {
 	t_index * index;
 	int cwd_fd = open(".", 0);
@@ -49,7 +48,7 @@ fail_malloc:
 	return NULL;
 }
 
-void toilet_free_index(t_index * index)
+void toilet_close_index(t_index * index)
 {
 	if(index->type & I_HASH)
 	{
@@ -58,4 +57,17 @@ void toilet_free_index(t_index * index)
 		hash_map_destroy(index->hash.cache);
 	}
 	free(index);
+}
+
+int toilet_index_add(t_index * index, t_row_id id, t_type type, t_value value)
+{
+	if(type == T_ID && (index->type & I_HASH))
+	{
+		dh_val_t dh_value;
+		static_assert(sizeof(value.v_id) == sizeof(dh_value.u32));
+		dh_value.u32 = value.v_id;
+		return diskhash_insert(index->hash.disk, &dh_value, &dh_value);
+	}
+	/* XXX */
+	return -ENOSYS;
 }

@@ -280,6 +280,7 @@ int toilet_new_gtable(toilet * toilet, const char * name)
 	if(r != sizeof(data))
 		goto fail_id_2;
 	
+	/* XXX: toilet_index_init()? */
 	r = diskhash_init("indices/id/dh", DH_U32, DH_NONE);
 	if(r < 0)
 		goto fail_id_2;
@@ -314,7 +315,7 @@ int toilet_drop_gtable(t_gtable * gtable)
 }
 
 /* assumes we're already in the gtable/columns directory */
-static t_column * toilet_get_column(const char * name)
+static t_column * toilet_open_column(const char * name)
 {
 	int fd;
 	uint32_t data[2];
@@ -342,7 +343,7 @@ static t_column * toilet_get_column(const char * name)
 		case T_BLOB:
 			/* placate compiler */ ;
 	}
-	column->index = toilet_get_index("../indices", name);
+	column->index = toilet_open_index("../indices", name);
 	if(!column->index)
 		goto fail_read;
 	
@@ -358,9 +359,9 @@ fail_name:
 	return NULL;
 }
 
-static void toilet_free_column(t_column * column)
+static void toilet_close_column(t_column * column)
 {
-	toilet_free_index(column->index);
+	toilet_close_index(column->index);
 	free((char *) column->name);
 	free(column);
 }
@@ -389,6 +390,9 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 	gtable->columns = vector_create();
 	if(!gtable->columns)
 		goto fail_vector;
+	gtable->column_map = hash_map_create_str();
+	if(!gtable->column_map)
+		goto fail_map;
 	gtable->out_count = 1;
 	
 	cwd_fd = open(".", 0);
@@ -409,14 +413,16 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 		t_column * column;
 		if(!strcmp(ent->d_name, "id"))
 			id++;
-		column = toilet_get_column(ent->d_name);
+		column = toilet_open_column(ent->d_name);
 		if(!column)
 			goto fail_columns;
 		if(vector_push_back(gtable->columns, column) < 0)
 		{
-			toilet_free_column(column);
+			toilet_close_column(column);
 			goto fail_columns;
 		}
+		if(hash_map_insert(gtable->column_map, column->name, column) < 0)
+			goto fail_columns;
 	}
 	/* there must be an ID column */
 	if(id != 1)
@@ -431,13 +437,19 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 	
 fail_columns:
 	for(id = vector_size(gtable->columns) - 1; id >= 0; id--)
-		toilet_free_column((t_column *) vector_elt(gtable->columns, id));
+	{
+		t_column * column = (t_column *) vector_elt(gtable->columns, id);
+		hash_map_erase(gtable->column_map, column->name);
+		toilet_close_column(column);
+	}
 	closedir(dir);
 fail_gtable:
 	fchdir(cwd_fd);
 fail_db:
 	close(cwd_fd);
 fail_cwd:
+	hash_map_destroy(gtable->column_map);
+fail_map:
 	vector_destroy(gtable->columns);
 fail_vector:
 	free((char *) gtable->name);
@@ -452,8 +464,10 @@ void toilet_put_gtable(toilet * toilet, t_gtable * gtable)
 	if(--gtable->out_count)
 		return;
 	hash_map_erase(toilet->gtables, gtable->name);
+	hash_map_destroy(gtable->column_map);
 	for(i = vector_size(gtable->columns) - 1; i >= 0; i--)
-		toilet_free_column((t_column *) vector_elt(gtable->columns, i));
+		toilet_close_column((t_column *) vector_elt(gtable->columns, i));
+	vector_destroy(gtable->columns);
 	free((char *) gtable->name);
 	free(gtable);
 }
@@ -490,6 +504,7 @@ int toilet_new_row(toilet * toilet, t_gtable * gtable)
 		t_row_id id;
 		uint8_t bytes[sizeof(t_row_id)];
 	} id;
+	t_column * id_col;
 	cwd_fd = open(".", 0);
 	if(cwd_fd < 0)
 		return cwd_fd;
@@ -518,7 +533,14 @@ int toilet_new_row(toilet * toilet, t_gtable * gtable)
 			close(row_fd);
 	}
 	fchdir(row_fd);
-	/* XXX ... */
+	
+	id_col = hash_map_find_val(gtable->column_map, "id");
+	if(!id_col)
+		goto fail;
+	r = toilet_index_add(id_col->index, id.id, T_ID, (t_value) id.id);
+	if(r < 0)
+		goto fail;
+	return 0;
 	
 fail:
 	fchdir(cwd_fd);

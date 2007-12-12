@@ -12,17 +12,8 @@
 #include "hash_set.h"
 #include "diskhash.h"
 
-struct t_index {
-	/* note that I_BOTH == I_HASH | I_TREE */
-	enum { I_NONE = 0, I_HASH = 1, I_TREE = 2, I_BOTH = 3 } type;
-	struct {
-		/* value -> rowset */
-		hash_map_t * cache;
-		/* value -> blob of row IDs */
-		diskhash_t * disk;
-	} hash;
-	void * tree;
-};
+/* struct t_index is declared in index.h */
+struct t_index;
 typedef struct t_index t_index;
 
 enum t_type {
@@ -44,6 +35,7 @@ typedef struct t_column t_column;
 struct t_gtable {
 	const char * name;
 	vector_t * columns;
+	hash_map_t * column_map;
 	/* internal stuff now */
 	int out_count;
 };

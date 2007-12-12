@@ -24,7 +24,7 @@ typedef struct hash_map hash_map_t;
 
 struct hash_map_elt {
 	const void * key;
-	const void * val;
+	void * val;
 };
 
 struct chain_elt;
@@ -52,17 +52,17 @@ size_t hash_map_size(const hash_map_t * hm);
 bool   hash_map_empty(const hash_map_t * hm);
 // Insert the given key-val pair, updating k's v if k exists.
 // Returns 0 or 1 on success, or -ENOMEM.
-int    hash_map_insert(hash_map_t * hm, const void * k, const void * v);
+int    hash_map_insert(hash_map_t * hm, const void * k, void * v);
 // Remove the given key-val pair, does not destory key or val.
 // Returns k's value on success, NULL if k is not in the hash_map.
-const void * hash_map_erase(hash_map_t * hm, const void * k);
+void * hash_map_erase(hash_map_t * hm, const void * k);
 // Change the mapping from oldk->val to be newk->val.
 // Returns 0 on success, -EEXIST if newk exists, or -ENOENT if oldk does not exist.
 int    hash_map_change_key(hash_map_t * hm, const void * oldk, const void * newk);
 // Remove all key-val pairs, does not destroy keys or vals.
 void   hash_map_clear(hash_map_t * hm);
 // Return the val associated with k.
-const void * hash_map_find_val(const hash_map_t * hm, const void * k);
+void * hash_map_find_val(const hash_map_t * hm, const void * k);
 // Return the key and val associated with k.
 hash_map_elt_t hash_map_find_elt(const hash_map_t * hm, const void * k);
 // Return a pointer to the internal key and val associated with k.

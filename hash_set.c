@@ -59,7 +59,7 @@ bool hash_set_empty(const hash_set_t * hs)
 int hash_set_insert(hash_set_t * hs, const void * v)
 {
 	/* 1 is just some nonzero value */
-	return hash_map_insert(hs, v, (const void *) 1);
+	return hash_map_insert(hs, v, (void *) 1);
 }
 
 int hash_set_erase(hash_set_t * hs, const void * v)
