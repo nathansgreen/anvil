@@ -260,6 +260,8 @@ int toilet_new_gtable(toilet * toilet, const char * name)
 		goto fail_inside_1;
 	if((r = mkdir("indices", 0775)) < 0)
 		goto fail_inside_2;
+	if((r = mkdir("indices/id", 0775)) < 0)
+		goto fail_inside_3;
 	id_fd = open("columns/id", O_WRONLY | O_CREAT, 0664);
 	if(id_fd < 0)
 	{
@@ -273,7 +275,7 @@ int toilet_new_gtable(toilet * toilet, const char * name)
 	if(r != sizeof(data))
 		goto fail_id_2;
 	
-	r = diskhash_init("indices/id.dh", DH_U32, DH_NONE);
+	r = diskhash_init("indices/id/dh", DH_U32, DH_NONE);
 	if(r < 0)
 		goto fail_id_2;
 	
@@ -284,6 +286,8 @@ int toilet_new_gtable(toilet * toilet, const char * name)
 fail_id_2:
 	unlink("columns/id");
 fail_id_1:
+	rmdir("indices/id");
+fail_inside_3:
 	rmdir("indices");
 fail_inside_2:
 	rmdir("columns");
@@ -305,6 +309,50 @@ int toilet_drop_gtable(t_gtable * gtable)
 }
 
 /* assumes we're already in the gtable/columns directory */
+static t_index * toilet_get_index(const char * name)
+{
+	t_index * index;
+	int cwd_fd = open(".", 0);
+	if(cwd_fd < 0)
+		return NULL;
+	index = malloc(sizeof(*index));
+	if(!index)
+		goto fail_malloc;
+	index->type = I_NONE;
+	if(chdir("../indices") < 0)
+		goto fail_chdir;
+	if(chdir(name) < 0)
+		goto fail_chdir;
+	index->hash.disk = diskhash_open("dh");
+	if(index->hash.disk)
+	{
+		index->type |= I_HASH;
+		index->hash.cache = hash_map_create();
+		if(!index->hash.cache)
+			goto fail_hash;
+	}
+	/* XXX: tree */
+	
+	fchdir(cwd_fd);
+	close(cwd_fd);
+	return index;
+	
+	if(index->hash.disk)
+fail_hash:
+		diskhash_close(index->hash.disk);
+fail_chdir:
+	free(index);
+fail_malloc:
+	fchdir(cwd_fd);
+	close(cwd_fd);
+	return NULL;
+}
+
+static void toilet_free_index(t_index * index)
+{
+}
+
+/* assumes we're already in the gtable/columns directory */
 static t_column * toilet_get_column(const char * name)
 {
 	int fd;
@@ -323,7 +371,6 @@ static t_column * toilet_get_column(const char * name)
 		goto fail_read;
 	column->type = data[1];
 	column->count = data[0];
-	column->index = NULL; /* XXX */
 	switch(column->type)
 	{
 		default:
@@ -334,6 +381,9 @@ static t_column * toilet_get_column(const char * name)
 		case T_BLOB:
 			/* placate compiler */ ;
 	}
+	column->index = toilet_get_index(name);
+	if(!column->index)
+		goto fail_read;
 	
 	close(fd);
 	return column;

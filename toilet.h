@@ -10,11 +10,17 @@
 #include "vector.h"
 #include "hash_map.h"
 #include "hash_set.h"
+#include "diskhash.h"
 
 struct t_index {
-	enum { I_NONE, I_HASH, I_TREE, I_BOTH } type;
-	/* value -> rowset */
-	hash_map_t * hash;
+	/* note that I_BOTH == I_HASH | I_TREE */
+	enum { I_NONE = 0, I_HASH = 1, I_TREE = 2, I_BOTH = 3 } type;
+	struct {
+		/* value -> rowset */
+		hash_map_t * cache;
+		/* value -> blob of row IDs */
+		diskhash_t * disk;
+	} hash;
 	void * tree;
 };
 typedef struct t_index t_index;
@@ -46,10 +52,11 @@ typedef struct t_gtable t_gtable;
 /* this should be uint64_t later, but we need better hash maps */
 typedef uint32_t t_row_id;
 
+/* NOTE: To use this union for strings, just cast the char * to a t_value *. */
 union t_value {
 	t_row_id v_id;
 	long long v_int;
-	const char * v_string;
+	const char v_string[0];
 	struct {
 		int length;
 		void * data;

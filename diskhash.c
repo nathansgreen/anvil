@@ -23,6 +23,12 @@ int diskhash_close(diskhash_t * dh)
 }
 
 
+/* get diskhash size */
+size_t diskhash_size(diskhash_t * dh)
+{
+}
+
+
 /* insert a new entry or replace an existing entry */
 int diskhash_insert(diskhash_t * dh, const dh_val_t * key, const dh_val_t * val)
 {

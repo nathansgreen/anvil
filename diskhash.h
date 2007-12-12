@@ -6,6 +6,7 @@
 #define __DISKHASH_H
 
 #include <stdint.h>
+#include <sys/types.h>
 
 typedef enum {
 	DH_NONE,
@@ -14,10 +15,15 @@ typedef enum {
 	DH_STR
 } dh_type_t;
 
+/* NOTE: To use this union for strings, just cast the char * to a dh_val_t *. */
 typedef union {
 	uint32_t u32;
 	uint64_t u64;
-	char str[0];
+	const char str[0];
+	struct {
+		int blob_len;
+		void * blob;
+	};
 } dh_val_t;
 
 typedef struct {
@@ -33,6 +39,9 @@ int diskhash_drop(const char * store);
 diskhash_t * diskhash_open(const char * store);
 /* close a diskhash */
 int diskhash_close(diskhash_t * dh);
+
+/* get diskhash size */
+size_t diskhash_size(diskhash_t * dh);
 
 /* insert a new entry or replace an existing entry */
 int diskhash_insert(diskhash_t * dh, const dh_val_t * key, const dh_val_t * val);
