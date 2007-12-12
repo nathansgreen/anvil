@@ -128,7 +128,7 @@ void toilet_put_gtable(toilet * toilet, t_gtable * gtable);
 
 /* rows */
 
-int toilet_new_row(toilet * toilet, t_gtable * gtable);
+int toilet_new_row(toilet * toilet, t_gtable * gtable, t_row_id * new_id);
 int toilet_drop_row(t_row * row);
 
 t_row * toilet_get_row(toilet * toilet, t_row_id id);

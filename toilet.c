@@ -411,6 +411,8 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 	while((ent = readdir(dir)))
 	{
 		t_column * column;
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+			continue;
 		if(!strcmp(ent->d_name, "id"))
 			id++;
 		column = toilet_open_column(ent->d_name);
@@ -496,7 +498,7 @@ static const char * row_formats[] = {
 };
 #define ROW_FORMATS (sizeof(row_formats) / sizeof(row_formats[0]))
 
-int toilet_new_row(toilet * toilet, t_gtable * gtable)
+int toilet_new_row(toilet * toilet, t_gtable * gtable, t_row_id * new_id)
 {
 	int i, r, cwd_fd, row_fd;
 	char row[] = "rows/xx/xx/xx/xx";
@@ -540,6 +542,7 @@ int toilet_new_row(toilet * toilet, t_gtable * gtable)
 	r = toilet_index_add(id_col->index, id.id, T_ID, (t_value) id.id);
 	if(r < 0)
 		goto fail;
+	*new_id = id.id;
 	return 0;
 	
 fail:
