@@ -27,9 +27,17 @@ int main(void)
 			{
 				t_row_id id;
 				if(toilet_new_row(toilet, gtable, &id) < 0)
-					printf("New row ID is 0x%08x\n", id);
-				else
 					fprintf(stderr, "Failed to create row!\n");
+				else
+				{
+					t_row * row;
+					printf("New row ID is 0x%08x\n", id);
+					row = toilet_get_row(toilet, id);
+					if(row)
+						toilet_put_row(toilet, row);
+					else
+						fprintf(stderr, "Failed to get row!\n");
+				}
 				toilet_put_gtable(toilet, gtable);
 			}
 			else

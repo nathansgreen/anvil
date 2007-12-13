@@ -6,6 +6,7 @@
 #include <string.h>
 #include <assert.h>
 #include <dirent.h>
+#include <unistd.h>
 
 #include "toilet.h"
 #include "hash_map.h"
@@ -250,6 +251,10 @@ int toilet_new_gtable(toilet * toilet, const char * name)
 	/* already exists and in hash? */
 	if(hash_map_find_val(toilet->gtables, name))
 		return -EEXIST;
+	if(strlen(name) > GTABLE_NAME_LENGTH)
+		return -ENAMETOOLONG;
+	if(!*name)
+		return -EINVAL;
 	
 	cwd_fd = open(".", 0);
 	if(cwd_fd < 0)
@@ -535,6 +540,21 @@ int toilet_new_row(toilet * toilet, t_gtable * gtable, t_row_id * new_id)
 			close(row_fd);
 	}
 	fchdir(row_fd);
+	close(row_fd);
+	
+	row_fd = open("gtable", O_WRONLY | O_CREAT, 0664);
+	if(row_fd < 0)
+	{
+		r = row_fd;
+		goto fail;
+	}
+	r = write(row_fd, gtable->name, strlen(gtable->name));
+	close(row_fd);
+	if(r != strlen(gtable->name))
+	{
+		unlink("gtable");
+		goto fail;
+	}
 	
 	id_col = hash_map_find_val(gtable->column_map, "id");
 	if(!id_col)
@@ -543,6 +563,9 @@ int toilet_new_row(toilet * toilet, t_gtable * gtable, t_row_id * new_id)
 	if(r < 0)
 		goto fail;
 	*new_id = id.id;
+	
+	fchdir(cwd_fd);
+	close(cwd_fd);
 	return 0;
 	
 fail:
@@ -558,11 +581,71 @@ int toilet_drop_row(t_row * row)
 	return -ENOSYS;
 }
 
-t_row * toilet_get_row(toilet * toilet, t_row_id id)
+t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
 {
+	int cwd_fd, fd;
+	ssize_t length;
+	char row_name[] = "rows/xx/xx/xx/xx";
+	char gtable_name[GTABLE_NAME_LENGTH + 1];
+	union {
+		t_row_id id;
+		uint8_t bytes[sizeof(t_row_id)];
+	} id;
+	t_row * row;
+	id.id = row_id;
+	sprintf(row_name, row_formats[ROW_FORMATS - 1], id.bytes[0], id.bytes[1], id.bytes[2], id.bytes[3]);
+	printf("row path %s\n", row_name);
+	
+	cwd_fd = open(".", 0);
+	if(cwd_fd < 0)
+		return NULL;
+	if(fchdir(toilet->path_fd) < 0)
+		goto fail;
+	if(chdir(row_name) < 0)
+		goto fail;
+	
+	row = malloc(sizeof(*row));
+	if(!row)
+		goto fail;
+	row->id = row_id;
+	
+	fd = open("gtable", O_RDONLY);
+	if(fd < 0)
+		goto fail_open;
+	length = read(fd, gtable_name, GTABLE_NAME_LENGTH);
+	close(fd);
+	if(length <= 0)
+		goto fail_open;
+	row_name[length] = 0;
+	row->gtable = toilet_get_gtable(toilet, row_name);
+	/* XXX: get column values */
+	row->columns = NULL;
+	if(!row->gtable)
+		goto fail_open;
+	row->row_path_fd = open(".", 0);
+	if(row->row_path_fd < 0)
+		goto fail_path;
+	row->out_count = 1;
+	if(hash_map_insert(toilet->rows, (void *) row_id, row) < 0)
+		goto fail_hash;
+	
+	fchdir(cwd_fd);
+	close(cwd_fd);
+	return row;
+	
+fail_hash:
+	close(row->row_path_fd);
+fail_path:
+	toilet_put_gtable(toilet, row->gtable);
+fail_open:
+	free(row);
+fail:
+	fchdir(cwd_fd);
+	close(cwd_fd);
+	return NULL;
 }
 
-void toilet_put_row(t_row * row)
+void toilet_put_row(toilet * toilet, t_row * row)
 {
 }
 

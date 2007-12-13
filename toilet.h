@@ -32,6 +32,8 @@ struct t_column {
 };
 typedef struct t_column t_column;
 
+#define GTABLE_NAME_LENGTH 63
+
 struct t_gtable {
 	const char * name;
 	vector_t * columns;
@@ -131,8 +133,8 @@ void toilet_put_gtable(toilet * toilet, t_gtable * gtable);
 int toilet_new_row(toilet * toilet, t_gtable * gtable, t_row_id * new_id);
 int toilet_drop_row(t_row * row);
 
-t_row * toilet_get_row(toilet * toilet, t_row_id id);
-void toilet_put_row(t_row * row);
+t_row * toilet_get_row(toilet * toilet, t_row_id row_id);
+void toilet_put_row(toilet * toilet, t_row * row);
 
 #define ID(r) ((r)->id)
 
