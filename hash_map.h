@@ -5,6 +5,10 @@
 #ifndef HASH_MAP_H
 #define HASH_MAP_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Set to check for illegal hash map modifications during iteration.
  * If hash map iteration code tries to deref bad pointers, try this. */
 /* values: 0 (normal), 1 (debug) */
@@ -132,5 +136,9 @@ const void * hash_map_val_next(hash_map_it_t * it);
 // - Behavior is undefined if you begin iterating, modify hm, and then continue
 //   iterating using the old hm_it. (Define HASH_MAP_IT_MOD_DEBUG to detect.)
 hash_map_elt_t hash_map_elt_next(hash_map_it_t * it);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !HASH_MAP_H */

@@ -5,22 +5,18 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <errno.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "diskhash.h"
 
-static uint32_t hash_str(const char * string)
-{
-	uint32_t hash = 0x5AFEDA7A;
-	if(!string)
-		return 0;
-	while(*string)
-	{
-		/* ROL 3 */
-		hash = (hash << 3) | (hash >> 29);
-		hash ^= *(string++);
-	}
-	return hash;
-}
+/* Disk hashes are basically "hash maps" implemented with the file system. No
+ * serious attempt to cache is made here; callers should do their own caching.
+ * Currently we just construct a 32-bit hash value from the key, and store all
+ * the values in a nested directory tree named by the hexadecimal bytes of the
+ * hash value. */
 
 /* create a new diskhash using the specified store path */
 int diskhash_init(const char * store, dh_type_t key_type, dh_type_t val_type)
@@ -63,11 +59,46 @@ fail_mkdir:
 	return (r < 0) ? r : -1;
 }
 
-/* basically just rm -rf */
+/* basically just rm -rf but the top-level thing must be a directory */
 int diskhash_drop(const char * store)
 {
-	/* XXX */
-	return -ENOSYS;
+	int r, cwd_fd;
+	struct dirent * ent;
+	DIR * dir = opendir(store);
+	if(!dir)
+		return -errno;
+	cwd_fd = open(".", 0);
+	if(cwd_fd < 0)
+	{
+		closedir(dir);
+		return cwd_fd;
+	}
+	if((r = chdir(store)) < 0)
+	{
+	fail:
+		fchdir(cwd_fd);
+		close(cwd_fd);
+		closedir(dir);
+		return r;
+	}
+	while((ent = readdir(dir)))
+	{
+		struct stat st;
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+			continue;
+		if((r = stat(ent->d_name, &st)) < 0)
+			goto fail;
+		if(S_ISDIR(st.st_mode))
+			r = diskhash_drop(ent->d_name);
+		else
+			r = unlink(ent->d_name);
+		if(r < 0)
+			goto fail;
+	}
+	fchdir(cwd_fd);
+	close(cwd_fd);
+	closedir(dir);
+	return rmdir(store);
 }
 
 /* open a diskhash */

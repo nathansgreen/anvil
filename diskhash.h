@@ -8,6 +8,10 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
 	DH_NONE = 0,
 	DH_U32 = 1,
@@ -63,5 +67,9 @@ int diskhash_it_init(diskhash_t * dh, diskhash_it_t * it);
 int diskhash_it_next(diskhash_it_t * it);
 /* free any resources used by the iterator */
 int diskhash_it_done(diskhash_it_t * it);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __DISKHASH_H */

@@ -12,6 +12,10 @@
 #include "hash_set.h"
 #include "diskhash.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* struct t_index is declared in index.h */
 struct t_index;
 typedef struct t_index t_index;
@@ -170,5 +174,9 @@ int toilet_put_rowset(t_rowset * rowset);
 
 #define ROWS(r) ((r)->count)
 #define ROW(r, i) ((t_row_id) vector_elt((r)->rows, i))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __TOILET_H */

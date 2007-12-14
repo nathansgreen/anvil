@@ -27,6 +27,10 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define BF_N 16
 
 struct bf_ctx {
@@ -51,5 +55,9 @@ uint64_t bf61_decipher(bf_ctx * bfc, uint64_t val);
 
 uint64_t bf64_encipher(bf_ctx * bfc, uint64_t val);
 uint64_t bf64_decipher(bf_ctx * bfc, uint64_t val);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __BLOWFISH_H */

@@ -1,11 +1,15 @@
-/* This file is part of Featherstitch. Featherstitch is copyright 2005-2007 The
- * Regents of the University of California. It is distributed under the terms of
+/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+ * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
 #ifndef VECTOR_H
 #define VECTOR_H
 
 #include "platform.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct vector {
 	size_t size;
@@ -114,5 +118,9 @@ void * vector_elt_end(vector_t * v)
 {
 	return v->elts[v->size - 1];
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !VECTOR_H */

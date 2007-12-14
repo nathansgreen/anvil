@@ -7,6 +7,10 @@
 
 #include "hash_map.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef hash_map_t hash_set_t;
 
 // Create a hash_set.
@@ -64,5 +68,9 @@ void hash_set_it_init(hash_set_it_t * it, hash_set_t * hs);
 // - Behavior is undefined if you begin iterating, modify hs, and then continue
 //   iterating using the old hs_it. (Define HASH_MAP_IT_MOD_DEBUG to detect.)
 const void * hash_set_val_next(hash_set_it_t * it);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* !HASH_SET_H */

@@ -9,6 +9,10 @@
 #include "diskhash.h"
 #include "toilet.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct t_index {
 	/* note that I_BOTH == I_HASH | I_TREE */
 	enum { I_NONE = 0, I_HASH = 1, I_TREE = 2, I_BOTH = 3 } type;
@@ -25,5 +29,9 @@ t_index * toilet_open_index(const char * path, const char * name);
 void toilet_close_index(t_index * index);
 
 int toilet_index_add(t_index * index, t_row_id id, t_type type, t_value value);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __INDEX_H */
