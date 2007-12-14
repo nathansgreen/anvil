@@ -9,10 +9,10 @@
 #include <sys/types.h>
 
 typedef enum {
-	DH_NONE,
-	DH_U32,
-	DH_U64,
-	DH_STR
+	DH_NONE = 0,
+	DH_U32 = 1,
+	DH_U64 = 2,
+	DH_STR = 3
 } dh_type_t;
 
 /* NOTE: To use this union for strings, just cast the char * to a dh_val_t *. */
