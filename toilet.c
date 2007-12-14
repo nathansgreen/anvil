@@ -594,7 +594,6 @@ t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
 	t_row * row;
 	id.id = row_id;
 	sprintf(row_name, row_formats[ROW_FORMATS - 1], id.bytes[0], id.bytes[1], id.bytes[2], id.bytes[3]);
-	printf("row path %s\n", row_name);
 	
 	cwd_fd = open(".", 0);
 	if(cwd_fd < 0)
