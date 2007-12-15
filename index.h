@@ -28,6 +28,10 @@ struct t_index {
 	} tree;
 };
 
+/* Annoyingly, enums do not by themselves support these bitwise operations, due
+ * to type errors. Rather than force the expansion of |= and &= everywhere to
+ * add casts, we do it here as inline operators. */
+
 inline t_index::i_type & operator|=(t_index::i_type &x, const t_index::i_type &y)
 {
 	x = (t_index::i_type) (x | y);
