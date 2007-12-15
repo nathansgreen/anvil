@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "toilet.h"
 #include "hash_map.h"

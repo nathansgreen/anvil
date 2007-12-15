@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "toilet.h"
 #include "diskhash.h"
