@@ -26,7 +26,6 @@ private:
 class disktree : public multimap
 {
 public:
-	disktree(const char * store);
 	virtual ~disktree();
 	
 	virtual size_t keys();
@@ -46,6 +45,10 @@ public:
 	
 	/* create a new disktree (on disk) using the specified store path */
 	static int init(const char * store, mm_type_t key_type, mm_type_t val_type);
+	/* open a disktree on disk, or return NULL on error */
+	static disktree * open(const char * store);
+private:
+	disktree();
 };
 
 #endif /* __MM_DISKTREE_H */

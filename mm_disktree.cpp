@@ -30,10 +30,6 @@ disktree_it::~disktree_it()
 
 /* disk trees */
 
-disktree::disktree(const char * store)
-{
-}
-
 disktree::~disktree()
 {
 }
@@ -86,7 +82,7 @@ int disktree::update_value(mm_val_t * key, mm_val_t * old_value, mm_val_t * new_
 int disktree::init(const char * store, mm_type_t key_type, mm_type_t val_type)
 {
 	int cwd_fd, fd, r;
-	cwd_fd = open(".", 0);
+	cwd_fd = ::open(".", 0);
 	if(cwd_fd < 0)
 		return cwd_fd;
 	r = mkdir(store, 0755);
@@ -95,7 +91,7 @@ int disktree::init(const char * store, mm_type_t key_type, mm_type_t val_type)
 	r = chdir(store);
 	if(r < 0)
 		goto fail_chdir;
-	fd = open("dh", O_WRONLY | O_CREAT, 0664);
+	fd = ::open("dh", O_WRONLY | O_CREAT, 0664);
 	if(fd < 0)
 		goto fail_open;
 	r = write(fd, &key_type, sizeof(key_type));
@@ -121,4 +117,13 @@ fail_mkdir:
 	close(cwd_fd);
 	/* make sure it's an error value */
 	return (r < 0) ? r : -1;
+}
+
+/* open a disktree on disk, or return NULL on error */
+disktree * disktree::open(const char * store)
+{
+}
+
+disktree::disktree()
+{
 }
