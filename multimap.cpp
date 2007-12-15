@@ -20,6 +20,10 @@ multimap::~multimap()
 {
 }
 
+int multimap::copy(multimap * source, multimap * dest)
+{
+}
+
 /* basically just rm -rf but the top-level thing must be a directory */
 int multimap::drop(const char * store)
 {

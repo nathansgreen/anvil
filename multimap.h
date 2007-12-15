@@ -78,6 +78,9 @@ public:
 	
 	virtual ~multimap();
 	
+	/* copy one multimap into another (possibly of a different type) */
+	static int copy(multimap * source, multimap * dest);
+	
 	/* delete the multimap on disk (rm -rf) */
 	static int drop(const char * store);
 	
