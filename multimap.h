@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include "blowfish.h"
+
 #ifndef __cplusplus
 #error multimap.h is a C++ header file
 #endif
@@ -46,7 +48,7 @@ public:
 	/* return the number of remaining entries */
 	virtual size_t size() = 0;
 	
-	virtual ~multimap_it() = 0;
+	virtual ~multimap_it();
 	
 protected:
 	multimap * map;
@@ -59,22 +61,41 @@ public:
 	virtual size_t keys() = 0;
 	virtual size_t values() = 0;
 	
+	/* iterate */
+	virtual multimap_it * iterator() = 0;
+	
+	/* lookup values */
+	virtual size_t count_values(mm_val_t * key) = 0;
+	virtual multimap_it * get_values(mm_val_t * key) = 0;
+	virtual multimap_it * get_range(mm_val_t * low_key, mm_val_t * high_key) = 0;
+	
+	/* modify */
 	virtual int remove_key(mm_val_t * key) = 0;
 	virtual int reset_key(mm_val_t * key, mm_val_t * value) = 0;
 	virtual int append_value(mm_val_t * key, mm_val_t * value) = 0;
 	virtual int remove_value(mm_val_t * key, mm_val_t * value) = 0;
 	virtual int update_value(mm_val_t * key, mm_val_t * old_value, mm_val_t * new_value) = 0;
 	
-	virtual size_t count_values(mm_val_t * key) = 0;
-	virtual multimap_it * get_range(mm_val_t * low_key, mm_val_t * high_key);
+	virtual ~multimap();
 	
-	virtual multimap_it * iterator() = 0;
-	
-	virtual ~multimap() = 0;
+	/* delete the multimap on disk (rm -rf) */
+	static int drop(const char * store);
 	
 protected:
+	inline uint32_t hash_u32(uint32_t u32);
+	inline uint32_t hash_u64(uint64_t u64);
 	inline uint32_t hash_str(const char * string);
 };
+
+inline uint32_t multimap::hash_u32(uint32_t u32)
+{
+	return u32;
+}
+
+inline uint32_t multimap::hash_u64(uint64_t u64)
+{
+	return ((uint32_t) (u64 >> 32)) ^ (uint32_t) u64;
+}
 
 inline uint32_t multimap::hash_str(const char * string)
 {
