@@ -13,7 +13,6 @@
 #include "toilet.h"
 #include "hash_map.h"
 #include "blowfish.h"
-#include "diskhash.h"
 #include "index.h"
 
 /* This initial implementation of Toilet stores databases using the file system.
@@ -287,8 +286,7 @@ int toilet_new_gtable(toilet * toilet, const char * name)
 	if(r != sizeof(data))
 		goto fail_id_2;
 	
-	/* XXX: toilet_index_init()? */
-	r = diskhash_init("indices/id/dh", DH_U32, DH_NONE);
+	r = toilet_index_init("indices/id/dh");
 	if(r < 0)
 		goto fail_id_2;
 	

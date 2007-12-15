@@ -123,8 +123,10 @@ fail_mkdir:
 	return (r < 0) ? r : -1;
 }
 
-diskhash * open(const char * store)
+/* open a diskhash on disk, or return NULL on error */
+diskhash * diskhash::open(const char * store)
 {
+	return NULL;
 }
 
 diskhash::diskhash()

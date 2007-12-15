@@ -27,7 +27,7 @@ typedef enum {
 typedef union {
 	uint32_t u32;
 	uint64_t u64;
-	const char str[0];
+	char str[0];
 	struct {
 		int blob_len;
 		void * blob;

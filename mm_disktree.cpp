@@ -93,7 +93,7 @@ int disktree::init(const char * store, mm_type_t key_type, mm_type_t val_type)
 	r = chdir(store);
 	if(r < 0)
 		goto fail_chdir;
-	fd = ::open("dh", O_WRONLY | O_CREAT, 0664);
+	fd = ::open("dt", O_WRONLY | O_CREAT, 0664);
 	if(fd < 0)
 		goto fail_open;
 	r = write(fd, &key_type, sizeof(key_type));
@@ -110,7 +110,7 @@ int disktree::init(const char * store, mm_type_t key_type, mm_type_t val_type)
 	
 fail_write:
 	close(fd);
-	unlink("dh");
+	unlink("dt");
 fail_open:
 	fchdir(cwd_fd);
 fail_chdir:
@@ -124,6 +124,7 @@ fail_mkdir:
 /* open a disktree on disk, or return NULL on error */
 disktree * disktree::open(const char * store)
 {
+	return NULL;
 }
 
 disktree::disktree()

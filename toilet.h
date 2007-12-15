@@ -10,7 +10,6 @@
 #include "vector.h"
 #include "hash_map.h"
 #include "hash_set.h"
-#include "diskhash.h"
 
 #ifdef __cplusplus
 extern "C" {

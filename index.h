@@ -5,25 +5,45 @@
 #ifndef __INDEX_H
 #define __INDEX_H
 
-#include "hash_map.h"
-#include "diskhash.h"
 #include "toilet.h"
 
 #ifdef __cplusplus
-extern "C" {
-#endif
+
+#include "multimap.h"
+#include "mm_diskhash.h"
+#include "mm_disktree.h"
+#include "mm_memcache.h"
 
 struct t_index {
 	/* note that I_BOTH == I_HASH | I_TREE */
-	enum { I_NONE = 0, I_HASH = 1, I_TREE = 2, I_BOTH = 3 } type;
+	enum i_type { I_NONE = 0, I_HASH = 1, I_TREE = 2, I_BOTH = 3 } type;
+	/* value -> blob of row IDs */
 	struct {
-		/* value -> rowset */
-		hash_map_t * cache;
-		/* value -> blob of row IDs */
-		diskhash_t * disk;
+		memcache * cache;
+		diskhash * disk;
 	} hash;
-	void * tree;
+	struct {
+		memcache * cache;
+		disktree * disk;
+	} tree;
 };
+
+inline t_index::i_type & operator|=(t_index::i_type &x, const t_index::i_type &y)
+{
+	x = (t_index::i_type) (x | y);
+	return x;
+}
+
+inline t_index::i_type & operator&=(t_index::i_type &x, const t_index::i_type &y)
+{
+	x = (t_index::i_type) (x & y);
+	return x;
+}
+
+extern "C" {
+#endif
+
+int toilet_index_init(const char * path);
 
 t_index * toilet_open_index(const char * path, const char * name);
 void toilet_close_index(t_index * index);
