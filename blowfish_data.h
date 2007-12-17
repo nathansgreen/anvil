@@ -4,7 +4,7 @@
  * This data has not been verified for accuracy. It is supposed to be
  * the hex digits of pi = 3.1415... minus 3 (the fractional part). */
 
-static const uint32_t pihex[1251] = {
+static const uint32_t pi_hex[1251] = {
 	0x243f6a88, 0x85a308d3, 0x13198a2e,
 	0x03707344, 0xa4093822, 0x299f31d0,
 	0x082efa98, 0xec4e6c89, 0x452821e6,

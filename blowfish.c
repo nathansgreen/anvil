@@ -73,7 +73,7 @@ void bf_decipher(const bf_ctx * bfc, uint32_t * xl, uint32_t * xr)
 
 static void bf_initstate(bf_ctx * bfc)
 {
-	const uint32_t * idp = pihex;
+	const uint32_t * idp = pi_hex;
 	int i, j;
 	
 	/* Load up the initialization data */
