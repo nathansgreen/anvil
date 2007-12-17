@@ -2,8 +2,8 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#ifndef __MM_DISKHASH_H
-#define __MM_DISKHASH_H
+#ifndef __MM_DISKTREE_H
+#define __MM_DISKTREE_H
 
 #include <stdint.h>
 #include <sys/types.h>
@@ -11,31 +11,31 @@
 #include "multimap.h"
 
 #ifndef __cplusplus
-#error mm_diskhash.h is a C++ header file
+#error disktree.h is a C++ header file
 #endif
 
-class diskhash_it : public multimap_it
+class disktree_it : public multimap_it
 {
 public:
 	virtual int next();
 	virtual size_t size();
-	virtual ~diskhash_it();
+	virtual ~disktree_it();
 private:
 };
 
-class diskhash : public multimap
+class disktree : public multimap
 {
 public:
-	virtual ~diskhash();
+	virtual ~disktree();
 	
 	virtual size_t keys();
 	virtual size_t values();
 	
 	virtual size_t count_values(mm_val_t * key);
-	virtual diskhash_it * get_values(mm_val_t * key);
-	virtual diskhash_it * get_range(mm_val_t * low_key, mm_val_t * high_key);
+	virtual disktree_it * get_values(mm_val_t * key);
+	virtual disktree_it * get_range(mm_val_t * low_key, mm_val_t * high_key);
 	
-	virtual diskhash_it * iterator();
+	virtual disktree_it * iterator();
 	
 	virtual int remove_key(mm_val_t * key);
 	virtual int reset_key(mm_val_t * key, mm_val_t * value);
@@ -43,12 +43,12 @@ public:
 	virtual int remove_value(mm_val_t * key, mm_val_t * value);
 	virtual int update_value(mm_val_t * key, mm_val_t * old_value, mm_val_t * new_value);
 	
-	/* create a new diskhash (on disk) using the specified store path */
+	/* create a new disktree (on disk) using the specified store path */
 	static int init(const char * store, mm_type_t key_type, mm_type_t val_type);
-	/* open a diskhash on disk, or return NULL on error */
-	static diskhash * open(const char * store);
+	/* open a disktree on disk, or return NULL on error */
+	static disktree * open(const char * store);
 private:
-	diskhash();
+	disktree();
 };
 
-#endif /* __MM_DISKHASH_H */
+#endif /* __MM_DISKTREE_H */

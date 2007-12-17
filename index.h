@@ -10,9 +10,9 @@
 #ifdef __cplusplus
 
 #include "multimap.h"
-#include "mm_diskhash.h"
-#include "mm_disktree.h"
-#include "mm_memcache.h"
+#include "diskhash.h"
+#include "disktree.h"
+#include "memcache.h"
 
 struct t_index {
 	/* note that I_BOTH == I_HASH | I_TREE */

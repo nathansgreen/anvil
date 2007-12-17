@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 
 #include "multimap.h"
-#include "mm_disktree.h"
+#include "disktree.h"
 
 /* Disk trees are basically "b+trees" implemented with the file system. No
  * serious attempt to cache is made here; a separate caching module should be

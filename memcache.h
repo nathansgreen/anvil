@@ -11,7 +11,7 @@
 #include "multimap.h"
 
 #ifndef __cplusplus
-#error mm_memcache.h is a C++ header file
+#error memcache.h is a C++ header file
 #endif
 
 class memcache_it : public multimap_it

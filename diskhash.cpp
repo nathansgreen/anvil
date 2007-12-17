@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 
 #include "multimap.h"
-#include "mm_diskhash.h"
+#include "diskhash.h"
 
 /* Disk hashes are basically "hash maps" implemented with the file system. No
  * serious attempt to cache is made here; a separate caching module should be

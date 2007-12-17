@@ -8,7 +8,7 @@
 #include <errno.h>
 
 #include "multimap.h"
-#include "mm_memcache.h"
+#include "memcache.h"
 
 /* iterators */
 
