@@ -2,8 +2,8 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#ifndef __MM_DISKHASH_H
-#define __MM_DISKHASH_H
+#ifndef __DISKHASH_H
+#define __DISKHASH_H
 
 #include <stdint.h>
 #include <sys/types.h>
@@ -51,4 +51,4 @@ private:
 	diskhash();
 };
 
-#endif /* __MM_DISKHASH_H */
+#endif /* __DISKHASH_H */

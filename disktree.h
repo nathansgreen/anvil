@@ -2,8 +2,8 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#ifndef __MM_DISKTREE_H
-#define __MM_DISKTREE_H
+#ifndef __DISKTREE_H
+#define __DISKTREE_H
 
 #include <stdint.h>
 #include <sys/types.h>
@@ -51,4 +51,4 @@ private:
 	disktree();
 };
 
-#endif /* __MM_DISKTREE_H */
+#endif /* __DISKTREE_H */
