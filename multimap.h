@@ -85,9 +85,14 @@ public:
 	static int drop(const char * store);
 	
 protected:
-	inline uint32_t hash_u32(uint32_t u32);
-	inline uint32_t hash_u64(uint64_t u64);
-	inline uint32_t hash_str(const char * string);
+	mm_type_t key_type;
+	mm_type_t val_type;
+	
+	static inline uint32_t hash_u32(uint32_t u32);
+	static inline uint32_t hash_u64(uint64_t u64);
+	static inline uint32_t hash_str(const char * string);
+	
+	inline uint32_t hash_key(const mm_val_t * key);
 };
 
 inline uint32_t multimap::hash_u32(uint32_t u32)
@@ -112,6 +117,22 @@ inline uint32_t multimap::hash_str(const char * string)
 		hash ^= *(string++);
 	}
 	return hash;
+}
+
+inline uint32_t multimap::hash_key(const mm_val_t * key)
+{
+	switch(key_type)
+	{
+		case MM_U32:
+			return hash_u32(key->u32);
+		case MM_U64:
+			return hash_u64(key->u64);
+		case MM_STR:
+			return hash_str(key->str);
+		default:
+			/* invalid */
+			return 0;
+	}
 }
 
 #endif /* __MULTIMAP_H */
