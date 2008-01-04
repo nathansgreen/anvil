@@ -34,6 +34,7 @@ public:
 	
 	virtual size_t count_values(mm_val_t * key);
 	virtual memcache_it * get_values(mm_val_t * key);
+	virtual size_t count_range(mm_val_t * low_key, mm_val_t * high_key);
 	virtual memcache_it * get_range(mm_val_t * low_key, mm_val_t * high_key);
 	
 	virtual memcache_it * iterator();

@@ -54,6 +54,10 @@ diskhash_it * diskhash::get_values(mm_val_t * key)
 {
 }
 
+size_t diskhash::count_range(mm_val_t * low_key, mm_val_t * high_key)
+{
+}
+
 diskhash_it * diskhash::get_range(mm_val_t * low_key, mm_val_t * high_key)
 {
 }

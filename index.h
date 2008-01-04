@@ -53,6 +53,13 @@ t_index * toilet_open_index(const char * path, const char * name);
 void toilet_close_index(t_index * index);
 
 int toilet_index_add(t_index * index, t_row_id id, t_type type, t_value value);
+int toilet_index_change(t_index * index, t_row_id id, t_type type, t_value old_value, t_value new_value);
+int toilet_index_remove(t_index * index, t_row_id id, t_type type, t_value value);
+
+size_t toilet_index_count(t_index * index, t_type type, t_value value);
+t_rowset * toilet_index_find(t_index * index, t_type type, t_value value);
+size_t toilet_index_count_range(t_index * index, t_type type, t_value low_value, t_value high_value);
+t_rowset * toilet_index_find_range(t_index * index, t_type type, t_value low_value, t_value high_value);
 
 #ifdef __cplusplus
 }
