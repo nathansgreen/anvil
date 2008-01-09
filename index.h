@@ -17,6 +17,7 @@
 struct t_index {
 	/* note that I_BOTH == I_HASH | I_TREE */
 	enum i_type { I_NONE = 0, I_HASH = 1, I_TREE = 2, I_BOTH = 3 } type;
+	t_type key_type;
 	/* value -> blob of row IDs */
 	struct {
 		memcache * cache;
@@ -28,9 +29,9 @@ struct t_index {
 	} tree;
 };
 
-/* Annoyingly, enums do not by themselves support these bitwise operations, due
- * to type errors. Rather than force the expansion of |= and &= everywhere to
- * add casts, we do it here as inline operators. */
+/* Annoyingly, C++ enums do not by themselves support these bitwise operations,
+ * due to type errors. Rather than force the expansion of |= and &= everywhere
+ * to add casts, we do it here as inline operators. */
 
 inline t_index::i_type & operator|=(t_index::i_type &x, const t_index::i_type &y)
 {
@@ -47,10 +48,12 @@ inline t_index::i_type & operator&=(t_index::i_type &x, const t_index::i_type &y
 extern "C" {
 #endif
 
-int toilet_index_init(const char * path);
+int toilet_index_init(const char * path, t_type type);
 
 t_index * toilet_open_index(const char * path, const char * name);
 void toilet_close_index(t_index * index);
+
+t_type toilet_index_type(t_index * index);
 
 int toilet_index_add(t_index * index, t_row_id id, t_type type, t_value value);
 int toilet_index_change(t_index * index, t_row_id id, t_type type, t_value old_value, t_value new_value);

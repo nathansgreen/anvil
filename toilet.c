@@ -286,7 +286,7 @@ int toilet_new_gtable(toilet * toilet, const char * name)
 	if(r != sizeof(data))
 		goto fail_id_2;
 	
-	r = toilet_index_init("indices/id/dh");
+	r = toilet_index_init("indices/id", T_ID);
 	if(r < 0)
 		goto fail_id_2;
 	
