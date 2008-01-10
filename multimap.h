@@ -65,9 +65,9 @@ public:
 	virtual multimap_it * iterator() = 0;
 	
 	/* lookup values */
-	virtual size_t count_values(mm_val_t * key) = 0;
+	virtual ssize_t count_values(mm_val_t * key) = 0;
 	virtual multimap_it * get_values(mm_val_t * key) = 0;
-	virtual size_t count_range(mm_val_t * low_key, mm_val_t * high_key) = 0;
+	virtual ssize_t count_range(mm_val_t * low_key, mm_val_t * high_key) = 0;
 	virtual multimap_it * get_range(mm_val_t * low_key, mm_val_t * high_key) = 0;
 	
 	/* modify */
@@ -78,6 +78,9 @@ public:
 	virtual int update_value(mm_val_t * key, mm_val_t * old_value, mm_val_t * new_value) = 0;
 	
 	virtual ~multimap();
+	
+	inline mm_type_t get_key_type();
+	inline mm_type_t get_val_type();
 	
 	/* copy one multimap into another (possibly of a different type) */
 	static int copy(multimap * source, multimap * dest);
@@ -95,6 +98,16 @@ protected:
 	
 	inline uint32_t hash_key(const mm_val_t * key);
 };
+
+inline mm_type_t multimap::get_key_type()
+{
+	return key_type;
+}
+
+inline mm_type_t multimap::get_val_type()
+{
+	return val_type;
+}
 
 inline uint32_t multimap::hash_u32(uint32_t u32)
 {

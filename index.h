@@ -17,7 +17,7 @@
 struct t_index {
 	/* note that I_BOTH == I_HASH | I_TREE */
 	enum i_type { I_NONE = 0, I_HASH = 1, I_TREE = 2, I_BOTH = 3 } type;
-	t_type key_type;
+	t_type data_type;
 	/* value -> blob of row IDs */
 	struct {
 		memcache * cache;
@@ -59,9 +59,9 @@ int toilet_index_add(t_index * index, t_row_id id, t_type type, t_value value);
 int toilet_index_change(t_index * index, t_row_id id, t_type type, t_value old_value, t_value new_value);
 int toilet_index_remove(t_index * index, t_row_id id, t_type type, t_value value);
 
-size_t toilet_index_count(t_index * index, t_type type, t_value value);
+ssize_t toilet_index_count(t_index * index, t_type type, t_value value);
 t_rowset * toilet_index_find(t_index * index, t_type type, t_value value);
-size_t toilet_index_count_range(t_index * index, t_type type, t_value low_value, t_value high_value);
+ssize_t toilet_index_count_range(t_index * index, t_type type, t_value low_value, t_value high_value);
 t_rowset * toilet_index_find_range(t_index * index, t_type type, t_value low_value, t_value high_value);
 
 #ifdef __cplusplus

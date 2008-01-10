@@ -14,7 +14,7 @@
 
 int toilet_index_init(const char * path, t_type type)
 {
-	mm_type_t mm_type;
+	mm_type_t mm_type = MM_NONE;
 	int r, fd, cwd_fd = open(".", 0);
 	if(cwd_fd < 0)
 		return cwd_fd;
@@ -89,19 +89,21 @@ t_index * toilet_open_index(const char * path, const char * name)
 	fd = open("key-type", O_RDONLY);
 	if(fd < 0)
 		goto fail_chdir;
-	if(read(fd, &index->key_type, sizeof(index->key_type)) != sizeof(index->key_type))
+	if(read(fd, &index->data_type, sizeof(index->data_type)) != sizeof(index->data_type))
 	{
 		close(fd);
 		goto fail_chdir;
 	}
 	close(fd);
-	if(index->key_type != T_ID && index->key_type != T_INT && index->key_type != T_STRING)
+	if(index->data_type != T_ID && index->data_type != T_INT && index->data_type != T_STRING)
 		goto fail_chdir;
 	
 	index->hash.disk = diskhash::open("dh");
 	if(index->hash.disk)
 	{
 		index->type |= t_index::I_HASH;
+		if(index->hash.disk->get_val_type() != MM_U32)
+			goto fail_hash;
 		index->hash.cache = new memcache(index->hash.disk);
 		if(!index->hash.cache)
 			goto fail_hash;
@@ -110,6 +112,8 @@ t_index * toilet_open_index(const char * path, const char * name)
 	if(index->tree.disk)
 	{
 		index->type |= t_index::I_TREE;
+		if(index->tree.disk->get_val_type() != MM_U32)
+			goto fail_hash;
 		index->tree.cache = new memcache(index->tree.disk);
 		if(!index->tree.cache)
 			goto fail_tree;
@@ -145,7 +149,7 @@ fail_malloc:
 
 t_type toilet_index_type(t_index * index)
 {
-	return index->key_type;
+	return index->data_type;
 }
 
 void toilet_close_index(t_index * index)
@@ -163,35 +167,39 @@ void toilet_close_index(t_index * index)
 	free(index);
 }
 
-int toilet_index_add(t_index * index, t_row_id id, t_type type, t_value value)
+/* store a toilet value into a multimap value, or convert the pointers */
+static inline mm_val_t * toilet_to_multimap_value(t_type type, t_value * value, mm_val_t * mm)
 {
-	mm_val_t mm_value;
-	mm_val_t * mm_pvalue = &mm_value;
-	if(type != index->key_type)
-		return -EINVAL;
 	switch(type)
 	{
 		case T_ID:
-			mm_value.u32 = value.v_id;
-			break;
+			mm->u32 = value->v_id;
+			return mm;
 		case T_INT:
-			mm_value.u64 = value.v_int;
-			break;
+			mm->u64 = value->v_int;
+			return mm;
 		case T_STRING:
-			mm_pvalue = (mm_val_t *) &value.v_string;
-			break;
+			return (mm_val_t *) &value->v_string;
 		default:
-			return -EINVAL;
+			return NULL;
 	}
+}
+
+int toilet_index_add(t_index * index, t_row_id id, t_type type, t_value value)
+{
+	mm_val_t mm_id = {u32: id}, mm_value;
+	mm_val_t * mm_pvalue = toilet_to_multimap_value(type, &value, &mm_value);
+	if(type != index->data_type)
+		return -EINVAL;
 	if(index->type & t_index::I_HASH)
 	{
-		int r = index->hash.cache->reset_key(mm_pvalue, mm_pvalue);
+		int r = index->hash.cache->append_value(mm_pvalue, &mm_id);
 		if(r < 0)
 			return r;
 	}
 	if(index->type & t_index::I_TREE)
 	{
-		int r = index->tree.cache->reset_key(mm_pvalue, mm_pvalue);
+		int r = index->tree.cache->append_value(mm_pvalue, &mm_id);
 		if(r < 0)
 		{
 			/* XXX: reset the hash somehow? */
@@ -203,22 +211,64 @@ int toilet_index_add(t_index * index, t_row_id id, t_type type, t_value value)
 
 int toilet_index_change(t_index * index, t_row_id id, t_type type, t_value old_value, t_value new_value)
 {
+	toilet_index_remove(index, id, type, old_value);
+	toilet_index_add(index, id, type, new_value);
+	return 0;
 }
 
 int toilet_index_remove(t_index * index, t_row_id id, t_type type, t_value value)
 {
+	mm_val_t mm_id = {u32: id}, mm_value;
+	mm_val_t * mm_pvalue = toilet_to_multimap_value(type, &value, &mm_value);
+	if(type != index->data_type)
+		return -EINVAL;
+	if(index->type & t_index::I_HASH)
+	{
+		int r = index->hash.cache->remove_value(mm_pvalue, &mm_id);
+		if(r < 0)
+			return r;
+	}
+	if(index->type & t_index::I_TREE)
+	{
+		int r = index->tree.cache->remove_value(mm_pvalue, &mm_id);
+		if(r < 0)
+		{
+			/* XXX: restore the hash somehow? */
+			return r;
+		}
+	}
+	return 0;
 }
 
-size_t toilet_index_count(t_index * index, t_type type, t_value value)
+ssize_t toilet_index_count(t_index * index, t_type type, t_value value)
 {
+	mm_val_t mm_value;
+	mm_val_t * mm_pvalue = toilet_to_multimap_value(type, &value, &mm_value);
+	if(type != index->data_type)
+		return -EINVAL;
+	if(index->type & t_index::I_HASH)
+		return index->hash.cache->count_values(mm_pvalue);
+	if(index->type & t_index::I_TREE)
+		return index->tree.cache->count_values(mm_pvalue);
+	return -1;
 }
 
 t_rowset * toilet_index_find(t_index * index, t_type type, t_value value)
 {
 }
 
-size_t toilet_index_count_range(t_index * index, t_type type, t_value low_value, t_value high_value)
+ssize_t toilet_index_count_range(t_index * index, t_type type, t_value low_value, t_value high_value)
 {
+	mm_val_t mm_value[2];
+	mm_val_t * low_pvalue = toilet_to_multimap_value(type, &low_value, &mm_value[0]);
+	mm_val_t * high_pvalue = toilet_to_multimap_value(type, &high_value, &mm_value[1]);
+	if(type != index->data_type)
+		return -EINVAL;
+	if(index->type & t_index::I_HASH)
+		return index->hash.cache->count_range(low_pvalue, high_pvalue);
+	if(index->type & t_index::I_TREE)
+		return index->tree.cache->count_range(low_pvalue, high_pvalue);
+	return -1;
 }
 
 t_rowset * toilet_index_find_range(t_index * index, t_type type, t_value low_value, t_value high_value)

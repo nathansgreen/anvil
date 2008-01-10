@@ -44,7 +44,7 @@ size_t disktree::values()
 {
 }
 
-size_t disktree::count_values(mm_val_t * key)
+ssize_t disktree::count_values(mm_val_t * key)
 {
 }
 
@@ -52,7 +52,7 @@ disktree_it * disktree::get_values(mm_val_t * key)
 {
 }
 
-size_t disktree::count_range(mm_val_t * low_key, mm_val_t * high_key)
+ssize_t disktree::count_range(mm_val_t * low_key, mm_val_t * high_key)
 {
 }
 
