@@ -687,4 +687,11 @@ t_rowset * toilet_query(t_gtable * gtable, t_query * query)
 
 int toilet_put_rowset(t_rowset * rowset)
 {
+	if(!--rowset->out_count)
+	{
+		/* just IDs in these structures */
+		vector_destroy(rowset->rows);
+		hash_set_destroy(rowset->ids);
+		free(rowset);
+	}
 }

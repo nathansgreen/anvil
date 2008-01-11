@@ -240,6 +240,44 @@ int toilet_index_remove(t_index * index, t_row_id id, t_type type, t_value value
 	return 0;
 }
 
+static t_rowset * multimap_it_to_rowset(multimap_it * it)
+{
+	size_t size = it->size();
+	t_rowset * rowset = (t_rowset *) malloc(sizeof(*rowset));
+	if(!rowset)
+		goto fail_rowset;
+	rowset->rows = vector_create_size(size);
+	if(!rowset->rows)
+		goto fail_rows;
+	rowset->ids = hash_set_create_size(size, true);
+	if(!rowset->ids)
+		goto fail_ids;
+	rowset->out_count = 1;
+	
+	/* should we call it->size() instead? */
+	while(size--)
+	{
+		t_row_id id;
+		it->next();
+		id = it->val->u32;
+		if(vector_push_back(rowset->rows, (void *) id) < 0)
+			goto fail_add;
+		if(hash_set_insert(rowset->ids, (void *) id) < 0)
+			goto fail_add;
+	}
+	
+	return rowset;
+fail_add:
+	hash_set_destroy(rowset->ids);
+fail_ids:
+	vector_destroy(rowset->rows);
+fail_rows:
+	free(rowset);
+fail_rowset:
+	delete it;
+	return NULL;
+}
+
 ssize_t toilet_index_count(t_index * index, t_type type, t_value value)
 {
 	mm_val_t mm_value;
@@ -255,6 +293,18 @@ ssize_t toilet_index_count(t_index * index, t_type type, t_value value)
 
 t_rowset * toilet_index_find(t_index * index, t_type type, t_value value)
 {
+	mm_val_t mm_value;
+	mm_val_t * mm_pvalue = toilet_to_multimap_value(type, &value, &mm_value);
+	multimap_it * it = NULL;
+	if(type != index->data_type)
+		return NULL;
+	if(index->type & t_index::I_HASH)
+		it = index->hash.cache->get_values(mm_pvalue);
+	else if(index->type & t_index::I_TREE)
+		it = index->tree.cache->get_values(mm_pvalue);
+	if(!it)
+		return NULL;
+	return multimap_it_to_rowset(it);
 }
 
 ssize_t toilet_index_count_range(t_index * index, t_type type, t_value low_value, t_value high_value)
@@ -273,4 +323,18 @@ ssize_t toilet_index_count_range(t_index * index, t_type type, t_value low_value
 
 t_rowset * toilet_index_find_range(t_index * index, t_type type, t_value low_value, t_value high_value)
 {
+	mm_val_t mm_value[2];
+	mm_val_t * low_pvalue = toilet_to_multimap_value(type, &low_value, &mm_value[0]);
+	mm_val_t * high_pvalue = toilet_to_multimap_value(type, &high_value, &mm_value[1]);
+	multimap_it * it = NULL;
+	if(type != index->data_type)
+		return NULL;
+	/* prefer the tree for this type of query */
+	if(index->type & t_index::I_TREE)
+		it = index->tree.cache->get_range(low_pvalue, high_pvalue);
+	else if(index->type & t_index::I_HASH)
+		it = index->hash.cache->get_range(low_pvalue, high_pvalue);
+	if(!it)
+		return NULL;
+	return multimap_it_to_rowset(it);
 }
