@@ -23,13 +23,20 @@
 #define __OPENAT_MODE ...
 #endif
 
+#if defined(__APPLE__) && defined(__MACH__)
+/* these are actually available on 10.5, but how to tell that here? */
+#define stat64 stat
+#define lstat64 lstat
+#endif
+
+struct timeval;
 struct stat64;
 
 int openat(int dfd, const char * filename, int flags, __OPENAT_MODE) __attribute__((weak));
 int mkdirat(int dfd, const char * pathname, mode_t mode) __attribute__((weak));
 int mknodat(int dfd, const char * filename, mode_t mode, dev_t dev) __attribute__((weak));
 int fchownat(int dfd, const char * filename, uid_t owner, gid_t group, int flag) __attribute__((weak));
-int futimesat(int dfd, const char * filename, const struct timeval * utimes) __attribute__((weak));
+int futimesat(int dfd, const char * filename, const struct timeval * times) __attribute__((weak));
 int fstatat64(int dfd, const char * path, struct stat64 * statbuf, int flag) __attribute__((weak));
 int unlinkat(int dfd, const char * pathname, int flag) __attribute__((weak));
 int renameat(int olddfd, const char * oldname, int newdfd, const char * newname) __attribute__((weak));
@@ -39,6 +46,7 @@ int readlinkat(int dfd, const char * path, char * buf, int bufsiz) __attribute__
 int fchmodat(int dfd, const char * filename, mode_t mode) __attribute__((weak));
 int faccessat(int dfd, const char * filename, int mode) __attribute__((weak));
 
+#ifdef __linux__
 #ifdef __i386__
 
 #ifndef SYS_openat
@@ -64,6 +72,7 @@ int faccessat(int dfd, const char * filename, int mode) __attribute__((weak));
 #endif
 
 #endif /* __i386__ */
+#endif /* __linux__ */
 
 #endif /* AT_FDCWD */
 
