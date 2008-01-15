@@ -19,7 +19,7 @@ int toilet_index_init(const char * path, t_type type)
 	if(cwd_fd < 0)
 		return cwd_fd;
 	r = mkdir(path, 0775);
-	if(r < 0 && r != -EEXIST)
+	if(r < 0 && errno != EEXIST)
 		goto fail_mkdir;
 	r = chdir(path);
 	if(r < 0)

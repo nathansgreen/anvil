@@ -46,6 +46,8 @@ int readlinkat(int dfd, const char * path, char * buf, int bufsiz) __attribute__
 int fchmodat(int dfd, const char * filename, mode_t mode) __attribute__((weak));
 int faccessat(int dfd, const char * filename, int mode) __attribute__((weak));
 
+/* might we also need opendirat() [fchdir(fd), opendir(path)] or fdopendir()? [fchdir(fd), opendir(".")] */
+
 #ifdef __linux__
 #ifdef __i386__
 

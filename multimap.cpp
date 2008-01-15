@@ -22,6 +22,26 @@ multimap::~multimap()
 
 int multimap::copy(multimap * source, multimap * dest)
 {
+	multimap_it * it;
+	size_t size;
+	int r = 0;
+	if(source->get_key_type() != dest->get_key_type())
+		return -EINVAL;
+	if(source->get_val_type() != dest->get_val_type())
+		return -EINVAL;
+	it = source->iterator();
+	size = it->size();
+	while(size-- > 0)
+	{
+		r = it->next();
+		if(r < 0)
+			break;
+		r = dest->append_value(it->key, it->val);
+		if(r < 0)
+			break;
+	}
+	delete it;
+	return r;
 }
 
 /* basically just rm -rf but the top-level thing must be a directory */
