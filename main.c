@@ -9,22 +9,24 @@
 int main(void)
 {
 	int r;
-	toilet * toilet = toilet_open("test");
+	toilet * toilet = toilet_open("hand-built");
 	if(toilet)
 		toilet_close(toilet);
 	else
-		fprintf(stderr, "Failed to open toilet! ('test')\n");
+		fprintf(stderr, "Warning: failed to open toilet! ('hand-built')\n");
 	
-	r = toilet_new("test.new");
+	r = toilet_new("test");
 	if(r < 0)
-		fprintf(stderr, "Failed to create toilet! ('test.new')\n");
+		fprintf(stderr, "Error: failed to create toilet! ('test')\n");
 	else
 	{
-		toilet = toilet_open("test.new");
+		toilet = toilet_open("test");
 		if(toilet)
 		{
 			t_gtable * gtable;
-			toilet_new_gtable(toilet, "testgt");
+			r = toilet_new_gtable(toilet, "testgt");
+			if(r < 0)
+				fprintf(stderr, "Warning: failed to create gtable! ('testgt')\n");
 			gtable = toilet_get_gtable(toilet, "testgt");
 			if(gtable)
 			{
@@ -39,16 +41,16 @@ int main(void)
 					if(row)
 						toilet_put_row(toilet, row);
 					else
-						fprintf(stderr, "Failed to get row!\n");
+						fprintf(stderr, "Error: failed to get row!\n");
 				}
 				toilet_put_gtable(toilet, gtable);
 			}
 			else
-				fprintf(stderr, "Failed to open gtable!\n");
+				fprintf(stderr, "Error: failed to open gtable!\n");
 			toilet_close(toilet);
 		}
 		else
-			fprintf(stderr, "Failed to open toilet! ('test.new')\n");
+			fprintf(stderr, "Error: failed to open toilet! ('test')\n");
 	}
 	
 	return 0;
