@@ -51,6 +51,7 @@ public:
 	virtual ~multimap_it();
 	
 protected:
+	inline multimap_it();
 	multimap * map;
 };
 
@@ -98,6 +99,11 @@ protected:
 	
 	inline uint32_t hash_key(const mm_val_t * key);
 };
+
+inline multimap_it::multimap_it()
+	: key(NULL), val(NULL)
+{
+}
 
 inline mm_type_t multimap::get_key_type()
 {

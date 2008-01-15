@@ -14,6 +14,8 @@
 #error memcache.h is a C++ header file
 #endif
 
+/* this is a dummy memcache; it doesn't cache at all */
+
 class memcache_it : public multimap_it
 {
 public:
@@ -21,6 +23,9 @@ public:
 	virtual size_t size();
 	virtual ~memcache_it();
 private:
+	multimap_it * base;
+	memcache_it(multimap_it * it);
+	friend class memcache;
 };
 
 class memcache : public multimap
@@ -44,6 +49,9 @@ public:
 	virtual int append_value(mm_val_t * key, mm_val_t * value);
 	virtual int remove_value(mm_val_t * key, mm_val_t * value);
 	virtual int update_value(mm_val_t * key, mm_val_t * old_value, mm_val_t * new_value);
+private:
+	multimap * base;
+	static memcache_it * wrap_it(multimap_it * base_it);
 };
 
 #endif /* __MEMCACHE_H */
