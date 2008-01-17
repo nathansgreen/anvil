@@ -2,6 +2,7 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -142,7 +143,7 @@ fail_mkdir:
  * The pointer part is the arrow, obviously. The rest of the sign constitutes
  * the type, and may actually indicate a subclass such as "men's room." */
 
-toilet * toilet_open(const char * path)
+toilet * toilet_open(const char * path, FILE * errors)
 {
 	FILE * version_file;
 	char version_str[16];
@@ -168,6 +169,7 @@ toilet * toilet_open(const char * path)
 	if(!toilet->path)
 		goto free_1;
 	toilet->path_fd = path_fd;
+	toilet->errors = errors ? errors : stderr;
 	toilet->gtables = hash_map_create_str();
 	if(!toilet->gtables)
 		goto free_2;
@@ -479,6 +481,23 @@ void toilet_put_gtable(toilet * toilet, t_gtable * gtable)
 	free(gtable);
 }
 
+/* columns */
+
+t_column * toilet_gtable_get_column(t_gtable * gtable, const char * name)
+{
+	return (t_column *) hash_map_find_val(gtable->column_map, name);
+}
+
+int toilet_column_is_multi(t_column * column)
+{
+	return column->flags & T_COLUMN_MULTI;
+}
+
+int toilet_column_set_multi(t_column * column, int multi)
+{
+	return -ENOSYS;
+}
+
 /* rows */
 
 static int toilet_new_row_id(toilet * toilet, t_row_id * row)
@@ -650,11 +669,19 @@ void toilet_put_row(toilet * toilet, t_row * row)
 
 /* values */
 
-t_values * toilet_row_value(t_row * row, const char * key)
+t_value * toilet_row_value(t_row * row, const char * key, t_type type)
 {
 }
 
-int toilet_row_remove_values(t_row * row, const char * key)
+t_values * toilet_row_values(t_row * row, const char * key)
+{
+}
+
+int toilet_row_set_value(t_row * row, const char * key, t_type type, t_value * value)
+{
+}
+
+int toilet_row_remove_key(t_row * row, const char * key)
 {
 }
 
@@ -666,16 +693,15 @@ int toilet_row_replace_values(t_row * row, const char * key, t_type type, t_valu
 {
 }
 
-
-int toilet_value_remove(t_values * values, int index)
+int toilet_row_remove_values(t_row * row, const char * key)
 {
 }
 
-int toilet_value_append(t_values * values, t_type type, t_value * value)
+int toilet_row_remove_value(t_row * row, t_values * values, int index)
 {
 }
 
-int toilet_value_update(t_values * values, int index, t_value * value)
+int toilet_row_update_value(t_row * row, t_values * values, int index, t_value * value)
 {
 }
 

@@ -9,7 +9,7 @@
 int main(void)
 {
 	int r;
-	toilet * toilet = toilet_open("hand-built");
+	toilet * toilet = toilet_open("hand-built", NULL);
 	if(toilet)
 		toilet_close(toilet);
 	else
@@ -20,7 +20,7 @@ int main(void)
 		fprintf(stderr, "Error: failed to create toilet! ('test')\n");
 	else
 	{
-		toilet = toilet_open("test");
+		toilet = toilet_open("test", NULL);
 		if(toilet)
 		{
 			t_gtable * gtable;
