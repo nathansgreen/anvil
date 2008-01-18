@@ -20,9 +20,9 @@ all: tags toilet
 
 toilet: $(OBJECTS)
 ifeq ($(CPPOBJECTS),)
-	gcc -o toilet $(OBJECTS)
+	gcc -o toilet $(OBJECTS) -ldl
 else
-	g++ -o toilet $(OBJECTS)
+	g++ -o toilet $(OBJECTS) -ldl
 endif
 
 clean:

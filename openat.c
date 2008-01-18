@@ -4,10 +4,12 @@
 
 #define _ATFILE_SOURCE
 
+#include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -15,7 +17,6 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 
-#define __OPENAT_MODE mode_t mode
 #include "openat.h"
 
 FILE * fopenat(int dfd, const char * filename, const char * mode)
@@ -49,39 +50,64 @@ FILE * fopenat(int dfd, const char * filename, const char * mode)
 
 DIR * opendirat(int dfd, const char * pathname)
 {
-	int cfd, save;
 	DIR * dir;
 	if(dfd == AT_FDCWD || *pathname == '/')
 		return opendir(pathname);
-	cfd = open(".", 0);
-	if(cfd < 0)
+	dfd = openat(dfd, pathname, O_RDONLY);
+	if(dfd < 0)
 		return NULL;
-	if(fchdir(dfd) < 0)
+	dir = fdopendir(dfd);
+	if(!dir)
 	{
-		save = errno;
-		close(cfd);
+		int save = errno;
+		close(dfd);
 		errno = save;
-		return NULL;
 	}
-	dir = opendir(pathname);
-	save = errno;
-	fchdir(cfd);
-	close(cfd);
-	errno = save;
 	return dir;
 }
 
 DIR * fdopendir(int dfd)
 {
-	return opendirat(dfd, ".");
+	static DIR * (*libc_fdopendir)(int) = NULL;
+	static int libc_checked = 0;
+	int save, cwd;
+	DIR * dir;
+	if(!libc_checked)
+	{
+		libc_fdopendir = dlsym(RTLD_NEXT, __FUNCTION__);
+		libc_checked = 1;
+	}
+	if(libc_fdopendir)
+		return libc_fdopendir(dfd);
+	cwd = open(".", 0);
+	if(cwd < 0)
+		return NULL;
+	if(fchdir(dfd) < 0)
+	{
+		save = errno;
+		close(cwd);
+		errno = save;
+		return NULL;
+	}
+	dir = opendir(".");
+	save = errno;
+	fchdir(cwd);
+	close(cwd);
+	errno = save;
+	return dir;
 }
 
 #ifdef __NEED_OPENAT
 
 #ifdef __linux__
 
-int openat(int dfd, const char * filename, int flags, __OPENAT_MODE)
+int openat(int dfd, const char * filename, int flags, ...)
 {
+	va_list ap;
+	mode_t mode;
+	va_start(ap, flags);
+	mode = va_arg(ap, int);
+	va_end(ap);
 	return syscall(SYS_openat, dfd, filename, flags, mode);
 }
 
@@ -151,9 +177,14 @@ int faccessat(int dfd, const char * filename, int mode)
 
 //#error Finish this section
 
-int openat(int dfd, const char * filename, int flags, __OPENAT_MODE)
+int openat(int dfd, const char * filename, int flags, ...)
 {
 	int cfd, r;
+	va_list ap;
+	mode_t mode;
+	va_start(ap, flags);
+	mode = va_arg(ap, int);
+	va_end(ap);
 	if(dfd == AT_FDCWD || *filename == '/')
 		return open(filename, flags, mode);
 	cfd = open(".", 0);

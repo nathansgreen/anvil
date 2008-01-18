@@ -18,11 +18,12 @@ extern "C" {
 #endif
 
 /* a useful utility function */
-FILE * fopenat(int dfd, const char * filename, const char * mode);
+FILE * fopenat(int dfd, const char * filename, const char * mode) __attribute__((weak));
 
 /* not part of the standard *at() functions */
-DIR * opendirat(int dfd, const char * pathname);
-DIR * fdopendir(int dfd);
+DIR * opendirat(int dfd, const char * pathname) __attribute__((weak));
+/* provided by recent glibc (prototyped with _GNU_SOURCE) */
+DIR * fdopendir(int dfd) __attribute__((weak));
 
 #ifdef __cplusplus
 }
@@ -41,10 +42,6 @@ DIR * fdopendir(int dfd);
 #define AT_REMOVEDIR 0x200
 #define AT_SYMLINK_FOLLOW 0x400
 
-#ifndef __OPENAT_MODE
-#define __OPENAT_MODE ...
-#endif
-
 #if defined(__APPLE__) && defined(__MACH__)
 /* these are actually available on 10.5, but how to tell that here? */
 #define stat64 stat
@@ -58,7 +55,7 @@ struct stat64;
 extern "C" {
 #endif
 
-int openat(int dfd, const char * filename, int flags, __OPENAT_MODE) __attribute__((weak));
+int openat(int dfd, const char * filename, int flags, ...) __attribute__((weak));
 int mkdirat(int dfd, const char * pathname, mode_t mode) __attribute__((weak));
 int mknodat(int dfd, const char * filename, mode_t mode, dev_t dev) __attribute__((weak));
 int fchownat(int dfd, const char * filename, uid_t owner, gid_t group, int flag) __attribute__((weak));
