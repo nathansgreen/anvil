@@ -28,9 +28,9 @@ FILE * fopenat(int dfd, const char * filename, const char * mode)
 	if(mode[0] == 'r')
 		modet = (mode[p] == '+') ? O_RDWR : O_RDONLY;
 	else if(mode[0] == 'w')
-		modet = O_CREAT | O_TRUNC | (mode[p] == '+') ? O_RDWR : O_WRONLY;
+		modet = O_CREAT | O_TRUNC | ((mode[p] == '+') ? O_RDWR : O_WRONLY);
 	else if(mode[0] == 'a')
-		modet = O_CREAT | O_APPEND | (mode[p] == '+') ? O_RDWR : O_WRONLY;
+		modet = O_CREAT | O_APPEND | ((mode[p] == '+') ? O_RDWR : O_WRONLY);
 	else
 	{
 		errno = EINVAL;

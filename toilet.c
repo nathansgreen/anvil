@@ -187,7 +187,7 @@ toilet * toilet_open(const char * path, FILE * errors)
 		goto fail_read_1;
 	
 	/* get the next row ID source value */
-	toilet->row_fd = open("next-row", O_RDWR);
+	toilet->row_fd = openat(dir_fd, "next-row", O_RDWR);
 	if(toilet->row_fd < 0)
 		goto fail_read_1;
 	if(read(toilet->row_fd, &toilet->next_row, sizeof(toilet->next_row)) != sizeof(toilet->next_row))
@@ -389,7 +389,10 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 	
 	dir = fdopendir(column_fd);
 	if(!dir)
-		goto fail_opendir;
+	{
+		close(column_fd);
+		goto fail_column;
+	}
 	while((ent = readdir(dir)))
 	{
 		t_column * column;
@@ -415,7 +418,6 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 		goto fail_columns;
 	
 	closedir(dir);
-	close(column_fd);
 	close(table_fd);
 	return gtable;
 	
@@ -427,8 +429,6 @@ fail_columns:
 		toilet_close_column(column);
 	}
 	closedir(dir);
-fail_opendir:
-	close(column_fd);
 fail_column:
 	close(table_fd);
 fail_gtable:
