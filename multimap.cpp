@@ -65,7 +65,7 @@ int multimap::drop(int dfd, const char * store)
 	}
 	while((ent = readdir(dir)))
 	{
-		struct stat st;
+		struct stat64 st;
 		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
 			continue;
 		if((r = fstatat64(dir_fd, ent->d_name, &st, AT_SYMLINK_NOFOLLOW)) < 0)
