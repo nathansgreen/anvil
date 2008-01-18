@@ -45,9 +45,9 @@ public:
 	virtual int update_value(mm_val_t * key, mm_val_t * old_value, mm_val_t * new_value);
 	
 	/* create a new diskhash (on disk) using the specified store path */
-	static int init(const char * store, mm_type_t key_type, mm_type_t val_type);
+	static int init(int dfd, const char * store, mm_type_t key_type, mm_type_t val_type);
 	/* open a diskhash on disk, or return NULL on error */
-	static diskhash * open(const char * store);
+	static diskhash * open(int dfd, const char * store);
 private:
 	diskhash();
 };

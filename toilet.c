@@ -2,6 +2,8 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#define _ATFILE_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +13,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "openat.h"
 #include "toilet.h"
 #include "hash_map.h"
 #include "blowfish.h"
@@ -288,7 +291,7 @@ int toilet_new_gtable(toilet * toilet, const char * name)
 	if(r != sizeof(data))
 		goto fail_id_2;
 	
-	r = toilet_index_init("indices/id", T_ID);
+	r = toilet_index_init(AT_FDCWD, "indices/id", T_ID);
 	if(r < 0)
 		goto fail_id_2;
 	
@@ -350,7 +353,7 @@ static t_column * toilet_open_column(const char * name)
 		case T_BLOB:
 			/* placate compiler */ ;
 	}
-	column->index = toilet_open_index("../indices", name);
+	column->index = toilet_open_index(AT_FDCWD, "../indices", name);
 	if(!column->index)
 		goto fail_read;
 	

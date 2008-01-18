@@ -2,6 +2,8 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#define _ATFILE_SOURCE
+
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -9,21 +11,23 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "openat.h"
 #include "toilet.h"
 #include "index.h"
 
-int toilet_index_init(const char * path, t_type type)
+int toilet_index_init(int dfd, const char * path, t_type type)
 {
 	mm_type_t mm_type = MM_NONE;
-	int r, fd, cwd_fd = open(".", 0);
-	if(cwd_fd < 0)
-		return cwd_fd;
-	r = mkdir(path, 0775);
+	int r, fd, dir_fd;
+	r = mkdirat(dfd, path, 0775);
 	if(r < 0 && errno != EEXIST)
-		goto fail_mkdir;
-	r = chdir(path);
-	if(r < 0)
-		goto fail_mkdir;
+		goto fail_simple;
+	dir_fd = openat(dfd, path, 0);
+	if(dir_fd < 0)
+	{
+		r = dir_fd;
+		goto fail_simple;
+	}
 	
 	switch(type)
 	{
@@ -40,13 +44,13 @@ int toilet_index_init(const char * path, t_type type)
 			break;
 		case T_BLOB:
 			r = -EINVAL;
-			goto fail_chdir;
+			goto fail_simple;
 	}
-	fd = open("key-type", O_WRONLY | O_CREAT, 0664);
+	fd = openat(dir_fd, "key-type", O_WRONLY | O_CREAT, 0664);
 	if(fd < 0)
 	{
 		r = -errno;
-		goto fail_chdir;
+		goto fail_simple;
 	}
 	r = write(fd, &type, sizeof(type));
 	close(fd);
@@ -54,51 +58,49 @@ int toilet_index_init(const char * path, t_type type)
 		goto fail_unlink;
 	
 	/* start with just a disk hash; we'll add a tree later if necessary */
-	r = diskhash::init("dh", mm_type, MM_U32);
+	r = diskhash::init(dir_fd, "dh", mm_type, MM_U32);
 	if(r < 0)
 		goto fail_unlink;
 	
-	fchdir(cwd_fd);
-	close(cwd_fd);
+	close(dir_fd);
 	return 0;
 	
 fail_unlink:
-	unlink("key-type");
-fail_chdir:
-	fchdir(cwd_fd);
-fail_mkdir:
-	close(cwd_fd);
+	unlinkat(dir_fd, "key-type", 0);
+	close(dir_fd);
+fail_simple:
 	return r;
 }
 
-t_index * toilet_open_index(const char * path, const char * name)
+t_index * toilet_open_index(int dfd, const char * path, const char * name)
 {
 	t_index * index;
-	int fd, cwd_fd = open(".", 0);
-	if(cwd_fd < 0)
+	int dir_fd, fd = openat(dfd, path, 0);
+	if(fd < 0)
 		return NULL;
+	dir_fd = openat(fd, name, 0);
+	close(fd);
+	if(dir_fd < 0)
+		return NULL;
+	
 	index = (t_index *) malloc(sizeof(*index));
 	if(!index)
 		goto fail_malloc;
 	index->type = t_index::I_NONE;
-	if(chdir(path) < 0)
-		goto fail_chdir;
-	if(chdir(name) < 0)
-		goto fail_chdir;
 	
-	fd = open("key-type", O_RDONLY);
+	fd = openat(dir_fd, "key-type", O_RDONLY);
 	if(fd < 0)
-		goto fail_chdir;
+		goto fail_key;
 	if(read(fd, &index->data_type, sizeof(index->data_type)) != sizeof(index->data_type))
 	{
 		close(fd);
-		goto fail_chdir;
+		goto fail_key;
 	}
 	close(fd);
 	if(index->data_type != T_ID && index->data_type != T_INT && index->data_type != T_STRING)
-		goto fail_chdir;
+		goto fail_key;
 	
-	index->hash.disk = diskhash::open("dh");
+	index->hash.disk = diskhash::open(dir_fd, "dh");
 	if(index->hash.disk)
 	{
 		index->type |= t_index::I_HASH;
@@ -108,7 +110,7 @@ t_index * toilet_open_index(const char * path, const char * name)
 		if(!index->hash.cache)
 			goto fail_hash;
 	}
-	index->tree.disk = disktree::open("dt");
+	index->tree.disk = disktree::open(dir_fd, "dt");
 	if(index->tree.disk)
 	{
 		index->type |= t_index::I_TREE;
@@ -122,8 +124,7 @@ t_index * toilet_open_index(const char * path, const char * name)
 	if(index->type == t_index::I_NONE)
 		goto fail_both;
 	
-	fchdir(cwd_fd);
-	close(cwd_fd);
+	close(dir_fd);
 	return index;
 	
 fail_both:
@@ -139,11 +140,10 @@ fail_tree:
 fail_hash:
 		delete index->hash.disk;
 	}
-fail_chdir:
+fail_key:
 	free(index);
 fail_malloc:
-	fchdir(cwd_fd);
-	close(cwd_fd);
+	close(dir_fd);
 	return NULL;
 }
 

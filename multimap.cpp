@@ -47,11 +47,6 @@ int multimap::copy(multimap * source, multimap * dest)
 	return r;
 }
 
-int multimap::drop(const char * store)
-{
-	return drop(AT_FDCWD, store);
-}
-
 /* basically just rm -rf but the top-level thing must be a directory */
 int multimap::drop(int dfd, const char * store)
 {

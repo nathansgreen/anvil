@@ -87,7 +87,6 @@ public:
 	static int copy(multimap * source, multimap * dest);
 	
 	/* delete the multimap on disk (rm -rf) */
-	static int drop(const char * store);
 	static int drop(int dfd, const char * store);
 	
 protected:

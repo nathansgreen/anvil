@@ -48,9 +48,9 @@ inline t_index::i_type & operator&=(t_index::i_type &x, const t_index::i_type &y
 extern "C" {
 #endif
 
-int toilet_index_init(const char * path, t_type type);
+int toilet_index_init(int dfd, const char * path, t_type type);
 
-t_index * toilet_open_index(const char * path, const char * name);
+t_index * toilet_open_index(int dfd, const char * path, const char * name);
 void toilet_close_index(t_index * index);
 
 t_type toilet_index_type(t_index * index);
