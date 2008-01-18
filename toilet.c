@@ -67,22 +67,19 @@
 
 int toilet_new(const char * path)
 {
-	int r, cwd_fd, fd;
+	int r, dir_fd, fd;
 	FILE * version;
 	uint8_t id[ID_SIZE];
 	t_row_id next = 0;
 	
-	cwd_fd = open(".", 0);
-	if(cwd_fd < 0)
-		return cwd_fd;
 	r = mkdir(path, 0775);
 	if(r < 0)
-		goto fail_mkdir;
-	r = chdir(path);
-	if(r < 0)
-		goto fail_chdir;
+		return r;
+	dir_fd = open(path, 0);
+	if(dir_fd < 0)
+		goto fail_open;
 	
-	version = fopen("toilet-version", "w");
+	version = fopenat(dir_fd, "toilet-version", "w");
 	if(!version)
 		goto fail_version;
 	fprintf(version, "0\n");
@@ -95,7 +92,7 @@ int toilet_new(const char * path)
 	close(fd);
 	if(r != sizeof(id))
 		goto fail_id_1;
-	fd = open("toilet-id", O_WRONLY | O_CREAT, 0664);
+	fd = openat(dir_fd, "toilet-id", O_WRONLY | O_CREAT, 0664);
 	if(fd < 0)
 		goto fail_id_1;
 	r = write(fd, &id, sizeof(id));
@@ -103,7 +100,7 @@ int toilet_new(const char * path)
 	if(r != sizeof(id))
 		goto fail_id_2;
 	
-	fd = open("next-row", O_WRONLY | O_CREAT, 0664);
+	fd = openat(dir_fd, "next-row", O_WRONLY | O_CREAT, 0664);
 	if(fd < 0)
 		goto fail_id_2;
 	r = write(fd, &next, sizeof(next));
@@ -111,26 +108,23 @@ int toilet_new(const char * path)
 	if(r != sizeof(next))
 		goto fail_next;
 	
-	r = mkdir("rows", 0775);
+	r = mkdirat(dir_fd, "rows", 0775);
 	if(r < 0)
 		goto fail_next;
 	
-	fchdir(cwd_fd);
-	close(cwd_fd);
+	close(dir_fd);
 	return 0;
 	
 fail_next:
-	unlink("next-row");
+	unlinkat(dir_fd, "next-row", 0);
 fail_id_2:
-	unlink("toilet-id");
+	unlinkat(dir_fd, "toilet-id", 0);
 fail_id_1:
-	unlink("toilet-version");
+	unlinkat(dir_fd, "toilet-version", 0);
 fail_version:
-	fchdir(cwd_fd);
-fail_chdir:
+	close(dir_fd);
+fail_open:
 	rmdir(path);
-fail_mkdir:
-	close(cwd_fd);
 	/* make sure it's an error value */
 	return (r < 0) ? r : -1;
 }
@@ -150,88 +144,78 @@ toilet * toilet_open(const char * path, FILE * errors)
 {
 	FILE * version_file;
 	char version_str[16];
-	int path_fd, cwd_fd, id_fd;
+	int dir_fd, id_fd;
 	toilet * toilet;
 	
-	cwd_fd = open(".", 0);
-	if(cwd_fd < 0)
+	dir_fd = open(path, 0);
+	if(dir_fd < 0)
 		return NULL;
-	if(chdir(path) < 0)
-		goto close_1;
-	path_fd = open(".", 0);
-	if(path_fd < 0)
-		goto cwd;
 	
 	/* allocate and initialize the structure */
 	toilet = malloc(sizeof(*toilet));
 	if(!toilet)
-		goto close_2;
+		goto fail_malloc;
 	memset(&toilet->id, 0, sizeof(toilet->id));
 	toilet->next_row = 0;
 	toilet->path = strdup(path);
 	if(!toilet->path)
-		goto free_1;
-	toilet->path_fd = path_fd;
+		goto fail_strdup;
+	toilet->path_fd = dir_fd;
 	toilet->errors = errors ? errors : stderr;
 	toilet->gtables = hash_map_create_str();
 	if(!toilet->gtables)
-		goto free_2;
+		goto fail_hash_1;
 	toilet->rows = hash_map_create();
 	if(!toilet->rows)
-		goto destroy_1;
+		goto fail_hash_2;
 	
 	/* check the version */
-	version_file = fopen("toilet-version", "r");
+	version_file = fopenat(dir_fd, "toilet-version", "r");
 	if(!version_file)
-		goto destroy_2;
+		goto fail_fopen;
 	fgets(version_str, sizeof(version_str), version_file);
 	if(feof(version_file) || ferror(version_file))
-		goto fclose;
+		goto fail_fgets;
 	if(strcmp(version_str, "0\n"))
-		goto fclose;
+		goto fail_fgets;
 	
 	/* get the database ID */
-	id_fd = open("toilet-id", O_RDONLY);
+	id_fd = openat(dir_fd, "toilet-id", O_RDONLY);
 	if(id_fd < 0)
-		goto fclose;
+		goto fail_fgets;
 	if(read(id_fd, &toilet->id, sizeof(toilet->id)) != sizeof(toilet->id))
-		goto close_3;
+		goto fail_read_1;
 	
 	/* get the next row ID source value */
 	toilet->row_fd = open("next-row", O_RDWR);
 	if(toilet->row_fd < 0)
-		goto close_3;
+		goto fail_read_1;
 	if(read(toilet->row_fd, &toilet->next_row, sizeof(toilet->next_row)) != sizeof(toilet->next_row))
-		goto close_4;
+		goto fail_read_2;
 	
 	close(id_fd);
 	fclose(version_file);
-	fchdir(cwd_fd);
 	
 	return toilet;
 	
 	/* error handling */
-close_4:
+fail_read_2:
 	close(toilet->row_fd);
-close_3:
+fail_read_1:
 	close(id_fd);
-fclose:
+fail_fgets:
 	fclose(version_file);
-destroy_2:
+fail_fopen:
 	hash_map_destroy(toilet->rows);
-destroy_1:
+fail_hash_2:
 	hash_map_destroy(toilet->gtables);
-free_2:
+fail_hash_1:
 	free((void *) toilet->path);
-free_1:
+fail_strdup:
 	/* i.e., not a pay toilet */
 	free(toilet);
-close_2:
-	close(path_fd);
-cwd:
-	fchdir(cwd_fd);
-close_1:
-	close(cwd_fd);
+fail_malloc:
+	close(dir_fd);
 	return NULL;
 }
 
@@ -251,7 +235,7 @@ int toilet_close(toilet * toilet)
 
 int toilet_new_gtable(toilet * toilet, const char * name)
 {
-	int r, cwd_fd, id_fd;
+	int r, dir_fd, id_fd;
 	uint32_t data[2];
 	
 	/* already exists and in hash? */
@@ -262,23 +246,19 @@ int toilet_new_gtable(toilet * toilet, const char * name)
 	if(!*name)
 		return -EINVAL;
 	
-	cwd_fd = open(".", 0);
-	if(cwd_fd < 0)
-		return cwd_fd;
-	fchdir(toilet->path_fd);
-	
 	/* will fail if the gtable already exists */
-	if((r = mkdir(name, 0775)) < 0)
-		goto fail_create;
-	if((r = chdir(name)) < 0)
-		goto fail_chdir;
-	if((r = mkdir("columns", 0775)) < 0)
+	if((r = mkdirat(toilet->path_fd, name, 0775)) < 0)
+		return r;
+	dir_fd = openat(toilet->path_fd, name, 0);
+	if(dir_fd < 0)
+		goto fail_open;
+	if((r = mkdirat(dir_fd, "columns", 0775)) < 0)
 		goto fail_inside_1;
-	if((r = mkdir("indices", 0775)) < 0)
+	if((r = mkdirat(dir_fd, "indices", 0775)) < 0)
 		goto fail_inside_2;
-	if((r = mkdir("indices/id", 0775)) < 0)
+	if((r = mkdirat(dir_fd, "indices/id", 0775)) < 0)
 		goto fail_inside_3;
-	id_fd = open("columns/id", O_WRONLY | O_CREAT, 0664);
+	id_fd = openat(dir_fd, "columns/id", O_WRONLY | O_CREAT, 0664);
 	if(id_fd < 0)
 	{
 		r = id_fd;
@@ -291,29 +271,25 @@ int toilet_new_gtable(toilet * toilet, const char * name)
 	if(r != sizeof(data))
 		goto fail_id_2;
 	
-	r = toilet_index_init(AT_FDCWD, "indices/id", T_ID);
+	r = toilet_index_init(dir_fd, "indices/id", T_ID);
 	if(r < 0)
 		goto fail_id_2;
 	
-	fchdir(cwd_fd);
-	close(cwd_fd);
+	close(dir_fd);
 	return 0;
 	
 fail_id_2:
-	unlink("columns/id");
+	unlinkat(dir_fd, "columns/id", 0);
 fail_id_1:
-	rmdir("indices/id");
+	unlinkat(dir_fd, "indices/id", AT_REMOVEDIR);
 fail_inside_3:
-	rmdir("indices");
+	unlinkat(dir_fd, "indices", AT_REMOVEDIR);
 fail_inside_2:
-	rmdir("columns");
+	unlinkat(dir_fd, "columns", AT_REMOVEDIR);
 fail_inside_1:
-	chdir("..");
-fail_chdir:
-	rmdir(name);
-fail_create:
-	fchdir(cwd_fd);
-	close(cwd_fd);
+	close(dir_fd);
+fail_open:
+	unlinkat(toilet->path_fd, name, AT_REMOVEDIR);
 	/* make sure it's an error value */
 	return (r < 0) ? r : -1;
 }
@@ -324,8 +300,7 @@ int toilet_drop_gtable(t_gtable * gtable)
 	return -ENOSYS;
 }
 
-/* assumes we're already in the gtable/columns directory */
-static t_column * toilet_open_column(const char * name)
+static t_column * toilet_open_column(int dfd, const char * name)
 {
 	int fd;
 	uint32_t data[2];
@@ -336,7 +311,7 @@ static t_column * toilet_open_column(const char * name)
 	if(!column->name)
 		goto fail_name;
 	
-	fd = open(name, O_RDONLY);
+	fd = openat(dfd, name, O_RDONLY);
 	if(fd < 0)
 		goto fail_open;
 	if(read(fd, data, sizeof(data)) != sizeof(data))
@@ -353,7 +328,7 @@ static t_column * toilet_open_column(const char * name)
 		case T_BLOB:
 			/* placate compiler */ ;
 	}
-	column->index = toilet_open_index(AT_FDCWD, "../indices", name);
+	column->index = toilet_open_index(dfd, "../indices", name);
 	if(!column->index)
 		goto fail_read;
 	
@@ -378,7 +353,7 @@ static void toilet_close_column(t_column * column)
 
 t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 {
-	int cwd_fd;
+	int table_fd, column_fd;
 	t_gtable * gtable;
 	struct dirent * ent;
 	DIR * dir;
@@ -405,19 +380,16 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 		goto fail_map;
 	gtable->out_count = 1;
 	
-	cwd_fd = open(".", 0);
-	if(cwd_fd < 0)
-		goto fail_cwd;
-	if(fchdir(toilet->path_fd) < 0)
-		goto fail_db;
-	if(chdir(name) < 0)
+	table_fd = openat(toilet->path_fd, name, 0);
+	if(table_fd < 0)
 		goto fail_gtable;
-	if(chdir("columns") < 0)
-		goto fail_gtable;
+	column_fd = openat(table_fd, "columns", 0);
+	if(column_fd < 0)
+		goto fail_column;
 	
-	dir = opendir(".");
+	dir = fdopendir(column_fd);
 	if(!dir)
-		goto fail_gtable;
+		goto fail_opendir;
 	while((ent = readdir(dir)))
 	{
 		t_column * column;
@@ -425,7 +397,7 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 			continue;
 		if(!strcmp(ent->d_name, "id"))
 			id++;
-		column = toilet_open_column(ent->d_name);
+		column = toilet_open_column(column_fd, ent->d_name);
 		if(!column)
 			goto fail_columns;
 		if(vector_push_back(gtable->columns, column) < 0)
@@ -443,8 +415,8 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 		goto fail_columns;
 	
 	closedir(dir);
-	fchdir(cwd_fd);
-	close(cwd_fd);
+	close(column_fd);
+	close(table_fd);
 	return gtable;
 	
 fail_columns:
@@ -455,11 +427,11 @@ fail_columns:
 		toilet_close_column(column);
 	}
 	closedir(dir);
+fail_opendir:
+	close(column_fd);
+fail_column:
+	close(table_fd);
 fail_gtable:
-	fchdir(cwd_fd);
-fail_db:
-	close(cwd_fd);
-fail_cwd:
 	hash_map_destroy(gtable->column_map);
 fail_map:
 	vector_destroy(gtable->columns);
