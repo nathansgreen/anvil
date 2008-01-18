@@ -88,6 +88,7 @@ public:
 	
 	/* delete the multimap on disk (rm -rf) */
 	static int drop(const char * store);
+	static int drop(int dfd, const char * store);
 	
 protected:
 	mm_type_t key_type;

@@ -1,3 +1,7 @@
+/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+ * of the University of California. It is distributed under the terms of
+ * version 2 of the GNU GPL. See the file LICENSE for details. */
+
 #ifndef __OPENAT_H
 #define __OPENAT_H
 
@@ -5,6 +9,24 @@
 #ifdef _ATFILE_SOURCE
 
 #include <fcntl.h>
+#include <stdio.h>
+#include <dirent.h>
+#include <sys/types.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* a useful utility function */
+FILE * fopenat(int dfd, const char * filename, const char * mode);
+
+/* not part of the standard *at() functions */
+DIR * opendirat(int dfd, const char * pathname);
+DIR * fdopendir(int dfd);
+
+#ifdef __cplusplus
+}
+#endif
 
 #ifndef AT_FDCWD
 
@@ -32,6 +54,10 @@
 struct timeval;
 struct stat64;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int openat(int dfd, const char * filename, int flags, __OPENAT_MODE) __attribute__((weak));
 int mkdirat(int dfd, const char * pathname, mode_t mode) __attribute__((weak));
 int mknodat(int dfd, const char * filename, mode_t mode, dev_t dev) __attribute__((weak));
@@ -46,7 +72,9 @@ int readlinkat(int dfd, const char * path, char * buf, int bufsiz) __attribute__
 int fchmodat(int dfd, const char * filename, mode_t mode) __attribute__((weak));
 int faccessat(int dfd, const char * filename, int mode) __attribute__((weak));
 
-/* might we also need opendirat() [fchdir(fd), opendir(path)] or fdopendir()? [fchdir(fd), opendir(".")] */
+#ifdef __cplusplus
+}
+#endif
 
 #ifdef __linux__
 #ifdef __i386__

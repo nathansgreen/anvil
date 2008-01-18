@@ -2,6 +2,8 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#define _ATFILE_SOURCE
+
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
@@ -10,6 +12,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "openat.h"
 #include "multimap.h"
 
 multimap_it::~multimap_it()
@@ -44,26 +47,25 @@ int multimap::copy(multimap * source, multimap * dest)
 	return r;
 }
 
-/* basically just rm -rf but the top-level thing must be a directory */
 int multimap::drop(const char * store)
 {
-	int r, cwd_fd;
+	return drop(AT_FDCWD, store);
+}
+
+/* basically just rm -rf but the top-level thing must be a directory */
+int multimap::drop(int dfd, const char * store)
+{
+	DIR * dir;
 	struct dirent * ent;
-	DIR * dir = opendir(store);
+	int r, dir_fd = openat(dfd, store, 0);
+	if(dir_fd < 0)
+		return dir_fd;
+	dir = fdopendir(dir_fd);
 	if(!dir)
-		return -errno;
-	cwd_fd = open(".", 0);
-	if(cwd_fd < 0)
 	{
-		closedir(dir);
-		return cwd_fd;
-	}
-	if((r = chdir(store)) < 0)
-	{
-	fail:
-		fchdir(cwd_fd);
-		close(cwd_fd);
-		closedir(dir);
+		r = -errno;
+		close(dir_fd);
+		errno = -r;
 		return r;
 	}
 	while((ent = readdir(dir)))
@@ -71,17 +73,23 @@ int multimap::drop(const char * store)
 		struct stat st;
 		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
 			continue;
-		if((r = stat(ent->d_name, &st)) < 0)
-			goto fail;
+		if((r = fstatat64(dir_fd, ent->d_name, &st, AT_SYMLINK_NOFOLLOW)) < 0)
+		{
+		fail:
+			int save = errno;
+			closedir(dir);
+			close(dir_fd);
+			errno = save;
+			return r;
+		}
 		if(S_ISDIR(st.st_mode))
-			r = drop(ent->d_name);
+			r = drop(dir_fd, ent->d_name);
 		else
-			r = unlink(ent->d_name);
+			r = unlinkat(dir_fd, ent->d_name, 0);
 		if(r < 0)
 			goto fail;
 	}
-	fchdir(cwd_fd);
-	close(cwd_fd);
 	closedir(dir);
-	return rmdir(store);
+	close(dir_fd);
+	return unlinkat(dfd, store, AT_REMOVEDIR);
 }

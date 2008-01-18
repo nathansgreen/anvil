@@ -1,17 +1,80 @@
+/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+ * of the University of California. It is distributed under the terms of
+ * version 2 of the GNU GPL. See the file LICENSE for details. */
+
 #define _ATFILE_SOURCE
 
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <dirent.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
 
-/* can be removed once ENOSYS, perror() are not used */
-#include <errno.h>
-#include <stdio.h>
-
 #define __OPENAT_MODE mode_t mode
 #include "openat.h"
+
+FILE * fopenat(int dfd, const char * filename, const char * mode)
+{
+	int fd, p = mode[0] ? ((mode[1] == 'b') ? 2 : 1) : 0;
+	mode_t modet;
+	FILE * file;
+	if(mode[0] == 'r')
+		modet = (mode[p] == '+') ? O_RDWR : O_RDONLY;
+	else if(mode[0] == 'w')
+		modet = O_CREAT | O_TRUNC | (mode[p] == '+') ? O_RDWR : O_WRONLY;
+	else if(mode[0] == 'a')
+		modet = O_CREAT | O_APPEND | (mode[p] == '+') ? O_RDWR : O_WRONLY;
+	else
+	{
+		errno = EINVAL;
+		return NULL;
+	}
+	fd = openat(dfd, filename, modet, S_IRWXU | S_IRWXG | S_IRWXO);
+	if(fd < 0)
+		return NULL;
+	file = fdopen(fd, mode);
+	if(!file)
+	{
+		int save = errno;
+		close(fd);
+		errno = save;
+	}
+	return file;
+}
+
+DIR * opendirat(int dfd, const char * pathname)
+{
+	int cfd, save;
+	DIR * dir;
+	if(dfd == AT_FDCWD || *pathname == '/')
+		return opendir(pathname);
+	cfd = open(".", 0);
+	if(cfd < 0)
+		return NULL;
+	if(fchdir(dfd) < 0)
+	{
+		save = errno;
+		close(cfd);
+		errno = save;
+		return NULL;
+	}
+	dir = opendir(pathname);
+	save = errno;
+	fchdir(cfd);
+	close(cfd);
+	errno = save;
+	return dir;
+}
+
+DIR * fdopendir(int dfd)
+{
+	return opendirat(dfd, ".");
+}
 
 #ifdef __NEED_OPENAT
 
