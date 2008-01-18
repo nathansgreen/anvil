@@ -499,28 +499,24 @@ static const char * row_formats[] = {
 
 int toilet_new_row(toilet * toilet, t_gtable * gtable, t_row_id * new_id)
 {
-	int i, r, cwd_fd, row_fd;
+	int i, r, row_fd;
 	char row[] = "rows/xx/xx/xx/xx";
 	union {
 		t_row_id id;
 		uint8_t bytes[sizeof(t_row_id)];
 	} id;
 	t_column * id_col;
-	cwd_fd = open(".", 0);
-	if(cwd_fd < 0)
-		return cwd_fd;
-	fchdir(toilet->path_fd);
 	if((r = toilet_new_row_id(toilet, &id.id)) < 0)
 		goto fail;
 	for(i = 0; i < ROW_FORMATS; i++)
 	{
 		sprintf(row, row_formats[i], id.bytes[0], id.bytes[1], id.bytes[2], id.bytes[3]);
-		row_fd = open(row, 0);
+		row_fd = openat(toilet->path_fd, row, 0);
 		if(row_fd < 0)
 		{
-			if((r = mkdir(row, 0775)) < 0)
+			if((r = mkdirat(toilet->path_fd, row, 0775)) < 0)
 				goto fail;
-			row_fd = open(row, 0);
+			row_fd = openat(toilet->path_fd, row, 0);
 			if(row_fd < 0)
 			{
 				r = row_fd;
@@ -533,38 +529,34 @@ int toilet_new_row(toilet * toilet, t_gtable * gtable, t_row_id * new_id)
 		if(i < ROW_FORMATS - 1)
 			close(row_fd);
 	}
-	fchdir(row_fd);
-	close(row_fd);
 	
-	row_fd = open("gtable", O_WRONLY | O_CREAT, 0664);
-	if(row_fd < 0)
+	i = openat(row_fd, "gtable", O_WRONLY | O_CREAT, 0664);
+	if(i < 0)
 	{
-		r = row_fd;
-		goto fail;
+		r = i;
+		goto fail_close;
 	}
-	r = write(row_fd, gtable->name, strlen(gtable->name));
-	close(row_fd);
+	r = write(i, gtable->name, strlen(gtable->name));
+	close(i);
 	if(r != strlen(gtable->name))
-	{
-		unlink("gtable");
-		goto fail;
-	}
+		goto fail_unlink;
 	
 	id_col = hash_map_find_val(gtable->column_map, "id");
 	if(!id_col)
-		goto fail;
+		goto fail_unlink;
 	r = toilet_index_add(id_col->index, id.id, T_ID, (t_value) id.id);
 	if(r < 0)
-		goto fail;
+		goto fail_unlink;
 	*new_id = id.id;
 	
-	fchdir(cwd_fd);
-	close(cwd_fd);
+	close(row_fd);
 	return 0;
 	
+fail_unlink:
+	unlinkat(row_fd, "gtable", 0);
+fail_close:
+	close(row_fd);
 fail:
-	fchdir(cwd_fd);
-	close(cwd_fd);
 	/* make sure it's an error value */
 	return (r < 0) ? r : -1;
 }
@@ -577,7 +569,7 @@ int toilet_drop_row(t_row * row)
 
 t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
 {
-	int cwd_fd, fd;
+	int dir_fd, fd;
 	ssize_t length;
 	char row_name[] = "rows/xx/xx/xx/xx";
 	char gtable_name[GTABLE_NAME_LENGTH + 1];
@@ -589,20 +581,16 @@ t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
 	id.id = row_id;
 	sprintf(row_name, row_formats[ROW_FORMATS - 1], id.bytes[0], id.bytes[1], id.bytes[2], id.bytes[3]);
 	
-	cwd_fd = open(".", 0);
-	if(cwd_fd < 0)
+	dir_fd = openat(toilet->path_fd, row_name, 0);
+	if(dir_fd < 0)
 		return NULL;
-	if(fchdir(toilet->path_fd) < 0)
-		goto fail;
-	if(chdir(row_name) < 0)
-		goto fail;
 	
 	row = malloc(sizeof(*row));
 	if(!row)
 		goto fail;
 	row->id = row_id;
 	
-	fd = open("gtable", O_RDONLY);
+	fd = openat(dir_fd, "gtable", O_RDONLY);
 	if(fd < 0)
 		goto fail_open;
 	length = read(fd, gtable_name, GTABLE_NAME_LENGTH);
@@ -611,30 +599,23 @@ t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
 		goto fail_open;
 	row_name[length] = 0;
 	row->gtable = toilet_get_gtable(toilet, row_name);
-	/* XXX: get column values */
-	row->columns = NULL;
 	if(!row->gtable)
 		goto fail_open;
-	row->row_path_fd = open(".", 0);
-	if(row->row_path_fd < 0)
-		goto fail_path;
+	/* XXX: get column values */
+	row->columns = NULL;
+	row->row_path_fd = dir_fd;
 	row->out_count = 1;
 	if(hash_map_insert(toilet->rows, (void *) row_id, row) < 0)
 		goto fail_hash;
 	
-	fchdir(cwd_fd);
-	close(cwd_fd);
 	return row;
 	
 fail_hash:
-	close(row->row_path_fd);
-fail_path:
 	toilet_put_gtable(toilet, row->gtable);
 fail_open:
 	free(row);
 fail:
-	fchdir(cwd_fd);
-	close(cwd_fd);
+	close(dir_fd);
 	return NULL;
 }
 
