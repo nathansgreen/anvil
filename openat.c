@@ -3,6 +3,7 @@
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
 #define _ATFILE_SOURCE
+#define _GNU_SOURCE
 
 #include <dlfcn.h>
 #include <errno.h>
