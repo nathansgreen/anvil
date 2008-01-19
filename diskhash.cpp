@@ -296,12 +296,13 @@ int diskhash::append_value(mm_val_t * key, mm_val_t * value)
 			if(r != sizeof(value->u64))
 				goto unlink;
 			break;
-		case MM_STR:
+		case MM_STR: {
 			size_t length = strlen((char *) value);
 			r = write(fd, value, length);
 			if(r != length)
 				goto unlink;
 			break;
+		}
 		case MM_BLOB:
 			r = write(fd, value->blob, value->blob_len);
 			if(r != value->blob_len)
