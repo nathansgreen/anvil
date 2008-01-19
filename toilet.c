@@ -604,8 +604,8 @@ t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
 	close(fd);
 	if(length <= 0)
 		goto fail_open;
-	row_name[length] = 0;
-	row->gtable = toilet_get_gtable(toilet, row_name);
+	gtable_name[length] = 0;
+	row->gtable = toilet_get_gtable(toilet, gtable_name);
 	if(!row->gtable)
 		goto fail_open;
 	/* XXX: get column values */

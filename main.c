@@ -9,19 +9,12 @@
 
 int main(void)
 {
-	int r;
-	toilet * toilet = toilet_open("hand-built", NULL);
-	if(toilet)
-		toilet_close(toilet);
-	else
-		fprintf(stderr, "Warning: failed to open toilet! ('hand-built')\n");
-	
-	r = toilet_new("test");
+	int r = toilet_new("test");
 	if(r < 0)
 		fprintf(stderr, "Error: failed to create toilet! ('test')\n");
 	else
 	{
-		toilet = toilet_open("test", NULL);
+		toilet * toilet = toilet_open("test", NULL);
 		if(toilet)
 		{
 			t_gtable * gtable;
