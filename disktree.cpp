@@ -91,6 +91,10 @@ int disktree::update_value(mm_val_t * key, mm_val_t * old_value, mm_val_t * new_
 int disktree::init(int dfd, const char * store, mm_type_t key_type, mm_type_t val_type)
 {
 	int dir_fd, fd, r;
+	mm_type_t types[2];
+	size_t zero[2] = {0, 0};
+	if(key_type != MM_U32 && key_type != MM_U64 && key_type != MM_STR)
+		return -EINVAL;
 	r = mkdirat(dfd, store, 0755);
 	if(r < 0)
 		return r;
@@ -106,11 +110,13 @@ int disktree::init(int dfd, const char * store, mm_type_t key_type, mm_type_t va
 		r = fd;
 		goto fail_open;
 	}
-	r = write(fd, &key_type, sizeof(key_type));
-	if(r != sizeof(key_type))
+	types[DT_KT_IDX] = key_type;
+	types[DT_VT_IDX] = val_type;
+	r = write(fd, types, sizeof(types));
+	if(r != sizeof(types))
 		goto fail_write;
-	r = write(fd, &val_type, sizeof(val_type));
-	if(r != sizeof(val_type))
+	r = write(fd, zero, sizeof(zero));
+	if(r != sizeof(zero))
 		goto fail_write;
 	close(fd);
 	
@@ -129,11 +135,12 @@ fail_dir:
 }
 
 /* open a disktree on disk, or return NULL on error */
-disktree * disktree::open(int dfd, const char * store)
+disktree * disktree::open(uint8_t * id, int dfd, const char * store)
 {
 	return NULL;
 }
 
-disktree::disktree()
+disktree::disktree(uint8_t * id)
+	: multimap(id)
 {
 }

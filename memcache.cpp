@@ -36,8 +36,8 @@ memcache_it::memcache_it(multimap_it * it)
 
 /* mem caches */
 
-memcache::memcache(multimap * map)
-	: base(map)
+memcache::memcache(uint8_t * id, multimap * map)
+	: multimap(id), base(map)
 {
 	key_type = map->get_key_type();
 	val_type = map->get_val_type();

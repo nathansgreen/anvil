@@ -2,6 +2,7 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "toilet.h"

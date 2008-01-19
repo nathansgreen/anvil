@@ -23,6 +23,11 @@ multimap::~multimap()
 {
 }
 
+multimap::multimap(uint8_t * id)
+	: toilet_id(id)
+{
+}
+
 int multimap::copy(multimap * source, multimap * dest)
 {
 	multimap_it * it;

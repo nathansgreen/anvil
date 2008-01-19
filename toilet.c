@@ -69,7 +69,7 @@ int toilet_new(const char * path)
 {
 	int r, dir_fd, fd;
 	FILE * version;
-	uint8_t id[ID_SIZE];
+	uint8_t id[T_ID_SIZE];
 	t_row_id next = 0;
 	
 	r = mkdir(path, 0775);
@@ -300,7 +300,7 @@ int toilet_drop_gtable(t_gtable * gtable)
 	return -ENOSYS;
 }
 
-static t_column * toilet_open_column(int dfd, const char * name)
+static t_column * toilet_open_column(uint8_t * id, int dfd, const char * name)
 {
 	int fd;
 	uint32_t data[2];
@@ -328,7 +328,7 @@ static t_column * toilet_open_column(int dfd, const char * name)
 		case T_BLOB:
 			/* placate compiler */ ;
 	}
-	column->index = toilet_open_index(dfd, "../indices", name);
+	column->index = toilet_open_index(id, dfd, "../indices", name);
 	if(!column->index)
 		goto fail_read;
 	
@@ -400,7 +400,7 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 			continue;
 		if(!strcmp(ent->d_name, "id"))
 			id++;
-		column = toilet_open_column(column_fd, ent->d_name);
+		column = toilet_open_column(toilet->id, column_fd, ent->d_name);
 		if(!column)
 			goto fail_columns;
 		if(vector_push_back(gtable->columns, column) < 0)

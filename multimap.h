@@ -9,6 +9,7 @@
 #include <sys/types.h>
 
 #include "blowfish.h"
+#include "toilet.h"
 
 #ifndef __cplusplus
 #error multimap.h is a C++ header file
@@ -52,7 +53,6 @@ public:
 	
 protected:
 	inline multimap_it();
-	multimap * map;
 };
 
 class multimap
@@ -90,6 +90,8 @@ public:
 	static int drop(int dfd, const char * store);
 	
 protected:
+	multimap(uint8_t * id);
+	uint8_t * toilet_id;
 	mm_type_t key_type;
 	mm_type_t val_type;
 	
@@ -141,18 +143,25 @@ inline uint32_t multimap::hash_str(const char * string)
 
 inline uint32_t multimap::hash_key(const mm_val_t * key)
 {
+	bf_ctx bfc;
+	uint32_t hash;
 	switch(key_type)
 	{
 		case MM_U32:
-			return hash_u32(key->u32);
+			hash = hash_u32(key->u32);
+			break;
 		case MM_U64:
-			return hash_u64(key->u64);
+			hash = hash_u64(key->u64);
+			break;
 		case MM_STR:
-			return hash_str(key->str);
+			hash = hash_str(key->str);
+			break;
 		default:
 			/* invalid */
 			return 0;
 	}
+	bf_setkey(&bfc, toilet_id, T_ID_SIZE);
+	return bf32_encipher(&bfc, hash);
 }
 
 #endif /* __MULTIMAP_H */

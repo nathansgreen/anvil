@@ -83,10 +83,10 @@ struct t_row {
 };
 typedef struct t_row t_row;
 
-#define ID_SIZE 16
+#define T_ID_SIZE 16
 
 struct toilet {
-	uint8_t id[ID_SIZE];
+	uint8_t id[T_ID_SIZE];
 	t_row_id next_row;
 	/* internal stuff now */
 	const char * path;

@@ -14,6 +14,11 @@
 #error diskhash.h is a C++ header file
 #endif
 
+#define DH_KT_IDX 0
+#define DH_VT_IDX 1
+#define DH_KC_IDX 0
+#define DH_VC_IDX 1
+
 class diskhash_it : public multimap_it
 {
 public:
@@ -47,9 +52,13 @@ public:
 	/* create a new diskhash (on disk) using the specified store path */
 	static int init(int dfd, const char * store, mm_type_t key_type, mm_type_t val_type);
 	/* open a diskhash on disk, or return NULL on error */
-	static diskhash * open(int dfd, const char * store);
+	static diskhash * open(uint8_t * id, int dfd, const char * store);
 private:
-	diskhash();
+	int dir_fd, dh_fd;
+	size_t key_count, value_count;
+	int bucket_fd(mm_val_t * key, bool create = false);
+	int key_fd(mm_val_t * key, bool create = false);
+	diskhash(uint8_t * id, mm_type_t kt, mm_type_t vt, int dir, int dh, size_t keys, size_t values);
 };
 
 #endif /* __DISKHASH_H */

@@ -72,7 +72,7 @@ fail_simple:
 	return r;
 }
 
-t_index * toilet_open_index(int dfd, const char * path, const char * name)
+t_index * toilet_open_index(uint8_t * id, int dfd, const char * path, const char * name)
 {
 	t_index * index;
 	int dir_fd, fd = openat(dfd, path, 0);
@@ -100,23 +100,23 @@ t_index * toilet_open_index(int dfd, const char * path, const char * name)
 	if(index->data_type != T_ID && index->data_type != T_INT && index->data_type != T_STRING)
 		goto fail_key;
 	
-	index->hash.disk = diskhash::open(dir_fd, "dh");
+	index->hash.disk = diskhash::open(id, dir_fd, "dh");
 	if(index->hash.disk)
 	{
 		index->type |= t_index::I_HASH;
 		if(index->hash.disk->get_val_type() != MM_U32)
 			goto fail_hash;
-		index->hash.cache = new memcache(index->hash.disk);
+		index->hash.cache = new memcache(id, index->hash.disk);
 		if(!index->hash.cache)
 			goto fail_hash;
 	}
-	index->tree.disk = disktree::open(dir_fd, "dt");
+	index->tree.disk = disktree::open(id, dir_fd, "dt");
 	if(index->tree.disk)
 	{
 		index->type |= t_index::I_TREE;
 		if(index->tree.disk->get_val_type() != MM_U32)
 			goto fail_hash;
-		index->tree.cache = new memcache(index->tree.disk);
+		index->tree.cache = new memcache(id, index->tree.disk);
 		if(!index->tree.cache)
 			goto fail_tree;
 	}

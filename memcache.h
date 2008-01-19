@@ -31,7 +31,7 @@ private:
 class memcache : public multimap
 {
 public:
-	memcache(multimap * map);
+	memcache(uint8_t * id, multimap * map);
 	virtual ~memcache();
 	
 	virtual size_t keys();

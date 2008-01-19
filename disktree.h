@@ -14,6 +14,11 @@
 #error disktree.h is a C++ header file
 #endif
 
+#define DT_KT_IDX 0
+#define DT_VT_IDX 1
+#define DT_KC_IDX 0
+#define DT_VC_IDX 1
+
 class disktree_it : public multimap_it
 {
 public:
@@ -47,9 +52,9 @@ public:
 	/* create a new disktree (on disk) using the specified store path */
 	static int init(int dfd, const char * store, mm_type_t key_type, mm_type_t val_type);
 	/* open a disktree on disk, or return NULL on error */
-	static disktree * open(int dfd, const char * store);
+	static disktree * open(uint8_t * id, int dfd, const char * store);
 private:
-	disktree();
+	disktree(uint8_t * id);
 };
 
 #endif /* __DISKTREE_H */
