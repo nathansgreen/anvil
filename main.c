@@ -47,7 +47,7 @@ int main(void)
 				toilet_put_gtable(toilet, gtable);
 			}
 			else
-				fprintf(stderr, "Error: failed to open gtable!\n");
+				fprintf(stderr, "Error: failed to open gtable! ('testgt')\n");
 			toilet_close(toilet);
 		}
 		else

@@ -353,7 +353,7 @@ static void toilet_close_column(t_column * column)
 
 t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 {
-	int table_fd, column_fd;
+	int table_fd, column_fd, copy;
 	t_gtable * gtable;
 	struct dirent * ent;
 	DIR * dir;
@@ -387,10 +387,14 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 	if(column_fd < 0)
 		goto fail_column;
 	
-	dir = fdopendir(column_fd);
+	/* don't count on the fd passed to fdopendir() sticking around */
+	copy = dup(column_fd);
+	if(copy < 0)
+		goto fail_dup;
+	dir = fdopendir(copy);
 	if(!dir)
 	{
-		close(column_fd);
+		close(copy);
 		goto fail_column;
 	}
 	while((ent = readdir(dir)))
@@ -418,6 +422,7 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 		goto fail_columns;
 	
 	closedir(dir);
+	close(column_fd);
 	close(table_fd);
 	return gtable;
 	
@@ -429,6 +434,8 @@ fail_columns:
 		toilet_close_column(column);
 	}
 	closedir(dir);
+fail_dup:
+	close(column_fd);
 fail_column:
 	close(table_fd);
 fail_gtable:

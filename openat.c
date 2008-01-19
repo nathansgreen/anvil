@@ -92,6 +92,11 @@ DIR * fdopendir(int dfd)
 	}
 	dir = opendir(".");
 	save = errno;
+	if(dir)
+		/* NOTE: technically this file descriptor should stay open, and be the one used
+		 * for the DIR * that we return. But more important is that only closedir() is
+		 * required after a successful fdopendir() - you need not call close(dfd) later. */
+		close(dfd);
 	fchdir(cwd);
 	close(cwd);
 	errno = save;

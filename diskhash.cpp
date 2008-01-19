@@ -111,9 +111,20 @@ int diskhash::reset_key(mm_val_t * key, mm_val_t * value)
 
 int diskhash::append_value(mm_val_t * key, mm_val_t * value)
 {
+	DIR * dir;
 	int key_dir = key_fd(key, true);
+	if(key_dir < 0)
+		return key_dir;
+	dir = fdopendir(key_dir);
+	if(!dir)
+	{
+		int save = errno;
+		close(key_dir);
+		errno = save;
+		return -save;
+	}
 	/* XXX */
-	close(key_dir);
+	closedir(dir);
 	return 0;
 }
 
