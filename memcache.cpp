@@ -16,7 +16,13 @@
 
 int memcache_it::next()
 {
-	return base->next();
+	int r = base->next();
+	if(r >= 0)
+	{
+		key = base->key;
+		val = base->val;
+	}
+	return r;
 }
 
 size_t memcache_it::size()
@@ -26,11 +32,13 @@ size_t memcache_it::size()
 
 memcache_it::~memcache_it()
 {
+	key = NULL;
+	val = NULL;
 	delete base;
 }
 
 memcache_it::memcache_it(multimap_it * it)
-	: base(it)
+	: multimap_it(it->it_map), base(it)
 {
 }
 

@@ -26,14 +26,92 @@
 
 int diskhash_it::next()
 {
+	int r, fd;
+	struct stat stat;
+	struct dirent * ent;
+	while((ent = readdir(dir)))
+	{
+		if(strcmp(ent->d_name, ".") && strcmp(ent->d_name, ".."))
+			break;
+	}
+	if(!ent)
+		return -ENOENT;
+	free_value();
+	fd = openat(key_fd, ent->d_name, O_RDONLY);
+	if(fd < 0)
+		return fd;
+	switch(it_map->get_val_type())
+	{
+		case MM_U32:
+			val = &s_val;
+			r = read(fd, &val->u32, sizeof(val->u32));
+			if(r != sizeof(val->u32))
+				goto fail_read;
+			break;
+		case MM_U64:
+			val = &s_val;
+			r = read(fd, &val->u64, sizeof(val->u64));
+			if(r != sizeof(val->u64))
+				goto fail_read;
+			break;
+		case MM_STR:
+			r = fstat(fd, &stat);
+			if(r < 0)
+				goto fail_read;
+			val = (mm_val_t *) malloc(stat.st_size + 1);
+			if(!val)
+				goto fail_read;
+			((char *) val)[stat.st_size] = 0;
+			r = read(fd, val, stat.st_size);
+			if(r < 0)
+			{
+				free(val);
+				goto fail_read;
+			}
+			break;
+		case MM_BLOB:
+			val = &s_val;
+			r = fstat(fd, &stat);
+			if(r < 0)
+				goto fail_read;
+			val->blob = malloc(stat.st_size);
+			if(!val->blob)
+				goto fail_read;
+			r = read(fd, val->blob, stat.st_size);
+			if(r != stat.st_size)
+			{
+				free(val->blob);
+				goto fail_read;
+			}
+			break;
+		default:
+			goto fail_read;
+	}
+	close(fd);
+	return 0;
+	
+fail_read:
+	val = NULL;
+	close(fd);
+	return -1;
 }
 
 size_t diskhash_it::size()
 {
+	return values;
 }
 
 diskhash_it::~diskhash_it()
 {
+	key = NULL;
+	closedir(dir);
+	close(key_fd);
+}
+
+diskhash_it::diskhash_it(diskhash * dh, mm_val_t * it_key, DIR * key_dir, int fd, size_t count)
+	: multimap_it(dh), dir(key_dir), key_fd(fd), values(count)
+{
+	key = it_key;
 }
 
 /* disk hashes */
@@ -56,22 +134,86 @@ size_t diskhash::values()
 
 ssize_t diskhash::count_values(mm_val_t * key)
 {
+	DIR * dir;
+	ssize_t values = 0;
+	struct dirent * ent;
+	int key_dir = key_fd(key);
+	if(key_dir < 0)
+		return key_dir;
+	dir = fdopendir(key_dir);
+	if(!dir)
+	{
+		int save = errno;
+		close(key_dir);
+		errno = save;
+		return -save;
+	}
+	while((ent = readdir(dir)))
+	{
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+			continue;
+		values++;
+	}
+	closedir(dir);
+	return values;
 }
 
 diskhash_it * diskhash::get_values(mm_val_t * key)
 {
+	DIR * dir;
+	diskhash_it * it;
+	size_t values = 0;
+	struct dirent * ent;
+	int copy, key_dir = key_fd(key);
+	if(key_dir < 0)
+		return NULL;
+	copy = dup(key_dir);
+	if(copy < 0)
+	{
+		int save = errno;
+		close(key_dir);
+		errno = save;
+		return NULL;
+	}
+	dir = fdopendir(copy);
+	if(!dir)
+	{
+		int save = errno;
+		close(copy);
+		close(key_dir);
+		errno = save;
+		return NULL;
+	}
+	while((ent = readdir(dir)))
+	{
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+			continue;
+		values++;
+	}
+	rewinddir(dir);
+	it = new diskhash_it(this, key, dir, key_dir, values);
+	if(!it)
+	{
+		closedir(dir);
+		close(key_dir);
+	}
+	return it;
 }
 
 ssize_t diskhash::count_range(mm_val_t * low_key, mm_val_t * high_key)
 {
+	return -ENOSYS;
 }
 
 diskhash_it * diskhash::get_range(mm_val_t * low_key, mm_val_t * high_key)
 {
+	return NULL;
 }
 
 diskhash_it * diskhash::iterator()
 {
+	/* FIXME: iterate through everything */
+	return NULL;
 }
 
 int diskhash::remove_key(mm_val_t * key)
@@ -112,25 +254,78 @@ int diskhash::reset_key(mm_val_t * key, mm_val_t * value)
 int diskhash::append_value(mm_val_t * key, mm_val_t * value)
 {
 	DIR * dir;
-	int key_dir = key_fd(key, true);
+	uint32_t i;
+	char index[12];
+	int r, fd, key_dir = key_fd(key, true);
 	if(key_dir < 0)
 		return key_dir;
-	dir = fdopendir(key_dir);
-	if(!dir)
+	/* yay linear search! */
+	for(i = 1; i; i++)
 	{
-		int save = errno;
-		close(key_dir);
-		errno = save;
-		return -save;
+		snprintf(index, sizeof(index), "%u", i);
+		fd = openat(key_dir, index, 0);
+		if(fd < 0)
+		{
+			if(errno == ENOENT)
+				break;
+			close(key_dir);
+			return fd;
+		}
+		close(fd);
 	}
-	/* XXX */
-	closedir(dir);
+	if(!i)
+	{
+		close(key_dir);
+		return -ENOSPC;
+	}
+	fd = openat(key_dir, index, O_WRONLY | O_CREAT, 0664);
+	if(fd < 0)
+	{
+		close(key_dir);
+		return fd;
+	}
+	switch(val_type)
+	{
+		case MM_U32:
+			r = write(fd, &value->u32, sizeof(value->u32));
+			if(r != sizeof(value->u32))
+				goto unlink;
+			break;
+		case MM_U64:
+			r = write(fd, &value->u64, sizeof(value->u64));
+			if(r != sizeof(value->u64))
+				goto unlink;
+			break;
+		case MM_STR:
+			size_t length = strlen((char *) value);
+			r = write(fd, value, length);
+			if(r != length)
+				goto unlink;
+			break;
+		case MM_BLOB:
+			r = write(fd, value->blob, value->blob_len);
+			if(r != value->blob_len)
+				goto unlink;
+			break;
+		default:
+			r = -EINVAL;
+			goto unlink;
+	}
+	close(fd);
+	close(key_dir);
 	return 0;
+	
+unlink:
+	close(fd);
+	unlinkat(key_dir, index, 0);
+	close(key_dir);
+	/* make sure it's an error value */
+	return (r < 0) ? r : -1;
 }
 
 int diskhash::remove_value(mm_val_t * key, mm_val_t * value)
 {
-	/* XXX */
+	/* FIXME: implement this */
 }
 
 int diskhash::update_value(mm_val_t * key, mm_val_t * old_value, mm_val_t * new_value)
@@ -280,6 +475,7 @@ int diskhash::key_fd(mm_val_t * key, bool create)
 			snprintf(_key_name, sizeof(_key_name), "%llu", key->u64);
 			break;
 		case MM_STR:
+			/* FIXME: what if the string contains a / character? */
 			key_name = (const char *) key;
 			break;
 		default:

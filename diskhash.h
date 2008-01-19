@@ -19,6 +19,8 @@
 #define DH_KC_IDX 0
 #define DH_VC_IDX 1
 
+class diskhash;
+
 class diskhash_it : public multimap_it
 {
 public:
@@ -26,6 +28,11 @@ public:
 	virtual size_t size();
 	virtual ~diskhash_it();
 private:
+	DIR * dir;
+	int key_fd;
+	size_t values;
+	diskhash_it(diskhash * dh, mm_val_t * it_key, DIR * key_dir, int key_fd, size_t count);
+	friend class diskhash;
 };
 
 class diskhash : public multimap

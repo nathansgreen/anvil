@@ -16,6 +16,7 @@
 #endif
 
 typedef enum {
+	/* MM_NONE means "invalid" */
 	MM_NONE = 0,
 	MM_U32 = 1,
 	MM_U64 = 2,
@@ -51,8 +52,12 @@ public:
 	
 	virtual ~multimap_it();
 	
+	multimap * it_map;
 protected:
-	inline multimap_it();
+	mm_val_t s_key, s_val;
+	void free_key();
+	void free_value();
+	inline multimap_it(multimap * map);
 };
 
 class multimap
@@ -102,8 +107,8 @@ protected:
 	inline uint32_t hash_key(const mm_val_t * key);
 };
 
-inline multimap_it::multimap_it()
-	: key(NULL), val(NULL)
+inline multimap_it::multimap_it(multimap * map)
+	: it_map(map), key(NULL), val(NULL)
 {
 }
 

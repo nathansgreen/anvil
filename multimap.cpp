@@ -6,6 +6,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <assert.h>
 #include <string.h>
 #include <dirent.h>
 #include <unistd.h>
@@ -17,6 +18,52 @@
 
 multimap_it::~multimap_it()
 {
+	free_key();
+	free_value();
+}
+
+void multimap_it::free_key()
+{
+	if(!key)
+		return;
+	switch(it_map->get_key_type())
+	{
+		case MM_U32:
+		case MM_U64:
+			assert(key == &s_key);
+			break;
+		case MM_STR:
+			free(key);
+			break;
+		default:
+			/* TODO: use the toilet error stream */
+			fprintf(stderr, "%s(): leaking key of unknown type at %p\n", __FUNCTION__, key);
+	}
+	key = NULL;
+}
+
+void multimap_it::free_value()
+{
+	if(!val)
+		return;
+	switch(it_map->get_val_type())
+	{
+		case MM_U32:
+		case MM_U64:
+			assert(val == &s_val);
+			break;
+		case MM_STR:
+			free(val);
+			break;
+		case MM_BLOB:
+			assert(val == &s_val);
+			free(val->blob);
+			break;
+		default:
+			/* TODO: use the toilet error stream */
+			fprintf(stderr, "%s(): leaking value of unknown type at %p\n", __FUNCTION__, val);
+	}
+	val = NULL;
 }
 
 multimap::~multimap()
