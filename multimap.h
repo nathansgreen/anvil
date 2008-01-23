@@ -100,11 +100,12 @@ protected:
 	mm_type_t key_type;
 	mm_type_t val_type;
 	
+	inline uint32_t hash_key(const mm_val_t * key);
+	
+private:
 	static inline uint32_t hash_u32(uint32_t u32);
 	static inline uint32_t hash_u64(uint64_t u64);
 	static inline uint32_t hash_str(const char * string);
-	
-	inline uint32_t hash_key(const mm_val_t * key);
 };
 
 inline multimap_it::multimap_it(multimap * map)

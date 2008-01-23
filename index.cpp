@@ -278,6 +278,29 @@ fail_rowset:
 	return NULL;
 }
 
+ssize_t toilet_index_size(t_index * index)
+{
+	if(index->type & t_index::I_HASH)
+		return index->hash.cache->values();
+	if(index->type & t_index::I_TREE)
+		return index->tree.cache->values();
+	return -1;
+}
+
+t_rowset * toilet_index_list(t_index * index, t_type type)
+{
+	multimap_it * it = NULL;
+	if(type != index->data_type)
+		return NULL;
+	if(index->type & t_index::I_HASH)
+		it = index->hash.cache->iterator();
+	else if(index->type & t_index::I_TREE)
+		it = index->tree.cache->iterator();
+	if(!it)
+		return NULL;
+	return multimap_it_to_rowset(it);
+}
+
 ssize_t toilet_index_count(t_index * index, t_type type, t_value value)
 {
 	mm_val_t mm_value;
