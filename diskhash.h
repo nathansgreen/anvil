@@ -65,6 +65,7 @@ private:
 	size_t key_count, value_count;
 	int bucket_fd(mm_val_t * key, bool create = false);
 	int key_fd(mm_val_t * key, bool create = false);
+	int update_counts(ssize_t kd, ssize_t vd);
 	diskhash(uint8_t * id, mm_type_t kt, mm_type_t vt, int dir, int dh, size_t keys, size_t values);
 };
 

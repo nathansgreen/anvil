@@ -83,6 +83,7 @@ int diskhash_it::next()
 				free(val->blob);
 				goto fail_read;
 			}
+			val->blob_len = stat.st_size;
 			break;
 		default:
 			goto fail_read;
@@ -218,6 +219,7 @@ diskhash_it * diskhash::iterator()
 
 int diskhash::remove_key(mm_val_t * key)
 {
+	size_t count = 0;
 	int r, bucket = bucket_fd(key);
 	char _key_name[22];
 	const char * key_name = _key_name;
@@ -238,8 +240,10 @@ int diskhash::remove_key(mm_val_t * key)
 			close(bucket);
 			return -EINVAL;
 	}
-	r = drop(bucket, key_name);
-	if(r < 0 && errno == ENOENT)
+	r = drop(bucket, key_name, &count);
+	if(r >= 0)
+		update_counts(-1, -(size_t) count);
+	else if(errno == ENOENT)
 		r = 0;
 	close(bucket);
 	return r;
@@ -253,7 +257,6 @@ int diskhash::reset_key(mm_val_t * key, mm_val_t * value)
 
 int diskhash::append_value(mm_val_t * key, mm_val_t * value)
 {
-	DIR * dir;
 	uint32_t i;
 	char index[12];
 	int r, fd, key_dir = key_fd(key, true);
@@ -314,6 +317,7 @@ int diskhash::append_value(mm_val_t * key, mm_val_t * value)
 	}
 	close(fd);
 	close(key_dir);
+	update_counts(0, 1);
 	return 0;
 	
 unlink:
@@ -326,7 +330,128 @@ unlink:
 
 int diskhash::remove_value(mm_val_t * key, mm_val_t * value)
 {
-	/* FIXME: implement this */
+	DIR * dir = NULL;
+	int i = 0, r = -1, fd = -1, save = 0;
+	struct dirent * ent;
+	int copy, key_dir = key_fd(key);
+	if(key_dir < 0)
+		return (errno == ENOENT) ? 0 : key_dir;
+	copy = dup(key_dir);
+	if(copy < 0)
+		goto fail;
+	dir = fdopendir(copy);
+	if(!dir)
+		goto fail;
+	
+	while((ent = readdir(dir)))
+	{
+		int equal;
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+			continue;
+		i++;
+		fd = openat(key_dir, ent->d_name, O_RDONLY);
+		if(fd < 0)
+			goto fail;
+		switch(val_type)
+		{
+			struct stat stat;
+			mm_val_t local;
+			case MM_U32:
+				r = read(fd, &local.u32, sizeof(local.u32));
+				if(r != sizeof(local.u32))
+					goto fail;
+				equal = (local.u32 == value->u32);
+				break;
+			case MM_U64:
+				r = read(fd, &local.u64, sizeof(local.u64));
+				if(r != sizeof(local.u64))
+					goto fail;
+				equal = (local.u64 == value->u64);
+				break;
+			case MM_STR:
+				r = fstat(fd, &stat);
+				if(r < 0)
+					goto fail;
+				if(stat.st_size != strlen((char *) value))
+					break;
+				local.blob = malloc(stat.st_size + 1);
+				if(!local.blob)
+					goto fail;
+				r = read(fd, local.blob, stat.st_size);
+				if(r != stat.st_size)
+				{
+					free(local.blob);
+					goto fail;
+				}
+				((char *) local.blob)[stat.st_size] = 0;
+				equal = !strcmp((char *) local.blob, (char *) value);
+				free(local.blob);
+				break;
+			case MM_BLOB:
+				r = fstat(fd, &stat);
+				if(r < 0)
+					goto fail;
+				if(stat.st_size != value->blob_len)
+					break;
+				local.blob = malloc(stat.st_size);
+				if(!local.blob)
+					goto fail;
+				r = read(fd, local.blob, stat.st_size);
+				if(r != stat.st_size)
+				{
+					free(local.blob);
+					goto fail;
+				}
+				equal = !memcmp(local.blob, value->blob, stat.st_size);
+				free(local.blob);
+				break;
+			default:
+				r = -EINVAL;
+				goto fail;
+		}
+		close(fd);
+		fd = -1;
+		if(equal)
+		{
+			r = unlinkat(key_dir, ent->d_name, 0);
+			if(r < 0)
+				goto fail;
+			update_counts(0, -1);
+			break;
+		}
+	}
+	while(ent && (ent = readdir(dir)))
+	{
+		/* probably not necessary but won't hurt (much) */
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+			continue;
+		i++;
+	}
+	closedir(dir);
+	close(key_dir);
+	if(i == 1)
+		/* no more values for this key: we just removed the last one */
+		remove_key(key);
+	return 0;
+	
+fail:
+	save = errno;
+	if(fd >= 0)
+		close(fd);
+	if(dir)
+		closedir(dir);
+	else
+		close(copy);
+	close(key_dir);
+	errno = save;
+	if(copy < 0)
+		return copy;
+	if(!dir)
+		return -save;
+	if(fd < 0)
+		return fd;
+	/* make sure it's an error value */
+	return (r < 0) ? r : -1;
 }
 
 int diskhash::update_value(mm_val_t * key, mm_val_t * old_value, mm_val_t * new_value)
@@ -489,8 +614,23 @@ int diskhash::key_fd(mm_val_t * key, bool create)
 		int r = mkdirat(bucket, key_name, 0775);
 		if(r < 0)
 			return r;
+		update_counts(1, 0);
 		key_fd = openat(bucket, key_name, 0);
 	}
 	close(bucket);
 	return key_fd;
+}
+
+int diskhash::update_counts(ssize_t kd, ssize_t vd)
+{
+	size_t counts[2];
+	int r = lseek(dh_fd, sizeof(mm_type_t) * 2, SEEK_SET);
+	if(r < 0)
+		return r;
+	counts[DH_KC_IDX] = key_count + kd;
+	counts[DH_VC_IDX] = value_count + vd;
+	if(write(dh_fd, counts, sizeof(counts)) != sizeof(counts))
+		return -1;
+	key_count += kd;
+	value_count += vd;
 }

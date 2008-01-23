@@ -100,7 +100,8 @@ int multimap::copy(multimap * source, multimap * dest)
 }
 
 /* basically just rm -rf but the top-level thing must be a directory */
-int multimap::drop(int dfd, const char * store)
+/* if count is non-null, increment *count by the number of names unlinked, except the top-level directory */
+int multimap::drop(int dfd, const char * store, size_t * count)
 {
 	DIR * dir;
 	struct dirent * ent;
@@ -130,11 +131,13 @@ int multimap::drop(int dfd, const char * store)
 			return r;
 		}
 		if(S_ISDIR(st.st_mode))
-			r = drop(dir_fd, ent->d_name);
+			r = drop(dir_fd, ent->d_name, count);
 		else
 			r = unlinkat(dir_fd, ent->d_name, 0);
 		if(r < 0)
 			goto fail;
+		if(count)
+			(*count)++;
 	}
 	closedir(dir);
 	close(dir_fd);

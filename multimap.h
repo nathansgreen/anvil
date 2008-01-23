@@ -80,6 +80,8 @@ public:
 	virtual int remove_key(mm_val_t * key) = 0;
 	virtual int reset_key(mm_val_t * key, mm_val_t * value) = 0;
 	virtual int append_value(mm_val_t * key, mm_val_t * value) = 0;
+	/* TODO: it strikes me that for blobs, it may be more efficient to support removal by index,
+	 * or to require that when val_type is MM_BLOB that there is only one value, or something */
 	virtual int remove_value(mm_val_t * key, mm_val_t * value) = 0;
 	virtual int update_value(mm_val_t * key, mm_val_t * old_value, mm_val_t * new_value) = 0;
 	
@@ -92,7 +94,7 @@ public:
 	static int copy(multimap * source, multimap * dest);
 	
 	/* delete the multimap on disk (rm -rf) */
-	static int drop(int dfd, const char * store);
+	static int drop(int dfd, const char * store, size_t * count = NULL);
 	
 protected:
 	multimap(uint8_t * id);
