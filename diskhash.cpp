@@ -300,7 +300,7 @@ int diskhash::append_value(mm_val_t * key, mm_val_t * value)
 				goto unlink;
 			break;
 		case MM_STR: {
-			size_t length = strlen((char *) value);
+			ssize_t length = strlen((char *) value);
 			r = write(fd, value, length);
 			if(r != length)
 				goto unlink;
@@ -345,7 +345,7 @@ int diskhash::remove_value(mm_val_t * key, mm_val_t * value)
 	
 	while((ent = readdir(dir)))
 	{
-		int equal;
+		int equal = 0;
 		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
 			continue;
 		i++;
@@ -633,4 +633,5 @@ int diskhash::update_counts(ssize_t kd, ssize_t vd)
 		return -1;
 	key_count += kd;
 	value_count += vd;
+	return 0;
 }

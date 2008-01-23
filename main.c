@@ -25,7 +25,7 @@ int main(void)
 			if(gtable)
 			{
 				t_row_id id;
-				if(toilet_new_row(toilet, gtable, &id) < 0)
+				if(toilet_new_row(gtable, &id) < 0)
 					fprintf(stderr, "Failed to create row!\n");
 				else
 				{
@@ -33,11 +33,11 @@ int main(void)
 					printf("New row ID is 0x%08x\n", id);
 					row = toilet_get_row(toilet, id);
 					if(row)
-						toilet_put_row(toilet, row);
+						toilet_put_row(row);
 					else
 						fprintf(stderr, "Error: failed to get row!\n");
 				}
-				toilet_put_gtable(toilet, gtable);
+				toilet_put_gtable(gtable);
 			}
 			else
 				fprintf(stderr, "Error: failed to open gtable! ('testgt')\n");

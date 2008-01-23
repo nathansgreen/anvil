@@ -42,11 +42,14 @@ typedef struct t_column t_column;
 
 #define GTABLE_NAME_LENGTH 63
 
+struct toilet;
+
 struct t_gtable {
 	const char * name;
 	vector_t * columns;
 	hash_map_t * column_map;
 	/* internal stuff now */
+	struct toilet * toilet;
 	int out_count;
 };
 typedef struct t_gtable t_gtable;
@@ -133,7 +136,7 @@ int toilet_new_gtable(toilet * toilet, const char * name);
 int toilet_drop_gtable(t_gtable * gtable);
 
 t_gtable * toilet_get_gtable(toilet * toilet, const char * name);
-void toilet_put_gtable(toilet * toilet, t_gtable * gtable);
+void toilet_put_gtable(t_gtable * gtable);
 
 /* columns */
 
@@ -147,11 +150,11 @@ int toilet_column_set_multi(t_column * column, int multi);
 
 /* rows */
 
-int toilet_new_row(toilet * toilet, t_gtable * gtable, t_row_id * new_id);
+int toilet_new_row(t_gtable * gtable, t_row_id * new_id);
 int toilet_drop_row(t_row * row);
 
 t_row * toilet_get_row(toilet * toilet, t_row_id row_id);
-void toilet_put_row(toilet * toilet, t_row * row);
+void toilet_put_row(t_row * row);
 
 #define ID(r) ((r)->id)
 

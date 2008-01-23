@@ -378,6 +378,7 @@ t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 	gtable->column_map = hash_map_create_str();
 	if(!gtable->column_map)
 		goto fail_map;
+	gtable->toilet = toilet;
 	gtable->out_count = 1;
 	
 	table_fd = openat(toilet->path_fd, name, 0);
@@ -449,12 +450,12 @@ fail_name:
 	return NULL;
 }
 
-void toilet_put_gtable(toilet * toilet, t_gtable * gtable)
+void toilet_put_gtable(t_gtable * gtable)
 {
 	int i;
 	if(--gtable->out_count)
 		return;
-	hash_map_erase(toilet->gtables, gtable->name);
+	hash_map_erase(gtable->toilet->gtables, gtable->name);
 	hash_map_destroy(gtable->column_map);
 	for(i = vector_size(gtable->columns) - 1; i >= 0; i--)
 		toilet_close_column((t_column *) vector_elt(gtable->columns, i));
@@ -504,7 +505,7 @@ static const char * row_formats[] = {
 };
 #define ROW_FORMATS (sizeof(row_formats) / sizeof(row_formats[0]))
 
-int toilet_new_row(toilet * toilet, t_gtable * gtable, t_row_id * new_id)
+int toilet_new_row(t_gtable * gtable, t_row_id * new_id)
 {
 	int i, r, row_fd;
 	char row[] = "rows/xx/xx/xx/xx";
@@ -513,17 +514,17 @@ int toilet_new_row(toilet * toilet, t_gtable * gtable, t_row_id * new_id)
 		uint8_t bytes[sizeof(t_row_id)];
 	} id;
 	t_column * id_col;
-	if((r = toilet_new_row_id(toilet, &id.id)) < 0)
+	if((r = toilet_new_row_id(gtable->toilet, &id.id)) < 0)
 		goto fail;
 	for(i = 0; i < ROW_FORMATS; i++)
 	{
 		sprintf(row, row_formats[i], id.bytes[0], id.bytes[1], id.bytes[2], id.bytes[3]);
-		row_fd = openat(toilet->path_fd, row, 0);
+		row_fd = openat(gtable->toilet->path_fd, row, 0);
 		if(row_fd < 0)
 		{
-			if((r = mkdirat(toilet->path_fd, row, 0775)) < 0)
+			if((r = mkdirat(gtable->toilet->path_fd, row, 0775)) < 0)
 				goto fail;
-			row_fd = openat(toilet->path_fd, row, 0);
+			row_fd = openat(gtable->toilet->path_fd, row, 0);
 			if(row_fd < 0)
 			{
 				r = row_fd;
@@ -618,7 +619,7 @@ t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
 	return row;
 	
 fail_hash:
-	toilet_put_gtable(toilet, row->gtable);
+	toilet_put_gtable(row->gtable);
 fail_open:
 	free(row);
 fail:
@@ -626,18 +627,43 @@ fail:
 	return NULL;
 }
 
-void toilet_put_row(toilet * toilet, t_row * row)
+void toilet_put_row(t_row * row)
 {
+	if(!--row->out_count)
+	{
+		hash_map_erase(row->gtable->toilet->rows, (void *) row->id);
+		toilet_put_gtable(row->gtable);
+		/* XXX there should be more stuff here */
+		free(row);
+	}
 }
 
 /* values */
 
 t_value * toilet_row_value(t_row * row, const char * key, t_type type)
 {
+	t_values * values;
+	t_column * column = hash_map_find_val(row->gtable->column_map, key);
+	if(column && (column->flags & T_COLUMN_MULTI))
+	{
+		fprintf(row->gtable->toilet->errors, "%s(): request for single value from multi-column '%s'\n", __FUNCTION__, key);
+		return NULL;
+	}
+	values = hash_map_find_val(row->columns, key);
+	if(!values)
+		return NULL;
+	assert(vector_size(values->values) == 1);
+	if(values->type != type)
+	{
+		fprintf(row->gtable->toilet->errors, "%s(): request for type %d value from column '%s' of type %d\n", __FUNCTION__, type, key, values->type);
+		return NULL;
+	}
+	return (t_value *) vector_elt(values->values, 0);
 }
 
 t_values * toilet_row_values(t_row * row, const char * key)
 {
+	return hash_map_find_val(row->columns, key);
 }
 
 int toilet_row_set_value(t_row * row, const char * key, t_type type, t_value * value)

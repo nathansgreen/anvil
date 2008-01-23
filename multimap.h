@@ -111,7 +111,7 @@ private:
 };
 
 inline multimap_it::multimap_it(multimap * map)
-	: it_map(map), key(NULL), val(NULL)
+	: key(NULL), val(NULL), it_map(map)
 {
 }
 
