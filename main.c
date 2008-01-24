@@ -5,11 +5,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "platform.h"
+#include "hash_map.h"
 #include "toilet.h"
 
 int main(void)
 {
-	int r = toilet_new("test");
+	int r = hash_map_init();
+	if(r < 0)
+		fprintf(stderr, "Warning: failed to initialize hash map library!\n");
+	r = toilet_new("test");
 	if(r < 0)
 		fprintf(stderr, "Error: failed to create toilet! ('test')\n");
 	else
