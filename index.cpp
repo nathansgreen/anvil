@@ -185,10 +185,10 @@ static inline mm_val_t * toilet_to_multimap_value(t_type type, t_value * value, 
 	}
 }
 
-int toilet_index_add(t_index * index, t_row_id id, t_type type, t_value value)
+int toilet_index_add(t_index * index, t_row_id id, t_type type, t_value * value)
 {
 	mm_val_t mm_id = {u32: id}, mm_value;
-	mm_val_t * mm_pvalue = toilet_to_multimap_value(type, &value, &mm_value);
+	mm_val_t * mm_pvalue = toilet_to_multimap_value(type, value, &mm_value);
 	if(type != index->data_type)
 		return -EINVAL;
 	if(index->type & t_index::I_HASH)
@@ -209,17 +209,17 @@ int toilet_index_add(t_index * index, t_row_id id, t_type type, t_value value)
 	return 0;
 }
 
-int toilet_index_change(t_index * index, t_row_id id, t_type type, t_value old_value, t_value new_value)
+int toilet_index_change(t_index * index, t_row_id id, t_type type, t_value * old_value, t_value * new_value)
 {
 	toilet_index_remove(index, id, type, old_value);
 	toilet_index_add(index, id, type, new_value);
 	return 0;
 }
 
-int toilet_index_remove(t_index * index, t_row_id id, t_type type, t_value value)
+int toilet_index_remove(t_index * index, t_row_id id, t_type type, t_value * value)
 {
 	mm_val_t mm_id = {u32: id}, mm_value;
-	mm_val_t * mm_pvalue = toilet_to_multimap_value(type, &value, &mm_value);
+	mm_val_t * mm_pvalue = toilet_to_multimap_value(type, value, &mm_value);
 	if(type != index->data_type)
 		return -EINVAL;
 	if(index->type & t_index::I_HASH)
@@ -301,10 +301,10 @@ t_rowset * toilet_index_list(t_index * index, t_type type)
 	return multimap_it_to_rowset(it);
 }
 
-ssize_t toilet_index_count(t_index * index, t_type type, t_value value)
+ssize_t toilet_index_count(t_index * index, t_type type, t_value * value)
 {
 	mm_val_t mm_value;
-	mm_val_t * mm_pvalue = toilet_to_multimap_value(type, &value, &mm_value);
+	mm_val_t * mm_pvalue = toilet_to_multimap_value(type, value, &mm_value);
 	if(type != index->data_type)
 		return -EINVAL;
 	if(index->type & t_index::I_HASH)
@@ -314,10 +314,10 @@ ssize_t toilet_index_count(t_index * index, t_type type, t_value value)
 	return -1;
 }
 
-t_rowset * toilet_index_find(t_index * index, t_type type, t_value value)
+t_rowset * toilet_index_find(t_index * index, t_type type, t_value * value)
 {
 	mm_val_t mm_value;
-	mm_val_t * mm_pvalue = toilet_to_multimap_value(type, &value, &mm_value);
+	mm_val_t * mm_pvalue = toilet_to_multimap_value(type, value, &mm_value);
 	multimap_it * it = NULL;
 	if(type != index->data_type)
 		return NULL;
@@ -330,11 +330,11 @@ t_rowset * toilet_index_find(t_index * index, t_type type, t_value value)
 	return multimap_it_to_rowset(it);
 }
 
-ssize_t toilet_index_count_range(t_index * index, t_type type, t_value low_value, t_value high_value)
+ssize_t toilet_index_count_range(t_index * index, t_type type, t_value * low_value, t_value * high_value)
 {
 	mm_val_t mm_value[2];
-	mm_val_t * low_pvalue = toilet_to_multimap_value(type, &low_value, &mm_value[0]);
-	mm_val_t * high_pvalue = toilet_to_multimap_value(type, &high_value, &mm_value[1]);
+	mm_val_t * low_pvalue = toilet_to_multimap_value(type, low_value, &mm_value[0]);
+	mm_val_t * high_pvalue = toilet_to_multimap_value(type, high_value, &mm_value[1]);
 	if(type != index->data_type)
 		return -EINVAL;
 	if(index->type & t_index::I_HASH)
@@ -344,11 +344,11 @@ ssize_t toilet_index_count_range(t_index * index, t_type type, t_value low_value
 	return -1;
 }
 
-t_rowset * toilet_index_find_range(t_index * index, t_type type, t_value low_value, t_value high_value)
+t_rowset * toilet_index_find_range(t_index * index, t_type type, t_value * low_value, t_value * high_value)
 {
 	mm_val_t mm_value[2];
-	mm_val_t * low_pvalue = toilet_to_multimap_value(type, &low_value, &mm_value[0]);
-	mm_val_t * high_pvalue = toilet_to_multimap_value(type, &high_value, &mm_value[1]);
+	mm_val_t * low_pvalue = toilet_to_multimap_value(type, low_value, &mm_value[0]);
+	mm_val_t * high_pvalue = toilet_to_multimap_value(type, high_value, &mm_value[1]);
 	multimap_it * it = NULL;
 	if(type != index->data_type)
 		return NULL;

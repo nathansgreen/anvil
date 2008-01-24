@@ -296,7 +296,6 @@ fail_open:
 
 int toilet_drop_gtable(t_gtable * gtable)
 {
-	/* XXX */
 	return -ENOSYS;
 }
 
@@ -321,20 +320,18 @@ static t_column * toilet_open_column(uint8_t * id, int dfd, const char * name)
 	column->flags = 0;
 	switch(column->type)
 	{
-		default:
-			goto fail_read;
+		/* force a compiler warning if we add new types */
 		case T_ID:
 		case T_INT:
 		case T_STRING:
 		case T_BLOB:
-			/* placate compiler */ ;
+			column->index = toilet_open_index(id, dfd, "../indices", name);
+			if(!column->index)
+				goto fail_read;
+			
+			close(fd);
+			return column;
 	}
-	column->index = toilet_open_index(id, dfd, "../indices", name);
-	if(!column->index)
-		goto fail_read;
-	
-	close(fd);
-	return column;
 	
 fail_read:
 	close(fd);
@@ -350,6 +347,20 @@ static void toilet_close_column(t_column * column)
 	toilet_close_index(column->index);
 	free((char *) column->name);
 	free(column);
+}
+
+static int toilet_column_update_count(t_gtable * gtable, t_column * column, int delta)
+{
+	/* XXX write to disk */
+	column->count += delta;
+	return 0;
+}
+
+static int toilet_column_new(t_gtable * gtable, const char * name, t_type type)
+{
+	/* XXX create the column */
+	printf("%s(): would create new column '%s'\n", __FUNCTION__, name);
+	return -ENOSYS;
 }
 
 t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
@@ -514,6 +525,7 @@ int toilet_new_row(t_gtable * gtable, t_row_id * new_id)
 		t_row_id id;
 		uint8_t bytes[sizeof(t_row_id)];
 	} id;
+	t_value id_value;
 	t_column * id_col;
 	if((r = toilet_new_row_id(gtable->toilet, &id.id)) < 0)
 		goto fail;
@@ -553,7 +565,8 @@ int toilet_new_row(t_gtable * gtable, t_row_id * new_id)
 	id_col = hash_map_find_val(gtable->column_map, "id");
 	if(!id_col)
 		goto fail_unlink;
-	r = toilet_index_add(id_col->index, id.id, T_ID, (t_value) id.id);
+	id_value.v_id = id.id;
+	r = toilet_index_add(id_col->index, id.id, T_ID, &id_value);
 	if(r < 0)
 		goto fail_unlink;
 	*new_id = id.id;
@@ -572,7 +585,6 @@ fail:
 
 int toilet_drop_row(t_row * row)
 {
-	/* XXX */
 	return -ENOSYS;
 }
 
@@ -711,8 +723,6 @@ static int toilet_populate_row(t_row * row)
 					if(r != stat.st_size)
 						goto fail_push;
 					break;
-				default:
-					/* placate compiler */ ;
 			}
 			r = vector_push_back(values->values, value);
 			if(r < 0)
@@ -850,9 +860,120 @@ t_values * toilet_row_values(t_row * row, const char * key)
 	return hash_map_find_val(row->columns, key);
 }
 
+static t_value * toilet_copy_value(t_type type, t_value * value)
+{
+	t_value * copy = NULL;
+	if(type != T_STRING)
+	{
+		copy = malloc(sizeof(*copy));
+		if(!copy)
+			return NULL;
+	}
+	switch(type)
+	{
+		case T_ID:
+			copy->v_id = value->v_id;
+			return copy;
+		case T_INT:
+			copy->v_int = value->v_int;
+			return copy;
+		case T_STRING:
+			return (t_value *) strdup(value->v_string);
+		case T_BLOB:
+			copy->v_blob.data = malloc(value->v_blob.length);
+			if(copy->v_blob.data)
+			{
+				copy->v_blob.length = value->v_blob.length;
+				memcpy(copy->v_blob.data, value->v_blob.data, value->v_blob.length);
+				return copy;
+			}
+	}
+	free(copy);
+	return NULL;
+}
+
+static int toilet_write_value(int fd, t_type type, t_value * value)
+{
+	size_t size = 0;
+	ssize_t result = -1;
+	switch(type)
+	{
+		case T_ID:
+			size = sizeof(value->v_id);
+			result = write(fd, &value->v_id, size);
+			break;
+		case T_INT:
+			size = sizeof(value->v_int);
+			result = write(fd, &value->v_int, size);
+			break;
+		case T_STRING:
+			size = strlen(value->v_string);
+			result = write(fd, value, size);
+			break;
+		case T_BLOB:
+			size = value->v_blob.length;
+			result = write(fd, value->v_blob.data, size);
+			break;
+	}
+	return (size == result) ? 0 : -1;
+}
+
 int toilet_row_set_value(t_row * row, const char * key, t_type type, t_value * value)
 {
-	return -ENOSYS;
+	int r, dir_fd, value_fd;
+	t_column * column = hash_map_find_val(row->gtable->column_map, key);
+	t_values * values = hash_map_find_val(row->columns, key);
+	if(!strcmp(key, "id"))
+	{
+		fprintf(row->gtable->toilet->errors, "%s(): attempt to set type %d value in ID column\n", __FUNCTION__, type);
+		return -EINVAL;
+	}
+	if(column)
+	{
+		if(column->flags & T_COLUMN_MULTI)
+		{
+			fprintf(row->gtable->toilet->errors, "%s(): attempt to set single value in multi-column '%s'\n", __FUNCTION__, key);
+			return -EINVAL;
+		}
+		if(type != column->type)
+		{
+			fprintf(row->gtable->toilet->errors, "%s(): attempt to set type %d value in column '%s' of type %d\n", __FUNCTION__, type, key, column->type);
+			return -EINVAL;
+		}
+	}
+	else
+	{
+		r = toilet_column_new(row->gtable, key, type);
+		if(r < 0)
+			return r;
+	}
+	/* XXX add error handling to this function (starting here-ish) */
+	value = toilet_copy_value(type, value);
+	if(values)
+	{
+		toilet_index_change(column->index, row->id, type, (t_value *) vector_elt(values->values, 0), value);
+		toilet_free_values(values);
+		hash_map_erase(row->columns, key);
+		dir_fd = openat(row->row_path_fd, key, 0);
+		value_fd = openat(dir_fd, "0", O_WRONLY | O_TRUNC);
+	}
+	else
+	{
+		toilet_column_update_count(row->gtable, column, 1);
+		toilet_index_add(column->index, row->id, type, value);
+		mkdirat(row->row_path_fd, key, 0775);
+		dir_fd = openat(row->row_path_fd, key, 0);
+		value_fd = openat(dir_fd, "0", O_WRONLY | O_CREAT, 0664);
+	}
+	close(dir_fd);
+	toilet_write_value(value_fd, type, value);
+	close(value_fd);
+	values = malloc(sizeof(*values));
+	values->type = type;
+	values->values = vector_create();
+	vector_push_back(values->values, value);
+	hash_map_insert(row->columns, column->name, values);
+	return 0;
 }
 
 int toilet_row_remove_key(t_row * row, const char * key)
