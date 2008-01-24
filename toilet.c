@@ -360,36 +360,94 @@ static int toilet_column_new(t_gtable * gtable, const char * name, t_type type)
 {
 	uint32_t data[2];
 	t_column * column;
-	int column_fd, index_fd = -1, fd;
+	int r, column_fd, index_fd = -1, fd;
 	int gtable_fd = openat(gtable->toilet->path_fd, gtable->name, 0);
 	if(gtable_fd < 0)
 		return gtable_fd;
-	/* XXX add error checking here */
 	column_fd = openat(gtable_fd, "columns", 0);
+	if(column_fd < 0)
+	{
+		close(gtable_fd);
+		return column_fd;
+	}
 	if(type != T_BLOB)
+	{
 		index_fd = openat(gtable_fd, "indices", 0);
+		if(index_fd < 0)
+		{
+			close(gtable_fd);
+			r = index_fd;
+			goto fail;
+		}
+	}
 	close(gtable_fd);
 	
 	fd = openat(column_fd, name, O_WRONLY | O_CREAT, 0664);
+	if(fd < 0)
+	{
+		r = fd;
+		goto fail_index;
+	}
 	data[0] = 0;
 	data[1] = type;
-	write(fd, data, sizeof(data));
+	if(write(fd, data, sizeof(data)) != sizeof(data))
+	{
+		close(fd);
+		r = -1;
+		goto fail_unlink;
+	}
 	close(fd);
 	
 	if(type != T_BLOB)
 	{
-		mkdirat(index_fd, name, 0775);
-		toilet_index_init(index_fd, name, type);
+		r = mkdirat(index_fd, name, 0775);
+		if(r < 0)
+			goto fail_unlink;
+		r = toilet_index_init(index_fd, name, type);
+		if(r < 0)
+		{
+			unlinkat(index_fd, name, AT_REMOVEDIR);
+			goto fail_unlink;
+		}
 		close(index_fd);
 	}
+	/* now it's constructed, but we haven't loaded it into memory */
 	
 	column = toilet_open_column(gtable->toilet->id, column_fd, name);
-	vector_push_back(gtable->columns, column);
-	hash_map_insert(gtable->column_map, column->name, column);
+	if(!column)
+	{
+		fprintf(gtable->toilet->errors, "%s(): can't load new column '%s'\n", __FUNCTION__, name);
+		r = -1;
+		goto fail;
+	}
+	r = vector_push_back(gtable->columns, column);
+	if(r < 0)
+	{
+		fprintf(gtable->toilet->errors, "%s(): can't push new column '%s'\n", __FUNCTION__, name);
+		toilet_close_column(column);
+		goto fail;
+	}
+	r = hash_map_insert(gtable->column_map, column->name, column);
+	if(r < 0)
+	{
+		fprintf(gtable->toilet->errors, "%s(): can't insert new column '%s'\n", __FUNCTION__, name);
+		vector_pop_back(gtable->columns);
+		toilet_close_column(column);
+		goto fail;
+	}
 	
 	close(column_fd);
 	
 	return 0;
+	
+fail_unlink:
+	unlinkat(column_fd, name, 0);
+fail_index:
+	if(type != T_BLOB)
+		close(index_fd);
+fail:
+	close(column_fd);
+	return r;
 }
 
 t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
