@@ -318,6 +318,7 @@ static t_column * toilet_open_column(uint8_t * id, int dfd, const char * name)
 		goto fail_read;
 	column->type = data[1];
 	column->count = data[0];
+	column->flags = 0;
 	switch(column->type)
 	{
 		default:

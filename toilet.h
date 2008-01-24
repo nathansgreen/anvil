@@ -31,8 +31,8 @@ typedef enum t_type t_type;
 struct t_column {
 	const char * name;
 	enum t_type type;
-	unsigned int flags;
 	unsigned int count;
+	unsigned int flags;
 	t_index * index;
 };
 typedef struct t_column t_column;
