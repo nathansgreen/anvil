@@ -11,15 +11,33 @@
 
 int main(void)
 {
+	toilet * toilet;
 	int r = hash_map_init();
 	if(r < 0)
 		fprintf(stderr, "Warning: failed to initialize hash map library!\n");
 	r = toilet_new("test");
 	if(r < 0)
-		fprintf(stderr, "Error: failed to create toilet! ('test')\n");
+	{
+		fprintf(stderr, "Warning: failed to create toilet! ('test')\n");
+		toilet = toilet_open("test", NULL);
+		if(toilet)
+		{
+			t_gtable * gtable = toilet_get_gtable(toilet, "testgt");
+			if(gtable)
+			{
+				printf("Don't know row ID so can't get row...\n");
+				toilet_put_gtable(gtable);
+			}
+			else
+				fprintf(stderr, "Error: failed to open gtable! ('testgt')\n");
+			toilet_close(toilet);
+		}
+		else
+			fprintf(stderr, "Error: failed to open toilet! ('test')\n");
+	}
 	else
 	{
-		toilet * toilet = toilet_open("test", NULL);
+		toilet = toilet_open("test", NULL);
 		if(toilet)
 		{
 			t_gtable * gtable;

@@ -358,9 +358,38 @@ static int toilet_column_update_count(t_gtable * gtable, t_column * column, int 
 
 static int toilet_column_new(t_gtable * gtable, const char * name, t_type type)
 {
-	/* XXX create the column */
-	printf("%s(): would create new column '%s'\n", __FUNCTION__, name);
-	return -ENOSYS;
+	uint32_t data[2];
+	t_column * column;
+	int column_fd, index_fd = -1, fd;
+	int gtable_fd = openat(gtable->toilet->path_fd, gtable->name, 0);
+	if(gtable_fd < 0)
+		return gtable_fd;
+	/* XXX add error checking here */
+	column_fd = openat(gtable_fd, "columns", 0);
+	if(type != T_BLOB)
+		index_fd = openat(gtable_fd, "indices", 0);
+	close(gtable_fd);
+	
+	fd = openat(column_fd, name, O_WRONLY | O_CREAT, 0664);
+	data[0] = 0;
+	data[1] = type;
+	write(fd, data, sizeof(data));
+	close(fd);
+	
+	if(type != T_BLOB)
+	{
+		mkdirat(index_fd, name, 0775);
+		toilet_index_init(index_fd, name, type);
+		close(index_fd);
+	}
+	
+	column = toilet_open_column(gtable->toilet->id, column_fd, name);
+	vector_push_back(gtable->columns, column);
+	hash_map_insert(gtable->column_map, column->name, column);
+	
+	close(column_fd);
+	
+	return 0;
 }
 
 t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
@@ -727,6 +756,7 @@ static int toilet_populate_row(t_row * row)
 			r = vector_push_back(values->values, value);
 			if(r < 0)
 				goto fail_push;
+			close(fd);
 		}
 		r = hash_map_insert(row->columns, column->name, values);
 		if(r < 0)
@@ -828,6 +858,7 @@ void toilet_put_row(t_row * row)
 		toilet_depopulate_row(row);
 		hash_map_destroy(row->columns);
 		toilet_put_gtable(row->gtable);
+		close(row->row_path_fd);
 		free(row);
 	}
 }
@@ -946,6 +977,8 @@ int toilet_row_set_value(t_row * row, const char * key, t_type type, t_value * v
 		r = toilet_column_new(row->gtable, key, type);
 		if(r < 0)
 			return r;
+		column = hash_map_find_val(row->gtable->column_map, key);
+		assert(column);
 	}
 	/* XXX add error handling to this function (starting here-ish) */
 	value = toilet_copy_value(type, value);
