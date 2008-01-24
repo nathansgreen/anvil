@@ -30,10 +30,8 @@ int diskhash_it::next()
 	struct stat stat;
 	struct dirent * ent;
 	while((ent = readdir(dir)))
-	{
 		if(strcmp(ent->d_name, ".") && strcmp(ent->d_name, ".."))
 			break;
-	}
 	if(!ent)
 		return -ENOENT;
 	free_value();

@@ -56,6 +56,7 @@ typedef struct t_gtable t_gtable;
 
 /* this should be uint64_t later, but we need better hash maps */
 typedef uint32_t t_row_id;
+#define ROW_FORMAT "%08x"
 
 /* NOTE: To use this union for strings, just cast the char * to a t_value *. */
 union t_value {
@@ -190,7 +191,7 @@ int toilet_row_update_value(t_row * row, t_values * values, int index, t_value *
 /* queries */
 
 t_rowset * toilet_query(t_gtable * gtable, t_query * query);
-int toilet_put_rowset(t_rowset * rowset);
+void toilet_put_rowset(t_rowset * rowset);
 
 #define ROWS(r) ((r)->count)
 #define ROW(r, i) ((t_row_id) vector_elt((r)->rows, i))

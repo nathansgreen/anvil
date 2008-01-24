@@ -26,14 +26,31 @@ int main(void)
 			{
 				t_row_id id;
 				if(toilet_new_row(gtable, &id) < 0)
-					fprintf(stderr, "Failed to create row!\n");
+					fprintf(stderr, "Error: failed to create row!\n");
 				else
 				{
 					t_row * row;
-					printf("New row ID is 0x%08x\n", id);
+					printf("New row ID is 0x" ROW_FORMAT "\n", id);
 					row = toilet_get_row(toilet, id);
 					if(row)
+					{
+						r = toilet_row_set_value(row, "key", T_STRING, (t_value *) "value");
+						if(r < 0)
+							fprintf(stderr, "Warning: failed to set value!\n");
 						toilet_put_row(row);
+						row = toilet_get_row(toilet, id);
+						if(row)
+						{
+							char * value = (char *) toilet_row_value(row, "key", T_STRING);
+							if(!value)
+								fprintf(stderr, "Error: failed to get value!\n");
+							else
+								printf("Value is: %s\n", value);
+							toilet_put_row(row);
+						}
+						else
+							fprintf(stderr, "Error: failed to get row again!\n");
+					}
 					else
 						fprintf(stderr, "Error: failed to get row!\n");
 				}

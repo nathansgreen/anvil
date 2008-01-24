@@ -43,7 +43,7 @@
  * [db]/[gt2]/...                             More gtables...
  * [db]/rows/                                 The rows in all gtables
  * [db]/rows/XX/XX/XX/XX/                     A row directory
- * [db]/rows/XX/XX/XX/XX/gtable->             Symlink to the gtable
+ * [db]/rows/XX/XX/XX/XX/=gtable              File storing gtable name
  * [db]/rows/XX/XX/XX/XX/[key1]/              A key in that row
  * [db]/rows/XX/XX/XX/XX/[key1]/0             A value of that key
  * [db]/rows/XX/XX/XX/XX/[key1]/1...          More values...
@@ -538,7 +538,7 @@ int toilet_new_row(t_gtable * gtable, t_row_id * new_id)
 			close(row_fd);
 	}
 	
-	i = openat(row_fd, "gtable", O_WRONLY | O_CREAT, 0664);
+	i = openat(row_fd, "=gtable", O_WRONLY | O_CREAT, 0664);
 	if(i < 0)
 	{
 		r = i;
@@ -561,7 +561,7 @@ int toilet_new_row(t_gtable * gtable, t_row_id * new_id)
 	return 0;
 	
 fail_unlink:
-	unlinkat(row_fd, "gtable", 0);
+	unlinkat(row_fd, "=gtable", 0);
 fail_close:
 	close(row_fd);
 fail:
@@ -575,10 +575,185 @@ int toilet_drop_row(t_row * row)
 	return -ENOSYS;
 }
 
+static void toilet_free_values(t_values * values)
+{
+	size_t j, count = vector_size(values->values);
+	for(j = 0; j < count; j++)
+	{
+		t_value * value = (t_value *) vector_elt(values->values, j);
+		if(values->type == T_BLOB)
+			free(value->v_blob.data);
+		free(value);
+	}
+	vector_destroy(values->values);
+	free(values);
+}
+
+static void toilet_depopulate_row(t_row * row)
+{
+	size_t i, size = vector_size(row->gtable->columns);
+	for(i = 0; i < size; i++)
+	{
+		t_column * column = (t_column *) vector_elt(row->gtable->columns, i);
+		t_values * values = (t_values *) hash_map_find_val(row->columns, column->name);
+		if(values)
+			toilet_free_values(values);
+	}
+}
+
+static int toilet_populate_row(t_row * row)
+{
+	DIR * dir;
+	DIR * sub;
+	t_column * column;
+	t_values * values;
+	struct dirent * ent;
+	struct dirent * sub_ent;
+	t_value * value = NULL;
+	int r, fd, sub_fd, copy = dup(row->row_path_fd);
+	if(copy < 0)
+		return copy;
+	dir = fdopendir(copy);
+	if(!dir)
+	{
+		r = -errno;
+		close(copy);
+		goto fail;
+	}
+	while((ent = readdir(dir)))
+	{
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") || !strcmp(ent->d_name, "=gtable"))
+			continue;
+		column = hash_map_find_val(row->gtable->column_map, ent->d_name);
+		if(!column)
+		{
+			fprintf(row->gtable->toilet->errors, "%s(): ignoring unknown column key '%s' in row 0x" ROW_FORMAT "\n", __FUNCTION__, ent->d_name, row->id);
+			continue;
+		}
+		r = -ENOMEM;
+		values = malloc(sizeof(*values));
+		if(!values)
+			goto fail_values;
+		values->type = column->type;
+		values->values = vector_create();
+		if(!values->values)
+			goto fail_vector;
+		sub_fd = openat(row->row_path_fd, ent->d_name, 0);
+		if(sub_fd < 0)
+		{
+			r = sub_fd;
+			goto fail_openat;
+		}
+		copy = dup(sub_fd);
+		if(copy < 0)
+		{
+			r = copy;
+			goto fail_opendir;
+		}
+		sub = fdopendir(copy);
+		if(!sub)
+		{
+			r = -errno;
+			close(copy);
+			goto fail_opendir;
+		}
+		while((sub_ent = readdir(sub)))
+		{
+			struct stat stat;
+			if(!strcmp(sub_ent->d_name, ".") || !strcmp(sub_ent->d_name, ".."))
+				continue;
+			fd = openat(sub_fd, sub_ent->d_name, O_RDONLY);
+			if(fd < 0)
+			{
+				r = fd;
+				goto fail_insert;
+			}
+			if(values->type != T_STRING)
+			{
+				value = malloc(sizeof(*value));
+				if(!value)
+					goto fail_malloc;
+			}
+			switch(values->type)
+			{
+				case T_ID:
+					r = read(fd, &value->v_id, sizeof(value->v_id));
+					if(r != sizeof(value->v_id))
+						goto fail_read;
+					break;
+				case T_INT:
+					r = read(fd, &value->v_int, sizeof(value->v_int));
+					if(r != sizeof(value->v_int))
+						goto fail_read;
+					break;
+				case T_STRING:
+					r = fstat(fd, &stat);
+					if(r < 0)
+						goto fail_malloc;
+					value = malloc(stat.st_size + 1);
+					if(!value)
+						goto fail_malloc;
+					((char *) value)[stat.st_size] = 0;
+					r = read(fd, value, stat.st_size);
+					if(r != stat.st_size)
+						goto fail_read;
+					break;
+				case T_BLOB:
+					r = fstat(fd, &stat);
+					if(r < 0)
+						goto fail_read;
+					value->v_blob.length = stat.st_size;
+					value->v_blob.data = malloc(stat.st_size);
+					if(!value->v_blob.data)
+						goto fail_read;
+					r = read(fd, value->v_blob.data, stat.st_size);
+					if(r != stat.st_size)
+						goto fail_push;
+					break;
+				default:
+					/* placate compiler */ ;
+			}
+			r = vector_push_back(values->values, value);
+			if(r < 0)
+				goto fail_push;
+		}
+		r = hash_map_insert(row->columns, column->name, values);
+		if(r < 0)
+			goto fail_insert;
+		closedir(sub);
+		close(sub_fd);
+	}
+	closedir(dir);
+	return 0;
+	
+fail_push:
+	if(values->type == T_BLOB)
+		free(value->v_blob.data);
+fail_read:
+	free(value);
+fail_malloc:
+	close(fd);
+fail_insert:
+	toilet_free_values(values);
+	closedir(sub);
+fail_opendir:
+	close(sub_fd);
+fail_openat:
+	vector_destroy(values->values);
+fail_vector:
+	free(values);
+fail_values:
+	closedir(dir);
+	toilet_depopulate_row(row);
+fail:
+	/* make sure it's an error value */
+	return (r < 0) ? r : -1;
+}
+
 t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
 {
-	int dir_fd, fd;
 	ssize_t length;
+	int dir_fd, fd;
 	char row_name[] = "rows/xx/xx/xx/xx";
 	char gtable_name[GTABLE_NAME_LENGTH + 1];
 	union {
@@ -598,7 +773,7 @@ t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
 		goto fail;
 	row->id = row_id;
 	
-	fd = openat(dir_fd, "gtable", O_RDONLY);
+	fd = openat(dir_fd, "=gtable", O_RDONLY);
 	if(fd < 0)
 		goto fail_open;
 	length = read(fd, gtable_name, GTABLE_NAME_LENGTH);
@@ -609,9 +784,12 @@ t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
 	row->gtable = toilet_get_gtable(toilet, gtable_name);
 	if(!row->gtable)
 		goto fail_open;
-	/* XXX: get column values */
-	row->columns = NULL;
 	row->row_path_fd = dir_fd;
+	row->columns = hash_map_create_str();
+	if(!row->columns)
+		goto fail_columns;
+	if(toilet_populate_row(row) < 0)
+		goto fail_populate;
 	row->out_count = 1;
 	if(hash_map_insert(toilet->rows, (void *) row_id, row) < 0)
 		goto fail_hash;
@@ -619,6 +797,10 @@ t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
 	return row;
 	
 fail_hash:
+	toilet_depopulate_row(row);
+fail_populate:
+	hash_map_destroy(row->columns);
+fail_columns:
 	toilet_put_gtable(row->gtable);
 fail_open:
 	free(row);
@@ -632,8 +814,9 @@ void toilet_put_row(t_row * row)
 	if(!--row->out_count)
 	{
 		hash_map_erase(row->gtable->toilet->rows, (void *) row->id);
+		toilet_depopulate_row(row);
+		hash_map_destroy(row->columns);
 		toilet_put_gtable(row->gtable);
-		/* XXX there should be more stuff here */
 		free(row);
 	}
 }
@@ -668,39 +851,47 @@ t_values * toilet_row_values(t_row * row, const char * key)
 
 int toilet_row_set_value(t_row * row, const char * key, t_type type, t_value * value)
 {
+	return -ENOSYS;
 }
 
 int toilet_row_remove_key(t_row * row, const char * key)
 {
+	return -ENOSYS;
 }
 
 int toilet_row_append_value(t_row * row, const char * key, t_type type, t_value * value)
 {
+	return -ENOSYS;
 }
 
 int toilet_row_replace_values(t_row * row, const char * key, t_type type, t_value * value)
 {
+	return -ENOSYS;
 }
 
 int toilet_row_remove_values(t_row * row, const char * key)
 {
+	return -ENOSYS;
 }
 
 int toilet_row_remove_value(t_row * row, t_values * values, int index)
 {
+	return -ENOSYS;
 }
 
 int toilet_row_update_value(t_row * row, t_values * values, int index, t_value * value)
 {
+	return -ENOSYS;
 }
 
 /* queries */
 
 t_rowset * toilet_query(t_gtable * gtable, t_query * query)
 {
+	return NULL;
 }
 
-int toilet_put_rowset(t_rowset * rowset)
+void toilet_put_rowset(t_rowset * rowset)
 {
 	if(!--rowset->out_count)
 	{
