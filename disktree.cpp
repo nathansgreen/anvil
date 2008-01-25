@@ -23,10 +23,12 @@
 
 int disktree_it::next()
 {
+	return -ENOSYS;
 }
 
 size_t disktree_it::size()
 {
+	return 0;
 }
 
 disktree_it::~disktree_it()
@@ -41,50 +43,62 @@ disktree::~disktree()
 
 size_t disktree::keys()
 {
+	return 0;
 }
 
 size_t disktree::values()
 {
+	return 0;
 }
 
 ssize_t disktree::count_values(mm_val_t * key)
 {
+	return -ENOSYS;
 }
 
 disktree_it * disktree::get_values(mm_val_t * key)
 {
+	return NULL;
 }
 
 ssize_t disktree::count_range(mm_val_t * low_key, mm_val_t * high_key)
 {
+	return -ENOSYS;
 }
 
 disktree_it * disktree::get_range(mm_val_t * low_key, mm_val_t * high_key)
 {
+	return NULL;
 }
 
 disktree_it * disktree::iterator()
 {
+	return NULL;
 }
 
 int disktree::remove_key(mm_val_t * key)
 {
+	return -ENOSYS;
 }
 
 int disktree::reset_key(mm_val_t * key, mm_val_t * value)
 {
+	return -ENOSYS;
 }
 
 int disktree::append_value(mm_val_t * key, mm_val_t * value)
 {
+	return -ENOSYS;
 }
 
 int disktree::remove_value(mm_val_t * key, mm_val_t * value)
 {
+	return -ENOSYS;
 }
 
 int disktree::update_value(mm_val_t * key, mm_val_t * old_value, mm_val_t * new_value)
 {
+	return -ENOSYS;
 }
 
 /* create a new disktree (on disk) using the specified store path */

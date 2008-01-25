@@ -351,9 +351,37 @@ static void toilet_close_column(t_column * column)
 
 static int toilet_column_update_count(t_gtable * gtable, t_column * column, int delta)
 {
-	/* XXX write to disk */
+	uint32_t data;
+	int r, fd, column_fd, gtable_fd;
+	r = gtable_fd = openat(gtable->toilet->path_fd, gtable->name, 0);
+	if(r < 0)
+		goto fail;
+	r = column_fd = openat(gtable_fd, "columns", 0);
+	if(r < 0)
+		goto fail_gtable;
+	r = fd = openat(column_fd, column->name, O_WRONLY);
+	if(r < 0)
+		goto fail_column;
+	data = column->count + delta;
+	r = write(fd, &data, sizeof(data));
+	if(r != sizeof(data))
+		goto fail_fd;
+	close(fd);
+	close(column_fd);
+	close(gtable_fd);
 	column->count += delta;
 	return 0;
+	
+fail_fd:
+	close(fd);
+fail_column:
+	close(column_fd);
+fail_gtable:
+	close(gtable_fd);
+fail:
+	fprintf(gtable->toilet->errors, "%s(): failed to update column count for '%s'\n", __FUNCTION__, column->name);
+	/* make sure it's an error value */
+	return (r < 0) ? r : -1;
 }
 
 static int toilet_column_new(t_gtable * gtable, const char * name, t_type type)
