@@ -119,7 +119,7 @@ struct t_query {
 	/* XXX: for now, we just query for a single field having a specific value */
 	const char * name;
 	enum t_type type;
-	t_value value;
+	t_value * value;
 };
 typedef struct t_query t_query;
 
@@ -193,7 +193,7 @@ int toilet_row_update_value(t_row * row, t_values * values, int index, t_value *
 t_rowset * toilet_query(t_gtable * gtable, t_query * query);
 void toilet_put_rowset(t_rowset * rowset);
 
-#define ROWS(r) ((r)->count)
+#define ROWS(r) (vector_size((r)->rows))
 #define ROW(r, i) ((t_row_id) vector_elt((r)->rows, i))
 
 #ifdef __cplusplus

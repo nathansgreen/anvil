@@ -20,6 +20,8 @@ typedef struct vector vector_t;
 
 // Create a vector.
 vector_t * vector_create(void);
+// Create a vector of capacity n.
+vector_t * vector_create_capacity(size_t n);
 // Create a vector of size n.
 vector_t * vector_create_size(size_t n);
 // Destroy the vector, does not destroy elts.

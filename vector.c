@@ -28,6 +28,18 @@ vector_t * vector_create(void)
 	return v;
 }
 
+vector_t * vector_create_capacity(size_t n)
+{
+	// Create a vector with no elements, but with the given capacity.
+
+	vector_t * v = vector_create_size(n);
+	if (!v)
+		return NULL;
+
+	v->size = 0;
+	return v;
+}
+
 vector_t * vector_create_size(size_t n)
 {
 	vector_t * v = malloc(sizeof(*v));

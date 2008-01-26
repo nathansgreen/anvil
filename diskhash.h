@@ -27,11 +27,23 @@ public:
 	virtual int next();
 	virtual size_t size();
 	virtual ~diskhash_it();
-private:
+protected:
 	DIR * dir;
 	int key_fd;
 	size_t values;
 	diskhash_it(diskhash * dh, mm_val_t * it_key, DIR * key_dir, int key_fd, size_t count);
+	friend class diskhash;
+};
+
+class diskhash_all_it : public diskhash_it
+{
+public:
+	virtual int next();
+	virtual ~diskhash_all_it();
+protected:
+	DIR * scan_dir[5];
+	int scan_fd[5];
+	diskhash_all_it(diskhash * dh, DIR * store, int store_fd, size_t count);
 	friend class diskhash;
 };
 

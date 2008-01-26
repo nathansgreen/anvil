@@ -16,7 +16,7 @@ all: tags toilet
 	gcc -c $< -O2 $(CFLAGS)
 
 %.o: %.cpp
-	g++ -c $< -O2 $(CFLAGS) $(CPPFLAGS)
+	g++ -c $< -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
 
 toilet: $(OBJECTS)
 ifeq ($(CPPOBJECTS),)

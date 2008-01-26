@@ -87,6 +87,7 @@ int diskhash_it::next()
 			goto fail_read;
 	}
 	close(fd);
+	values--;
 	return 0;
 	
 fail_read:
@@ -103,14 +104,144 @@ size_t diskhash_it::size()
 diskhash_it::~diskhash_it()
 {
 	key = NULL;
-	closedir(dir);
-	close(key_fd);
+	if(dir)
+		closedir(dir);
+	if(key_fd != -1)
+		close(key_fd);
 }
 
 diskhash_it::diskhash_it(diskhash * dh, mm_val_t * it_key, DIR * key_dir, int fd, size_t count)
 	: multimap_it(dh), dir(key_dir), key_fd(fd), values(count)
 {
 	key = it_key;
+}
+
+int diskhash_all_it::next()
+{
+	struct dirent * ent;
+	int copy, r;
+	
+	/* this would be a great candidate for a recursive function, except for
+	 * the fact that we want to jump into the recursion like this: */
+	if(dir)
+		goto next;
+#define JUMP_SUBDIR(i) if(scan_dir[i]) goto scan_##i
+	JUMP_SUBDIR(4);
+	JUMP_SUBDIR(3);
+	JUMP_SUBDIR(2);
+	JUMP_SUBDIR(1);
+	assert(scan_dir[0]);
+	
+#define OPEN_SUBDIR(at, fd, dir) do { \
+	if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) \
+		continue; \
+	fd = openat(at, ent->d_name, 0); \
+	if(fd < 0) \
+		return fd; \
+	copy = dup(fd); \
+	if(copy < 0) \
+	{ \
+		close(fd); \
+		fd = -1; \
+		return copy; \
+	} \
+	dir = fdopendir(copy); \
+	if(!dir) \
+	{ \
+		close(copy); \
+		close(fd); \
+		fd = -1; \
+		return -1; \
+	} \
+} while(0)
+	
+#define CLOSE_SUBDIR(dir, fd) do { \
+	closedir(dir); \
+	close(fd); \
+	dir = NULL; \
+	fd = -1; \
+} while(0)
+	
+#define START_SUBDIR(i) \
+	OPEN_SUBDIR(scan_fd[i - 1], scan_fd[i], scan_dir[i]); \
+	scan_##i: ; \
+	while((ent = readdir(scan_dir[i])))
+	
+#define END_SUBDIR(i) CLOSE_SUBDIR(scan_dir[i], scan_fd[i])
+	
+	while((ent = readdir(scan_dir[0])))
+	{
+		if(!strcmp(ent->d_name, "dh"))
+			continue;
+		START_SUBDIR(1)
+		{
+			START_SUBDIR(2)
+			{
+				START_SUBDIR(3)
+				{
+					START_SUBDIR(4)
+					{
+						OPEN_SUBDIR(scan_fd[4], key_fd, dir);
+						assert(!key);
+						switch(it_map->get_key_type())
+						{
+							case MM_U32:
+								s_key.u32 = strtol(ent->d_name, NULL, 10);
+								key = &s_key;
+								break;
+							case MM_U64:
+								s_key.u64 = strtoll(ent->d_name, NULL, 10);
+								key = &s_key;
+								break;
+							case MM_STR:
+								key = (mm_val_t *) strdup(ent->d_name);
+								if(!key)
+									return -ENOMEM;
+								break;
+							default:
+								/* should never happen */ ;
+						}
+					next:
+						r = diskhash_it::next();
+						if(r != -ENOENT)
+							return r;
+						CLOSE_SUBDIR(dir, key_fd);
+						free_key();
+					}
+					END_SUBDIR(4);
+				}
+				END_SUBDIR(3);
+			}
+			END_SUBDIR(2);
+		}
+		END_SUBDIR(1);
+	}
+	
+	return -ENOENT;
+}
+
+diskhash_all_it::~diskhash_all_it()
+{
+	for(int i = 0; i < 5; i++)
+	{
+		if(scan_dir[i])
+			closedir(scan_dir[i]);
+		if(scan_fd[i] != -1)
+			close(scan_fd[i]);
+	}
+	free_key();
+}
+
+diskhash_all_it::diskhash_all_it(diskhash * dh, DIR * store, int store_fd, size_t count)
+	: diskhash_it(dh, NULL, NULL, -1, count)
+{
+	scan_dir[0] = store;
+	scan_fd[0] = store_fd;
+	for(int i = 1; i < 5; i++)
+	{
+		scan_dir[i] = NULL;
+		scan_fd[i] = -1;
+	}
 }
 
 /* disk hashes */
@@ -211,8 +342,21 @@ diskhash_it * diskhash::get_range(mm_val_t * low_key, mm_val_t * high_key)
 
 diskhash_it * diskhash::iterator()
 {
-	/* FIXME: iterate through everything */
-	return NULL;
+	DIR * store;
+	diskhash_it * it;
+	int store_fd = dup(dir_fd);
+	if(store_fd < 0)
+		return NULL;
+	store = fdopendir(store_fd);
+	if(!store)
+	{
+		close(store_fd);
+		return NULL;
+	}
+	it = new diskhash_all_it(this, store, store_fd, value_count);
+	if(!it)
+		closedir(store);
+	return it;
 }
 
 int diskhash::remove_key(mm_val_t * key)

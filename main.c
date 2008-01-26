@@ -25,7 +25,37 @@ int main(void)
 			t_gtable * gtable = toilet_get_gtable(toilet, "testgt");
 			if(gtable)
 			{
-				printf("Don't know row ID so can't get row...\n");
+				t_query query;
+				t_rowset * rows;
+				query.name = "key";
+				query.type = T_STRING;
+				query.value = (t_value *) "value";
+				rows = toilet_query(gtable, &query);
+				if(rows)
+				{
+					size_t i;
+					for(i = 0; i < ROWS(rows); i++)
+					{
+						t_row * row;
+						t_row_id id = ROW(rows, i);
+						printf("Matching row: 0x" ROW_FORMAT "\n", id);
+						row = toilet_get_row(toilet, id);
+						if(row)
+						{
+							char * value = (char *) toilet_row_value(row, "key", T_STRING);
+							if(!value)
+								fprintf(stderr, "Error: failed to get value!\n");
+							else
+								printf("Value is: %s\n", value);
+							toilet_put_row(row);
+						}
+						else
+							fprintf(stderr, "Error: failed to get row!\n");
+					}
+					toilet_put_rowset(rows);
+				}
+				else
+					fprintf(stderr, "Error: no rows matched query!\n");
 				toilet_put_gtable(gtable);
 			}
 			else

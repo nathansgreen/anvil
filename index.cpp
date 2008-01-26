@@ -246,7 +246,7 @@ static t_rowset * multimap_it_to_rowset(multimap_it * it)
 	t_rowset * rowset = (t_rowset *) malloc(sizeof(*rowset));
 	if(!rowset)
 		goto fail_rowset;
-	rowset->rows = vector_create_size(size);
+	rowset->rows = vector_create_capacity(size);
 	if(!rowset->rows)
 		goto fail_rows;
 	rowset->ids = hash_set_create_size(size, true);

@@ -1129,7 +1129,10 @@ int toilet_row_update_value(t_row * row, t_values * values, int index, t_value *
 
 t_rowset * toilet_query(t_gtable * gtable, t_query * query)
 {
-	return NULL;
+	t_column * column = hash_map_find_val(gtable->column_map, query->name);
+	if(!column)
+		return NULL;
+	return toilet_index_find(column->index, query->type, query->value);
 }
 
 void toilet_put_rowset(t_rowset * rowset)
