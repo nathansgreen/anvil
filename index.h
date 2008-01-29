@@ -49,6 +49,7 @@ extern "C" {
 #endif
 
 int toilet_index_init(int dfd, const char * path, t_type type);
+int toilet_index_drop(int dfd, const char * store);
 
 t_index * toilet_open_index(uint8_t * id, int dfd, const char * path, const char * name);
 void toilet_close_index(t_index * index);

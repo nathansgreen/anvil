@@ -478,6 +478,52 @@ fail:
 	return r;
 }
 
+static int toilet_column_drop(t_gtable * gtable, t_column * column)
+{
+	int column_fd, index_fd = -1, i;
+	int gtable_fd = openat(gtable->toilet->path_fd, gtable->name, 0);
+	if(gtable_fd < 0)
+		return gtable_fd;
+	column_fd = openat(gtable_fd, "columns", 0);
+	if(column_fd < 0)
+	{
+		close(gtable_fd);
+		return column_fd;
+	}
+	if(column->type != T_BLOB)
+	{
+		index_fd = openat(gtable_fd, "indices", 0);
+		if(index_fd < 0)
+		{
+			close(gtable_fd);
+			close(column_fd);
+			return index_fd;
+		}
+	}
+	close(gtable_fd);
+	
+	/* XXX add error handling to this function (starting here-ish) */
+	unlinkat(column_fd, column->name, 0);
+	close(column_fd);
+	
+	if(column->type != T_BLOB)
+	{
+		toilet_index_drop(index_fd, column->name);
+		unlinkat(index_fd, column->name, AT_REMOVEDIR);
+		close(index_fd);
+	}
+	
+	hash_map_erase(gtable->column_map, column->name);
+	for(i = 0; i < vector_size(gtable->columns); i++)
+		if(vector_elt(gtable->columns, i) == column)
+			break;
+	assert(i < vector_size(gtable->columns));
+	vector_erase(gtable->columns, i);
+	toilet_close_column(column);
+	
+	return 0;
+}
+
 t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
 {
 	int table_fd, column_fd, copy;
@@ -1097,31 +1143,71 @@ int toilet_row_set_value(t_row * row, const char * key, t_type type, t_value * v
 
 int toilet_row_remove_key(t_row * row, const char * key)
 {
-	return -ENOSYS;
+	int r, dir_fd;
+	t_column * column = hash_map_find_val(row->gtable->column_map, key);
+	t_values * values = hash_map_find_val(row->columns, key);
+	if(!strcmp(key, "id"))
+	{
+		fprintf(row->gtable->toilet->errors, "%s(): attempt to remove ID column\n", __FUNCTION__);
+		return -EINVAL;
+	}
+	if(!column)
+		/* -ENOENT? */
+		return 0;
+	if(column->flags & T_COLUMN_MULTI)
+	{
+		fprintf(row->gtable->toilet->errors, "%s(): attempt to remove single value in multi-column '%s'\n", __FUNCTION__, key);
+		return -EINVAL;
+	}
+	if(!values)
+		/* -ENOENT? */
+		return 0;
+	/* XXX add error handling to this function (starting here-ish) */
+	toilet_index_remove(column->index, row->id, column->type, (t_value *) vector_elt(values->values, 0));
+	toilet_free_values(values);
+	hash_map_erase(row->columns, key);
+	if(column->count == 1)
+		/* column is gone now */
+		toilet_column_drop(row->gtable, column);
+	else
+		toilet_column_update_count(row->gtable, column, -1);
+	dir_fd = openat(row->row_path_fd, key, 0);
+	unlinkat(dir_fd, "0", 0);
+	close(dir_fd);
+	unlinkat(row->row_path_fd, key, AT_REMOVEDIR);
+	return 0;
 }
 
 int toilet_row_append_value(t_row * row, const char * key, t_type type, t_value * value)
 {
+	/* multicolumns */
 	return -ENOSYS;
 }
 
 int toilet_row_replace_values(t_row * row, const char * key, t_type type, t_value * value)
 {
-	return -ENOSYS;
+	/* TODO: more efficient, atomic */
+	int r = toilet_row_remove_values(row, key);
+	if(r < 0)
+		return r;
+	return toilet_row_append_value(row, key, type, value);
 }
 
 int toilet_row_remove_values(t_row * row, const char * key)
 {
+	/* multicolumns */
 	return -ENOSYS;
 }
 
 int toilet_row_remove_value(t_row * row, t_values * values, int index)
 {
+	/* multicolumns */
 	return -ENOSYS;
 }
 
 int toilet_row_update_value(t_row * row, t_values * values, int index, t_value * value)
 {
+	/* multicolumns */
 	return -ENOSYS;
 }
 
@@ -1132,6 +1218,11 @@ t_rowset * toilet_query(t_gtable * gtable, t_query * query)
 	t_column * column = hash_map_find_val(gtable->column_map, query->name);
 	if(!column)
 		return NULL;
+	if(!column->index)
+	{
+		fprintf(gtable->toilet->errors, "%s(): query over non-indexed column '%s' of type %d\n", __FUNCTION__, column->name, column->type);
+		return NULL;
+	}
 	return toilet_index_find(column->index, query->type, query->value);
 }
 

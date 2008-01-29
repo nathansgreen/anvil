@@ -72,6 +72,11 @@ fail_simple:
 	return r;
 }
 
+int toilet_index_drop(int dfd, const char * store)
+{
+	return multimap::drop(dfd, store);
+}
+
 t_index * toilet_open_index(uint8_t * id, int dfd, const char * path, const char * name)
 {
 	t_index * index;
