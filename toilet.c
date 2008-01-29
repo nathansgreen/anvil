@@ -1143,7 +1143,7 @@ int toilet_row_set_value(t_row * row, const char * key, t_type type, t_value * v
 
 int toilet_row_remove_key(t_row * row, const char * key)
 {
-	int r, dir_fd;
+	int dir_fd;
 	t_column * column = hash_map_find_val(row->gtable->column_map, key);
 	t_values * values = hash_map_find_val(row->columns, key);
 	if(!strcmp(key, "id"))
