@@ -174,9 +174,9 @@ int toilet_row_remove_key(t_row * row, const char * key); /* non-multi columns *
 
 /* append a new value (it will be copied) */
 int toilet_row_append_value(t_row * row, const char * key, t_type type, t_value * value); /* multi columns */
-/* replace all values with a new one (it will be copied) [same as set_value] */
+/* replace all values with a new one (it will be copied) [same as set_value, but for multi columns] */
 int toilet_row_replace_values(t_row * row, const char * key, t_type type, t_value * value); /* multi columns */
-/* remove all values [same as remove_value] */
+/* remove all values [same as remove_key, but for multi columns] */
 int toilet_row_remove_values(t_row * row, const char * key); /* multi columns */
 
 #define TYPE(vs) ((vs)->type)

@@ -514,7 +514,7 @@ int diskhash::remove_value(mm_val_t * key, mm_val_t * value)
 				r = fstat(fd, &stat);
 				if(r < 0)
 					goto fail;
-				if(stat.st_size != strlen((char *) value))
+				if(stat.st_size != (off_t) strlen((char *) value))
 					break;
 				local.blob = malloc(stat.st_size + 1);
 				if(!local.blob)

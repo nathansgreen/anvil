@@ -746,7 +746,82 @@ fail:
 
 int toilet_drop_row(t_row * row)
 {
-	return -ENOSYS;
+	/* TODO: more efficient all-at-once implementation? */
+	union {
+		t_row_id id;
+		uint8_t bytes[sizeof(t_row_id)];
+	} id;
+	DIR * dir;
+	t_value id_value;
+	t_column * column;
+	struct dirent * ent;
+	t_gtable * gtable = row->gtable;
+	char row_dir[] = "rows/xx/xx/xx/xx";
+	int i, r, copy = dup(row->row_path_fd);
+	if(copy < 0)
+		return copy;
+	dir = fdopendir(copy);
+	if(!dir)
+	{
+		close(copy);
+		return -1;
+	}
+	while((ent = readdir(dir)))
+	{
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") || !strcmp(ent->d_name, "=gtable"))
+			continue;
+		column = hash_map_find_val(gtable->column_map, ent->d_name);
+		if(!column)
+		{
+			/* TODO: this will cause us problems; we need to just delete it in this case */
+			fprintf(gtable->toilet->errors, "%s(): ignoring unknown column key '%s' in row 0x" ROW_FORMAT "\n", __FUNCTION__, ent->d_name, row->id);
+			continue;
+		}
+		if(column->flags & T_COLUMN_MULTI)
+			r = toilet_row_remove_values(row, ent->d_name);
+		else
+			r = toilet_row_remove_key(row, ent->d_name);
+		if(r < 0)
+		{
+			fprintf(gtable->toilet->errors, "%s(): failed to remove column '%s' in row 0x" ROW_FORMAT "\n", __FUNCTION__, ent->d_name, row->id);
+			break;
+		}
+	}
+	if(ent)
+		return -1;
+	closedir(dir);
+	
+	id.id = row->id;
+	id_value.v_id = row->id;
+	column = hash_map_find_val(gtable->column_map, "id");
+	r = toilet_index_remove(column->index, row->id, T_ID, &id_value);
+	if(r < 0)
+	{
+		fprintf(gtable->toilet->errors, "%s(): failed to remove row 0x" ROW_FORMAT " from ID index\n", __FUNCTION__, row->id);
+		return r;
+	}
+	r = unlinkat(row->row_path_fd, "=gtable", 0);
+	if(r < 0)
+	{
+		fprintf(gtable->toilet->errors, "%s(): failed to remove gtable link in row 0x" ROW_FORMAT "\n", __FUNCTION__, row->id);
+		return r;
+	}
+	/* TODO: use counts are kind of hacky right now */
+	assert(row->out_count == 1);
+	toilet_put_row(row);
+	
+	/* remove row dir */
+	for(i = ROW_FORMATS - 1; i >= 0; i--)
+	{
+		sprintf(row_dir, row_formats[i], id.bytes[0], id.bytes[1], id.bytes[2], id.bytes[3]);
+		r = unlinkat(gtable->toilet->path_fd, row_dir, AT_REMOVEDIR);
+		if(r < 0)
+			break;
+	}
+	if(i == ROW_FORMATS - 1)
+		fprintf(gtable->toilet->errors, "%s(): could not remove row 0x" ROW_FORMAT "\n", __FUNCTION__, id.id);
+	
+	return 0;
 }
 
 static void toilet_free_values(t_values * values)
@@ -1116,7 +1191,8 @@ int toilet_row_set_value(t_row * row, const char * key, t_type type, t_value * v
 	value = toilet_copy_value(type, value);
 	if(values)
 	{
-		toilet_index_change(column->index, row->id, type, (t_value *) vector_elt(values->values, 0), value);
+		if(type != T_BLOB)
+			toilet_index_change(column->index, row->id, type, (t_value *) vector_elt(values->values, 0), value);
 		toilet_free_values(values);
 		hash_map_erase(row->columns, key);
 		dir_fd = openat(row->row_path_fd, key, 0);
@@ -1125,7 +1201,8 @@ int toilet_row_set_value(t_row * row, const char * key, t_type type, t_value * v
 	else
 	{
 		toilet_column_update_count(row->gtable, column, 1);
-		toilet_index_add(column->index, row->id, type, value);
+		if(type != T_BLOB)
+			toilet_index_add(column->index, row->id, type, value);
 		mkdirat(row->row_path_fd, key, 0775);
 		dir_fd = openat(row->row_path_fd, key, 0);
 		value_fd = openat(dir_fd, "0", O_WRONLY | O_CREAT, 0664);
