@@ -4,12 +4,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #include "platform.h"
 #include "hash_map.h"
 #include "toilet.h"
 
-int main(void)
+#define HISTORY_FILE ".toilet_history"
+
+static int old_main(int argc, const char * argv[])
 {
 	toilet * toilet;
 	int r = hash_map_init();
@@ -116,6 +120,98 @@ int main(void)
 		else
 			fprintf(stderr, "Error: failed to open toilet! ('test')\n");
 	}
+}
+
+static int command_help(int argc, const char * argv[]);
+static int command_quit(int argc, const char * argv[]);
+
+struct {
+	const char * command;
+	const char * help;
+	int (*execute)(int argc, const char * argv[]);
+} commands[] = {
+	{"test", "Run the old toilet test", old_main},
+	{"help", "Displays help.", command_help},
+	{"quit", "Quits the program.", command_quit}
+};
+#define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))
+
+static int command_help(int argc, const char * argv[])
+{
+	int i;
+	if(argc < 2)
+	{
+		printf("Commands:\n");
+		for(i = 0; i < COMMAND_COUNT; i++)
+			printf("  %s\n    %s\n", commands[i].command, commands[i].help);
+	}
+	else
+		for(i = 0; i < COMMAND_COUNT; i++)
+		{
+			if(strcmp(commands[i].command, argv[1]))
+				continue;
+			printf("  %s\n    %s\n", commands[i].command, commands[i].help);
+			break;
+		}
+	return 0;
+}
+
+static int command_quit(int argc, const char * argv[])
+{
+	return -EINTR;
+}
+
+static int command_line_execute(char * line)
+{
+	int i, argc = 0;
+	const char * argv[64];
+	do {
+		while(*line == ' ' || *line == '\n')
+			line++;
+		if(!*line)
+			break;
+		argv[argc++] = line;
+		while(*line && *line != ' ' && *line != '\n')
+			line++;
+		if(*line)
+			*(line++) = 0;
+		else
+			break;
+	} while(argc < 64);
+	if(*line)
+		return -E2BIG;
+	if(!argc)
+		return 0;
+	for(i = 0; i < COMMAND_COUNT; i++)
+		if(!strcmp(commands[i].command, argv[0]))
+			return commands[i].execute(argc, argv);
+	return -ENOENT;
+}
+
+int main(int argc, char * argv[])
+{
+	int r;
+	read_history(HISTORY_FILE);
+	do {
+		int i;
+		char * line = readline("toilet> ");
+		if(!line)
+		{
+			printf("\n");
+			line = strdup("quit");
+			assert(line);
+		}
+		for(i = 0; line[i] == ' '; i++);
+		if(line[i])
+			add_history(line);
+		r = command_line_execute(line);
+		free(line);
+		if(r == -E2BIG)
+			printf("Too many tokens on command line!\n");
+		else if(r == -ENOENT)
+			printf("No such command.\n");
+	} while(r != -EINTR);
+	write_history(HISTORY_FILE);
 	
 	return 0;
 }
