@@ -22,7 +22,7 @@
 /* This initial implementation of Toilet stores databases using the file system.
  * Each gtable gets a subdirectory in the database directory, and has
  * subdirectories "columns" and "indices" that store the gtable metadata and
- * indices, respectively. The database-wide "rows" directory stores a tree of
+ * indices, respectively. The database-wide "=rows" directory stores a tree of
  * subdirectories: each row ID (32-bit numbers for now) is written in
  * hexadecimal and each two digits form a subdirectory name. The last such
  * subdirectory contains a directory for each key in the row, and in these
@@ -41,13 +41,13 @@
  * [db]/[gt1]/indices/[col1]/...              Index data for a column
  * [db]/[gt1]/indices/[col2]/...              More index data...
  * [db]/[gt2]/...                             More gtables...
- * [db]/rows/                                 The rows in all gtables
- * [db]/rows/XX/XX/XX/XX/                     A row directory
- * [db]/rows/XX/XX/XX/XX/=gtable              File storing gtable name
- * [db]/rows/XX/XX/XX/XX/[key1]/              A key in that row
- * [db]/rows/XX/XX/XX/XX/[key1]/0             A value of that key
- * [db]/rows/XX/XX/XX/XX/[key1]/1...          More values...
- * [db]/rows/XX/XX/XX/XX/[key2]/...           More keys...
+ * [db]/=rows/                                The rows in all gtables
+ * [db]/=rows/XX/XX/XX/XX/                    A row directory
+ * [db]/=rows/XX/XX/XX/XX/=gtable             File storing gtable name
+ * [db]/=rows/XX/XX/XX/XX/[key1]/             A key in that row
+ * [db]/=rows/XX/XX/XX/XX/[key1]/0            A value of that key
+ * [db]/=rows/XX/XX/XX/XX/[key1]/1...         More values...
+ * [db]/=rows/XX/XX/XX/XX/[key2]/...          More keys...
  *
  * "toilet-version" is currently a single line file: "0"
  * "toilet-id" is a random 128-bit database identifier stored literally
@@ -108,7 +108,7 @@ int toilet_new(const char * path)
 	if(r != sizeof(next))
 		goto fail_next;
 	
-	r = mkdirat(dir_fd, "rows", 0775);
+	r = mkdirat(dir_fd, "=rows", 0775);
 	if(r < 0)
 		goto fail_next;
 	
@@ -670,18 +670,18 @@ static int toilet_new_row_id(toilet * toilet, t_row_id * row)
 }
 
 static const char * row_formats[] = {
-	"rows",
-	"rows/%02x",
-	"rows/%02x/%02x",
-	"rows/%02x/%02x/%02x",
-	"rows/%02x/%02x/%02x/%02x"
+	"=rows",
+	"=rows/%02x",
+	"=rows/%02x/%02x",
+	"=rows/%02x/%02x/%02x",
+	"=rows/%02x/%02x/%02x/%02x"
 };
 #define ROW_FORMATS (sizeof(row_formats) / sizeof(row_formats[0]))
 
 int toilet_new_row(t_gtable * gtable, t_row_id * new_id)
 {
 	int i, r, row_fd;
-	char row[] = "rows/xx/xx/xx/xx";
+	char row[] = "=rows/xx/xx/xx/xx";
 	union {
 		t_row_id id;
 		uint8_t bytes[sizeof(t_row_id)];
@@ -756,7 +756,7 @@ int toilet_drop_row(t_row * row)
 	t_column * column;
 	struct dirent * ent;
 	t_gtable * gtable = row->gtable;
-	char row_dir[] = "rows/xx/xx/xx/xx";
+	char row_dir[] = "=rows/xx/xx/xx/xx";
 	int i, r, copy = dup(row->row_path_fd);
 	if(copy < 0)
 		return copy;
@@ -1002,7 +1002,7 @@ t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
 {
 	ssize_t length;
 	int dir_fd, fd;
-	char row_name[] = "rows/xx/xx/xx/xx";
+	char row_name[] = "=rows/xx/xx/xx/xx";
 	char gtable_name[GTABLE_NAME_LENGTH + 1];
 	union {
 		t_row_id id;
