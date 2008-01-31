@@ -123,6 +123,22 @@ struct t_query {
 };
 typedef struct t_query t_query;
 
+static inline const char * toilet_name_type(t_type type)
+{
+	switch(type)
+	{
+		case T_ID:
+			return "id";
+		case T_INT:
+			return "int";
+		case T_STRING:
+			return "string";
+		case T_BLOB:
+			return "blob";
+	}
+	return "(unknown)";
+}
+
 /* databases */
 
 int toilet_new(const char * path);
@@ -143,6 +159,10 @@ void toilet_put_gtable(t_gtable * gtable);
 
 #define COLUMNS(g) vector_size((g)->columns)
 #define COLUMN(g, i) ((t_column *) vector_elt((g)->columns, (i)))
+#define NAME(c) ((c)->name)
+#define COUNT(c) ((c)->count)
+/* this also works for values */
+#define TYPE(cv) ((cv)->type)
 
 t_column * toilet_gtable_get_column(t_gtable * gtable, const char * name);
 int toilet_column_is_multi(t_column * column);
@@ -179,7 +199,6 @@ int toilet_row_replace_values(t_row * row, const char * key, t_type type, t_valu
 /* remove all values [same as remove_key, but for multi columns] */
 int toilet_row_remove_values(t_row * row, const char * key); /* multi columns */
 
-#define TYPE(vs) ((vs)->type)
 #define VALUES(vs) vector_size((vs)->values)
 #define VALUE(vs, i) ((t_value *) vector_elt((vs)->values, (i)))
 

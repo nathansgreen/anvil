@@ -175,8 +175,97 @@ static int command_create(int argc, const char * argv[])
 
 static int command_drop(int argc, const char * argv[])
 {
-	/* not implemented yet */
-	return -ENOSYS;
+	int r = 0;
+	if(argc < 2)
+		printf("Drop what?\n");
+	else if(!strcmp(argv[1], "database"))
+	{
+		/* not implemented yet */
+		r = -ENOSYS;
+	}
+	else if(!strcmp(argv[1], "gtable"))
+	{
+		if(argc < 3)
+			printf("OK, but which one should I drop?\n");
+		else if(!strcmp(argv[2], "."))
+		{
+		current_gtable:
+			if(!open_gtable)
+				printf("You need to open a gtable first.\n");
+			else if(open_row)
+				printf("You need to close the current row first.\n");
+			else
+			{
+				r = toilet_drop_gtable(open_gtable);
+				if(r >= 0)
+					open_gtable = NULL;
+			}
+		}
+		else if(open_toilet)
+		{
+			if(open_gtable && !strcmp(argv[2], NAME(open_gtable)))
+				goto current_gtable;
+			else
+			{
+				t_gtable * gtable = toilet_get_gtable(open_toilet, argv[2]);
+				if(!gtable)
+					r = errno ? -errno : -ENOENT;
+				else
+				{
+					r = toilet_drop_gtable(gtable);
+					if(r < 0)
+						toilet_put_gtable(gtable);
+				}
+			}
+		}
+		else
+			printf("You need to open a database first.\n");
+	}
+	else if(!strcmp(argv[1], "row"))
+	{
+		if(argc < 3)
+			printf("OK, but which one should I drop?\n");
+		else if(!strcmp(argv[2], "."))
+		{
+			if(!open_row)
+				printf("You need to open a row first.\n");
+			else
+			{
+			current_row:
+				r = toilet_drop_row(open_row);
+				if(r >= 0)
+					open_row = NULL;
+			}
+		}
+		else if(open_toilet)
+		{
+			t_row_id id;
+			if(sscanf(argv[2], ROW_FORMAT, &id) != 1)
+				r = -EINVAL;
+			else
+			{
+				if(open_row && id == ID(open_row))
+					goto current_row;
+				else
+				{
+					t_row * row = toilet_get_row(open_toilet, id);
+					if(!row)
+						r = errno ? -errno : -ENOENT;
+					else
+					{
+						r = toilet_drop_row(row);
+						if(r < 0)
+							toilet_put_row(row);
+					}
+				}
+			}
+		}
+		else
+			printf("You need to open a database first.\n");
+	}
+	else
+		printf("Unknown object type: %s\n", argv[1]);
+	return r;
 }
 
 static int command_open(int argc, const char * argv[])
@@ -291,6 +380,33 @@ static int command_list(int argc, const char * argv[])
 			r = -ENOSYS;
 		}
 	}
+	else if(!strcmp(argv[1], "columns"))
+	{
+		if(!open_gtable)
+			printf("You need to open a gtable first.\n");
+		else
+		{
+			int i;
+			printf("Name          Type       Rows\n");
+			printf("------------  ---------  -----------\n");
+			for(i = 0; i < COLUMNS(open_gtable); i++)
+			{
+				t_column * column = COLUMN(open_gtable, i);
+				const char * type = toilet_name_type(TYPE(column));
+				printf("%-12s  %-9s  %11u\n", NAME(column), type, COUNT(column));
+			}
+		}
+	}
+	else if(!strcmp(argv[1], "keys"))
+	{
+		if(!open_row)
+			printf("You need to open a row first.\n");
+		else
+		{
+			/* not implemented yet */
+			r = -ENOSYS;
+		}
+	}
 	else
 		printf("Unknown object type: %s\n", argv[1]);
 	return r;
@@ -316,13 +432,13 @@ struct {
 	const char * help;
 	int (*execute)(int argc, const char * argv[]);
 } commands[] = {
-	{"test", "Run the old hand-written toilet test", old_main},
-	{"create", "Create toilet objects: databases, gtables, and rows", command_create},
-	{"drop", "Drop toilet objects: databases, gtables, and rows", command_drop},
-	{"open", "Open toilet objects: databases and gtables", command_open},
-	{"close", "Close toilet objects: databases and gtables", command_close},
-	{"list", "List toilet objects: gtables", command_list},
-	{"set", "Modify toilet objects: gtables and rows", command_set},
+	{"test", "Run the old hand-written toilet test.", old_main},
+	{"create", "Create toilet objects: databases, gtables, and rows.", command_create},
+	{"drop", "Drop toilet objects: databases, gtables, and rows.", command_drop},
+	{"open", "Open toilet objects: databases, gtables, and rows.", command_open},
+	{"close", "Close toilet objects: databases, gtables, and rows.", command_close},
+	{"list", "List toilet objects: gtables, columns, and keys.", command_list},
+	{"set", "Modify toilet objects: gtables and rows.", command_set},
 	{"query", "Query toilet!", command_query},
 	{"help", "Displays help.", command_help},
 	{"quit", "Quits the program.", command_quit}
