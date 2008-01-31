@@ -159,6 +159,7 @@ void toilet_put_gtable(t_gtable * gtable);
 
 #define COLUMNS(g) vector_size((g)->columns)
 #define COLUMN(g, i) ((t_column *) vector_elt((g)->columns, (i)))
+#define COLUMN_N(g, n) ((t_column *) hash_map_find_val((g)->column_map, (n)))
 #define NAME(c) ((c)->name)
 #define COUNT(c) ((c)->count)
 /* this also works for values */
