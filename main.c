@@ -270,6 +270,30 @@ static int command_drop(int argc, const char * argv[])
 		else
 			printf("You need to open a database first.\n");
 	}
+	else if(!strcmp(argv[1], "value"))
+	{
+		if(!open_row)
+			printf("You need to open a row first.\n");
+		else
+		{
+			if(argc < 3)
+				printf("OK, but which one should I drop?\n");
+			else
+				r = toilet_row_remove_key(open_row, argv[2]);
+		}
+	}
+	else if(!strcmp(argv[1], "values"))
+	{
+		if(!open_row)
+			printf("You need to open a row first.\n");
+		else
+		{
+			if(argc < 3)
+				printf("OK, but which ones should I drop?\n");
+			else
+				r = toilet_row_remove_values(open_row, argv[2]);
+		}
+	}
 	else
 		printf("Unknown object type: %s\n", argv[1]);
 	return r;
@@ -504,6 +528,21 @@ static void free_value(t_type type, t_value * value)
 	}
 }
 
+static int parse_type(const char * string, t_type * type)
+{
+	if(!strcmp(string, "id"))
+		*type = T_ID;
+	else if(!strcmp(string, "int"))
+		*type = T_INT;
+	else if(!strcmp(string, "string"))
+		*type = T_STRING;
+	else if(!strcmp(string, "blob"))
+		*type = T_BLOB;
+	else
+		return -EINVAL;
+	return 0;
+}
+
 static int command_set(int argc, const char * argv[])
 {
 	int r = 0;
@@ -511,8 +550,56 @@ static int command_set(int argc, const char * argv[])
 		printf("You need to open a row first.\n");
 	else
 	{
-		/* not implemented yet */
-		r = -ENOSYS;
+		if(argc < 2)
+			printf("OK, but what should I set?\n");
+		else if(!strcmp(argv[1], "value"))
+		{
+			if(argc < 3)
+				printf("OK, but which value should I set?\n");
+			else
+			{
+				t_column * column = COLUMN_N(open_gtable, argv[2]);
+				t_value local_value;
+				t_value * value;
+				t_type type;
+				if(!column)
+				{
+					if(argc < 4)
+						printf("You need to specify the type for a new column.\n");
+					else if(argc < 5)
+						printf("OK, but what value should I set it to?\n");
+					else
+					{
+					user_type:
+						r = parse_type(argv[3], &type);
+						if(r < 0)
+							printf("Unknown type: %s\n", argv[3]);
+						else
+						{
+							value = parse_value(type, argv[4], &local_value);
+							goto have_type;
+						}
+					}
+				}
+				else
+				{
+					if(argc < 4)
+						printf("OK, but what value should I set it to?\n");
+					else if(argc < 5)
+					{
+						type = column->type;
+						value = parse_value(type, argv[3], &local_value);
+					have_type:
+						r = toilet_row_set_value(open_row, argv[2], type, value);
+						/* TODO: print error message? */
+					}
+					else
+						goto user_type;
+				}
+			}
+		}
+		else
+			printf("Unknown object type: %s\n", argv[1]);
 	}
 	return r;
 }
@@ -552,8 +639,10 @@ static int command_query(int argc, const char * argv[])
 						else
 						{
 							int i;
+							printf("Matching rows:\n");
 							for(i = 0; i < ROWS(rows); i++)
 								printf("0x" ROW_FORMAT "\n", ROW(rows, i));
+							printf("%d rows matched\n", ROWS(rows));
 							toilet_put_rowset(rows);
 						}
 						free_value(query.type, query.value);
@@ -575,7 +664,7 @@ struct {
 } commands[] = {
 	{"test", "Run the old hand-written toilet test.", old_main},
 	{"create", "Create toilet objects: databases, gtables, and rows.", command_create},
-	{"drop", "Drop toilet objects: databases, gtables, and rows.", command_drop},
+	{"drop", "Drop toilet objects: databases, gtables, rows, and values.", command_drop},
 	{"open", "Open toilet objects: databases, gtables, and rows.", command_open},
 	{"close", "Close toilet objects: databases, gtables, and rows.", command_close},
 	{"list", "List toilet objects: gtables, columns, rows, keys, and values.", command_list},
