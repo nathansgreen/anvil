@@ -125,6 +125,7 @@ static int old_main(int argc, const char * argv[])
 
 static toilet * open_toilet = NULL;
 static t_gtable * open_gtable = NULL;
+static t_row * open_row = NULL;
 
 static int command_create(int argc, const char * argv[])
 {
@@ -149,8 +150,23 @@ static int command_create(int argc, const char * argv[])
 	}
 	else if(!strcmp(argv[1], "row"))
 	{
-		/* not implemented yet */
-		r = -ENOSYS;
+		if(!open_gtable)
+			printf("You need to open a gtable first.\n");
+		else if(open_row)
+			printf("You need to close the current row first.\n");
+		else
+		{
+			t_row_id id;
+			r = toilet_new_row(open_gtable, &id);
+			if(r >= 0)
+			{
+				printf("New row ID is 0x" ROW_FORMAT "\n", id);
+				assert(open_toilet);
+				open_row = toilet_get_row(open_toilet, id);
+				if(!open_row)
+					r = errno ? -errno : -ENOENT;
+			}
+		}
 	}
 	else
 		printf("Unknown object type: %s\n", argv[1]);
@@ -196,6 +212,28 @@ static int command_open(int argc, const char * argv[])
 				r = errno ? -errno : -ENOENT;
 		}
 	}
+	else if(!strcmp(argv[1], "row"))
+	{
+		if(open_row)
+			printf("You need to close the current row first.\n");
+		else if(!open_gtable)
+			printf("You need to open a gtable first.\n");
+		else if(argc < 3)
+			printf("OK, but which one should I open?\n");
+		else
+		{
+			t_row_id id;
+			if(sscanf(argv[2], ROW_FORMAT, &id) != 1)
+				r = -EINVAL;
+			else
+			{
+				assert(open_toilet);
+				open_row = toilet_get_row(open_toilet, id);
+				if(!open_row)
+					r = errno ? -errno : -ENOENT;
+			}
+		}
+	}
 	else
 		printf("Unknown object type: %s\n", argv[1]);
 	return r;
@@ -217,12 +255,24 @@ static int command_close(int argc, const char * argv[])
 	}
 	else if(!strcmp(argv[1], "gtable"))
 	{
-		if(open_gtable)
+		if(open_row)
+			printf("You need to close the current row first.\n");
+		else if(open_gtable)
 		{
 			toilet_put_gtable(open_gtable);
 			open_gtable = NULL;
 		}
 	}
+	else if(!strcmp(argv[1], "row"))
+	{
+		if(open_row)
+		{
+			toilet_put_row(open_row);
+			open_row = NULL;
+		}
+	}
+	else
+		printf("Unknown object type: %s\n", argv[1]);
 	return 0;
 }
 
