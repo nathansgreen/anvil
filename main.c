@@ -486,6 +486,7 @@ static t_value * parse_value(t_type type, const char * string, t_value * value)
 			/* TODO: implement this */
 			return NULL;
 	}
+	return NULL;
 }
 
 static void free_value(t_type type, t_value * value)
@@ -679,5 +680,11 @@ int main(int argc, char * argv[])
 	} while(r != -EINTR);
 	write_history(HISTORY_FILE);
 	
+	if(open_row)
+		toilet_put_row(open_row);
+	if(open_gtable)
+		toilet_put_gtable(open_gtable);
+	if(open_toilet)
+		toilet_close(open_toilet);
 	return 0;
 }
