@@ -13,116 +13,6 @@
 
 #define HISTORY_FILE ".toilet_history"
 
-static int old_main(int argc, const char * argv[])
-{
-	toilet * toilet;
-	int r = hash_map_init();
-	if(r < 0)
-		fprintf(stderr, "Warning: failed to initialize hash map library!\n");
-	r = toilet_new("test");
-	if(r < 0)
-	{
-		fprintf(stderr, "Warning: failed to create toilet! ('test')\n");
-		toilet = toilet_open("test", NULL);
-		if(toilet)
-		{
-			t_gtable * gtable = toilet_get_gtable(toilet, "testgt");
-			if(gtable)
-			{
-				t_query query;
-				t_rowset * rows;
-				query.name = "key";
-				query.type = T_STRING;
-				query.value = (t_value *) "value";
-				rows = toilet_query(gtable, &query);
-				if(rows)
-				{
-					size_t i;
-					for(i = 0; i < ROWS(rows); i++)
-					{
-						t_row * row;
-						t_row_id id = ROW(rows, i);
-						printf("Matching row: 0x" ROW_FORMAT "\n", id);
-						row = toilet_get_row(toilet, id);
-						if(row)
-						{
-							char * value = (char *) toilet_row_value(row, "key", T_STRING);
-							if(!value)
-								fprintf(stderr, "Error: failed to get value!\n");
-							else
-								printf("Value is: %s\n", value);
-							toilet_put_row(row);
-						}
-						else
-							fprintf(stderr, "Error: failed to get row!\n");
-					}
-					toilet_put_rowset(rows);
-				}
-				else
-					fprintf(stderr, "Error: no rows matched query!\n");
-				toilet_put_gtable(gtable);
-			}
-			else
-				fprintf(stderr, "Error: failed to open gtable! ('testgt')\n");
-			toilet_close(toilet);
-		}
-		else
-			fprintf(stderr, "Error: failed to open toilet! ('test')\n");
-	}
-	else
-	{
-		toilet = toilet_open("test", NULL);
-		if(toilet)
-		{
-			t_gtable * gtable;
-			r = toilet_new_gtable(toilet, "testgt");
-			if(r < 0)
-				fprintf(stderr, "Warning: failed to create gtable! ('testgt')\n");
-			gtable = toilet_get_gtable(toilet, "testgt");
-			if(gtable)
-			{
-				t_row_id id;
-				if(toilet_new_row(gtable, &id) < 0)
-					fprintf(stderr, "Error: failed to create row!\n");
-				else
-				{
-					t_row * row;
-					printf("New row ID is 0x" ROW_FORMAT "\n", id);
-					row = toilet_get_row(toilet, id);
-					if(row)
-					{
-						r = toilet_row_set_value(row, "key", T_STRING, (t_value *) "value");
-						if(r < 0)
-							fprintf(stderr, "Warning: failed to set value!\n");
-						toilet_put_row(row);
-						row = toilet_get_row(toilet, id);
-						if(row)
-						{
-							char * value = (char *) toilet_row_value(row, "key", T_STRING);
-							if(!value)
-								fprintf(stderr, "Error: failed to get value!\n");
-							else
-								printf("Value is: %s\n", value);
-							toilet_put_row(row);
-						}
-						else
-							fprintf(stderr, "Error: failed to get row again!\n");
-					}
-					else
-						fprintf(stderr, "Error: failed to get row!\n");
-				}
-				toilet_put_gtable(gtable);
-			}
-			else
-				fprintf(stderr, "Error: failed to open gtable! ('testgt')\n");
-			toilet_close(toilet);
-		}
-		else
-			fprintf(stderr, "Error: failed to open toilet! ('test')\n");
-	}
-	return 0;
-}
-
 static toilet * open_toilet = NULL;
 static t_gtable * open_gtable = NULL;
 static t_row * open_row = NULL;
@@ -654,6 +544,7 @@ static int command_query(int argc, const char * argv[])
 	return r;
 }
 
+static int command_script(int argc, const char * argv[]);
 static int command_help(int argc, const char * argv[]);
 static int command_quit(int argc, const char * argv[]);
 
@@ -662,7 +553,6 @@ struct {
 	const char * help;
 	int (*execute)(int argc, const char * argv[]);
 } commands[] = {
-	{"test", "Run the old hand-written toilet test.", old_main},
 	{"create", "Create toilet objects: databases, gtables, and rows.", command_create},
 	{"drop", "Drop toilet objects: databases, gtables, rows, and values.", command_drop},
 	{"open", "Open toilet objects: databases, gtables, and rows.", command_open},
@@ -671,7 +561,8 @@ struct {
 	{"set", "Modify toilet objects: gtables and rows.", command_set},
 	{"query", "Query toilet!", command_query},
 	{"help", "Displays help.", command_help},
-	{"quit", "Quits the program.", command_quit}
+	{"quit", "Quits the program.", command_quit},
+	{"script", "Run a toilet script.", command_script}
 };
 #define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))
 
@@ -739,6 +630,38 @@ static int command_line_execute(char * line, char ** error)
 			return r;
 		}
 	return -ENOENT;
+}
+
+static int command_script(int argc, const char * argv[])
+{
+	if(argc < 2)
+		printf("What script should I read?\n");
+	else
+	{
+		FILE * script = fopen(argv[1], "r");
+		char line[64];
+		if(!script)
+			return -errno;
+		fgets(line, sizeof(line), script);
+		while(!feof(script))
+		{
+			int r;
+			char * error;
+			printf("> %s", line);
+			r = command_line_execute(line, &error);
+			if(r == -E2BIG)
+				printf("Too many tokens on command line!\n");
+			else if(r == -ENOENT)
+				printf("No such command.\n");
+			else if(r == -EINTR)
+				break;
+			else if(r < 0)
+				printf("Error: %s\n", error);
+			fgets(line, sizeof(line), script);
+		}
+		fclose(script);
+	}
+	return 0;
 }
 
 int main(int argc, char * argv[])
