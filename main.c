@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -533,8 +534,8 @@ static int command_query(int argc, const char * argv[])
 							printf("Matching rows:\n");
 							for(i = 0; i < ROWS(rows); i++)
 								printf("0x" ROW_FORMAT "\n", ROW(rows, i));
-							printf("%d rows matched\n", ROWS(rows));
 							toilet_put_rowset(rows);
+							printf("%d rows matched\n", i);
 						}
 						free_value(query.type, query.value);
 					}
