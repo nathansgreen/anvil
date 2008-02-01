@@ -141,12 +141,12 @@ fail_open:
  * The pointer part is the arrow, obviously. The rest of the sign constitutes
  * the type, and may actually indicate a subclass such as "men's room." */
 
-toilet * toilet_open(const char * path, FILE * errors)
+t_toilet * toilet_open(const char * path, FILE * errors)
 {
 	FILE * version_file;
 	char version_str[16];
 	int dir_fd, id_fd;
-	toilet * toilet;
+	t_toilet * toilet;
 	
 	dir_fd = open(path, 0);
 	if(dir_fd < 0)
@@ -220,7 +220,7 @@ fail_malloc:
 	return NULL;
 }
 
-int toilet_close(toilet * toilet)
+int toilet_close(t_toilet * toilet)
 {
 	/* XXX should be more stuff here */
 	hash_map_destroy(toilet->rows);
@@ -234,7 +234,7 @@ int toilet_close(toilet * toilet)
 
 /* gtables */
 
-int toilet_new_gtable(toilet * toilet, const char * name)
+int toilet_new_gtable(t_toilet * toilet, const char * name)
 {
 	int r, dir_fd, id_fd;
 	uint32_t data[2];
@@ -525,7 +525,7 @@ static int toilet_column_drop(t_gtable * gtable, t_column * column)
 	return 0;
 }
 
-t_gtable * toilet_get_gtable(toilet * toilet, const char * name)
+t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 {
 	int table_fd, column_fd, copy;
 	t_gtable * gtable;
@@ -657,7 +657,7 @@ int toilet_column_set_multi(t_column * column, int multi)
 
 /* rows */
 
-static int toilet_new_row_id(toilet * toilet, t_row_id * row)
+static int toilet_new_row_id(t_toilet * toilet, t_row_id * row)
 {
 	bf_ctx bfc;
 	t_row_id next = toilet->next_row + 1;
@@ -999,7 +999,7 @@ fail:
 	return (r < 0) ? r : -1;
 }
 
-t_row * toilet_get_row(toilet * toilet, t_row_id row_id)
+t_row * toilet_get_row(t_toilet * toilet, t_row_id row_id)
 {
 	ssize_t length;
 	int dir_fd, fd;

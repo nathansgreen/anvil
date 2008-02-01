@@ -44,14 +44,14 @@ typedef struct t_column t_column;
 
 #define GTABLE_NAME_LENGTH 63
 
-struct toilet;
+struct t_toilet;
 
 struct t_gtable {
 	const char * name;
 	vector_t * columns;
 	hash_map_t * column_map;
 	/* internal stuff now */
-	struct toilet * toilet;
+	struct t_toilet * toilet;
 	int out_count;
 };
 typedef struct t_gtable t_gtable;
@@ -91,7 +91,7 @@ typedef struct t_row t_row;
 
 #define T_ID_SIZE 16
 
-struct toilet {
+struct t_toilet {
 	uint8_t id[T_ID_SIZE];
 	t_row_id next_row;
 	/* internal stuff now */
@@ -105,7 +105,7 @@ struct toilet {
 	/* cache of rows currently out */
 	hash_map_t * rows;
 };
-typedef struct toilet toilet;
+typedef struct t_toilet t_toilet;
 
 struct t_rowset {
 	vector_t * rows;
@@ -147,15 +147,15 @@ static inline const char * toilet_name_type(t_type type)
 int toilet_new(const char * path);
 /* there is no "toilet_drop()" because you can do that with rm -rf */
 
-toilet * toilet_open(const char * path, FILE * errors);
-int toilet_close(toilet * toilet);
+t_toilet * toilet_open(const char * path, FILE * errors);
+int toilet_close(t_toilet * toilet);
 
 /* gtables */
 
-int toilet_new_gtable(toilet * toilet, const char * name);
+int toilet_new_gtable(t_toilet * toilet, const char * name);
 int toilet_drop_gtable(t_gtable * gtable);
 
-t_gtable * toilet_get_gtable(toilet * toilet, const char * name);
+t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name);
 void toilet_put_gtable(t_gtable * gtable);
 
 /* columns */
@@ -178,7 +178,7 @@ int toilet_column_set_multi(t_column * column, int multi);
 int toilet_new_row(t_gtable * gtable, t_row_id * new_id);
 int toilet_drop_row(t_row * row);
 
-t_row * toilet_get_row(toilet * toilet, t_row_id row_id);
+t_row * toilet_get_row(t_toilet * toilet, t_row_id row_id);
 void toilet_put_row(t_row * row);
 
 #define ID(r) ((r)->id)

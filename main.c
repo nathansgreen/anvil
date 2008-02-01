@@ -15,7 +15,7 @@
 
 #define HISTORY_FILE ".toilet_history"
 
-static toilet * open_toilet = NULL;
+static t_toilet * open_toilet = NULL;
 static t_gtable * open_gtable = NULL;
 static t_row * open_row = NULL;
 
