@@ -9,5 +9,5 @@ set -e
 set -x
 
 phpize
-./configure --with-toilet=..
+./configure
 make
