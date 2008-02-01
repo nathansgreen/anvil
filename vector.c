@@ -2,9 +2,12 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#include "platform.h"
-#include "vector.h"
+#include <errno.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 
+#include "vector.h"
 
 static void ** vector_create_elts(size_t n);
 static void    vector_destroy_elts(vector_t * v);

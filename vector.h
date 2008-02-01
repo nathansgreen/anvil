@@ -5,7 +5,8 @@
 #ifndef VECTOR_H
 #define VECTOR_H
 
-#include "platform.h"
+#include <stdlib.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -2,7 +2,9 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#include "platform.h"
+#include <errno.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 #include "hash_set.h"
 

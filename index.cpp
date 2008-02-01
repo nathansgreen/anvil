@@ -15,6 +15,9 @@
 #include "toilet.h"
 #include "index.h"
 
+/* static_assert(x) will generate a compile-time error if 'x' is false. */
+#define static_assert(x) switch (x) case 0: case (x):
+
 int toilet_index_init(int dfd, const char * path, t_type type)
 {
 	mm_type_t mm_type = MM_NONE;

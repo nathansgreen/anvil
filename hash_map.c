@@ -2,7 +2,12 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#include "platform.h"
+#include <errno.h>
+#include <assert.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "vector.h"
 #include "hash_map.h"
 #include "pool.h"

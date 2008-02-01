@@ -8,6 +8,8 @@
 /* This is the main toilet header file. */
 
 #include <stdio.h>
+#include <stdint.h>
+
 #include "vector.h"
 #include "hash_map.h"
 #include "hash_set.h"
@@ -123,6 +125,7 @@ struct t_query {
 };
 typedef struct t_query t_query;
 
+static inline const char * toilet_name_type(t_type type) __attribute__((always_inline));
 static inline const char * toilet_name_type(t_type type)
 {
 	switch(type)

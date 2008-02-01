@@ -2,12 +2,13 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#include <errno.h>
 #include <stdio.h>
+#include <assert.h>
 #include <stdlib.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
-#include "platform.h"
 #include "hash_map.h"
 #include "toilet.h"
 

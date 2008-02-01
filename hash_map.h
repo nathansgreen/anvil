@@ -5,6 +5,8 @@
 #ifndef HASH_MAP_H
 #define HASH_MAP_H
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

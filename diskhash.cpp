@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <assert.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>

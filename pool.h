@@ -5,7 +5,8 @@
 #ifndef POOL_H
 #define POOL_H
 
-#include "platform.h"
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
 
 // Set to 1 to use malloc() and free() instead of pools. Useful for debugging.
 #define POOL_MALLOC 0
