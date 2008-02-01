@@ -731,11 +731,16 @@ int toilet_new_row(t_gtable * gtable, t_row_id * new_id)
 	r = toilet_index_add(id_col->index, id.id, T_ID, &id_value);
 	if(r < 0)
 		goto fail_unlink;
+	r = toilet_column_update_count(gtable, id_col, 1);
+	if(r < 0)
+		goto fail_column;
 	*new_id = id.id;
 	
 	close(row_fd);
 	return 0;
 	
+fail_column:
+	toilet_index_remove(id_col->index, id.id, T_ID, &id_value);
 fail_unlink:
 	unlinkat(row_fd, "=gtable", 0);
 fail_close:
@@ -795,6 +800,9 @@ int toilet_drop_row(t_row * row)
 	id.id = row->id;
 	id_value.v_id = row->id;
 	column = hash_map_find_val(gtable->column_map, "id");
+	r = toilet_column_update_count(gtable, column, -1);
+	if(r < 0)
+		return r;
 	r = toilet_index_remove(column->index, row->id, T_ID, &id_value);
 	if(r < 0)
 	{
