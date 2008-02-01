@@ -1,5 +1,5 @@
-CSOURCES=$(wildcard *.c)
-CPPSOURCES=$(wildcard *.cpp)
+CSOURCES=blowfish.c hash_map.c hash_set.c openat.c toilet.c vector.c
+CPPSOURCES=diskhash.cpp disktree.cpp index.cpp memcache.cpp multimap.cpp
 SOURCES=$(CSOURCES) $(CPPSOURCES)
 
 HEADERS=$(wildcard *.h)
@@ -18,27 +18,22 @@ all: tags toilet
 %.o: %.cpp
 	g++ -c $< -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
 
-toilet: $(OBJECTS)
-ifeq ($(CPPOBJECTS),)
-	gcc -o toilet $(OBJECTS) -ldl -lreadline $(LDFLAGS)
-else
-	g++ -o toilet $(OBJECTS) -ldl -lreadline $(LDFLAGS)
-endif
+libtoilet.so: $(OBJECTS)
+	g++ -shared -o libtoilet.so $(OBJECTS) -ldl $(LDFLAGS)
+
+toilet: libtoilet.so main.c
+	gcc -o toilet main.c $(CFLAGS) -Wl,-R,. -L. -ltoilet -lreadline $(LDFLAGS)
 
 clean:
-	rm -f toilet *.o .depend tags
+	rm -f toilet libtoilet.so *.o .depend tags
 
 count:
 	wc -l *.c *.cpp *.h | sort -n
 
-.depend: $(SOURCES)
-ifeq ($(CPPSOURCES),)
-	gcc -MM *.c > .depend
-else
+.depend: $(SOURCES) main.c
 	g++ -MM *.c *.cpp > .depend
-endif
 
-tags: $(SOURCES) $(HEADERS)
+tags: $(SOURCES) main.c $(HEADERS)
 	ctags -R
 
 -include .depend

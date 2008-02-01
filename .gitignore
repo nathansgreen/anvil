@@ -1,5 +1,6 @@
 .toilet_history
 .depend
+libtoilet.so
 toilet
 tags
 *.o
