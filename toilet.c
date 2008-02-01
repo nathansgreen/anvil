@@ -659,13 +659,13 @@ int toilet_column_set_multi(t_column * column, int multi)
 static int toilet_new_row_id(toilet * toilet, t_row_id * row)
 {
 	bf_ctx bfc;
-	*row = toilet->next_row;
+	t_row_id next = toilet->next_row + 1;
 	lseek(toilet->row_fd, SEEK_SET, 0);
-	if(write(toilet->row_fd, &toilet->next_row, sizeof(toilet->next_row)) != sizeof(toilet->next_row))
+	if(write(toilet->row_fd, &next, sizeof(next)) != sizeof(next))
 		return -1;
-	toilet->next_row++;
 	bf_setkey(&bfc, toilet->id, sizeof(toilet->id));
-	*row = bf32_encipher(&bfc, *row);
+	*row = bf32_encipher(&bfc, toilet->next_row);
+	toilet->next_row = next;
 	return 0;
 }
 
