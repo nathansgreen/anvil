@@ -444,6 +444,16 @@ static int command_set(int argc, const char * argv[])
 	{
 		if(argc < 2)
 			printf("OK, but what should I set?\n");
+		else if(!strcmp(argv[1], "gtable"))
+		{
+			/* not implemented yet */
+			r = -ENOSYS;
+		}
+		else if(!strcmp(argv[1], "row"))
+		{
+			/* not implemented yet */
+			r = -ENOSYS;
+		}
 		else if(!strcmp(argv[1], "value"))
 		{
 			if(argc < 3)
@@ -535,7 +545,7 @@ static int command_query(int argc, const char * argv[])
 							for(i = 0; i < ROWS(rows); i++)
 								printf("0x" ROW_FORMAT "\n", ROW(rows, i));
 							toilet_put_rowset(rows);
-							printf("%d rows matched\n", i);
+							printf("%d row%s matched\n", i, (i == 1) ? "" : "s");
 						}
 						free_value(query.type, query.value);
 					}
@@ -560,7 +570,7 @@ struct {
 	{"open", "Open toilet objects: databases, gtables, and rows.", command_open},
 	{"close", "Close toilet objects: databases, gtables, and rows.", command_close},
 	{"list", "List toilet objects: gtables, columns, rows, keys, and values.", command_list},
-	{"set", "Modify toilet objects: gtables and rows.", command_set},
+	{"set", "Modify toilet objects: gtables, rows, and values.", command_set},
 	{"query", "Query toilet!", command_query},
 	{"help", "Displays help.", command_help},
 	{"quit", "Quits the program.", command_quit},

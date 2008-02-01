@@ -1,0 +1,14 @@
+create database test
+open database test
+create gtable testgt
+open gtable testgt
+create row
+set value color string red
+close row
+create row
+set value color string blue
+close row
+query color red
+query color blue
+close gtable
+close database
