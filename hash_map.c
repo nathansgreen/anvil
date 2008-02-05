@@ -132,6 +132,7 @@ static chain_elt_t * chain_elt_create(const hash_map_t * hm, const void * k, voi
 
 static void chain_elt_destroy(chain_elt_t * elt)
 {
+	Dprintf("%s(%p)\n", __FUNCTION__, elt);
 	chain_elt_free(elt);
 }
 
@@ -361,6 +362,7 @@ int hash_map_insert(hash_map_t * hm, const void * k, void * v)
 		(void) hash_map_resize(hm, hash_map_size(hm));
 	}
 
+	Dprintf("%s(%p) -> size %d, vector %d\n", __FUNCTION__, hm, hm->size, vector_size(hm->tbl));
 	return 0;
 }
 
@@ -514,7 +516,7 @@ int hash_map_change_key(hash_map_t * hm, const void * oldk, const void * newk)
 
 void hash_map_clear(hash_map_t * hm)
 {
-	Dprintf("%s(%p)\n", __FUNCTION__, hm);
+	Dprintf("%s(%p) size %d, vector %d\n", __FUNCTION__, hm, hm->size, vector_size(hm->tbl));
 	size_t i;
 
 	for (i=0; i < vector_size(hm->tbl); i++)
