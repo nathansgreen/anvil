@@ -471,7 +471,7 @@ static int command_set(int argc, const char * argv[])
 				printf("OK, but which value should I set?\n");
 			else
 			{
-				t_column * column = COLUMN_N(open_gtable, argv[2]);
+				t_column * column = toilet_gtable_get_column(open_gtable, argv[2]);
 				t_value local_value;
 				t_value * value;
 				t_type type;
@@ -528,7 +528,7 @@ static int command_query(int argc, const char * argv[])
 			printf("OK, but which column should I query?\n");
 		else
 		{
-			t_column * column = COLUMN_N(open_gtable, argv[1]);
+			t_column * column = toilet_gtable_get_column(open_gtable, argv[1]);
 			if(!column)
 				printf("Unknown column: %s\n", argv[1]);
 			else

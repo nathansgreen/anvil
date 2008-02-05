@@ -11,6 +11,7 @@
 
 static int le_toilet;
 static int le_gtable;
+static int le_column;
 static int le_rowid;
 
 static function_entry toilet_functions[] = {
@@ -20,7 +21,13 @@ static function_entry toilet_functions[] = {
 	PHP_FE(toilet_gtable, NULL)
 	PHP_FE(gtable_name, NULL)
 	PHP_FE(gtable_close, NULL)
+	PHP_FE(gtable_columns, NULL)
 	PHP_FE(gtable_rows, NULL)
+	PHP_FE(column_name, NULL)
+	PHP_FE(column_type, NULL)
+	PHP_FE(column_count, NULL)
+	PHP_FE(column_is_multi, NULL)
+	PHP_FE(rowid_get_row, NULL)
 	PHP_FE(rowid_value, NULL)
 	{ NULL, NULL, NULL}
 };
@@ -68,6 +75,7 @@ PHP_MINIT_FUNCTION(toilet)
 {
 	le_toilet = zend_register_list_destructors_ex(php_toilet_dtor, NULL, PHP_TOILET_RES_NAME, module_number);
 	le_gtable = zend_register_list_destructors_ex(php_gtable_dtor, NULL, PHP_GTABLE_RES_NAME, module_number);
+	le_column = zend_register_list_destructors_ex(NULL, NULL, PHP_COLUMN_RES_NAME, module_number);
 	le_rowid = zend_register_list_destructors_ex(php_rowid_dtor, NULL, PHP_ROWID_RES_NAME, module_number);
 	return SUCCESS;
 }
@@ -142,7 +150,7 @@ PHP_FUNCTION(gtable_name)
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zgtable) == FAILURE)
 		RETURN_FALSE;
 	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
-	RETURN_STRING(NAME(gtable), 1);
+	RETURN_STRING((char *) NAME(gtable), 1);
 }
 
 /* takes a gtable, returns a boolean */
@@ -155,6 +163,41 @@ PHP_FUNCTION(gtable_close)
 	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
 	zend_list_delete(Z_LVAL_P(zgtable));
 	RETURN_TRUE;
+}
+
+/* takes a gtable, returns an associative array of string => type (as string) */
+PHP_FUNCTION(gtable_columns)
+{
+	int i;
+	t_gtable * gtable;
+	zval * zgtable;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zgtable) == FAILURE)
+		RETURN_FALSE;
+	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
+	array_init(return_value);
+	for(i = 0; i < COLUMNS(gtable); i++)
+	{
+		t_column * column = COLUMN(gtable, i);
+		const char * type = toilet_name_type(TYPE(column));
+		add_assoc_string(return_value, (char *) type, (char *) NAME(column), 1);
+	}
+}
+
+/* takes a gtable and a string, returns a column */
+PHP_FUNCTION(gtable_column)
+{
+	t_column * column;
+	t_gtable * gtable;
+	zval * zgtable;
+	char * name = NULL;
+	int name_len;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &zgtable, &name, &name_len) == FAILURE)
+		RETURN_NULL();
+	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
+	column = toilet_gtable_get_column(gtable, name);
+	if(!column)
+		RETURN_NULL();
+	ZEND_REGISTER_RESOURCE(return_value, column, le_column);
 }
 
 /* takes a gtable, returns an array of ids */
@@ -177,11 +220,83 @@ PHP_FUNCTION(gtable_rows)
 		zval * zrowid;
 		php_rowid * rowid = emalloc(sizeof(*rowid));
 		rowid->rowid = ROW(rows, i);
+		rowid->toilet = gtable->toilet;
 		ALLOC_INIT_ZVAL(zrowid);
 		ZEND_REGISTER_RESOURCE(zrowid, rowid, le_rowid);
 		add_next_index_zval(return_value, zrowid);
 	}
 	toilet_put_rowset(rows);
+}
+
+/* takes a column, returns a string */
+PHP_FUNCTION(column_name)
+{
+	t_column * column;
+	zval * zcolumn;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zcolumn) == FAILURE)
+		RETURN_FALSE;
+	ZEND_FETCH_RESOURCE(column, t_column *, &zcolumn, -1, PHP_COLUMN_RES_NAME, le_column);
+	RETURN_STRING((char *) NAME(column), 1);
+}
+
+/* takes a column, returns a type (as string) */
+PHP_FUNCTION(column_type)
+{
+	t_column * column;
+	zval * zcolumn;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zcolumn) == FAILURE)
+		RETURN_FALSE;
+	ZEND_FETCH_RESOURCE(column, t_column *, &zcolumn, -1, PHP_COLUMN_RES_NAME, le_column);
+	RETURN_STRING((char *) toilet_name_type(TYPE(column)), 1);
+}
+
+/* takes a column, returns a long */
+PHP_FUNCTION(column_count)
+{
+	t_column * column;
+	zval * zcolumn;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zcolumn) == FAILURE)
+		RETURN_FALSE;
+	ZEND_FETCH_RESOURCE(column, t_column *, &zcolumn, -1, PHP_COLUMN_RES_NAME, le_column);
+	RETURN_LONG(COUNT(column));
+}
+
+/* takes a column, returns a boolean */
+PHP_FUNCTION(column_is_multi)
+{
+	t_column * column;
+	zval * zcolumn;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zcolumn) == FAILURE)
+		RETURN_FALSE;
+	ZEND_FETCH_RESOURCE(column, t_column *, &zcolumn, -1, PHP_COLUMN_RES_NAME, le_column);
+	RETURN_BOOL(toilet_column_is_multi(column));
+}
+
+/* takes a rowid and an optional array of strings, returns an associative array of values */
+PHP_FUNCTION(rowid_get_row)
+{
+	t_row * row;
+	php_rowid * rowid;
+	zval * zrowid;
+	zval * zcolnames = NULL;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r|a", &zrowid, &zcolnames) == FAILURE)
+		RETURN_FALSE;
+	ZEND_FETCH_RESOURCE(rowid, php_rowid *, &zrowid, -1, PHP_ROWID_RES_NAME, le_rowid);
+	row = toilet_get_row(rowid->toilet, rowid->rowid);
+	if(!row)
+		RETURN_NULL();
+	array_init(return_value);
+	if(zcolnames)
+	{
+		/* only specific columns */
+		/* TODO */
+	}
+	else
+	{
+		/* all columns */
+		/* TODO */
+	}
+	toilet_put_row(row);
 }
 
 /* takes a rowid, returns a long */
