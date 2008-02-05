@@ -32,9 +32,9 @@
 /* Here is a map of the database directory structure:
  *
  * [db]/                                      The top level database
- * [db]/toilet-version                        Version of this database
- * [db]/toilet-id                             This database's ID
- * [db]/next-row                              Next row ID source value
+ * [db]/=toilet-version                       Version of this database
+ * [db]/=toilet-id                            This database's ID
+ * [db]/=next-row                             Next row ID source value
  * [db]/[gt1]/                                A gtable directory
  * [db]/[gt1]/columns/                        The column specifiers
  * [db]/[gt1]/columns/[col1]                  A particular column
@@ -50,9 +50,9 @@
  * [db]/=rows/XX/XX/XX/XX/[key1]/1...         More values...
  * [db]/=rows/XX/XX/XX/XX/[key2]/...          More keys...
  *
- * "toilet-version" is currently a single line file: "0"
- * "toilet-id" is a random 128-bit database identifier stored literally
- * "next-row" starts at 0 and increments for each row (more on this below)
+ * "=toilet-version" is currently a single line file: "0"
+ * "=toilet-id" is a random 128-bit database identifier stored literally
+ * "=next-row" starts at 0 and increments for each row (more on this below)
  * The column files [col1], [col2], etc. store 8 bytes: first, the number of
  *   rows that have that column key in this gtable (32 bits), and second, the
  *   column type (another 32 bits)
@@ -80,7 +80,7 @@ int toilet_new(const char * path)
 	if(dir_fd < 0)
 		goto fail_open;
 	
-	version = fopenat(dir_fd, "toilet-version", "w");
+	version = fopenat(dir_fd, "=toilet-version", "w");
 	if(!version)
 		goto fail_version;
 	fprintf(version, "0\n");
@@ -93,7 +93,7 @@ int toilet_new(const char * path)
 	close(fd);
 	if(r != sizeof(id))
 		goto fail_id_1;
-	fd = openat(dir_fd, "toilet-id", O_WRONLY | O_CREAT, 0664);
+	fd = openat(dir_fd, "=toilet-id", O_WRONLY | O_CREAT, 0664);
 	if(fd < 0)
 		goto fail_id_1;
 	r = write(fd, &id, sizeof(id));
@@ -101,7 +101,7 @@ int toilet_new(const char * path)
 	if(r != sizeof(id))
 		goto fail_id_2;
 	
-	fd = openat(dir_fd, "next-row", O_WRONLY | O_CREAT, 0664);
+	fd = openat(dir_fd, "=next-row", O_WRONLY | O_CREAT, 0664);
 	if(fd < 0)
 		goto fail_id_2;
 	r = write(fd, &next, sizeof(next));
@@ -117,11 +117,11 @@ int toilet_new(const char * path)
 	return 0;
 	
 fail_next:
-	unlinkat(dir_fd, "next-row", 0);
+	unlinkat(dir_fd, "=next-row", 0);
 fail_id_2:
-	unlinkat(dir_fd, "toilet-id", 0);
+	unlinkat(dir_fd, "=toilet-id", 0);
 fail_id_1:
-	unlinkat(dir_fd, "toilet-version", 0);
+	unlinkat(dir_fd, "=toilet-version", 0);
 fail_version:
 	close(dir_fd);
 fail_open:
@@ -143,9 +143,11 @@ fail_open:
 
 t_toilet * toilet_open(const char * path, FILE * errors)
 {
+	DIR * gtable_list;
+	struct dirent * ent;
 	FILE * version_file;
 	char version_str[16];
-	int dir_fd, id_fd;
+	int dir_fd, id_fd, copy;
 	t_toilet * toilet;
 	
 	dir_fd = open(path, 0);
@@ -163,6 +165,9 @@ t_toilet * toilet_open(const char * path, FILE * errors)
 		goto fail_strdup;
 	toilet->path_fd = dir_fd;
 	toilet->errors = errors ? errors : stderr;
+	toilet->gtable_names = vector_create();
+	if(!toilet->gtable_names)
+		goto fail_vector;
 	toilet->gtables = hash_map_create_str();
 	if(!toilet->gtables)
 		goto fail_hash_1;
@@ -171,7 +176,7 @@ t_toilet * toilet_open(const char * path, FILE * errors)
 		goto fail_hash_2;
 	
 	/* check the version */
-	version_file = fopenat(dir_fd, "toilet-version", "r");
+	version_file = fopenat(dir_fd, "=toilet-version", "r");
 	if(!version_file)
 		goto fail_fopen;
 	fgets(version_str, sizeof(version_str), version_file);
@@ -181,18 +186,46 @@ t_toilet * toilet_open(const char * path, FILE * errors)
 		goto fail_fgets;
 	
 	/* get the database ID */
-	id_fd = openat(dir_fd, "toilet-id", O_RDONLY);
+	id_fd = openat(dir_fd, "=toilet-id", O_RDONLY);
 	if(id_fd < 0)
 		goto fail_fgets;
 	if(read(id_fd, &toilet->id, sizeof(toilet->id)) != sizeof(toilet->id))
 		goto fail_read_1;
 	
 	/* get the next row ID source value */
-	toilet->row_fd = openat(dir_fd, "next-row", O_RDWR);
+	toilet->row_fd = openat(dir_fd, "=next-row", O_RDWR);
 	if(toilet->row_fd < 0)
 		goto fail_read_1;
 	if(read(toilet->row_fd, &toilet->next_row, sizeof(toilet->next_row)) != sizeof(toilet->next_row))
 		goto fail_read_2;
+	
+	/* get the list of gtable names */
+	copy = dup(dir_fd);
+	if(copy < 0)
+		goto fail_read_2;
+	gtable_list = fdopendir(copy);
+	if(!gtable_list)
+	{
+		close(copy);
+		goto fail_read_2;
+	}
+	while((ent = readdir(gtable_list)))
+	{
+		char * name;
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+			continue;
+		if(ent->d_name[0] == '=')
+			continue;
+		name = strdup(ent->d_name);
+		if(!name)
+			goto fail_loop;
+		if(vector_push_back(toilet->gtable_names, name) < 0)
+		{
+			free(name);
+			goto fail_loop;
+		}
+	}
+	closedir(gtable_list);
 	
 	close(id_fd);
 	fclose(version_file);
@@ -200,6 +233,8 @@ t_toilet * toilet_open(const char * path, FILE * errors)
 	return toilet;
 	
 	/* error handling */
+fail_loop:
+	closedir(gtable_list);
 fail_read_2:
 	close(toilet->row_fd);
 fail_read_1:
@@ -211,6 +246,8 @@ fail_fopen:
 fail_hash_2:
 	hash_map_destroy(toilet->gtables);
 fail_hash_1:
+	vector_destroy(toilet->gtable_names);
+fail_vector:
 	free((void *) toilet->path);
 fail_strdup:
 	/* i.e., not a pay toilet */
@@ -225,6 +262,12 @@ int toilet_close(t_toilet * toilet)
 	/* XXX should be more stuff here */
 	hash_map_destroy(toilet->rows);
 	hash_map_destroy(toilet->gtables);
+	while(!vector_empty(toilet->gtable_names))
+	{
+		char * name = vector_pop_back(toilet->gtable_names);
+		free(name);
+	}
+	vector_destroy(toilet->gtable_names);
 	free((void *) toilet->path);
 	close(toilet->path_fd);
 	close(toilet->row_fd);
@@ -238,18 +281,27 @@ int toilet_new_gtable(t_toilet * toilet, const char * name)
 {
 	int r, dir_fd, id_fd;
 	uint32_t data[2];
+	char * name_copy;
 	
 	/* already exists and in hash? */
 	if(hash_map_find_val(toilet->gtables, name))
 		return -EEXIST;
 	if(strlen(name) > GTABLE_NAME_LENGTH)
 		return -ENAMETOOLONG;
-	if(!*name)
+	if(!*name || *name == '=')
 		return -EINVAL;
 	
 	/* will fail if the gtable already exists */
 	if((r = mkdirat(toilet->path_fd, name, 0775)) < 0)
 		return r;
+	name_copy = strdup(name);
+	if(!name_copy)
+	{
+		r = -ENOMEM;
+		goto fail_copy;
+	}
+	if((r = vector_push_back(toilet->gtable_names, name_copy)) < 0)
+		goto fail_push;
 	dir_fd = openat(toilet->path_fd, name, 0);
 	if(dir_fd < 0)
 		goto fail_open;
@@ -290,6 +342,10 @@ fail_inside_2:
 fail_inside_1:
 	close(dir_fd);
 fail_open:
+	vector_pop_back(toilet->gtable_names);
+fail_push:
+	free(name_copy);
+fail_copy:
 	unlinkat(toilet->path_fd, name, AT_REMOVEDIR);
 	/* make sure it's an error value */
 	return (r < 0) ? r : -1;
@@ -389,8 +445,10 @@ static int toilet_column_new(t_gtable * gtable, const char * name, t_type type)
 {
 	uint32_t data[2];
 	t_column * column;
-	int r, column_fd, index_fd = -1, fd;
-	int gtable_fd = openat(gtable->toilet->path_fd, gtable->name, 0);
+	int r, column_fd, index_fd = -1, fd, gtable_fd;
+	if(!*name || *name == '=')
+		return -EINVAL;
+	gtable_fd = openat(gtable->toilet->path_fd, gtable->name, 0);
 	if(gtable_fd < 0)
 		return gtable_fd;
 	column_fd = openat(gtable_fd, "columns", 0);
@@ -774,7 +832,9 @@ int toilet_drop_row(t_row * row)
 	}
 	while((ent = readdir(dir)))
 	{
-		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") || !strcmp(ent->d_name, "=gtable"))
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+			continue;
+		if(ent->d_name[0] == '=')
 			continue;
 		column = hash_map_find_val(gtable->column_map, ent->d_name);
 		if(!column)
@@ -880,7 +940,9 @@ static int toilet_populate_row(t_row * row)
 	}
 	while((ent = readdir(dir)))
 	{
-		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") || !strcmp(ent->d_name, "=gtable"))
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+			continue;
+		if(ent->d_name[0] == '=')
 			continue;
 		column = hash_map_find_val(row->gtable->column_map, ent->d_name);
 		if(!column)

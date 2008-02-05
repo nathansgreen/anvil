@@ -319,8 +319,9 @@ static int command_list(int argc, const char * argv[])
 			printf("You need to open a database first.\n");
 		else
 		{
-			/* not implemented yet */
-			r = -ENOSYS;
+			int i;
+			for(i = 0; i < GTABLES(open_toilet); i++)
+				printf("%s\n", GTABLE_NAME(open_toilet, i));
 		}
 	}
 	else if(!strcmp(argv[1], "columns"))
@@ -678,7 +679,9 @@ static int command_script(int argc, const char * argv[])
 
 int main(int argc, char * argv[])
 {
+	char * quit = "quit";
 	int r;
+	hash_map_init();
 	read_history(HISTORY_FILE);
 	do {
 		int i;
@@ -687,14 +690,14 @@ int main(int argc, char * argv[])
 		if(!line)
 		{
 			printf("\n");
-			line = strdup("quit");
-			assert(line);
+			line = quit;
 		}
 		for(i = 0; line[i] == ' '; i++);
-		if(line[i])
+		if(line[i] && strcmp(line, "quit"))
 			add_history(line);
 		r = command_line_execute(line, &error);
-		free(line);
+		if(line != quit)
+			free(line);
 		if(r == -E2BIG)
 			printf("Too many tokens on command line!\n");
 		else if(r == -ENOENT)

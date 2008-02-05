@@ -100,6 +100,8 @@ struct t_toilet {
 	int row_fd;
 	/* error stream */
 	FILE * errors;
+	/* all gtable names */
+	vector_t * gtable_names;
 	/* cache of gtables currently out */
 	hash_map_t * gtables;
 	/* cache of rows currently out */
@@ -157,6 +159,9 @@ int toilet_drop_gtable(t_gtable * gtable);
 
 t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name);
 void toilet_put_gtable(t_gtable * gtable);
+
+#define GTABLES(t) vector_size((t)->gtable_names)
+#define GTABLE_NAME(t, i) ((char *) vector_elt((t)->gtable_names, i))
 
 /* columns */
 
