@@ -14,6 +14,7 @@ static int le_toilet;
 static function_entry toilet_functions[] = {
 	PHP_FE(toilet_open, NULL)
 	PHP_FE(toilet_close, NULL)
+	PHP_FE(toilet_gtables, NULL)
 	{ NULL, NULL, NULL}
 };
 
@@ -76,4 +77,17 @@ PHP_FUNCTION(toilet_close)
 	ZEND_FETCH_RESOURCE(toilet, t_toilet *, &ztoilet, -1, PHP_TOILET_RES_NAME, le_toilet);
 	zend_list_delete(Z_LVAL_P(ztoilet));
 	RETURN_TRUE;
+}
+
+PHP_FUNCTION(toilet_gtables)
+{
+	int i;
+	t_toilet * toilet;
+	zval * ztoilet;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &ztoilet) == FAILURE)
+		RETURN_FALSE;
+	ZEND_FETCH_RESOURCE(toilet, t_toilet *, &ztoilet, -1, PHP_TOILET_RES_NAME, le_toilet);
+	array_init(return_value);
+	for(i = 0; i < GTABLES(toilet); i++)
+		add_next_index_string(return_value, GTABLE_NAME(toilet, i), 1);
 }

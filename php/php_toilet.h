@@ -20,6 +20,7 @@ PHP_MSHUTDOWN_FUNCTION(toilet);
 
 PHP_FUNCTION(toilet_open);
 PHP_FUNCTION(toilet_close);
+PHP_FUNCTION(toilet_gtables);
 
 extern zend_module_entry toilet_module_entry;
 #define phpext_toilet_ptr &toilet_module_entry
