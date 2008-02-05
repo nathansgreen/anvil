@@ -36,7 +36,7 @@ FILE * fopenat(int dfd, const char * filename, const char * mode)
 		errno = EINVAL;
 		return NULL;
 	}
-	fd = openat(dfd, filename, modet, S_IRWXU | S_IRWXG | S_IRWXO);
+	fd = openat(dfd, filename, modet, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 	if(fd < 0)
 		return NULL;
 	file = fdopen(fd, mode);
