@@ -133,7 +133,9 @@ int diskhash_all_it::next()
 	JUMP_SUBDIR(1);
 	assert(scan_dir[0]);
 	
-#define OPEN_SUBDIR(at, fd, dir) do { \
+	/* careful with this macro; we can't put do { } while(0)
+	 * around it because of the "continue" keyword here */
+#define OPEN_SUBDIR(at, fd, dir) \
 	if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) \
 		continue; \
 	fd = openat(at, ent->d_name, 0); \
@@ -153,8 +155,7 @@ int diskhash_all_it::next()
 		close(fd); \
 		fd = -1; \
 		return -1; \
-	} \
-} while(0)
+	}
 	
 #define CLOSE_SUBDIR(dir, fd) do { \
 	closedir(dir); \
@@ -354,7 +355,7 @@ diskhash_it * diskhash::iterator()
 		close(store_fd);
 		return NULL;
 	}
-	it = new diskhash_all_it(this, store, store_fd, value_count);
+	it = new diskhash_all_it(this, store, dir_fd, value_count);
 	if(!it)
 		closedir(store);
 	return it;

@@ -343,8 +343,18 @@ static int command_list(int argc, const char * argv[])
 	}
 	else if(!strcmp(argv[1], "rows"))
 	{
-		/* not implemented yet */
-		r = -ENOSYS;
+		t_query query = {.name = NULL};
+		t_rowset * rows = toilet_query(open_gtable, &query);
+		if(!rows)
+			r = -ENOENT;
+		else
+		{
+			int i;
+			for(i = 0; i < ROWS(rows); i++)
+				printf("0x" ROW_FORMAT "\n", ROW(rows, i));
+			toilet_put_rowset(rows);
+			printf("gtable %s holds %d row%s\n", NAME(open_gtable), i, (i == 1) ? "" : "s");
+		}
 	}
 	else if(!strcmp(argv[1], "keys"))
 	{

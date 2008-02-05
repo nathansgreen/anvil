@@ -1363,7 +1363,11 @@ int toilet_row_update_value(t_row * row, t_values * values, int index, t_value *
 
 t_rowset * toilet_query(t_gtable * gtable, t_query * query)
 {
-	t_column * column = hash_map_find_val(gtable->column_map, query->name);
+	t_column * column;
+	if(!query->name)
+		column = hash_map_find_val(gtable->column_map, "id");
+	else
+		column = hash_map_find_val(gtable->column_map, query->name);
 	if(!column)
 		return NULL;
 	if(!column->index)
@@ -1371,6 +1375,8 @@ t_rowset * toilet_query(t_gtable * gtable, t_query * query)
 		fprintf(gtable->toilet->errors, "%s(): query over non-indexed column '%s' of type %d\n", __FUNCTION__, column->name, column->type);
 		return NULL;
 	}
+	if(!query->name)
+		return toilet_index_list(column->index, T_ID);
 	return toilet_index_find(column->index, query->type, query->value);
 }
 

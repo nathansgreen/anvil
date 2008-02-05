@@ -266,7 +266,8 @@ static t_rowset * multimap_it_to_rowset(multimap_it * it)
 	while(size--)
 	{
 		t_row_id id;
-		it->next();
+		if(it->next() < 0)
+			goto fail_add;
 		id = it->val->u32;
 		if(vector_push_back(rowset->rows, (void *) id) < 0)
 			goto fail_add;
