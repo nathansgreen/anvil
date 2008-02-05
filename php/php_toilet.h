@@ -10,10 +10,14 @@
 #define PHP_TOILET_VERSION "0.1"
 #define PHP_TOILET_EXTNAME "toilet"
 
-typedef struct php_toilet {
-	t_toilet * toilet;
-} php_toilet;
 #define PHP_TOILET_RES_NAME "toilet database"
+
+#define PHP_GTABLE_RES_NAME "toilet gtable"
+
+typedef struct php_rowid {
+	t_row_id rowid;
+} php_rowid;
+#define PHP_ROWID_RES_NAME "toilet row ID"
 
 PHP_MINIT_FUNCTION(toilet);
 PHP_MSHUTDOWN_FUNCTION(toilet);
@@ -21,6 +25,13 @@ PHP_MSHUTDOWN_FUNCTION(toilet);
 PHP_FUNCTION(toilet_open);
 PHP_FUNCTION(toilet_close);
 PHP_FUNCTION(toilet_gtables);
+PHP_FUNCTION(toilet_gtable);
+
+PHP_FUNCTION(gtable_name);
+PHP_FUNCTION(gtable_close);
+PHP_FUNCTION(gtable_rows);
+
+PHP_FUNCTION(rowid_value);
 
 extern zend_module_entry toilet_module_entry;
 #define phpext_toilet_ptr &toilet_module_entry
