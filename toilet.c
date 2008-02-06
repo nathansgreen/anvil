@@ -585,7 +585,7 @@ static int toilet_column_drop(t_gtable * gtable, t_column * column)
 
 t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 {
-	int table_fd, column_fd, copy;
+	int table_fd, column_fd;
 	t_gtable * gtable;
 	struct dirent * ent;
 	DIR * dir;
@@ -620,16 +620,13 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	if(column_fd < 0)
 		goto fail_column;
 	
-	/* don't count on the fd passed to fdopendir() sticking around */
-	copy = dup(column_fd);
-	if(copy < 0)
-		goto fail_dup;
-	dir = fdopendir(copy);
+	dir = fdopendir(column_fd);
 	if(!dir)
 	{
-		close(copy);
+		close(column_fd);
 		goto fail_column;
 	}
+	column_fd = dirfd(dir);
 	while((ent = readdir(dir)))
 	{
 		t_column * column;
@@ -667,8 +664,6 @@ fail_columns:
 		toilet_close_column(column);
 	}
 	closedir(dir);
-fail_dup:
-	close(column_fd);
 fail_column:
 	close(table_fd);
 fail_gtable:
@@ -964,19 +959,14 @@ static int toilet_populate_row(t_row * row)
 			r = sub_fd;
 			goto fail_openat;
 		}
-		copy = dup(sub_fd);
-		if(copy < 0)
-		{
-			r = copy;
-			goto fail_opendir;
-		}
-		sub = fdopendir(copy);
+		sub = fdopendir(sub_fd);
 		if(!sub)
 		{
 			r = -errno;
-			close(copy);
-			goto fail_opendir;
+			close(sub_fd);
+			goto fail_openat;
 		}
+		sub_fd = dirfd(sub);
 		while((sub_ent = readdir(sub)))
 		{
 			struct stat stat;
@@ -1055,8 +1045,6 @@ fail_malloc:
 fail_insert:
 	toilet_free_values(values);
 	closedir(sub);
-fail_opendir:
-	close(sub_fd);
 fail_openat:
 	vector_destroy(values->values);
 fail_vector:

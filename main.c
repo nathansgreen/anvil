@@ -668,10 +668,12 @@ static int command_script(int argc, const char * argv[])
 		fgets(line, sizeof(line), script);
 		while(!feof(script))
 		{
-			int r;
+			int i, r = 0;
 			char * error;
 			printf("> %s", line);
-			r = command_line_execute(line, &error);
+			for(i = 0; line[i] == ' '; i++);
+			if(line[i] != '#')
+				r = command_line_execute(line, &error);
 			if(r == -E2BIG)
 				printf("Too many tokens on command line!\n");
 			else if(r == -ENOENT)
@@ -703,9 +705,15 @@ int main(int argc, char * argv[])
 			line = quit;
 		}
 		for(i = 0; line[i] == ' '; i++);
-		if(line[i] && strcmp(line, "quit"))
-			add_history(line);
-		r = command_line_execute(line, &error);
+		if(line[i] == '#')
+			/* commented out */
+			r = 0;
+		else
+		{
+			if(line[i] && strcmp(line, "quit"))
+				add_history(line);
+			r = command_line_execute(line, &error);
+		}
 		if(line != quit)
 			free(line);
 		if(r == -E2BIG)

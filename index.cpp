@@ -275,6 +275,7 @@ static t_rowset * multimap_it_to_rowset(multimap_it * it)
 			goto fail_add;
 	}
 	
+	delete it;
 	return rowset;
 fail_add:
 	hash_set_destroy(rowset->ids);

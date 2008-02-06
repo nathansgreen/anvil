@@ -105,26 +105,18 @@ int multimap::drop(int dfd, const char * store, size_t * count)
 {
 	DIR * dir;
 	struct dirent * ent;
-	int r, copy, dir_fd = openat(dfd, store, 0);
+	int r, dir_fd = openat(dfd, store, 0);
 	if(dir_fd < 0)
 		return dir_fd;
-	copy = dup(dir_fd);
-	if(copy < 0)
-	{
-		r = errno;
-		close(dir_fd);
-		errno = r;
-		return copy;
-	}
-	dir = fdopendir(copy);
+	dir = fdopendir(dir_fd);
 	if(!dir)
 	{
 		r = -errno;
-		close(copy);
 		close(dir_fd);
 		errno = -r;
 		return r;
 	}
+	dir_fd = dirfd(dir);
 	while((ent = readdir(dir)))
 	{
 		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
@@ -146,6 +138,5 @@ int multimap::drop(int dfd, const char * store, size_t * count)
 			(*count)++;
 	}
 	closedir(dir);
-	close(dir_fd);
 	return unlinkat(dfd, store, AT_REMOVEDIR);
 }
