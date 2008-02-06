@@ -272,6 +272,43 @@ PHP_FUNCTION(column_is_multi)
 	RETURN_BOOL(toilet_column_is_multi(column));
 }
 
+static void row_hash_add_column(zval * hash, t_row * row, t_column * column)
+{
+	if(toilet_column_is_multi(column))
+	{
+		/* TODO */
+	}
+	else
+	{
+		t_value * value = toilet_row_value(row, NAME(column), TYPE(column));
+		if(!value)
+			return;
+		switch(TYPE(column))
+		{
+			case T_ID:
+			{
+				zval * zrowid;
+				php_rowid * rowid = emalloc(sizeof(*rowid));
+				rowid->rowid = value->v_id;
+				rowid->toilet = row->gtable->toilet;
+				ALLOC_INIT_ZVAL(zrowid);
+				ZEND_REGISTER_RESOURCE(zrowid, rowid, le_rowid);
+				add_assoc_zval(hash, (char *) NAME(column), zrowid);
+				break;
+			}
+			case T_INT:
+				add_assoc_long(hash, (char *) NAME(column), value->v_int);
+				break;
+			case T_STRING:
+				add_assoc_string(hash, (char *) NAME(column), (char *) value->v_string, 1);
+				break;
+			case T_BLOB:
+				add_assoc_stringl(hash, (char *) NAME(column), value->v_blob.data, value->v_blob.length, 1);
+				break;
+		}
+	}
+}
+
 /* takes a rowid and an optional array of strings, returns an associative array of values */
 PHP_FUNCTION(rowid_get_row)
 {
@@ -289,12 +326,34 @@ PHP_FUNCTION(rowid_get_row)
 	if(zcolnames)
 	{
 		/* only specific columns */
-		/* TODO */
+		zval ** zname;
+		HashPosition pointer;
+		HashTable * colnames = Z_ARRVAL_P(zcolnames);
+		//int name_count = zend_hash_num_elements(colnames);
+		/* "foreach" */
+		for(zend_hash_internal_pointer_reset_ex(colnames, &pointer);
+		    zend_hash_get_current_data_ex(colnames, (void **) &zname, &pointer) == SUCCESS;
+		    zend_hash_move_forward_ex(colnames, &pointer))
+		{
+			char * name;
+			t_column * column;
+			if(Z_TYPE_PP(zname) != IS_STRING)
+				continue;
+			name = Z_STRVAL_PP(zname);
+			column = toilet_gtable_get_column(row->gtable, name);
+			if(!column)
+				/* TODO: warn "no such column in gtable" ? */
+				continue;
+			row_hash_add_column(return_value, row, column);
+		}
 	}
 	else
 	{
 		/* all columns */
-		/* TODO */
+		int i;
+		/* TODO: optimize for only those columns in this row */
+		for(i = 0; i < COLUMNS(row->gtable); i++)
+			row_hash_add_column(return_value, row, COLUMN(row->gtable, i));
 	}
 	toilet_put_row(row);
 }
