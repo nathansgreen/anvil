@@ -179,7 +179,7 @@ PHP_FUNCTION(gtable_columns)
 	{
 		t_column * column = COLUMN(gtable, i);
 		const char * type = toilet_name_type(TYPE(column));
-		add_assoc_string(return_value, (char *) type, (char *) NAME(column), 1);
+		add_assoc_string(return_value, (char *) NAME(column), (char *) type, 1);
 	}
 }
 
