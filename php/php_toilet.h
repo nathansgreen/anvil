@@ -29,12 +29,14 @@ PHP_FUNCTION(toilet_open);
 PHP_FUNCTION(toilet_close);
 PHP_FUNCTION(toilet_gtables);
 PHP_FUNCTION(toilet_gtable);
+PHP_FUNCTION(toilet_new_gtable);
 
 PHP_FUNCTION(gtable_name);
 PHP_FUNCTION(gtable_close);
 PHP_FUNCTION(gtable_columns);
 PHP_FUNCTION(gtable_column);
 PHP_FUNCTION(gtable_rows);
+PHP_FUNCTION(gtable_new_row);
 
 PHP_FUNCTION(column_name);
 PHP_FUNCTION(column_type);
@@ -44,6 +46,7 @@ PHP_FUNCTION(column_is_multi);
 PHP_FUNCTION(rowid_get_row);
 PHP_FUNCTION(rowid_string);
 PHP_FUNCTION(rowid_set_values);
+PHP_FUNCTION(rowid_drop);
 
 extern zend_module_entry toilet_module_entry;
 #define phpext_toilet_ptr &toilet_module_entry

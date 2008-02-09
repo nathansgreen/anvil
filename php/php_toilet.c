@@ -19,10 +19,12 @@ static function_entry toilet_functions[] = {
 	PHP_FE(toilet_close, NULL)
 	PHP_FE(toilet_gtables, NULL)
 	PHP_FE(toilet_gtable, NULL)
+	PHP_FE(toilet_new_gtable, NULL)
 	PHP_FE(gtable_name, NULL)
 	PHP_FE(gtable_close, NULL)
 	PHP_FE(gtable_columns, NULL)
 	PHP_FE(gtable_rows, NULL)
+	PHP_FE(gtable_new_row, NULL)
 	PHP_FE(column_name, NULL)
 	PHP_FE(column_type, NULL)
 	PHP_FE(column_count, NULL)
@@ -30,6 +32,7 @@ static function_entry toilet_functions[] = {
 	PHP_FE(rowid_get_row, NULL)
 	PHP_FE(rowid_string, NULL)
 	PHP_FE(rowid_set_values, NULL)
+	PHP_FE(rowid_drop, NULL)
 	{ NULL, NULL, NULL}
 };
 
@@ -143,7 +146,22 @@ PHP_FUNCTION(toilet_gtable)
 	ZEND_REGISTER_RESOURCE(return_value, gtable, le_gtable);
 }
 
-/* takes a toilet, returns a string */
+/* takes a toilet and a string, returns a boolean */
+PHP_FUNCTION(toilet_new_gtable)
+{
+	t_toilet * toilet;
+	zval * ztoilet;
+	char * name = NULL;
+	int name_len;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &ztoilet, &name, &name_len) == FAILURE)
+		RETURN_NULL();
+	ZEND_FETCH_RESOURCE(toilet, t_toilet *, &ztoilet, -1, PHP_TOILET_RES_NAME, le_toilet);
+	if(toilet_new_gtable(toilet, name) < 0)
+		RETURN_FALSE;
+	RETURN_TRUE;
+}
+
+/* takes a gtable, returns a string */
 PHP_FUNCTION(gtable_name)
 {
 	t_gtable * gtable;
@@ -227,6 +245,26 @@ PHP_FUNCTION(gtable_rows)
 		add_next_index_zval(return_value, zrowid);
 	}
 	toilet_put_rowset(rows);
+}
+
+/* takes a gtable and a string, returns a rowid */
+PHP_FUNCTION(gtable_new_row)
+{
+	php_rowid * prowid;
+	t_row_id rowid;
+	t_gtable * gtable;
+	zval * zgtable;
+	char * name = NULL;
+	int name_len;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &zgtable, &name, &name_len) == FAILURE)
+		RETURN_NULL();
+	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
+	if(toilet_new_row(gtable, &rowid) < 0)
+		RETURN_NULL();
+	prowid = emalloc(sizeof(*prowid));
+	prowid->rowid = rowid;
+	prowid->toilet = gtable->toilet;
+	ZEND_REGISTER_RESOURCE(return_value, prowid, le_rowid);
 }
 
 /* takes a column, returns a string */
@@ -524,5 +562,26 @@ PHP_FUNCTION(rowid_set_values)
 			continue;
 	}
 	toilet_put_row(row);
+	RETURN_TRUE;
+}
+
+/* takes a rowid, returns a boolean */
+PHP_FUNCTION(rowid_drop)
+{
+	t_row * row;
+	php_rowid * rowid;
+	zval * zrowid;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zrowid) == FAILURE)
+		RETURN_FALSE;
+	ZEND_FETCH_RESOURCE(rowid, php_rowid *, &zrowid, -1, PHP_ROWID_RES_NAME, le_rowid);
+	row = toilet_get_row(rowid->toilet, rowid->rowid);
+	if(!row)
+		RETURN_FALSE;
+	if(toilet_drop_row(row) < 0)
+	{
+		toilet_put_row(row);
+		RETURN_FALSE;
+	}
+	zend_list_delete(Z_LVAL_P(zrowid));
 	RETURN_TRUE;
 }
