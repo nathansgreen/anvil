@@ -28,7 +28,8 @@ static function_entry toilet_functions[] = {
 	PHP_FE(column_count, NULL)
 	PHP_FE(column_is_multi, NULL)
 	PHP_FE(rowid_get_row, NULL)
-	PHP_FE(rowid_value, NULL)
+	PHP_FE(rowid_string, NULL)
+	PHP_FE(rowid_set_values, NULL)
 	{ NULL, NULL, NULL}
 };
 
@@ -272,7 +273,7 @@ PHP_FUNCTION(column_is_multi)
 	RETURN_BOOL(toilet_column_is_multi(column));
 }
 
-static void row_hash_add_column(zval * hash, t_row * row, t_column * column)
+static void row_hash_populate_column(zval * hash, t_row * row, t_column * column)
 {
 	if(toilet_column_is_multi(column))
 	{
@@ -329,7 +330,6 @@ PHP_FUNCTION(rowid_get_row)
 		zval ** zname;
 		HashPosition pointer;
 		HashTable * colnames = Z_ARRVAL_P(zcolnames);
-		//int name_count = zend_hash_num_elements(colnames);
 		/* "foreach" */
 		for(zend_hash_internal_pointer_reset_ex(colnames, &pointer);
 		    zend_hash_get_current_data_ex(colnames, (void **) &zname, &pointer) == SUCCESS;
@@ -344,7 +344,7 @@ PHP_FUNCTION(rowid_get_row)
 			if(!column)
 				/* TODO: warn "no such column in gtable" ? */
 				continue;
-			row_hash_add_column(return_value, row, column);
+			row_hash_populate_column(return_value, row, column);
 		}
 	}
 	else
@@ -353,13 +353,13 @@ PHP_FUNCTION(rowid_get_row)
 		int i;
 		/* TODO: optimize for only those columns in this row */
 		for(i = 0; i < COLUMNS(row->gtable); i++)
-			row_hash_add_column(return_value, row, COLUMN(row->gtable, i));
+			row_hash_populate_column(return_value, row, COLUMN(row->gtable, i));
 	}
 	toilet_put_row(row);
 }
 
 /* takes a rowid, returns a long */
-PHP_FUNCTION(rowid_value)
+PHP_FUNCTION(rowid_string)
 {
 	php_rowid * rowid;
 	zval * zrowid;
@@ -367,4 +367,162 @@ PHP_FUNCTION(rowid_value)
 		RETURN_FALSE;
 	ZEND_FETCH_RESOURCE(rowid, php_rowid *, &zrowid, -1, PHP_ROWID_RES_NAME, le_rowid);
 	RETURN_LONG(rowid->rowid);
+}
+
+static int parse_type(const char * string, t_type * type)
+{
+	if(!strcmp(string, "id"))
+		*type = T_ID;
+	else if(!strcmp(string, "int"))
+		*type = T_INT;
+	else if(!strcmp(string, "string"))
+		*type = T_STRING;
+	else if(!strcmp(string, "blob"))
+		*type = T_BLOB;
+	else
+		return -EINVAL;
+	return 0;
+}
+
+static int guess_type(zval * zvalue, t_type * type, t_value ** value)
+{
+	int r = -EINVAL;
+	php_rowid * rowid;
+	switch(Z_TYPE_P(zvalue))
+	{
+		case IS_RESOURCE:
+			rowid = (php_rowid *) zend_fetch_resource(&zvalue TSRMLS_CC, -1, PHP_ROWID_RES_NAME, NULL, 1, le_rowid);
+			if(rowid)
+			{
+				*type = T_ID;
+				(*value)->v_id = rowid->rowid;
+				r = 0;
+			}
+			break;
+		case IS_LONG:
+			*type = T_INT;
+			(*value)->v_int = Z_LVAL_P(zvalue);
+			r = 0;
+			break;
+		case IS_STRING:
+			/* warn? this could also be a blob... */
+			*type = T_STRING;
+			*value = (t_value *) Z_STRVAL_P(zvalue);
+			r = 0;
+			break;
+		default:
+			break;
+	}
+	return r;
+}
+
+static int verify_type(zval * zvalue, t_type type, t_value ** value)
+{
+	int r = -EINVAL;
+	switch(type)
+	{
+		case T_ID:
+			if(Z_TYPE_P(zvalue) == IS_RESOURCE)
+			{
+				php_rowid * rowid = (php_rowid *) zend_fetch_resource(&zvalue TSRMLS_CC, -1, PHP_ROWID_RES_NAME, NULL, 1, le_rowid);
+				if(rowid)
+				{
+					(*value)->v_id = rowid->rowid;
+					r = 0;
+				}
+			}
+			break;
+		case T_INT:
+			if(Z_TYPE_P(zvalue) == IS_LONG)
+			{
+				(*value)->v_int = Z_LVAL_P(zvalue);
+				r = 0;
+			}
+			break;
+		case T_STRING:
+			if(Z_TYPE_P(zvalue) == IS_STRING)
+			{
+				*value = (t_value *) Z_STRVAL_P(zvalue);
+				r = 0;
+			}
+			break;
+		case T_BLOB:
+			if(Z_TYPE_P(zvalue) == IS_STRING)
+			{
+				(*value)->v_blob.data = Z_STRVAL_P(zvalue);
+				(*value)->v_blob.length = Z_STRLEN_P(zvalue);
+			}
+			break;
+	}
+	return r;
+}
+
+/* takes a rowid, an associative array of values, and optionally an associative array of type names, returns a boolean */
+PHP_FUNCTION(rowid_set_values)
+{
+	t_row * row;
+	php_rowid * rowid;
+	zval * zrowid;
+	zval * zvalues;
+	zval * ztypes = NULL;
+	char * name;
+	unsigned int name_len;
+	unsigned long index;
+	zval ** zvalue;
+	HashPosition pointer;
+	HashTable * values;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ra|a", &zrowid, &zvalues, &ztypes) == FAILURE)
+		RETURN_FALSE;
+	ZEND_FETCH_RESOURCE(rowid, php_rowid *, &zrowid, -1, PHP_ROWID_RES_NAME, le_rowid);
+	row = toilet_get_row(rowid->toilet, rowid->rowid);
+	if(!row)
+		RETURN_FALSE;
+	values = Z_ARRVAL_P(zvalues);
+	/* "foreach" */
+	for(zend_hash_internal_pointer_reset_ex(values, &pointer);
+	    zend_hash_get_current_data_ex(values, (void **) &zvalue, &pointer) == SUCCESS &&
+	    zend_hash_get_current_key_ex(values, &name, &name_len, &index, 0, &pointer) != HASH_KEY_NON_EXISTANT;
+	    zend_hash_move_forward_ex(values, &pointer))
+	{
+		t_column * column = toilet_gtable_get_column(row->gtable, name);
+		t_value _value;
+		t_value * value = &_value;
+		zval ** ztype;
+		char * type_name = NULL;
+		t_type type = T_ID; /* to avoid warnings */
+		if(ztypes && zend_hash_find(Z_ARRVAL_P(ztypes), name, name_len, (void **) &ztype) == SUCCESS)
+			if(Z_TYPE_PP(ztype) == IS_STRING)
+			{
+				type_name = Z_STRVAL_PP(ztype);
+				if(parse_type(type_name, &type) < 0)
+					/* complain? */
+					type_name = NULL;
+			}
+		if(column && !type_name)
+			type = TYPE(column);
+		if(!column && !type_name)
+		{
+			/* warning? (only for string/blob?) */
+			if(guess_type(*zvalue, &type, &value) < 0)
+				/* warning? fail? */
+				continue;
+		}
+		else
+		{
+			if(verify_type(*zvalue, type, &value) < 0)
+				/* warning? fail? */
+				continue;
+		}
+		if(column && type_name)
+		{
+			if(type != TYPE(column))
+				/* warning? fail? */
+				continue;
+		}
+		if(toilet_row_set_value(row, name, type, value) < 0)
+			/* warning? fail? */
+			continue;
+	}
+	toilet_put_row(row);
+	RETURN_TRUE;
 }

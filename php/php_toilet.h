@@ -42,7 +42,8 @@ PHP_FUNCTION(column_count);
 PHP_FUNCTION(column_is_multi);
 
 PHP_FUNCTION(rowid_get_row);
-PHP_FUNCTION(rowid_value);
+PHP_FUNCTION(rowid_string);
+PHP_FUNCTION(rowid_set_values);
 
 extern zend_module_entry toilet_module_entry;
 #define phpext_toilet_ptr &toilet_module_entry
