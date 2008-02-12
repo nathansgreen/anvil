@@ -541,8 +541,9 @@ static int command_query(int argc, const char * argv[])
 					t_query query;
 					query.name = argv[1];
 					query.type = column->type;
-					query.value = parse_value(query.type, argv[2], &value);
-					if(!query.value)
+					query.values[0] = parse_value(query.type, argv[2], &value);
+					query.values[1] = NULL;
+					if(!query.values[0])
 						r = -EINVAL;
 					else
 					{
@@ -558,7 +559,7 @@ static int command_query(int argc, const char * argv[])
 							toilet_put_rowset(rows);
 							printf("%d row%s matched\n", i, (i == 1) ? "" : "s");
 						}
-						free_value(query.type, query.value);
+						free_value(query.type, query.values[0]);
 					}
 				}
 			}

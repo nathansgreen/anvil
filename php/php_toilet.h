@@ -35,6 +35,7 @@ PHP_FUNCTION(gtable_name);
 PHP_FUNCTION(gtable_close);
 PHP_FUNCTION(gtable_columns);
 PHP_FUNCTION(gtable_column);
+PHP_FUNCTION(gtable_query);
 PHP_FUNCTION(gtable_rows);
 PHP_FUNCTION(gtable_new_row);
 

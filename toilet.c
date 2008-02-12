@@ -1363,9 +1363,17 @@ t_rowset * toilet_query(t_gtable * gtable, t_query * query)
 		fprintf(gtable->toilet->errors, "%s(): query over non-indexed column '%s' of type %d\n", __FUNCTION__, column->name, column->type);
 		return NULL;
 	}
+	/* list all in gtable */
 	if(!query->name)
 		return toilet_index_list(column->index, T_ID);
-	return toilet_index_find(column->index, query->type, query->value);
+	/* list all with column */
+	if(!query->values[0])
+		return toilet_index_list(column->index, query->type);
+	/* just those with this value */
+	if(!query->values[1])
+		return toilet_index_find(column->index, query->type, query->values[0]);
+	/* between these values, inclusive */
+	return toilet_index_find_range(column->index, query->type, query->values[0], query->values[1]);
 }
 
 void toilet_put_rowset(t_rowset * rowset)

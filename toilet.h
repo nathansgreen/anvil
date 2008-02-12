@@ -123,7 +123,7 @@ struct t_query {
 	/* XXX: for now, we just query for a single field having a specific value */
 	const char * name;
 	enum t_type type;
-	t_value * value;
+	t_value * values[2];
 };
 typedef struct t_query t_query;
 
