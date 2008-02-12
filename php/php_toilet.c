@@ -338,16 +338,14 @@ PHP_FUNCTION(gtable_rows)
 	rowset_to_array(gtable->toilet, rows, return_value);
 }
 
-/* takes a gtable and a string, returns a rowid */
+/* takes a gtable, returns a rowid */
 PHP_FUNCTION(gtable_new_row)
 {
 	php_rowid * prowid;
 	t_row_id rowid;
 	t_gtable * gtable;
 	zval * zgtable;
-	char * name = NULL;
-	int name_len;
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &zgtable, &name, &name_len) == FAILURE)
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zgtable) == FAILURE)
 		RETURN_NULL();
 	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
 	if(toilet_new_row(gtable, &rowid) < 0)
