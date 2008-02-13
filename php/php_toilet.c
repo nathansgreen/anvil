@@ -33,7 +33,7 @@ static function_entry toilet_functions[] = {
 	PHP_FE(column_is_multi, NULL)
 	PHP_FE(rowid_equal, NULL)
 	PHP_FE(rowid_get_row, NULL)
-	PHP_FE(rowid_string, NULL)
+	PHP_FE(rowid_value, NULL)
 	PHP_FE(rowid_set_values, NULL)
 	PHP_FE(rowid_drop, NULL)
 	{ NULL, NULL, NULL}
@@ -552,7 +552,7 @@ PHP_FUNCTION(rowid_get_row)
 }
 
 /* takes a rowid, returns a long */
-PHP_FUNCTION(rowid_string)
+PHP_FUNCTION(rowid_value)
 {
 	php_rowid * rowid;
 	zval * zrowid;
