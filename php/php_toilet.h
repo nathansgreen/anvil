@@ -66,8 +66,10 @@ PHP_FUNCTION(column_is_multi);
 PHP_FUNCTION(rowid_equal);
 /* takes a rowid and an optional array of strings, returns an associative array of values */
 PHP_FUNCTION(rowid_get_row);
-/* takes a rowid, returns a long */
-PHP_FUNCTION(rowid_value);
+/* takes a rowid, returns a string */
+PHP_FUNCTION(rowid_format);
+/* takes a toilet and a string, returns a rowid */
+PHP_FUNCTION(rowid_parse);
 /* takes a rowid, an associative array of values, and optionally an associative array of type names, returns a boolean */
 PHP_FUNCTION(rowid_set_values);
 /* takes a rowid, returns a boolean */

@@ -33,7 +33,8 @@ static function_entry toilet_functions[] = {
 	PHP_FE(column_is_multi, NULL)
 	PHP_FE(rowid_equal, NULL)
 	PHP_FE(rowid_get_row, NULL)
-	PHP_FE(rowid_value, NULL)
+	PHP_FE(rowid_format, NULL)
+	PHP_FE(rowid_parse, NULL)
 	PHP_FE(rowid_set_values, NULL)
 	PHP_FE(rowid_drop, NULL)
 	{ NULL, NULL, NULL}
@@ -551,15 +552,39 @@ PHP_FUNCTION(rowid_get_row)
 	toilet_put_row(row);
 }
 
-/* takes a rowid, returns a long */
-PHP_FUNCTION(rowid_value)
+/* takes a rowid, returns a string */
+PHP_FUNCTION(rowid_format)
 {
+	char name[9];
 	php_rowid * rowid;
 	zval * zrowid;
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zrowid) == FAILURE)
 		RETURN_FALSE;
 	ZEND_FETCH_RESOURCE(rowid, php_rowid *, &zrowid, -1, PHP_ROWID_RES_NAME, le_rowid);
-	RETURN_LONG(rowid->rowid);
+	snprintf(name, sizeof(name), ROW_FORMAT, rowid->rowid);
+	RETURN_STRING(name, 1);
+}
+
+/* takes a toilet and a string, returns a rowid */
+PHP_FUNCTION(rowid_parse)
+{
+	t_row_id rowid;
+	php_rowid * prowid;
+	t_toilet * toilet;
+	zval * ztoilet;
+	char * name = NULL;
+	int name_len, chars;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &ztoilet, &name, &name_len) == FAILURE)
+		RETURN_NULL();
+	ZEND_FETCH_RESOURCE(toilet, t_toilet *, &ztoilet, -1, PHP_TOILET_RES_NAME, le_toilet);
+	if(sscanf(name, ROW_FORMAT "%n", &rowid, &chars) != 1)
+		RETURN_NULL();
+	if(chars != name_len)
+		RETURN_NULL();
+	prowid = emalloc(sizeof(*prowid));
+	prowid->rowid = rowid;
+	prowid->toilet = toilet;
+	ZEND_REGISTER_RESOURCE(return_value, prowid, le_rowid);
 }
 
 static int parse_type(const char * string, t_type * type)
