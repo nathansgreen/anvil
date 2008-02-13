@@ -46,6 +46,8 @@ PHP_FUNCTION(gtable_columns);
 PHP_FUNCTION(gtable_column);
 /* takes a gtable, a string, and up to two values, returns an array of ids */
 PHP_FUNCTION(gtable_query);
+/* takes a gtable, a string, and up to two values, returns an int */
+PHP_FUNCTION(gtable_count_query);
 /* takes a gtable, returns an array of ids */
 PHP_FUNCTION(gtable_rows);
 /* takes a gtable, returns a rowid */
@@ -60,6 +62,8 @@ PHP_FUNCTION(column_count);
 /* takes a column, returns a boolean */
 PHP_FUNCTION(column_is_multi);
 
+/* takes two rowids, returns a boolean */
+PHP_FUNCTION(rowid_equal);
 /* takes a rowid and an optional array of strings, returns an associative array of values */
 PHP_FUNCTION(rowid_get_row);
 /* takes a rowid, returns a long */

@@ -24,12 +24,14 @@ static function_entry toilet_functions[] = {
 	PHP_FE(gtable_close, NULL)
 	PHP_FE(gtable_columns, NULL)
 	PHP_FE(gtable_query, NULL)
+	PHP_FE(gtable_count_query, NULL)
 	PHP_FE(gtable_rows, NULL)
 	PHP_FE(gtable_new_row, NULL)
 	PHP_FE(column_name, NULL)
 	PHP_FE(column_type, NULL)
 	PHP_FE(column_count, NULL)
 	PHP_FE(column_is_multi, NULL)
+	PHP_FE(rowid_equal, NULL)
 	PHP_FE(rowid_get_row, NULL)
 	PHP_FE(rowid_string, NULL)
 	PHP_FE(rowid_set_values, NULL)
@@ -321,6 +323,46 @@ PHP_FUNCTION(gtable_query)
 	rowset_to_array(gtable->toilet, rows, return_value);
 }
 
+/* takes a gtable, a string, and up to two values, returns a long */
+PHP_FUNCTION(gtable_count_query)
+{
+	t_query query;
+	t_value values[2];
+	t_rowset * rows;
+	t_column * column;
+	t_gtable * gtable;
+	zval * zgtable;
+	zval * zlow = NULL;
+	zval * zhigh = NULL;
+	char * name;
+	int name_len;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs|zz", &zgtable, &name, &name_len, &zlow, &zhigh) == FAILURE)
+		RETURN_FALSE;
+	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
+	query.name = name;
+	column = toilet_gtable_get_column(gtable, name);
+	if(!column)
+		RETURN_NULL();
+	query.type = column->type;
+	if(zlow)
+	{
+		query.values[0] = &values[0];
+		if(verify_zval_convert(zlow, column->type, &query.values[0]) < 0)
+			RETURN_NULL();
+	}
+	else
+		query.values[0] = NULL;
+	if(zhigh)
+	{
+		query.values[1] = &values[1];
+		if(verify_zval_convert(zhigh, column->type, &query.values[1]) < 0)
+			RETURN_NULL();
+	}
+	else
+		query.values[1] = NULL;
+	RETURN_LONG(toilet_count_query(gtable, &query));
+}
+
 /* takes a gtable, returns an array of ids */
 PHP_FUNCTION(gtable_rows)
 {
@@ -408,9 +450,19 @@ static void row_hash_populate_column(zval * hash, t_row * row, t_column * column
 	}
 	else
 	{
-		t_value * value = toilet_row_value(row, NAME(column), TYPE(column));
-		if(!value)
-			return;
+		t_value id_value;
+		t_value * value;
+		if(!strcmp(NAME(column), "id"))
+		{
+			id_value.v_id = row->id;
+			value = &id_value;
+		}
+		else
+		{
+			value = toilet_row_value(row, NAME(column), TYPE(column));
+			if(!value)
+				return;
+		}
 		switch(TYPE(column))
 		{
 			case T_ID:
@@ -435,6 +487,20 @@ static void row_hash_populate_column(zval * hash, t_row * row, t_column * column
 				break;
 		}
 	}
+}
+
+/* takes two rowids, returns a boolean */
+PHP_FUNCTION(rowid_equal)
+{
+	php_rowid * rowids[2];
+	zval * zrowids[2];
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rr", &zrowids[0], &zrowids[1]) == FAILURE)
+		RETURN_NULL();
+	ZEND_FETCH_RESOURCE(rowids[0], php_rowid *, &zrowids[0], -1, PHP_ROWID_RES_NAME, le_rowid);
+	ZEND_FETCH_RESOURCE(rowids[1], php_rowid *, &zrowids[1], -1, PHP_ROWID_RES_NAME, le_rowid);
+	if(rowids[0]->rowid == rowids[1]->rowid && rowids[0]->toilet == rowids[1]->toilet)
+		RETURN_TRUE;
+	RETURN_FALSE;
 }
 
 /* takes a rowid and an optional array of strings, returns an associative array of values */
@@ -570,44 +636,53 @@ PHP_FUNCTION(rowid_set_values)
 	    zend_hash_get_current_key_ex(values, &name, &name_len, &index, 0, &pointer) != HASH_KEY_NON_EXISTANT;
 	    zend_hash_move_forward_ex(values, &pointer))
 	{
-		t_column * column = toilet_gtable_get_column(row->gtable, name);
-		t_value _value;
-		t_value * value = &_value;
-		zval ** ztype;
-		char * type_name = NULL;
-		t_type type = T_ID; /* to avoid warnings */
-		if(ztypes && zend_hash_find(Z_ARRVAL_P(ztypes), name, name_len, (void **) &ztype) == SUCCESS)
-			if(Z_TYPE_PP(ztype) == IS_STRING)
-			{
-				type_name = Z_STRVAL_PP(ztype);
-				if(parse_type(type_name, &type) < 0)
-					/* complain? */
-					type_name = NULL;
-			}
-		if(column && !type_name)
-			type = TYPE(column);
-		if(!column && !type_name)
+		if(Z_TYPE_PP(zvalue) == IS_NULL)
 		{
-			/* warning? (only for string/blob?) */
-			if(guess_zval_convert(*zvalue, &type, &value) < 0)
+			if(toilet_row_remove_key(row, name) < 0)
 				/* warning? fail? */
 				continue;
 		}
 		else
 		{
-			if(verify_zval_convert(*zvalue, type, &value) < 0)
+			t_column * column = toilet_gtable_get_column(row->gtable, name);
+			t_value _value;
+			t_value * value = &_value;
+			zval ** ztype;
+			char * type_name = NULL;
+			t_type type = T_ID; /* to avoid warnings */
+			if(ztypes && zend_hash_find(Z_ARRVAL_P(ztypes), name, name_len, (void **) &ztype) == SUCCESS)
+				if(Z_TYPE_PP(ztype) == IS_STRING)
+				{
+					type_name = Z_STRVAL_PP(ztype);
+					if(parse_type(type_name, &type) < 0)
+						/* complain? */
+						type_name = NULL;
+				}
+			if(column && !type_name)
+				type = TYPE(column);
+			if(!column && !type_name)
+			{
+				/* warning? (only for string/blob?) */
+				if(guess_zval_convert(*zvalue, &type, &value) < 0)
+					/* warning? fail? */
+					continue;
+			}
+			else
+			{
+				if(verify_zval_convert(*zvalue, type, &value) < 0)
+					/* warning? fail? */
+					continue;
+			}
+			if(column && type_name)
+			{
+				if(type != TYPE(column))
+					/* warning? fail? */
+					continue;
+			}
+			if(toilet_row_set_value(row, name, type, value) < 0)
 				/* warning? fail? */
 				continue;
 		}
-		if(column && type_name)
-		{
-			if(type != TYPE(column))
-				/* warning? fail? */
-				continue;
-		}
-		if(toilet_row_set_value(row, name, type, value) < 0)
-			/* warning? fail? */
-			continue;
 	}
 	toilet_put_row(row);
 	RETURN_TRUE;

@@ -1376,6 +1376,35 @@ t_rowset * toilet_query(t_gtable * gtable, t_query * query)
 	return toilet_index_find_range(column->index, query->type, query->values[0], query->values[1]);
 }
 
+ssize_t toilet_count_query(t_gtable * gtable, t_query * query)
+{
+	t_column * column;
+	if(!query->name)
+		column = hash_map_find_val(gtable->column_map, "id");
+	else
+		column = hash_map_find_val(gtable->column_map, query->name);
+	if(!column)
+		return -ENOENT;
+	if(!column->index)
+	{
+		fprintf(gtable->toilet->errors, "%s(): query over non-indexed column '%s' of type %d\n", __FUNCTION__, column->name, column->type);
+		return -EINVAL;
+	}
+	/* count all in gtable */
+	if(!query->name)
+		return toilet_index_size(column->index);
+	if(query->type != column->type)
+		return -EINVAL;
+	/* count all with column */
+	if(!query->values[0])
+		return toilet_index_size(column->index);
+	/* just those with this value */
+	if(!query->values[1])
+		return toilet_index_count(column->index, query->type, query->values[0]);
+	/* between these values, inclusive */
+	return toilet_index_count_range(column->index, query->type, query->values[0], query->values[1]);
+}
+
 void toilet_put_rowset(t_rowset * rowset)
 {
 	if(!--rowset->out_count)

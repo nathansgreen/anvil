@@ -219,6 +219,7 @@ int toilet_row_update_value(t_row * row, t_values * values, int index, t_value *
 /* queries */
 
 t_rowset * toilet_query(t_gtable * gtable, t_query * query);
+ssize_t toilet_count_query(t_gtable * gtable, t_query * query);
 void toilet_put_rowset(t_rowset * rowset);
 
 #define ROWS(r) (vector_size((r)->rows))
