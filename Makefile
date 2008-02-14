@@ -22,7 +22,7 @@ libtoilet.so: $(OBJECTS)
 	g++ -shared -o libtoilet.so $(OBJECTS) -ldl $(LDFLAGS)
 
 toilet: libtoilet.so main.c
-	gcc -o toilet main.c $(CFLAGS) -Wl,-R,. -L. -ltoilet -lreadline $(LDFLAGS)
+	gcc -o toilet main.c $(CFLAGS) -Wl,-R,. -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
 
 clean:
 	rm -f toilet libtoilet.so *.o .depend tags
