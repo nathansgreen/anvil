@@ -471,7 +471,7 @@ static int command_set(int argc, const char * argv[])
 				printf("OK, but which value should I set?\n");
 			else
 			{
-				t_column * column = COLUMN_N(open_gtable, argv[2]);
+				t_column * column = toilet_gtable_get_column(open_gtable, argv[2]);
 				t_value local_value;
 				t_value * value;
 				t_type type;
@@ -528,7 +528,7 @@ static int command_query(int argc, const char * argv[])
 			printf("OK, but which column should I query?\n");
 		else
 		{
-			t_column * column = COLUMN_N(open_gtable, argv[1]);
+			t_column * column = toilet_gtable_get_column(open_gtable, argv[1]);
 			if(!column)
 				printf("Unknown column: %s\n", argv[1]);
 			else
@@ -541,8 +541,9 @@ static int command_query(int argc, const char * argv[])
 					t_query query;
 					query.name = argv[1];
 					query.type = column->type;
-					query.value = parse_value(query.type, argv[2], &value);
-					if(!query.value)
+					query.values[0] = parse_value(query.type, argv[2], &value);
+					query.values[1] = NULL;
+					if(!query.values[0])
 						r = -EINVAL;
 					else
 					{
@@ -558,7 +559,7 @@ static int command_query(int argc, const char * argv[])
 							toilet_put_rowset(rows);
 							printf("%d row%s matched\n", i, (i == 1) ? "" : "s");
 						}
-						free_value(query.type, query.value);
+						free_value(query.type, query.values[0]);
 					}
 				}
 			}
@@ -668,10 +669,12 @@ static int command_script(int argc, const char * argv[])
 		fgets(line, sizeof(line), script);
 		while(!feof(script))
 		{
-			int r;
+			int i, r = 0;
 			char * error;
 			printf("> %s", line);
-			r = command_line_execute(line, &error);
+			for(i = 0; line[i] == ' '; i++);
+			if(line[i] != '#')
+				r = command_line_execute(line, &error);
 			if(r == -E2BIG)
 				printf("Too many tokens on command line!\n");
 			else if(r == -ENOENT)
@@ -703,9 +706,15 @@ int main(int argc, char * argv[])
 			line = quit;
 		}
 		for(i = 0; line[i] == ' '; i++);
-		if(line[i] && strcmp(line, "quit"))
-			add_history(line);
-		r = command_line_execute(line, &error);
+		if(line[i] == '#')
+			/* commented out */
+			r = 0;
+		else
+		{
+			if(line[i] && strcmp(line, "quit"))
+				add_history(line);
+			r = command_line_execute(line, &error);
+		}
 		if(line != quit)
 			free(line);
 		if(r == -E2BIG)

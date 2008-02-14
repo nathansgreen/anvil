@@ -123,7 +123,7 @@ struct t_query {
 	/* XXX: for now, we just query for a single field having a specific value */
 	const char * name;
 	enum t_type type;
-	t_value * value;
+	t_value * values[2];
 };
 typedef struct t_query t_query;
 
@@ -169,7 +169,6 @@ void toilet_put_gtable(t_gtable * gtable);
 
 #define COLUMNS(g) vector_size((g)->columns)
 #define COLUMN(g, i) ((t_column *) vector_elt((g)->columns, (i)))
-#define COLUMN_N(g, n) ((t_column *) hash_map_find_val((g)->column_map, (n)))
 #define COUNT(c) ((c)->count)
 /* this also works for values */
 #define TYPE(cv) ((cv)->type)
@@ -220,6 +219,7 @@ int toilet_row_update_value(t_row * row, t_values * values, int index, t_value *
 /* queries */
 
 t_rowset * toilet_query(t_gtable * gtable, t_query * query);
+ssize_t toilet_count_query(t_gtable * gtable, t_query * query);
 void toilet_put_rowset(t_rowset * rowset);
 
 #define ROWS(r) (vector_size((r)->rows))

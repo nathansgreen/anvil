@@ -585,7 +585,7 @@ static int toilet_column_drop(t_gtable * gtable, t_column * column)
 
 t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 {
-	int table_fd, column_fd, copy;
+	int table_fd, column_fd;
 	t_gtable * gtable;
 	struct dirent * ent;
 	DIR * dir;
@@ -620,16 +620,13 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	if(column_fd < 0)
 		goto fail_column;
 	
-	/* don't count on the fd passed to fdopendir() sticking around */
-	copy = dup(column_fd);
-	if(copy < 0)
-		goto fail_dup;
-	dir = fdopendir(copy);
+	dir = fdopendir(column_fd);
 	if(!dir)
 	{
-		close(copy);
+		close(column_fd);
 		goto fail_column;
 	}
+	column_fd = dirfd(dir);
 	while((ent = readdir(dir)))
 	{
 		t_column * column;
@@ -667,8 +664,6 @@ fail_columns:
 		toilet_close_column(column);
 	}
 	closedir(dir);
-fail_dup:
-	close(column_fd);
 fail_column:
 	close(table_fd);
 fail_gtable:
@@ -964,19 +959,14 @@ static int toilet_populate_row(t_row * row)
 			r = sub_fd;
 			goto fail_openat;
 		}
-		copy = dup(sub_fd);
-		if(copy < 0)
-		{
-			r = copy;
-			goto fail_opendir;
-		}
-		sub = fdopendir(copy);
+		sub = fdopendir(sub_fd);
 		if(!sub)
 		{
 			r = -errno;
-			close(copy);
-			goto fail_opendir;
+			close(sub_fd);
+			goto fail_openat;
 		}
+		sub_fd = dirfd(sub);
 		while((sub_ent = readdir(sub)))
 		{
 			struct stat stat;
@@ -1055,8 +1045,6 @@ fail_malloc:
 fail_insert:
 	toilet_free_values(values);
 	closedir(sub);
-fail_opendir:
-	close(sub_fd);
 fail_openat:
 	vector_destroy(values->values);
 fail_vector:
@@ -1375,9 +1363,46 @@ t_rowset * toilet_query(t_gtable * gtable, t_query * query)
 		fprintf(gtable->toilet->errors, "%s(): query over non-indexed column '%s' of type %d\n", __FUNCTION__, column->name, column->type);
 		return NULL;
 	}
+	/* list all in gtable */
 	if(!query->name)
 		return toilet_index_list(column->index, T_ID);
-	return toilet_index_find(column->index, query->type, query->value);
+	/* list all with column */
+	if(!query->values[0])
+		return toilet_index_list(column->index, query->type);
+	/* just those with this value */
+	if(!query->values[1])
+		return toilet_index_find(column->index, query->type, query->values[0]);
+	/* between these values, inclusive */
+	return toilet_index_find_range(column->index, query->type, query->values[0], query->values[1]);
+}
+
+ssize_t toilet_count_query(t_gtable * gtable, t_query * query)
+{
+	t_column * column;
+	if(!query->name)
+		column = hash_map_find_val(gtable->column_map, "id");
+	else
+		column = hash_map_find_val(gtable->column_map, query->name);
+	if(!column)
+		return -ENOENT;
+	if(!column->index)
+	{
+		fprintf(gtable->toilet->errors, "%s(): query over non-indexed column '%s' of type %d\n", __FUNCTION__, column->name, column->type);
+		return -EINVAL;
+	}
+	/* count all in gtable */
+	if(!query->name)
+		return toilet_index_size(column->index);
+	if(query->type != column->type)
+		return -EINVAL;
+	/* count all with column */
+	if(!query->values[0])
+		return toilet_index_size(column->index);
+	/* just those with this value */
+	if(!query->values[1])
+		return toilet_index_count(column->index, query->type, query->values[0]);
+	/* between these values, inclusive */
+	return toilet_index_count_range(column->index, query->type, query->values[0], query->values[1]);
 }
 
 void toilet_put_rowset(t_rowset * rowset)

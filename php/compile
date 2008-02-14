@@ -5,6 +5,8 @@
 # the magic by reading existing code. (Unfortunately the aforementioned
 # tutorial stops just a tad short of where you'd ideally like it to.)
 
+cd "`dirname "$0"`"
+
 set -e
 set -x
 

@@ -107,8 +107,6 @@ diskhash_it::~diskhash_it()
 	key = NULL;
 	if(dir)
 		closedir(dir);
-	if(key_fd != -1)
-		close(key_fd);
 }
 
 diskhash_it::diskhash_it(diskhash * dh, mm_val_t * it_key, DIR * key_dir, int fd, size_t count)
@@ -120,7 +118,7 @@ diskhash_it::diskhash_it(diskhash * dh, mm_val_t * it_key, DIR * key_dir, int fd
 int diskhash_all_it::next()
 {
 	struct dirent * ent;
-	int copy, r;
+	int r;
 	
 	/* this would be a great candidate for a recursive function, except for
 	 * the fact that we want to jump into the recursion like this: */
@@ -141,25 +139,17 @@ int diskhash_all_it::next()
 	fd = openat(at, ent->d_name, 0); \
 	if(fd < 0) \
 		return fd; \
-	copy = dup(fd); \
-	if(copy < 0) \
-	{ \
-		close(fd); \
-		fd = -1; \
-		return copy; \
-	} \
-	dir = fdopendir(copy); \
+	dir = fdopendir(fd); \
 	if(!dir) \
 	{ \
-		close(copy); \
 		close(fd); \
 		fd = -1; \
 		return -1; \
-	}
+	} \
+	fd = dirfd(dir); \
 	
 #define CLOSE_SUBDIR(dir, fd) do { \
 	closedir(dir); \
-	close(fd); \
 	dir = NULL; \
 	fd = -1; \
 } while(0)
@@ -225,12 +215,8 @@ int diskhash_all_it::next()
 diskhash_all_it::~diskhash_all_it()
 {
 	for(int i = 0; i < 5; i++)
-	{
 		if(scan_dir[i])
 			closedir(scan_dir[i]);
-		if(scan_fd[i] != -1)
-			close(scan_fd[i]);
-	}
 	free_key();
 }
 
@@ -296,26 +282,18 @@ diskhash_it * diskhash::get_values(mm_val_t * key)
 	diskhash_it * it;
 	size_t values = 0;
 	struct dirent * ent;
-	int copy, key_dir = key_fd(key);
+	int key_dir = key_fd(key);
 	if(key_dir < 0)
 		return NULL;
-	copy = dup(key_dir);
-	if(copy < 0)
-	{
-		int save = errno;
-		close(key_dir);
-		errno = save;
-		return NULL;
-	}
-	dir = fdopendir(copy);
+	dir = fdopendir(key_dir);
 	if(!dir)
 	{
 		int save = errno;
-		close(copy);
 		close(key_dir);
 		errno = save;
 		return NULL;
 	}
+	key_dir = dirfd(dir);
 	while((ent = readdir(dir)))
 	{
 		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
@@ -325,10 +303,7 @@ diskhash_it * diskhash::get_values(mm_val_t * key)
 	rewinddir(dir);
 	it = new diskhash_it(this, key, dir, key_dir, values);
 	if(!it)
-	{
 		closedir(dir);
-		close(key_dir);
-	}
 	return it;
 }
 
@@ -477,15 +452,13 @@ int diskhash::remove_value(mm_val_t * key, mm_val_t * value)
 	DIR * dir = NULL;
 	int i = 0, r = -1, fd = -1, save = 0;
 	struct dirent * ent;
-	int copy, key_dir = key_fd(key);
+	int key_dir = key_fd(key);
 	if(key_dir < 0)
 		return (errno == ENOENT) ? 0 : key_dir;
-	copy = dup(key_dir);
-	if(copy < 0)
-		goto fail;
-	dir = fdopendir(copy);
+	dir = fdopendir(key_dir);
 	if(!dir)
 		goto fail;
+	key_dir = dirfd(dir);
 	
 	while((ent = readdir(dir)))
 	{
@@ -585,11 +558,8 @@ fail:
 	if(dir)
 		closedir(dir);
 	else
-		close(copy);
-	close(key_dir);
+		close(key_dir);
 	errno = save;
-	if(copy < 0)
-		return copy;
 	if(!dir)
 		return -save;
 	if(fd < 0)

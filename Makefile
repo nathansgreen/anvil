@@ -8,7 +8,7 @@ COBJECTS=$(CSOURCES:.c=.o)
 CPPOBJECTS=$(CPPSOURCES:.cpp=.o)
 OBJECTS=$(COBJECTS) $(CPPOBJECTS)
 
-.PHONY: all clean count
+.PHONY: all clean clean-all count count-all php
 
 all: tags toilet
 
@@ -27,8 +27,17 @@ toilet: libtoilet.so main.c
 clean:
 	rm -f toilet libtoilet.so *.o .depend tags
 
+clean-all: clean
+	php/clean
+
 count:
-	wc -l *.c *.cpp *.h | sort -n
+	wc -l *.[ch] *.cpp | sort -n
+
+count-all:
+	wc -l *.[ch] *.cpp php/*.[ch] | sort -n
+
+php:
+	if [ -f php/Makefile ]; then make -C php; else php/compile; fi
 
 .depend: $(SOURCES) main.c
 	g++ -MM *.c *.cpp > .depend

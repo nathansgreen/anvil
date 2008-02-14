@@ -116,30 +116,27 @@ int multimap::drop(int dfd, const char * store, size_t * count)
 		errno = -r;
 		return r;
 	}
+	dir_fd = dirfd(dir);
 	while((ent = readdir(dir)))
 	{
-		struct stat64 st;
 		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
 			continue;
-		if((r = fstatat64(dir_fd, ent->d_name, &st, AT_SYMLINK_NOFOLLOW)) < 0)
+		r = unlinkat(dir_fd, ent->d_name, 0);
+		if(r < 0 && errno == EISDIR)
+			/* we could stat it to find out, but fstatat64() was doing
+			 * something funky and this saves system calls anyway */
+			r = drop(dir_fd, ent->d_name, count);
+		if(r < 0)
 		{
-		fail:
 			int save = errno;
 			closedir(dir);
 			close(dir_fd);
 			errno = save;
 			return r;
 		}
-		if(S_ISDIR(st.st_mode))
-			r = drop(dir_fd, ent->d_name, count);
-		else
-			r = unlinkat(dir_fd, ent->d_name, 0);
-		if(r < 0)
-			goto fail;
 		if(count)
 			(*count)++;
 	}
 	closedir(dir);
-	close(dir_fd);
 	return unlinkat(dfd, store, AT_REMOVEDIR);
 }
