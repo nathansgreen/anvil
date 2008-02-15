@@ -34,7 +34,7 @@ count:
 	wc -l *.[ch] *.cpp | sort -n
 
 count-all:
-	wc -l *.[ch] *.cpp php/*.[ch] | sort -n
+	wc -l *.[ch] *.cpp php/*.[ch] invite/*.php | sort -n
 
 php:
 	if [ -f php/Makefile ]; then make -C php; else php/compile; fi

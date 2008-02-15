@@ -1,0 +1,156 @@
+body
+{
+	background: #E0E0FF;
+}
+
+table
+{
+	border: none;
+	width: 100%;
+}
+
+td
+{
+	background: #D0D0F0;
+	border: 1px dotted;
+}
+
+td.normal
+{
+	background: transparent;
+	border: none;
+}
+
+th.fancy
+{
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+.note
+{
+	font-size: small;
+	padding-bottom: 1em;
+}
+
+#status
+{
+	float: right;
+	width: 50%;
+}
+
+.subtle
+{
+	background: #E0E0FF;
+	border: 1px solid #C0C0F0;
+	padding: 2px;
+	margin: 0px;
+	font-weight: bold;
+	font-family: serif;
+}
+
+#email
+{
+	background: #E0E0FF;
+	border: 1px solid #C0C0F0;
+	padding: 2px;
+	margin-right: 1px;
+	font-family: monospace;
+	width: auto;
+}
+
+#email td
+{
+	border: none;
+	background: none;
+}
+
+#clear
+{
+	clear: both;
+}
+
+#status table
+{
+	border: 1px dotted;
+}
+
+#status table input
+{
+	padding: 2px;
+	margin: 0px;
+	margin-left: 1px;
+	font-size: medium;
+	font-weight: bold;
+	font-family: serif;
+}
+
+#status table .info input
+{
+	color: #666666;
+	font-size: smaller;
+	font-weight: normal;
+	font-family: sans-serif;
+}
+
+table.yes
+{
+	background: #C0F0C0;
+}
+
+table.maybe
+{
+	background: #F0F0C0;
+}
+
+table.no
+{
+	background: #F0C0C0;
+}
+
+table.noreply
+{
+}
+
+table.yes input
+{
+	background: #D0F0D0;
+	border: 1px solid #B0E0B0;
+}
+
+table.maybe input
+{
+	background: #F0F0D0;
+	border: 1px solid #F0E0B0;
+}
+
+table.no input
+{
+	background: #F0D0D0;
+	border: 1px solid #F0B0B0;
+}
+
+table.noreply input
+{
+	background: #E0E0FF;
+	border: 1px solid #C0C0F0;
+}
+
+table.yes td, table.maybe td, table.no td, table.noreply td
+{
+	background: none;
+	border: none;
+}
+
+.comments
+{
+	font-size: small;
+	padding-left: 1em;
+}
+
+.info
+{
+	font-size: small;
+	padding-left: 1em;
+	color: #777777;
+}
