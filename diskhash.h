@@ -41,8 +41,8 @@ public:
 	virtual int next();
 	virtual ~diskhash_all_it();
 protected:
-	DIR * scan_dir[5];
-	int scan_fd[5];
+	DIR * scan_dir[3];
+	int scan_fd[3];
 	diskhash_all_it(diskhash * dh, DIR * store, int store_fd, size_t count);
 	friend class diskhash;
 };

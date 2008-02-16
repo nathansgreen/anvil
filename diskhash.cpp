@@ -125,8 +125,6 @@ int diskhash_all_it::next()
 	if(dir)
 		goto next;
 #define JUMP_SUBDIR(i) if(scan_dir[i]) goto scan_##i
-	JUMP_SUBDIR(4);
-	JUMP_SUBDIR(3);
 	JUMP_SUBDIR(2);
 	JUMP_SUBDIR(1);
 	assert(scan_dir[0]);
@@ -169,40 +167,32 @@ int diskhash_all_it::next()
 		{
 			START_SUBDIR(2)
 			{
-				START_SUBDIR(3)
+				OPEN_SUBDIR(scan_fd[2], key_fd, dir);
+				assert(!key);
+				switch(it_map->get_key_type())
 				{
-					START_SUBDIR(4)
-					{
-						OPEN_SUBDIR(scan_fd[4], key_fd, dir);
-						assert(!key);
-						switch(it_map->get_key_type())
-						{
-							case MM_U32:
-								s_key.u32 = strtol(ent->d_name, NULL, 10);
-								key = &s_key;
-								break;
-							case MM_U64:
-								s_key.u64 = strtoll(ent->d_name, NULL, 10);
-								key = &s_key;
-								break;
-							case MM_STR:
-								key = (mm_val_t *) strdup(ent->d_name);
-								if(!key)
-									return -ENOMEM;
-								break;
-							default:
-								/* should never happen */ ;
-						}
-					next:
-						r = diskhash_it::next();
-						if(r != -ENOENT)
-							return r;
-						CLOSE_SUBDIR(dir, key_fd);
-						free_key();
-					}
-					END_SUBDIR(4);
+					case MM_U32:
+						s_key.u32 = strtol(ent->d_name, NULL, 10);
+						key = &s_key;
+						break;
+					case MM_U64:
+						s_key.u64 = strtoll(ent->d_name, NULL, 10);
+						key = &s_key;
+						break;
+					case MM_STR:
+						key = (mm_val_t *) strdup(ent->d_name);
+						if(!key)
+							return -ENOMEM;
+						break;
+					default:
+						/* should never happen */ ;
 				}
-				END_SUBDIR(3);
+			next:
+				r = diskhash_it::next();
+				if(r != -ENOENT)
+					return r;
+				CLOSE_SUBDIR(dir, key_fd);
+				free_key();
 			}
 			END_SUBDIR(2);
 		}
@@ -214,7 +204,7 @@ int diskhash_all_it::next()
 
 diskhash_all_it::~diskhash_all_it()
 {
-	for(int i = 0; i < 5; i++)
+	for(int i = 0; i < 3; i++)
 		if(scan_dir[i])
 			closedir(scan_dir[i]);
 	free_key();
@@ -225,7 +215,7 @@ diskhash_all_it::diskhash_all_it(diskhash * dh, DIR * store, int store_fd, size_
 {
 	scan_dir[0] = store;
 	scan_fd[0] = store_fd;
-	for(int i = 1; i < 5; i++)
+	for(int i = 1; i < 3; i++)
 	{
 		scan_dir[i] = NULL;
 		scan_fd[i] = -1;
@@ -663,21 +653,21 @@ int diskhash::bucket_fd(mm_val_t * key, bool create)
 {
 	union {
 		uint32_t u32;
-		uint8_t bytes[4];
+		uint16_t shorts[2];
 	} hash;
 	char bucket[12];
 	int fd;
 	hash.u32 = hash_key(key);
-	snprintf(bucket, sizeof(bucket), "%02x/%02x/%02x/%02x", hash.bytes[0], hash.bytes[1], hash.bytes[2], hash.bytes[3]);
+	snprintf(bucket, sizeof(bucket), "%04x/%04x", hash.shorts[0], hash.shorts[1]);
 	fd = openat(dir_fd, bucket, 0);
 	if(fd < 0 && errno == ENOENT && create)
 	{
 		int i;
 		fd = dir_fd;
-		for(i = 0; i != 4; i++)
+		for(i = 0; i != 2; i++)
 		{
 			int sub;
-			snprintf(bucket, sizeof(bucket), "%02x", hash.bytes[i]);
+			snprintf(bucket, sizeof(bucket), "%04x", hash.shorts[i]);
 			sub = openat(fd, bucket, 0);
 			if(sub < 0)
 			{
