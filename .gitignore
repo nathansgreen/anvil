@@ -1,6 +1,7 @@
 .toilet_history
 .depend
 libtoilet.so
-toilet
+fstitch
+main
 tags
 *.o

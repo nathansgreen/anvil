@@ -1,4 +1,4 @@
-CSOURCES=blowfish.c hash_map.c hash_set.c openat.c toilet.c vector.c
+CSOURCES=blowfish.c hash_map.c hash_set.c journal.c openat.c toilet.c vector.c
 CPPSOURCES=diskhash.cpp disktree.cpp index.cpp memcache.cpp multimap.cpp
 SOURCES=$(CSOURCES) $(CPPSOURCES)
 
@@ -10,7 +10,10 @@ OBJECTS=$(COBJECTS) $(CPPOBJECTS)
 
 .PHONY: all clean clean-all count count-all php
 
-all: tags toilet
+CFLAGS:=-Ifstitch/include $(CFLAGS)
+LDFLAGS:=-Lfstitch/obj/kernel/lib -lpatchgroup -Wl,-R,$(PWD)/fstitch/obj/kernel/lib $(LDFLAGS)
+
+all: tags main
 
 %.o: %.c
 	gcc -c $< -O2 $(CFLAGS)
@@ -18,14 +21,14 @@ all: tags toilet
 %.o: %.cpp
 	g++ -c $< -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
 
-libtoilet.so: $(OBJECTS)
+libtoilet.so: $(OBJECTS) fstitch/obj/kernel/lib/libpatchgroup.so
 	g++ -shared -o libtoilet.so $(OBJECTS) -ldl $(LDFLAGS)
 
-toilet: libtoilet.so main.c
-	gcc -o toilet main.c $(CFLAGS) -Wl,-R,. -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
+main: libtoilet.so main.c
+	gcc -o main main.c $(CFLAGS) -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
 
 clean:
-	rm -f toilet libtoilet.so *.o .depend tags
+	rm -f main libtoilet.so *.o .depend tags
 
 clean-all: clean
 	php/clean
