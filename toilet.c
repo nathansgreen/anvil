@@ -6,6 +6,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -1349,7 +1350,7 @@ int toilet_row_update_value(t_row * row, t_values * values, int index, t_value *
 
 /* queries */
 
-t_rowset * toilet_query(t_gtable * gtable, t_query * query)
+t_rowset * toilet_squery(t_gtable * gtable, t_query * query)
 {
 	t_column * column;
 	if(!query->name)
@@ -1376,7 +1377,7 @@ t_rowset * toilet_query(t_gtable * gtable, t_query * query)
 	return toilet_index_find_range(column->index, query->type, query->values[0], query->values[1]);
 }
 
-ssize_t toilet_count_query(t_gtable * gtable, t_query * query)
+ssize_t toilet_count_squery(t_gtable * gtable, t_query * query)
 {
 	t_column * column;
 	if(!query->name)
@@ -1403,6 +1404,112 @@ ssize_t toilet_count_query(t_gtable * gtable, t_query * query)
 		return toilet_index_count(column->index, query->type, query->values[0]);
 	/* between these values, inclusive */
 	return toilet_index_count_range(column->index, query->type, query->values[0], query->values[1]);
+}
+
+t_rowset * toilet_query(t_gtable * gtable, uint32_t flags, ...)
+{
+	t_rowset * value;
+	va_list ap;
+	va_start(ap, flags);
+	value = toilet_vquery(gtable, flags, ap);
+	va_end(ap);
+	return value;
+}
+
+ssize_t toilet_count_query(t_gtable * gtable, uint32_t flags, ...)
+{
+	ssize_t value;
+	va_list ap;
+	va_start(ap, flags);
+	value = toilet_count_vquery(gtable, flags, ap);
+	va_end(ap);
+	return value;
+}
+
+t_rowset * toilet_aquery(t_gtable * gtable, uint32_t flags, size_t count, tq_cond * conds)
+{
+	return NULL;
+}
+
+ssize_t toilet_count_aquery(t_gtable * gtable, uint32_t flags, size_t count, tq_cond * conds)
+{
+	return -1;
+}
+
+t_rowset * toilet_vquery(t_gtable * gtable, uint32_t flags, va_list ap)
+{
+	va_list copy;
+	uint32_t cflags;
+	size_t count = 0;
+	t_rowset * value;
+	tq_cond * conds = NULL;
+	va_copy(copy, ap);
+	cflags = va_arg(copy, uint32_t);
+	while(cflags != TQ_END)
+	{
+		va_arg(copy, const char *);
+		va_arg(copy, t_value *);
+		count++;
+		cflags = va_arg(copy, uint32_t);
+	}
+	va_end(copy);
+	if(count)
+	{
+		conds = malloc(sizeof(*conds) * count);
+		if(!conds)
+			return NULL;
+		count = 0;
+		cflags = va_arg(ap, uint32_t);
+		while(cflags != TQ_END)
+		{
+			conds[count].flags = cflags;
+			conds[count].name = va_arg(ap, const char *);
+			conds[count++].value = va_arg(ap, t_value *);
+			cflags = va_arg(ap, uint32_t);
+		}
+	}
+	value = toilet_aquery(gtable, flags, count, conds);
+	if(conds)
+		free(conds);
+	return value;
+}
+
+ssize_t toilet_count_vquery(t_gtable * gtable, uint32_t flags, va_list ap)
+{
+	va_list copy;
+	uint32_t cflags;
+	size_t count = 0;
+	ssize_t value;
+	tq_cond * conds = NULL;
+	va_copy(copy, ap);
+	cflags = va_arg(copy, uint32_t);
+	while(cflags != TQ_END)
+	{
+		va_arg(copy, const char *);
+		va_arg(copy, t_value *);
+		count++;
+		cflags = va_arg(copy, uint32_t);
+	}
+	va_end(copy);
+	if(count)
+	{
+		conds = malloc(sizeof(*conds) * count);
+		if(!conds)
+			return -ENOMEM;
+		count = 0;
+		cflags = va_arg(ap, uint32_t);
+		while(cflags != TQ_END)
+		{
+			conds[count].flags = cflags;
+			conds[count].name = va_arg(ap, const char *);
+			conds[count++].value = va_arg(ap, t_value *);
+			cflags = va_arg(ap, uint32_t);
+		}
+	}
+	value = toilet_count_aquery(gtable, flags, count, conds);
+	if(conds)
+		free(conds);
+	return value;
 }
 
 void toilet_put_rowset(t_rowset * rowset)

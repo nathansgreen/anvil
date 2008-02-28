@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdarg.h>
 
 #include "vector.h"
 #include "hash_map.h"
@@ -218,8 +219,38 @@ int toilet_row_update_value(t_row * row, t_values * values, int index, t_value *
 
 /* queries */
 
-t_rowset * toilet_query(t_gtable * gtable, t_query * query);
-ssize_t toilet_count_query(t_gtable * gtable, t_query * query);
+t_rowset * toilet_squery(t_gtable * gtable, t_query * query);
+ssize_t toilet_count_squery(t_gtable * gtable, t_query * query);
+
+#define TQ_FLAG_NOT 0x01 /* invert sense */
+#define TQ_FLAG_AND 0x02 /* and (new clause) */
+#define TQ_FLAG_OR  0x04 /* or (same clause) */
+#define TQ_FLAG_EQ  0x08 /* equal to */
+#define TQ_FLAG_LT  0x10 /* less than */
+#define TQ_FLAG_LE  0x20 /* less or equal */
+#define TQ_FLAG_HAS 0x40 /* has such a column */
+#define TQ_FLAG_SUB 0x80 /* substring */
+#define TQ_END 0
+
+struct tq_cond {
+	uint32_t flags;
+	const char * name;
+	t_value * value;
+};
+typedef struct tq_cond tq_cond;
+
+/* flags can take TQ_FLAG_NOT only; the other TQ_FLAGs are for the ... parameter:
+ * ... := comparison*, TQ_END
+ * comparison := uint32_t flags, char * name, t_value * value */
+t_rowset * toilet_query(t_gtable * gtable, uint32_t flags, ...);
+ssize_t toilet_count_query(t_gtable * gtable, uint32_t flags, ...);
+
+t_rowset * toilet_aquery(t_gtable * gtable, uint32_t flags, size_t count, tq_cond * conds);
+ssize_t toilet_count_aquery(t_gtable * gtable, uint32_t flags, size_t count, tq_cond * conds);
+
+t_rowset * toilet_vquery(t_gtable * gtable, uint32_t flags, va_list ap);
+ssize_t toilet_count_vquery(t_gtable * gtable, uint32_t flags, va_list ap);
+
 void toilet_put_rowset(t_rowset * rowset);
 
 #define ROWS(r) (vector_size((r)->rows))

@@ -344,7 +344,7 @@ static int command_list(int argc, const char * argv[])
 	else if(!strcmp(argv[1], "rows"))
 	{
 		t_query query = {.name = NULL};
-		t_rowset * rows = toilet_query(open_gtable, &query);
+		t_rowset * rows = toilet_squery(open_gtable, &query);
 		if(!rows)
 			r = -ENOENT;
 		else
@@ -547,7 +547,7 @@ static int command_query(int argc, const char * argv[])
 						r = -EINVAL;
 					else
 					{
-						t_rowset * rows = toilet_query(open_gtable, &query);
+						t_rowset * rows = toilet_squery(open_gtable, &query);
 						if(!rows)
 							r = -ENOENT;
 						else

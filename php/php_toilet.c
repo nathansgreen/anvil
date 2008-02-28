@@ -317,7 +317,7 @@ PHP_FUNCTION(gtable_query)
 	}
 	else
 		query.values[1] = NULL;
-	rows = toilet_query(gtable, &query);
+	rows = toilet_squery(gtable, &query);
 	if(!rows)
 		RETURN_NULL();
 	array_init(return_value);
@@ -361,7 +361,7 @@ PHP_FUNCTION(gtable_count_query)
 	}
 	else
 		query.values[1] = NULL;
-	RETURN_LONG(toilet_count_query(gtable, &query));
+	RETURN_LONG(toilet_count_squery(gtable, &query));
 }
 
 /* takes a gtable, returns an array of ids */
@@ -374,7 +374,7 @@ PHP_FUNCTION(gtable_rows)
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zgtable) == FAILURE)
 		RETURN_FALSE;
 	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
-	rows = toilet_query(gtable, &query);
+	rows = toilet_squery(gtable, &query);
 	if(!rows)
 		RETURN_NULL();
 	array_init(return_value);
