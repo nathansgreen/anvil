@@ -11,11 +11,13 @@ extern "C" {
 
 /* a journal */
 struct journal {
-	int fd;
+	int fd, dfd;
+	char * path;
 	patchgroup_id_t records;
 	patchgroup_id_t commit;
 	patchgroup_id_t playback;
 	patchgroup_id_t erase;
+	struct journal * prev;
 };
 typedef struct journal journal;
 
@@ -30,7 +32,7 @@ typedef struct journal_record journal_record;
 typedef int (*record_processor)(void * data, uint16_t length, uint16_t type, void * param);
 
 /* creates a new journal */
-journal * journal_create(int dfd, const char * path);
+journal * journal_create(int dfd, const char * path, journal * prev);
 
 /* appends a record to the journal, optionally saving a pointer to it for later ammending */
 int journal_append(journal * j, void * data, uint16_t length, uint16_t type, journal_record * location);
@@ -55,6 +57,9 @@ int journal_flush(journal * j);
 
 /* frees the journal structure after erasure */
 int journal_free(journal * j);
+
+/* reopens an existing journal if it is committed, otherwise leaves it alone */
+int journal_reopen(int dfd, const char * path, journal ** pj, journal * prev);
 
 #ifdef __cplusplus
 }
