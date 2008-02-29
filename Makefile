@@ -42,8 +42,8 @@ count-all:
 php:
 	if [ -f php/Makefile ]; then make -C php; else php/compile; fi
 
-.depend: $(SOURCES) main.c
-	g++ -MM *.c *.cpp > .depend
+.depend: $(SOURCES) $(HEADERS) main.c
+	g++ -MM $(CFLAGS) *.c *.cpp > .depend
 
 tags: $(SOURCES) main.c $(HEADERS)
 	ctags -R

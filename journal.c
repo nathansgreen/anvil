@@ -68,6 +68,7 @@ journal * journal_create(int dfd, const char * path, journal * prev)
 		errno = save;
 		return NULL;
 	}
+	patchgroup_label(j->records, "records");
 	patchgroup_release(j->records);
 	j->commit = 0;
 	j->playback = 0;
@@ -179,6 +180,7 @@ int journal_commit(journal * j)
 	commit = patchgroup_create(0);
 	if(commit <= 0)
 		return -1;
+	patchgroup_label(commit, "commit");
 	if(patchgroup_add_depend(commit, j->records) < 0)
 	{
 	fail:
@@ -250,6 +252,7 @@ int journal_playback(journal * j, record_processor processor, void * param)
 	playback = patchgroup_create(0);
 	if(playback <= 0)
 		return -1;
+	patchgroup_label(playback, "playback");
 	if(j->commit != -1 && patchgroup_add_depend(playback, j->commit) < 0)
 	{
 		patchgroup_release(playback);
@@ -302,6 +305,7 @@ int journal_erase(journal * j)
 	erase = patchgroup_create(0);
 	if(erase <= 0)
 		return -1;
+	patchgroup_label(erase, "erase");
 	if(patchgroup_add_depend(erase, j->playback) < 0)
 	{
 	fail:
