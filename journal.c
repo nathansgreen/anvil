@@ -48,7 +48,7 @@ journal * journal_create(int dfd, const char * path, journal * prev)
 		return NULL;
 	}
 	/* hmm... should we include the openat() in the patchgroup? */
-	j->fd = openat(dfd, path, O_CREAT | O_RDWR | O_EXCL);
+	j->fd = openat(dfd, path, O_CREAT | O_RDWR | O_EXCL, 0600);
 	if(j->fd < 0)
 	{
 		int save = errno;
@@ -76,7 +76,7 @@ journal * journal_create(int dfd, const char * path, journal * prev)
 	return j;
 }
 
-int journal_append(journal * j, void * data, uint16_t length, uint16_t type, journal_record * location)
+int journal_append(journal * j, const void * data, uint16_t length, uint16_t type, journal_record * location)
 {
 	struct record header;
 	struct iovec iov[2];
@@ -96,7 +96,7 @@ int journal_append(journal * j, void * data, uint16_t length, uint16_t type, jou
 	header.type = type;
 	iov[0].iov_base = &header;
 	iov[0].iov_len = sizeof(header);
-	iov[1].iov_base = data;
+	iov[1].iov_base = (void *) data;
 	iov[1].iov_len = length;
 	if(patchgroup_engage(j->records) < 0)
 		return -1;
@@ -114,7 +114,7 @@ int journal_append(journal * j, void * data, uint16_t length, uint16_t type, jou
 	return 0;
 }
 
-int journal_ammend(journal * j, const journal_record * location, void * data)
+int journal_amend(journal * j, const journal_record * location, const void * data)
 {
 	if(j->commit)
 		return -EINVAL;
@@ -256,6 +256,7 @@ int journal_playback(journal * j, record_processor processor, void * param)
 		patchgroup_abandon(playback);
 		return -1;
 	}
+	patchgroup_release(playback);
 	lseek(j->fd, 0, SEEK_SET);
 	if(patchgroup_engage(playback) < 0)
 	{

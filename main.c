@@ -2,6 +2,8 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#define _ATFILE_SOURCE
+
 #include <errno.h>
 #include <stdio.h>
 #include <assert.h>
@@ -10,7 +12,9 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+#include "openat.h"
 #include "hash_map.h"
+#include "journal.h"
 #include "toilet.h"
 
 #define HISTORY_FILE ".toilet_history"
@@ -568,6 +572,79 @@ static int command_query(int argc, const char * argv[])
 	return r;
 }
 
+static int journal_process(void * data, uint16_t length, uint16_t type, void * param)
+{
+	printf("Journal entry: %s (length %d, type %02x)\n", (char *) data, length - 1, type);
+	return 0;
+}
+
+static int command_journal(int argc, const char * argv[])
+{
+	static journal * j = NULL;
+	int r = 0;
+	if(argc < 2)
+		printf("Do what with a journal?\n");
+	else if(!strcmp(argv[1], "create"))
+	{
+		if(j)
+			printf("You need to erase the current journal first.\n");
+		else
+		{
+			if(argc < 3)
+				printf("OK, but what should I call it?\n");
+			else
+			{
+				j = journal_create(AT_FDCWD, argv[2], NULL);
+				if(!j)
+					r = -errno;
+			}
+		}
+	}
+	else if(!strcmp(argv[1], "append"))
+	{
+		if(!j)
+			printf("You need to create a journal first.\n");
+		else
+		{
+			if(argc < 3)
+				printf("OK, but what should I append?\n");
+			else
+				r = journal_append(j, argv[2], strlen(argv[2]) + 1, 42, NULL);
+		}
+	}
+	else if(!strcmp(argv[1], "commit"))
+	{
+		if(!j)
+			printf("You need to create a journal first.\n");
+		else
+			r = journal_commit(j);
+	}
+	else if(!strcmp(argv[1], "playback"))
+	{
+		if(!j)
+			printf("You need to create and commit a journal first.\n");
+		else
+			r = journal_playback(j, journal_process, NULL);
+	}
+	else if(!strcmp(argv[1], "erase"))
+	{
+		if(!j)
+			printf("You need to create, commit, and playback a journal first.\n");
+		else
+		{
+			r = journal_erase(j);
+			if(r >= 0)
+			{
+				journal_free(j);
+				j = NULL;
+			}
+		}
+	}
+	else
+		printf("Unknown journal action: %s\n", argv[1]);
+	return r;
+}
+
 static int command_script(int argc, const char * argv[]);
 static int command_help(int argc, const char * argv[]);
 static int command_quit(int argc, const char * argv[]);
@@ -586,7 +663,8 @@ struct {
 	{"query", "Query toilet!", command_query},
 	{"help", "Displays help.", command_help},
 	{"quit", "Quits the program.", command_quit},
-	{"script", "Run a toilet script.", command_script}
+	{"script", "Run a toilet script.", command_script},
+	{"journal", "Test journal functionality: create, append, commit, playback, erase.", command_journal}
 };
 #define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))
 

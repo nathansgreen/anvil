@@ -5,9 +5,13 @@
 #ifndef __JOURNAL_H
 #define __JOURNAL_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#include <patchgroup.h>
 
 /* a journal */
 struct journal {
@@ -35,9 +39,9 @@ typedef int (*record_processor)(void * data, uint16_t length, uint16_t type, voi
 journal * journal_create(int dfd, const char * path, journal * prev);
 
 /* appends a record to the journal, optionally saving a pointer to it for later ammending */
-int journal_append(journal * j, void * data, uint16_t length, uint16_t type, journal_record * location);
-/* ammends a record in the journal with new data */
-int journal_ammend(journal * j, const journal_record * location, void * data);
+int journal_append(journal * j, const void * data, uint16_t length, uint16_t type, journal_record * location);
+/* amends a record in the journal with new data */
+int journal_amend(journal * j, const journal_record * location, const void * data);
 
 /* commits a journal atomically, but does not block waiting for it */
 int journal_commit(journal * j);
