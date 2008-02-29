@@ -1,8 +1,10 @@
 #!/bin/bash
 
-if [ ! -x main ]
+WD="`dirname "$0"`"
+
+if [ ! -x "$WD/main" ]
 then
-	make main || exit $?
+	make -C "$WD" main || exit $?
 fi
 
-LD_LIBRARY_PATH=fstitch/obj/kernel/lib:$LD_LIBRARY_PATH exec ./main
+LD_LIBRARY_PATH="$WD/fstitch/obj/kernel/lib:$LD_LIBRARY_PATH" exec "$WD/main"
