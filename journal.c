@@ -26,8 +26,7 @@
 
 /* this is the record actually written into the journal file */
 struct record {
-	uint16_t length;
-	uint16_t type;
+	size_t length;
 };
 
 journal * journal_create(int dfd, const char * path, journal * prev)
@@ -77,31 +76,31 @@ journal * journal_create(int dfd, const char * path, journal * prev)
 	return j;
 }
 
-int journal_append(journal * j, const void * data, uint16_t length, uint16_t type, journal_record * location)
+int journal_appendv4(journal * j, const struct iovec * iovp, size_t count, journal_record * location)
 {
 	struct record header;
-	struct iovec iov[2];
+	struct iovec iov[5];
 	off_t offset;
-	if(j->commit)
+	size_t i;
+	if(j->commit || count > 4)
 		return -EINVAL;
-	if(length == (uint16_t) -1 && type == (uint16_t) -1)
+	header.length = iovp[0].iov_len;
+	for(i = 1; i < count; i++)
+		header.length += iovp[i].iov_len;
+	if(header.length == (size_t) -1)
 		return -EINVAL;
 	offset = lseek(j->fd, 0, SEEK_END);
 	if(location)
 	{
 		location->offset = offset;
-		location->length = length;
-		location->type = type;
+		location->length = header.length;
 	}
-	header.length = length;
-	header.type = type;
 	iov[0].iov_base = &header;
 	iov[0].iov_len = sizeof(header);
-	iov[1].iov_base = (void *) data;
-	iov[1].iov_len = length;
+	memcpy(&iov[1], iovp, count * sizeof(*iovp));
 	if(patchgroup_engage(j->records) < 0)
 		return -1;
-	if(writev(j->fd, iov, 2) != sizeof(header) + length)
+	if(writev(j->fd, iov, count + 1) != sizeof(header) + header.length)
 	{
 		int save = errno;
 		ftruncate(j->fd, offset);
@@ -115,14 +114,29 @@ int journal_append(journal * j, const void * data, uint16_t length, uint16_t typ
 	return 0;
 }
 
-int journal_amend(journal * j, const journal_record * location, const void * data)
+int journal_append(journal * j, const void * data, size_t length, journal_record * location)
 {
-	if(j->commit)
+	struct iovec iov;
+	iov.iov_base = (void *) data;
+	iov.iov_len = length;
+	return journal_appendv4(j, &iov, 1, location);
+}
+
+int journal_amendv4(journal * j, const journal_record * location, const struct iovec * iovp, size_t count)
+{
+	size_t i, length;
+	/* artificial limit to match journal_appendv4() */
+	if(j->commit || count > 4)
+		return -EINVAL;
+	length = iovp[0].iov_len;
+	for(i = 1; i < count; i++)
+		length += iovp[i].iov_len;
+	if(location->length != length)
 		return -EINVAL;
 	lseek(j->fd, location->offset + sizeof(struct record), SEEK_SET);
 	if(patchgroup_engage(j->records) < 0)
 		return -1;
-	if(write(j->fd, data, location->length) != location->length)
+	if(write(j->fd, iovp, count) != location->length)
 	{
 		int save = errno;
 		patchgroup_disengage(j->records);
@@ -131,6 +145,14 @@ int journal_amend(journal * j, const journal_record * location, const void * dat
 	}
 	patchgroup_disengage(j->records);
 	return 0;
+}
+
+int journal_amend(journal * j, const journal_record * location, const void * data)
+{
+	struct iovec iov;
+	iov.iov_base = (void *) data;
+	iov.iov_len = location->length;
+	return journal_amendv4(j, location, &iov, 1);
 }
 
 #define CHECKSUM_LENGTH 16
@@ -192,7 +214,6 @@ int journal_commit(journal * j)
 		goto fail;
 	patchgroup_release(commit);
 	header.length = -1;
-	header.type = -1;
 	iov[0].iov_base = &header;
 	iov[0].iov_len = sizeof(header);
 	iov[1].iov_base = checksum;
@@ -269,14 +290,14 @@ int journal_playback(journal * j, record_processor processor, void * param)
 	}
 	if(read(j->fd, &header, sizeof(header)) != sizeof(header))
 		goto fail;
-	while(header.length != (uint16_t) -1 || header.type != (uint16_t) -1)
+	while(header.length != (size_t) -1)
 	{
 		if(read(j->fd, buffer, header.length) != header.length)
 		{
 			r = -1;
 			goto fail;
 		}
-		r = processor(buffer, header.length, header.type, param);
+		r = processor(buffer, header.length, param);
 		if(r < 0)
 			goto fail;
 		if(read(j->fd, &header, sizeof(header)) != sizeof(header))
@@ -373,7 +394,7 @@ static int journal_verify(journal * j)
 	iov[1].iov_len = sizeof(checksum[0]);
 	if(readv(j->fd, iov, 2) != sizeof(header) + sizeof(checksum[0]))
 		return -1;
-	if(header.length != (uint16_t) -1 || header.type != (uint16_t) -1)
+	if(header.length != (size_t) -1)
 		return 0;
 	if(journal_checksum(j, offset, checksum[1]) < 0)
 		return -1;

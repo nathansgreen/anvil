@@ -572,9 +572,9 @@ static int command_query(int argc, const char * argv[])
 	return r;
 }
 
-static int journal_process(void * data, uint16_t length, uint16_t type, void * param)
+static int journal_process(void * data, size_t length, void * param)
 {
-	printf("Journal entry: %s (length %d, type %02x)\n", (char *) data, length - 1, type);
+	printf("Journal entry: %s (length %d)\n", (char *) data, length - 1);
 	return 0;
 }
 
@@ -609,7 +609,7 @@ static int command_journal(int argc, const char * argv[])
 			if(argc < 3)
 				printf("OK, but what should I append?\n");
 			else
-				r = journal_append(j, argv[2], strlen(argv[2]) + 1, 42, NULL);
+				r = journal_append(j, argv[2], strlen(argv[2]) + 1, NULL);
 		}
 	}
 	else if(!strcmp(argv[1], "commit"))

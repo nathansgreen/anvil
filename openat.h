@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <dirent.h>
+#include <unistd.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
@@ -24,6 +25,8 @@ FILE * fopenat(int dfd, const char * filename, const char * mode) __attribute__(
 DIR * opendirat(int dfd, const char * pathname) __attribute__((weak));
 /* provided by recent glibc (prototyped with _GNU_SOURCE) */
 DIR * fdopendir(int dfd) __attribute__((weak));
+
+char * getcwdat(int dfd, char * buf, size_t size) __attribute__((weak));
 
 #ifdef __cplusplus
 }

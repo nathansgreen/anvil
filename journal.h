@@ -6,6 +6,7 @@
 #define __JOURNAL_H
 
 #include <stdint.h>
+#include <sys/uio.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,20 +29,21 @@ typedef struct journal journal;
 /* a pointer into a record in the journal */
 struct journal_record {
 	off_t offset;
-	uint16_t length;
-	uint16_t type;
+	size_t length;
 };
 typedef struct journal_record journal_record;
 
-typedef int (*record_processor)(void * data, uint16_t length, uint16_t type, void * param);
+typedef int (*record_processor)(void * data, size_t length, void * param);
 
 /* creates a new journal */
 journal * journal_create(int dfd, const char * path, journal * prev);
 
 /* appends a record to the journal, optionally saving a pointer to it for later ammending */
-int journal_append(journal * j, const void * data, uint16_t length, uint16_t type, journal_record * location);
+int journal_append(journal * j, const void * data, size_t length, journal_record * location);
+int journal_appendv4(journal * j, const struct iovec * iovp, size_t count, journal_record * location);
 /* amends a record in the journal with new data */
 int journal_amend(journal * j, const journal_record * location, const void * data);
+int journal_amendv4(journal * j, const journal_record * location, const struct iovec * iovp, size_t count);
 
 /* commits a journal atomically, but does not block waiting for it */
 int journal_commit(journal * j);

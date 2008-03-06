@@ -103,6 +103,30 @@ DIR * fdopendir(int dfd)
 	return dir;
 }
 
+/* this could be done without the use of fchdir/getcwd by following ".." up to
+ * /, but that's more complicated and unnecessary unless we care about races */
+char * getcwdat(int dfd, char * buf, size_t size)
+{
+	int cfd;
+	char * r;
+	if(dfd == AT_FDCWD)
+		return getcwd(buf, size);
+	cfd = open(".", 0);
+	if(cfd < 0)
+		return NULL;
+	if(fchdir(dfd) < 0)
+	{
+		int save = errno;
+		close(cfd);
+		errno = save;
+		return NULL;
+	}
+	r = getcwd(buf, size);
+	fchdir(cfd);
+	close(cfd);
+	return r;
+}
+
 #ifdef __NEED_OPENAT
 
 #ifdef __linux__
