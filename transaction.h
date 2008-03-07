@@ -26,4 +26,7 @@ int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length, int copy);
 int tx_fstat(tx_fd fd, struct stat * buf);
 int tx_close(tx_fd fd);
 
+int tx_unlink(int dfd, const char * name);
+int tx_rename(int old_dfd, const char * old_name, int new_dfd, const char * new_name);
+
 #endif /* __TRANSACTION_H */

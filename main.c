@@ -15,9 +15,8 @@
 #include "openat.h"
 #include "hash_map.h"
 #include "journal.h"
+#include "transaction.h"
 #include "toilet.h"
-
-#define HISTORY_FILE ".toilet_history"
 
 static t_toilet * open_toilet = NULL;
 static t_gtable * open_gtable = NULL;
@@ -645,6 +644,25 @@ static int command_journal(int argc, const char * argv[])
 	return r;
 }
 
+static int command_tx(int argc, const char * argv[])
+{
+	int r;
+	tx_fd fd;
+	r = tx_init(AT_FDCWD);
+	printf("tx_init() = %d\n", r);
+	fd = tx_open(AT_FDCWD, "testfile", O_RDWR);
+	printf("tx_open(testfile) = %d\n", fd);
+	r = tx_start();
+	printf("tx_start() = %d\n", r);
+	r = tx_write(fd, "0123456789ABCDEF", 0, 16, 1);
+	printf("tx_write() = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end() = %d\n", r);
+	r = tx_close(fd);
+	printf("tx_close() = %d\n", r);
+	return 0;
+}
+
 static int command_script(int argc, const char * argv[]);
 static int command_help(int argc, const char * argv[]);
 static int command_quit(int argc, const char * argv[]);
@@ -664,7 +682,8 @@ struct {
 	{"help", "Displays help.", command_help},
 	{"quit", "Quits the program.", command_quit},
 	{"script", "Run a toilet script.", command_script},
-	{"journal", "Test journal functionality: create, append, commit, playback, erase.", command_journal}
+	{"journal", "Test journal functionality: create, append, commit, playback, erase.", command_journal},
+	{"tx", "Test transaction functionality.", command_tx}
 };
 #define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))
 
@@ -771,9 +790,12 @@ static int command_script(int argc, const char * argv[])
 int main(int argc, char * argv[])
 {
 	char * quit = "quit";
+	char * home = getenv("HOME");
+	char history[PATH_MAX];
 	int r;
 	hash_map_init();
-	read_history(HISTORY_FILE);
+	snprintf(history, sizeof(history), "%s/.toilet_history", home ? home : ".");
+	read_history(history);
 	do {
 		int i;
 		char * error;
@@ -802,7 +824,7 @@ int main(int argc, char * argv[])
 		else if(r < 0 && r != -EINTR)
 			printf("Error: %s\n", error);
 	} while(r != -EINTR);
-	write_history(HISTORY_FILE);
+	write_history(history);
 	
 	if(open_row)
 		toilet_put_row(open_row);

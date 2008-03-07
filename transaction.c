@@ -146,6 +146,7 @@ int tx_init(int dfd)
 	for(i = 0; i < vector_size(entries); i++)
 	{
 		char * name = (char *) vector_elt(entries, i);
+		last_tx_id = strtol(name, NULL, 16);
 		error = journal_reopen(journal_dir, name, &current_journal, last_journal);
 		if(error < 0)
 			goto fail_vector;
@@ -396,7 +397,7 @@ tx_fd tx_open(int dfd, const char * name, int flags, ...)
 		return fd;
 	va_start(ap, flags);
 	/* might be garbage but that's OK */
-	mode = va_arg(ap, mode_t);
+	mode = va_arg(ap, int);
 	va_end(ap);
 	tx_fds[fd].dir = getcwdat(dfd, NULL, 0);
 	if(!tx_fds[fd].dir)
@@ -487,4 +488,14 @@ int tx_close(tx_fd fd)
 		tx_fds[fd].fd = -1;
 	}
 	return 0;
+}
+
+int tx_unlink(int dfd, const char * name)
+{
+	return -ENOSYS;
+}
+
+int tx_rename(int old_dfd, const char * old_name, int new_dfd, const char * new_name)
+{
+	return -ENOSYS;
 }
