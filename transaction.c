@@ -45,6 +45,7 @@ struct tx_full_hdr {
 	 * the tx file ID has been seen already in this journal */
 	uint16_t dir_len;
 	uint16_t name_len;
+	mode_t mode;
 	char strings[0];
 };
 
@@ -61,6 +62,7 @@ static struct {
 	int fd, usage;
 	char * dir;
 	char * name;
+	mode_t mode;
 	tx_id tid;
 	tx_fid fid;
 } tx_fds[TX_FDS];
@@ -325,7 +327,7 @@ static int tx_record_processor(void * data, size_t length, void * param)
 			free(tx_fds[fd].dir);
 			return dfd;
 		}
-		tx_fds[fd].fd = openat(dfd, tx_fds[fd].name, O_RDWR | O_CREAT, 0640); /* XXX mode? */
+		tx_fds[fd].fd = openat(dfd, tx_fds[fd].name, O_RDWR | O_CREAT, header->mode);
 		close(dfd);
 		if(tx_fds[fd].fd < 0)
 		{
@@ -390,15 +392,18 @@ static tx_fd get_next_tx_fd(void)
 
 tx_fd tx_open(int dfd, const char * name, int flags, ...)
 {
-	va_list ap;
-	mode_t mode;
 	int fd = get_next_tx_fd();
 	if(fd < 0)
 		return fd;
-	va_start(ap, flags);
-	/* might be garbage but that's OK */
-	mode = va_arg(ap, int);
-	va_end(ap);
+	if(flags & O_CREAT)
+	{
+		va_list ap;
+		va_start(ap, flags);
+		tx_fds[fd].mode = va_arg(ap, int);
+		va_end(ap);
+	}
+	else
+		tx_fds[fd].mode = 0;
 	tx_fds[fd].dir = getcwdat(dfd, NULL, 0);
 	if(!tx_fds[fd].dir)
 		return (errno > 0) ? -errno : -1;
@@ -408,7 +413,7 @@ tx_fd tx_open(int dfd, const char * name, int flags, ...)
 		free(tx_fds[fd].dir);
 		return -ENOMEM;
 	}
-	tx_fds[fd].fd = openat(dfd, name, flags, mode);
+	tx_fds[fd].fd = openat(dfd, name, flags, tx_fds[fd].mode);
 	if(tx_fds[fd].fd < 0)
 	{
 		free(tx_fds[fd].name);
@@ -447,6 +452,7 @@ int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length, int copy)
 		full.name_len = strlen(tx_fds[fd].name);
 		iov[2].iov_base = tx_fds[fd].name;
 		iov[2].iov_len = full.name_len;
+		full.mode = tx_fds[fd].mode;
 		count = 3;
 		tx_fds[fd].tid = last_tx_id;
 		tx_fds[fd].fid += TX_FDS;
