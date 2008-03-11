@@ -656,10 +656,18 @@ static int command_tx(int argc, const char * argv[])
 	printf("tx_start() = %d\n", r);
 	r = tx_write(fd, "0123456789ABCDEF", 0, 16, 1);
 	printf("tx_write() = %d\n", r);
+	r = tx_write(fd, "FEDCBA9876543210", 16, 16, 1);
+	printf("tx_write() = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end() = %d\n", r);
 	r = tx_close(fd);
 	printf("tx_close() = %d\n", r);
+	r = tx_start();
+	printf("tx_start() = %d\n", r);
+	r = tx_unlink(AT_FDCWD, "testfile");
+	printf("tx_unlink(testfile) = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end() = %d\n", r);
 	return 0;
 }
 

@@ -23,6 +23,7 @@ struct journal {
 	patchgroup_id_t playback;
 	patchgroup_id_t erase;
 	struct journal * prev;
+	int usage;
 };
 typedef struct journal journal;
 

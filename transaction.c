@@ -31,22 +31,48 @@
 
 typedef uint32_t tx_fid;
 
-struct tx_hdr {
-	/* TODO: add a "type" field so we can add/delete/rename files */
-	tx_fid fid;
-	size_t length;
-	off_t offset;
-	uint8_t data[0];
-};
+/* these structures are easier for reading... */
 
-struct tx_full_hdr {
-	struct tx_hdr mini;
-	/* these (and the strings they describe) are not present if
-	 * the tx file ID has been seen already in this journal */
+struct tx_name_hdr {
 	uint16_t dir_len;
 	uint16_t name_len;
 	mode_t mode;
 	char strings[0];
+};
+
+struct tx_write_hdr {
+	tx_fid fid;
+	size_t length;
+	off_t offset;
+	union {
+		struct tx_name_hdr name[0];
+		uint8_t data[0];
+	};
+};
+
+struct tx_hdr {
+	enum { WRITE, UNLINK, RENAME } type;
+	union {
+		struct tx_write_hdr write[0];
+		struct tx_name_hdr unlink[0];
+	};
+};
+
+/* ...and these are better for writing */
+
+struct tx_write {
+	struct tx_hdr type;
+	struct tx_write_hdr write;
+};
+
+struct tx_full_write {
+	struct tx_write write;
+	struct tx_name_hdr name;
+};
+
+struct tx_unlink {
+	struct tx_hdr type;
+	struct tx_name_hdr unlink;
 };
 
 static int journal_dir = -1;
@@ -301,20 +327,20 @@ int tx_forget(tx_id id)
  * we may need to open the files, but the other nice properties still apply.
  * However, in that case we need to close them again afterward. This is handled
  * outside this function, by the recovery routines. */
-static int tx_record_processor(void * data, size_t length, void * param)
+static int tx_write_playback(struct tx_write_hdr * header, size_t length)
 {
-	struct tx_full_hdr * header = data;
-	tx_fd fd = FID_FD(header->mini.fid);
+	void * data;
+	tx_fd fd = FID_FD(header->fid);
 	/* this condition should only be true during recovery... */
 	if(tx_fds[fd].fd < 0)
 	{
 		int dfd;
 		/* need to open the file; must be a full header with pathnames */
-		assert(header->mini.length + sizeof(*header) + header->dir_len + header->name_len == length);
-		tx_fds[fd].dir = strndup(header->strings, header->dir_len);
+		assert(header->length + sizeof(struct tx_full_write) + header->name->dir_len + header->name->name_len == length);
+		tx_fds[fd].dir = strndup(header->name->strings, header->name->dir_len);
 		if(!tx_fds[fd].dir)
 			return -ENOMEM;
-		tx_fds[fd].name = strndup(&header->strings[header->dir_len], header->name_len);
+		tx_fds[fd].name = strndup(&header->name->strings[header->name->dir_len], header->name->name_len);
 		if(!tx_fds[fd].name)
 		{
 			free(tx_fds[fd].dir);
@@ -327,7 +353,7 @@ static int tx_record_processor(void * data, size_t length, void * param)
 			free(tx_fds[fd].dir);
 			return dfd;
 		}
-		tx_fds[fd].fd = openat(dfd, tx_fds[fd].name, O_RDWR | O_CREAT, header->mode);
+		tx_fds[fd].fd = openat(dfd, tx_fds[fd].name, O_RDWR | O_CREAT, header->name->mode);
 		close(dfd);
 		if(tx_fds[fd].fd < 0)
 		{
@@ -338,23 +364,73 @@ static int tx_record_processor(void * data, size_t length, void * param)
 		tx_fds[fd].tid = last_tx_id;
 		/* important so that tx_close() will work after recovery! */
 		tx_fds[fd].usage = 0;
-		data = &header->strings[header->dir_len + header->name_len];
+		data = &header->name->strings[header->name->dir_len + header->name->name_len];
 	}
 	else
 	{
-		if(header->mini.length + sizeof(header->mini) == length)
+		if(header->length + sizeof(struct tx_write) == length)
 			/* not a full header with pathnames */
-			data = &header->mini.data;
+			data = header->data;
 		else
 		{
 			/* full header with pathnames */
-			assert(header->mini.length + sizeof(*header) + header->dir_len + header->name_len == length);
-			data = &header->strings[header->dir_len + header->name_len];
+			assert(header->length + sizeof(struct tx_full_write) + header->name->dir_len + header->name->name_len == length);
+			data = &header->name->strings[header->name->dir_len + header->name->name_len];
 		}
 	}
-	lseek(tx_fds[fd].fd, header->mini.offset, SEEK_SET);
-	write(tx_fds[fd].fd, data, header->mini.length);
+	lseek(tx_fds[fd].fd, header->offset, SEEK_SET);
+	write(tx_fds[fd].fd, data, header->length);
 	return 0;
+}
+
+static int tx_unlink_playback(struct tx_name_hdr * header, size_t length)
+{
+	int r, dfd;
+	char * dir;
+	char * name;
+	dir = strndup(header->strings, header->dir_len);
+	if(!dir)
+		return -ENOMEM;
+	name = strndup(&header->strings[header->dir_len], header->name_len);
+	if(!name)
+	{
+		free(dir);
+		return -ENOMEM;
+	}
+	dfd = open(dir, 0);
+	if(dfd < 0)
+	{
+		free(name);
+		free(dir);
+		return dfd;
+	}
+	r = unlinkat(dfd, name, 0);
+	if(r < 0 && errno == ENOENT)
+		r = 0;
+	close(dfd);
+	free(name);
+	free(dir);
+	return r;
+}
+
+static int tx_rename_playback(struct tx_hdr * header, size_t length)
+{
+	return -ENOSYS;
+}
+
+static int tx_record_processor(void * data, size_t length, void * param)
+{
+	struct tx_hdr * header = data;
+	switch(header->type)
+	{
+		case WRITE:
+			return tx_write_playback(header->write, length);
+		case UNLINK:
+			return tx_unlink_playback(header->unlink, length);
+		case RENAME:
+			return tx_rename_playback(header, length);
+	}
+	return -ENOSYS;
 }
 
 static int tx_playback(journal * j)
@@ -390,6 +466,8 @@ static tx_fd get_next_tx_fd(void)
 	return -1;
 }
 
+/* Note that using O_CREAT here will create the file immediately, rather than
+ * during transaction playback. Also see the note below about tx_unlink(). */
 tx_fd tx_open(int dfd, const char * name, int flags, ...)
 {
 	int fd = get_next_tx_fd();
@@ -433,32 +511,33 @@ ssize_t tx_read(tx_fd fd, void * buf, size_t length)
 
 int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length, int copy)
 {
-	struct tx_full_hdr full;
-	struct tx_hdr * header = &full.mini;
+	struct tx_full_write full;
+	struct tx_write * header = &full.write;
 	struct iovec iov[4];
 	size_t count = 1;
 	if(!current_journal)
 		return -EBUSY;
-	header->length = length;
-	header->offset = offset;
+	header->type.type = WRITE;
+	header->write.length = length;
+	header->write.offset = offset;
 	iov[0].iov_base = header;
 	iov[0].iov_len = sizeof(*header);
 	if(tx_fds[fd].tid != last_tx_id)
 	{
 		iov[0].iov_len = sizeof(full);
-		full.dir_len = strlen(tx_fds[fd].dir);
+		full.name.dir_len = strlen(tx_fds[fd].dir);
 		iov[1].iov_base = tx_fds[fd].dir;
-		iov[1].iov_len = full.dir_len;
-		full.name_len = strlen(tx_fds[fd].name);
+		iov[1].iov_len = full.name.dir_len;
+		full.name.name_len = strlen(tx_fds[fd].name);
 		iov[2].iov_base = tx_fds[fd].name;
-		iov[2].iov_len = full.name_len;
-		full.mode = tx_fds[fd].mode;
+		iov[2].iov_len = full.name.name_len;
+		full.name.mode = tx_fds[fd].mode;
 		count = 3;
 		tx_fds[fd].tid = last_tx_id;
 		tx_fds[fd].fid += TX_FDS;
 		tx_fds[fd].usage = 0;
 	}
-	header->fid = tx_fds[fd].fid;
+	header->write.fid = tx_fds[fd].fid;
 	iov[count].iov_base = (void *) buf;
 	iov[count++].iov_len = length;
 	/* XXX we should save the location and amend it later if overwritten, and return the data for reads */
@@ -496,9 +575,36 @@ int tx_close(tx_fd fd)
 	return 0;
 }
 
+/* Note that you cannot unlink and then recreate a file in a single transaction.
+ * Most parts of that will work, but since the old file will have been opened as
+ * the new file during the transaction (since the unlink will not have been
+ * played back), the unlink that occurs during playback will unlink the file
+ * which is still open as the new file. Further writes to the file will occur on
+ * the unlinked file, which will be lost once it is closed. */
 int tx_unlink(int dfd, const char * name)
 {
-	return -ENOSYS;
+	struct tx_unlink header;
+	struct iovec iov[3];
+	char * dir;
+	int r;
+	if(!current_journal)
+		return -EBUSY;
+	header.type.type = UNLINK;
+	iov[0].iov_base = &header;
+	iov[0].iov_len = sizeof(header);
+	dir = getcwdat(dfd, NULL, 0);
+	if(!dir)
+		return (errno > 0) ? -errno : -1;
+	header.unlink.dir_len = strlen(dir);
+	iov[1].iov_base = dir;
+	iov[1].iov_len = header.unlink.dir_len;
+	header.unlink.name_len = strlen(name);
+	iov[2].iov_base = (void *) name;
+	iov[2].iov_len = header.unlink.name_len;
+	header.unlink.mode = 0;
+	r = journal_appendv4(current_journal, iov, 3, NULL);
+	free(dir);
+	return r;
 }
 
 int tx_rename(int old_dfd, const char * old_name, int new_dfd, const char * new_name)

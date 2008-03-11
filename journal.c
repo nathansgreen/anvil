@@ -73,6 +73,9 @@ journal * journal_create(int dfd, const char * path, journal * prev)
 	j->playback = 0;
 	j->erase = 0;
 	j->prev = prev;
+	j->usage = 1;
+	if(prev)
+		prev->usage++;
 	return j;
 }
 
@@ -255,6 +258,8 @@ int journal_abort(journal * j)
 	if(j->commit)
 		return -EINVAL;
 	patchgroup_abandon(j->records);
+	if(j->prev)
+		journal_free(j->prev);
 	close(j->fd);
 	unlinkat(j->dfd, j->path, 0);
 	free(j->path);
@@ -355,6 +360,8 @@ int journal_erase(journal * j)
 	}
 	patchgroup_disengage(erase);
 	j->erase = erase;
+	if(j->prev)
+		journal_free(j->prev);
 	return 0;
 }
 
@@ -369,6 +376,8 @@ int journal_free(journal * j)
 {
 	if(!j->erase)
 		return -EINVAL;
+	if(--j->usage > 0)
+		return 0;
 	if(j->records != -1)
 		patchgroup_abandon(j->records);
 	if(j->commit != -1)
@@ -433,10 +442,15 @@ int journal_reopen(int dfd, const char * path, journal ** pj, journal * prev)
 	j->playback = 0;
 	j->erase = 0;
 	j->prev = prev;
+	j->usage = 1;
+	if(prev)
+		prev->usage++;
 	/* check the checksum */
 	r = journal_verify(j);
 	if(r != 1)
 	{
+		if(prev)
+			prev->usage--;
 		close(j->fd);
 		free(j->path);
 		free(j);
