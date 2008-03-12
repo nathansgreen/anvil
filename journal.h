@@ -19,6 +19,7 @@ struct journal {
 	int fd, dfd;
 	char * path;
 	patchgroup_id_t records;
+	/* TODO: we don't actually need "commit" separate from "records" since there is a checksum */
 	patchgroup_id_t commit;
 	patchgroup_id_t playback;
 	patchgroup_id_t erase;

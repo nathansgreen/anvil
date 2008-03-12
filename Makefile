@@ -1,5 +1,5 @@
 CSOURCES=blowfish.c hash_map.c hash_set.c journal.c md5.c openat.c toilet.c transaction.c vector.c
-CPPSOURCES=diskhash.cpp disktree.cpp index.cpp memcache.cpp multimap.cpp
+CPPSOURCES=diskhash.cpp disktree.cpp index.cpp itable.cpp memcache.cpp multimap.cpp
 SOURCES=$(CSOURCES) $(CPPSOURCES)
 
 HEADERS=$(wildcard *.h)

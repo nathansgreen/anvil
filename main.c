@@ -6,6 +6,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <limits.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -648,8 +649,6 @@ static int command_tx(int argc, const char * argv[])
 {
 	int r;
 	tx_fd fd;
-	r = tx_init(AT_FDCWD);
-	printf("tx_init() = %d\n", r);
 	fd = tx_open(AT_FDCWD, "testfile", O_RDWR);
 	printf("tx_open(testfile) = %d\n", fd);
 	r = tx_start();
@@ -802,6 +801,19 @@ int main(int argc, char * argv[])
 	char history[PATH_MAX];
 	int r;
 	hash_map_init();
+	if((r = tx_init(AT_FDCWD)) < 0)
+	{
+		if(r == -1 && errno > 0)
+		{
+			fprintf(stderr, "Error: tx_init() = -1 (%s)\n", strerror(errno));
+			r = -errno;
+		}
+		else
+			fprintf(stderr, "Error: tx_init() = %d (%s)\n", r, strerror(-r));
+		if(r == -ENOENT)
+			fprintf(stderr, "(Is there a journals directory?)\n");
+		return 1;
+	}
 	snprintf(history, sizeof(history), "%s/.toilet_history", home ? home : ".");
 	read_history(history);
 	do {
