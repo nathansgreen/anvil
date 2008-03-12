@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/uio.h>
 #include <unistd.h>
 #include <string.h>
@@ -503,10 +502,9 @@ tx_fd tx_open(int dfd, const char * name, int flags, ...)
 	return fd;
 }
 
-ssize_t tx_read(tx_fd fd, void * buf, size_t length)
+int tx_read_fd(tx_fd fd)
 {
-	/* XXX at the moment we don't return data written during the current transaction */
-	return read(tx_fds[fd].fd, buf, length);
+	return tx_fds[fd].fd;
 }
 
 int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length, int copy)
@@ -540,15 +538,10 @@ int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length, int copy)
 	header->write.fid = tx_fds[fd].fid;
 	iov[count].iov_base = (void *) buf;
 	iov[count++].iov_len = length;
-	/* XXX we should save the location and amend it later if overwritten, and return the data for reads */
+	/* XXX we should save the location and amend it later if overwritten */
 	tx_fds[fd].usage++; /* XXX only if appending; amend does not increment usage */
 	/* FIXME if this fails and count == 4, then fix tx_fds[fd].tid */
 	return journal_appendv4(current_journal, iov, count, NULL);
-}
-
-int tx_fstat(tx_fd fd, struct stat * buf)
-{
-	return fstat(tx_fds[fd].fd, buf);
 }
 
 int tx_close(tx_fd fd)

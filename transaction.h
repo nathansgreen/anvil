@@ -6,7 +6,6 @@
 #define __TRANSACTION_H
 
 #include <sys/types.h>
-#include <sys/stat.h>
 
 typedef uint32_t tx_id;
 typedef int tx_fd;
@@ -21,9 +20,8 @@ int tx_sync(tx_id id);
 int tx_forget(tx_id id);
 
 tx_fd tx_open(int dfd, const char * name, int flags, ...);
-ssize_t tx_read(tx_fd fd, void * buf, size_t length);
+int tx_read_fd(tx_fd fd);
 int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length, int copy);
-int tx_fstat(tx_fd fd, struct stat * buf);
 int tx_close(tx_fd fd);
 
 int tx_unlink(int dfd, const char * name);
