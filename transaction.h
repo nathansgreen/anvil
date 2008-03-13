@@ -5,7 +5,12 @@
 #ifndef __TRANSACTION_H
 #define __TRANSACTION_H
 
+#include <stdint.h>
 #include <sys/types.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef uint32_t tx_id;
 typedef int tx_fd;
@@ -21,10 +26,14 @@ int tx_forget(tx_id id);
 
 tx_fd tx_open(int dfd, const char * name, int flags, ...);
 int tx_read_fd(tx_fd fd);
-int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length, int copy);
+int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length);
 int tx_close(tx_fd fd);
 
 int tx_unlink(int dfd, const char * name);
 int tx_rename(int old_dfd, const char * old_name, int new_dfd, const char * new_name);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __TRANSACTION_H */

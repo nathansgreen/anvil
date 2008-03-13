@@ -2,14 +2,79 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#define _ATFILE_SOURCE
+
+#include <unistd.h>
+
+#include "openat.h"
 #include "itable.h"
 
-/* itables are immutable on-disk maps from two keys (the primary key and the
- * secondary key) to a value. The keys can be either integers or strings; the
- * values can be integers, strings, or blobs. The itable's data is sorted on
- * disk first by the primary key and then by the secondary key. */
+int itable_disk::init(int dfd, const char * file)
+{
+	if(fd > -1)
+		deinit();
+	fd = openat(dfd, file, O_RDONLY);
+	if(fd < 0)
+		return fd;
+	/* ... */
+}
 
-/* This is the abstract base class of several different kinds of itables. Aside
- * from the obvious implementation that reads a single file storing all the
- * data, there is also a layering itable that allows one itable to overlay
- * another, or for atables (append-only tables) to overlay itables. */
+void itable_disk::deinit()
+{
+	if(fd < 0)
+		return;
+	/* ... */
+}
+
+bool itable_disk::has(iv_int k1)
+{
+}
+bool itable_disk::has(const char * k1)
+{
+}
+
+bool itable_disk::has(iv_int k1, iv_int k2)
+{
+}
+bool itable_disk::has(iv_int k1, const char * k2)
+{
+}
+bool itable_disk::has(const char * k1, iv_int k2)
+{
+}
+bool itable_disk::has(const char * k1, const char * k2)
+{
+}
+
+off_t itable_disk::get(iv_int k1, iv_int k2)
+{
+}
+off_t itable_disk::get(iv_int k1, const char * k2)
+{
+}
+off_t itable_disk::get(const char * k1, iv_int k2)
+{
+}
+off_t itable_disk::get(const char * k1, const char * k2)
+{
+}
+
+int itable_disk::next(iv_int k1, iv_int * key)
+{
+}
+int itable_disk::next(const char * k1, const char ** key)
+{
+}
+
+int itable_disk::next(iv_int k1, iv_int k2, iv_int * key)
+{
+}
+int itable_disk::next(iv_int k1, const char * k2, const char ** key)
+{
+}
+int itable_disk::next(const char * k1, iv_int k2, iv_int * key)
+{
+}
+int itable_disk::next(const char * k1, const char * k2, const char ** key)
+{
+}

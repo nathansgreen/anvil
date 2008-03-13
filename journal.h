@@ -12,6 +12,8 @@
 extern "C" {
 #endif
 
+/* Featherstitch does not know about C++ so we include
+ * its header file inside the extern "C" block. */
 #include <patchgroup.h>
 
 /* a journal */

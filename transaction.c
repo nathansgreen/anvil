@@ -507,7 +507,7 @@ int tx_read_fd(tx_fd fd)
 	return tx_fds[fd].fd;
 }
 
-int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length, int copy)
+int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length)
 {
 	struct tx_full_write full;
 	struct tx_write * header = &full.write;
