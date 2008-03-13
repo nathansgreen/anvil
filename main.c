@@ -17,6 +17,7 @@
 #include "hash_map.h"
 #include "journal.h"
 #include "transaction.h"
+#include "stable.h"
 #include "toilet.h"
 
 static t_toilet * open_toilet = NULL;
@@ -645,11 +646,47 @@ static int command_journal(int argc, const char * argv[])
 	return r;
 }
 
+static int command_stable(int argc, const char * argv[])
+{
+	const char * string_list[] = {"foo", "bar", "zot", "arg"};
+	const char * string;
+	struct stable st;
+	int r, fd;
+	tx_fd tfd;
+	tfd = tx_open(AT_FDCWD, "teststrings", O_RDWR | O_CREAT, 0644);
+	printf("tx_open(teststrings) = %d\n", tfd);
+	r = tx_start();
+	printf("tx_start() = %d\n", r);
+	r = st_create(tfd, 0, string_list, sizeof(string_list) / sizeof(string_list[0]));
+	printf("st_create() = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end() = %d\n", r);
+	r = tx_close(tfd);
+	printf("tx_close() = %d\n", r);
+	fd = openat(AT_FDCWD, "teststrings", O_RDONLY);
+	printf("openat(teststrings) = %d\n", fd);
+	r = st_init(&st, fd, 0);
+	printf("st_init() = %d\n", r);
+	printf("st.count = %d, st.size = %d\n", st.count, st.size);
+	r = st_locate(&st, "foo");
+	printf("st_locate(foo) = %d\n", r);
+	r = st_locate(&st, "bar");
+	printf("st_locate(bar) = %d\n", r);
+	string = st_get(&st, 3);
+	printf("st_get(3) = %s\n", string);
+	string = st_get(&st, 0);
+	printf("st_get(0) = %s\n", string);
+	r = st_kill(&st);
+	printf("st_kill() = %d\n", r);
+	close(fd);
+	return 0;
+}
+
 static int command_tx(int argc, const char * argv[])
 {
 	int r;
 	tx_fd fd;
-	fd = tx_open(AT_FDCWD, "testfile", O_RDWR);
+	fd = tx_open(AT_FDCWD, "testfile", O_RDWR | O_CREAT, 0644);
 	printf("tx_open(testfile) = %d\n", fd);
 	r = tx_start();
 	printf("tx_start() = %d\n", r);
@@ -690,6 +727,7 @@ struct {
 	{"quit", "Quits the program.", command_quit},
 	{"script", "Run a toilet script.", command_script},
 	{"journal", "Test journal functionality: create, append, commit, playback, erase.", command_journal},
+	{"stable", "Test stable functionality.", command_stable},
 	{"tx", "Test transaction functionality.", command_tx}
 };
 #define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))

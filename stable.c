@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "stable.h"
 #include "transaction.h"
@@ -14,7 +15,7 @@
 struct st_header {
 	ssize_t count;
 	uint8_t bytes[2];
-};
+} __attribute__((packed));
 
 int st_init(struct stable * st, int fd, off_t start)
 {
@@ -169,12 +170,19 @@ void st_array_free(const char ** array, ssize_t count)
 	free(array);
 }
 
+static int st_strcmp(const void * a, const void * b)
+{
+	return strcmp(*(const char **) a, *(const char **) b);
+}
+
 int st_create(tx_fd fd, off_t start, const char ** strings, ssize_t count)
 {
 	struct st_header header = {count, {4, 1}};
 	size_t size = 0, max = 0;
 	ssize_t i;
 	int r;
+	/* the strings must be sorted */
+	qsort(strings, count, sizeof(*strings), st_strcmp);
 	for(i = 0; i < count; i++)
 	{
 		size_t length = strlen(strings[i]);

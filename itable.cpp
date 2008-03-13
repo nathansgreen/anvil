@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "openat.h"
+#include "stable.h"
 #include "itable.h"
 
 int itable_disk::init(int dfd, const char * file)
