@@ -2,6 +2,7 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -59,7 +60,7 @@ int st_kill(struct stable * st)
 	ssize_t i;
 	for(i = 0; i < ST_LRU; i++)
 		if(st->lru[i].string)
-			free(st->lru[i].string);
+			free((void *) st->lru[i].string);
 	return 0;
 }
 
@@ -106,7 +107,7 @@ const char * st_get(struct stable * st, ssize_t index)
 	i = st->lru_next;
 	st->lru[i].index = index;
 	if(st->lru[i].string)
-		free(st->lru[i].string);
+		free((void *) st->lru[i].string);
 	st->lru[i].string = string;
 	return string;
 }
@@ -153,7 +154,7 @@ const char ** st_read(struct stable * st)
 	if(i < st->count)
 	{
 		while(i > 0)
-			free(u[--i]);
+			free((void *) u[--i]);
 		free(u);
 		return NULL;
 	}
@@ -164,7 +165,7 @@ void st_array_free(const char ** array, ssize_t count)
 {
 	ssize_t i;
 	for(i = 0; i < count; i++)
-		free(array[i]);
+		free((void *) array[i]);
 	free(array);
 }
 
@@ -292,7 +293,7 @@ int st_combine(tx_fd fd, off_t start, struct stable * st1, struct stable * st2)
 		else if(c > 0)
 			u[total] = s2[i2++];
 		if(!c)
-			free(s2[i2++]);
+			free((void *) s2[i2++]);
 		total++;
 	}
 	while(i1 < st1->count)
