@@ -279,7 +279,7 @@ off_t itable_disk::get(iv_int k1, iv_int k2)
 	r = k2_find(k2_count, k1_offset + k2_offset, k2, &offset);
 	if(r < 0)
 		return INVAL_OFF_T;
-	return offset;
+	return off_base + offset;
 }
 
 off_t itable_disk::get(iv_int k1, const char * k2)
@@ -361,7 +361,11 @@ int itable_disk::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
 		if(it->k2i < it->k2_count)
 		{
 			*k1 = it->k1;
-			return k2_get(it->k2_count, it->k2_offset, it->k2i++, k2, off);
+			r = k2_get(it->k2_count, it->k2_offset, it->k2i++, k2, off);
+			if(r < 0)
+				return r;
+			off += off_base;
+			return 0;
 		}
 		if(++it->k1i >= k1_count)
 			return -ENOENT;
