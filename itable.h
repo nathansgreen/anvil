@@ -100,6 +100,19 @@ public:
 	inline virtual ~itable_disk();
 private:
 	int fd;
+	off_t k1_offset;
+	uint8_t types[2], key_sizes[2];
+	struct stable st;
+	size_t k1_count;
+	off_t off_base;
+	uint8_t count_size, off_sizes[2];
+	uint8_t entry_sizes[2];
+	
+	int k1_get(size_t index, iv_int * value, size_t * k2_count, off_t * k2_offset);
+	int k1_find(iv_int k1, size_t * k2_count, off_t * k2_offset);
+	
+	int k2_get(size_t k2_count, off_t k2_offset, size_t index, iv_int * value, off_t * offset);
+	int k2_find(size_t k2_count, off_t k2_offset, iv_int k2, off_t * offset);
 };
 
 /* itable inlines */
