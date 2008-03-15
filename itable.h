@@ -7,7 +7,10 @@
 
 #include <limits.h>
 #include <unistd.h>
+#include <stdint.h>
 #include <sys/types.h>
+
+#include "stable.h"
 
 #ifndef __cplusplus
 #error itable.h is a C++ header file
@@ -33,6 +36,14 @@ class itable
 {
 public:
 	enum ktype { NONE, INT, STRING };
+	struct it {
+		/* these fields are sufficient for itable_disk */
+		size_t k1i, k2i;
+		size_t k2_count;
+		off_t k2_offset;
+		iv_int k1;
+		/* additional fields for other itable types */
+	};
 	
 	/* get the types of the keys */
 	virtual inline ktype k1_type();
@@ -53,14 +64,16 @@ public:
 	virtual off_t get(const char * k1, iv_int k2) = 0;
 	virtual off_t get(const char * k1, const char * k2) = 0;
 	
-	/* get the next key >= the given key */
-	virtual int next(iv_int k1, iv_int * key) = 0;
-	virtual int next(const char * k1, const char ** key) = 0;
+	/* iterate through the offsets: set up iterators */
+	virtual int iter(struct it * it) = 0;
+	virtual int iter(struct it * it, iv_int k1) = 0;
+	virtual int iter(struct it * it, const char * k1) = 0;
 	
-	virtual int next(iv_int k1, iv_int k2, iv_int * key) = 0;
-	virtual int next(iv_int k1, const char * k2, const char ** key) = 0;
-	virtual int next(const char * k1, iv_int k2, iv_int * key) = 0;
-	virtual int next(const char * k1, const char * k2, const char ** key) = 0;
+	/* return 0 for success and < 0 for failure (-ENOENT when done) */
+	virtual int next(struct it * it, iv_int * k1, iv_int * k2, off_t * off) = 0;
+	virtual int next(struct it * it, iv_int * k1, const char ** k2, off_t * off) = 0;
+	virtual int next(struct it * it, const char ** k1, iv_int * k2, off_t * off) = 0;
+	virtual int next(struct it * it, const char ** k1, const char ** k2, off_t * off) = 0;
 	
 	inline itable();
 	inline virtual ~itable();
@@ -87,14 +100,16 @@ public:
 	virtual off_t get(const char * k1, iv_int k2);
 	virtual off_t get(const char * k1, const char * k2);
 	
-	/* get the next key >= the given key */
-	virtual int next(iv_int k1, iv_int * key);
-	virtual int next(const char * k1, const char ** key);
+	/* iterate through the offsets: set up iterators */
+	virtual int iter(struct it * it);
+	virtual int iter(struct it * it, iv_int k1);
+	virtual int iter(struct it * it, const char * k1);
 	
-	virtual int next(iv_int k1, iv_int k2, iv_int * key);
-	virtual int next(iv_int k1, const char * k2, const char ** key);
-	virtual int next(const char * k1, iv_int k2, iv_int * key);
-	virtual int next(const char * k1, const char * k2, const char ** key);
+	/* return 0 for success and < 0 for failure (-ENOENT when done) */
+	virtual int next(struct it * it, iv_int * k1, iv_int * k2, off_t * off);
+	virtual int next(struct it * it, iv_int * k1, const char ** k2, off_t * off);
+	virtual int next(struct it * it, const char ** k1, iv_int * k2, off_t * off);
+	virtual int next(struct it * it, const char ** k1, const char ** k2, off_t * off);
 	
 	inline itable_disk();
 	int init(int dfd, const char * file);
@@ -115,10 +130,10 @@ private:
 	uint8_t entry_sizes[2];
 	
 	int k1_get(size_t index, iv_int * value, size_t * k2_count, off_t * k2_offset);
-	int k1_find(iv_int k1, size_t * k2_count, off_t * k2_offset);
+	int k1_find(iv_int k1, size_t * k2_count, off_t * k2_offset, size_t * index = NULL);
 	
 	int k2_get(size_t k2_count, off_t k2_offset, size_t index, iv_int * value, off_t * offset);
-	int k2_find(size_t k2_count, off_t k2_offset, iv_int k2, off_t * offset);
+	int k2_find(size_t k2_count, off_t k2_offset, iv_int k2, off_t * offset, size_t * index = NULL);
 };
 
 /* itable inlines */

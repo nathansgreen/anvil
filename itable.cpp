@@ -5,6 +5,7 @@
 #define _ATFILE_SOURCE
 
 #include <unistd.h>
+#include <errno.h>
 
 #include "openat.h"
 #include "stable.h"
@@ -129,7 +130,7 @@ int itable_disk::k1_get(size_t index, iv_int * value, size_t * k2_count, off_t *
 	return 0;
 }
 
-int itable_disk::k1_find(iv_int k1, size_t * k2_count, off_t * k2_offset)
+int itable_disk::k1_find(iv_int k1, size_t * k2_count, off_t * k2_offset, size_t * index)
 {
 	/* binary search */
 	size_t min = 0, max = k1_count - 1;
@@ -139,15 +140,19 @@ int itable_disk::k1_find(iv_int k1, size_t * k2_count, off_t * k2_offset)
 	{
 		iv_int value;
 		/* watch out for overflow! */
-		size_t index = min + (max - min) / 2;
-		if(k1_get(index, &value, k2_count, k2_offset) < 0)
+		size_t mid = min + (max - min) / 2;
+		if(k1_get(mid, &value, k2_count, k2_offset) < 0)
 			break;
 		if(value < k1)
-			min = index + 1;
+			min = mid + 1;
 		else if(value > k1)
-			max = index - 1;
+			max = mid - 1;
 		else
+		{
+			if(index)
+				*index = mid;
 			return 0;
+		}
 	}
 	return -1;
 }
@@ -173,7 +178,7 @@ int itable_disk::k2_get(size_t k2_count, off_t k2_offset, size_t index, iv_int *
 	return 0;
 }
 
-int itable_disk::k2_find(size_t k2_count, off_t k2_offset, iv_int k2, off_t * offset)
+int itable_disk::k2_find(size_t k2_count, off_t k2_offset, iv_int k2, off_t * offset, size_t * index)
 {
 	/* binary search */
 	size_t min = 0, max = k2_count - 1;
@@ -183,15 +188,19 @@ int itable_disk::k2_find(size_t k2_count, off_t k2_offset, iv_int k2, off_t * of
 	{
 		iv_int value;
 		/* watch out for overflow! */
-		size_t index = min + (max - min) / 2;
-		if(k2_get(k2_count, k2_offset, index, &value, offset) < 0)
+		size_t mid = min + (max - min) / 2;
+		if(k2_get(k2_count, k2_offset, mid, &value, offset) < 0)
 			break;
 		if(value < k2)
-			min = index + 1;
+			min = mid + 1;
 		else if(value > k2)
-			max = index - 1;
+			max = mid - 1;
 		else
+		{
+			if(index)
+				*index = mid;
 			return 0;
+		}
 	}
 	return -1;
 }
@@ -309,26 +318,114 @@ off_t itable_disk::get(const char * k1, const char * k2)
 	return get((iv_int) k1i, (iv_int) k2i);
 }
 
-int itable_disk::next(iv_int k1, iv_int * key)
+int itable_disk::iter(struct it * it)
 {
-}
-int itable_disk::next(const char * k1, const char ** key)
-{
+	int r = k1_get(0, &it->k1, &it->k2_count, &it->k2_offset);
+	if(r < 0)
+		return r;
+	it->k1i = 0;
+	it->k2i = 0;
+	it->k2_offset += k1_offset;
+	return 0;
 }
 
-int itable_disk::next(iv_int k1, iv_int k2, iv_int * key)
+int itable_disk::iter(struct it * it, iv_int k1)
 {
+	int r = k1_find(k1, &it->k2_count, &it->k2_offset, &it->k1i);
+	if(r < 0)
+		return r;
+	it->k2i = 0;
+	it->k2_offset += k1_offset;
+	return 0;
 }
-int itable_disk::next(iv_int k1, const char * k2, const char ** key)
+
+int itable_disk::iter(struct it * it, const char * k1)
 {
+	ssize_t k1i;
+	if(k1t != STRING)
+		return -1;
+	k1i = st_locate(&st, k1);
+	if(k1i < 0)
+		return -1;
+	return iter(it, (iv_int) k1i);
 }
-int itable_disk::next(const char * k1, iv_int k2, iv_int * key)
+
+int itable_disk::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
 {
+	int r;
+	if(it->k1i >= k1_count)
+		return -ENOENT;
+	for(;;)
+	{
+		/* same primary key */
+		if(it->k2i < it->k2_count)
+		{
+			*k1 = it->k1;
+			return k2_get(it->k2_count, it->k2_offset, it->k2i++, k2, off);
+		}
+		if(++it->k1i >= k1_count)
+			return -ENOENT;
+		it->k2i = 0;
+		r = k1_get(it->k1, &it->k1, &it->k2_count, &it->k2_offset);
+		if(r < 0)
+			return r;
+		it->k2_offset += k1_offset;
+	}
+	/* never get here */
 }
-int itable_disk::next(const char * k1, const char * k2, const char ** key)
+
+int itable_disk::next(struct it * it, iv_int * k1, const char ** k2, off_t * off)
 {
+	int r;
+	iv_int k2i;
+	if(k2t != STRING)
+		return -1;
+	r = next(it, k1, &k2i, off);
+	if(r < 0)
+		return r;
+	*k2 = st_get(&st, k2i);
+	if(!*k2)
+		return -1;
+	return 0;
+}
+
+int itable_disk::next(struct it * it, const char ** k1, iv_int * k2, off_t * off)
+{
+	int r;
+	iv_int k1i;
+	if(k1t != STRING)
+		return -1;
+	r = next(it, &k1i, k2, off);
+	if(r < 0)
+		return r;
+	*k1 = st_get(&st, k1i);
+	if(!*k1)
+		return -1;
+	return 0;
+}
+
+#if ST_LRU < 2
+#error ST_LRU must be at least 2
+#endif
+int itable_disk::next(struct it * it, const char ** k1, const char ** k2, off_t * off)
+{
+	int r;
+	iv_int k1i, k2i;
+	if(k1t != STRING || k2t != STRING)
+		return -1;
+	r = next(it, &k1i, &k2i, off);
+	if(r < 0)
+		return r;
+	*k1 = st_get(&st, k1i);
+	if(!*k1)
+		return -1;
+	*k2 = st_get(&st, k2i);
+	if(!*k2)
+		return -1;
+	return 0;
 }
 
 int itable_disk::create(int dfd, const char * file, itable * source)
 {
+	return -ENOSYS;
 }
