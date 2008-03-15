@@ -22,6 +22,8 @@ typedef unsigned int iv_int;
 #define IV_INT_MIN 0
 #define IV_INT_MAX UINT_MAX
 
+#define INVAL_OFF_T ((off_t) -1)
+
 /* This is the abstract base class of several different kinds of itables. Aside
  * from the obvious implementation that reads a single file storing all the
  * data, there is also a layering itable that allows one itable to overlay
@@ -98,10 +100,14 @@ public:
 	int init(int dfd, const char * file);
 	void deinit();
 	inline virtual ~itable_disk();
+	
+	/* not just copy, since the source can be composite */
+	static int create(int dfd, const char * file, itable * source);
+	
 private:
 	int fd;
 	off_t k1_offset;
-	uint8_t types[2], key_sizes[2];
+	uint8_t key_sizes[2];
 	struct stable st;
 	size_t k1_count;
 	off_t off_base;

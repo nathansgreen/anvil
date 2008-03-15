@@ -45,6 +45,7 @@ struct itable_header {
 int itable_disk::init(int dfd, const char * file)
 {
 	int r = -1;
+	uint8_t types[2];
 	struct itable_header header;
 	if(fd > -1)
 		deinit();
@@ -55,6 +56,8 @@ int itable_disk::init(int dfd, const char * file)
 		goto fail;
 	if(!types[0] || !types[1])
 		goto fail;
+	k1t = (types[0] == 2) ? STRING : INT;
+	k2t = (types[1] == 2) ? STRING : INT;
 	k1_offset = 2;
 	if(types[0] == 2 || types[1] == 2)
 	{
@@ -84,7 +87,7 @@ int itable_disk::init(int dfd, const char * file)
 	return 0;
 	
 fail_st:
-	if(types[0] == 2 || types[1] == 2)
+	if(k1t == STRING || k2t == STRING)
 		st_kill(&st);
 fail:
 	close(fd);
@@ -96,8 +99,7 @@ void itable_disk::deinit()
 {
 	if(fd < 0)
 		return;
-	/* ... */
-	if(types[0] == 2 || types[1] == 2)
+	if(k1t == STRING || k2t == STRING)
 		st_kill(&st);
 	close(fd);
 	fd = -1;
@@ -204,7 +206,7 @@ bool itable_disk::has(iv_int k1)
 bool itable_disk::has(const char * k1)
 {
 	ssize_t k1i;
-	if(types[0] != 2)
+	if(k1t != STRING)
 		return false;
 	k1i = st_locate(&st, k1);
 	if(k1i < 0)
@@ -225,7 +227,7 @@ bool itable_disk::has(iv_int k1, iv_int k2)
 bool itable_disk::has(iv_int k1, const char * k2)
 {
 	ssize_t k2i;
-	if(types[1] != 2)
+	if(k2t != STRING)
 		return false;
 	k2i = st_locate(&st, k2);
 	if(k2i < 0)
@@ -236,7 +238,7 @@ bool itable_disk::has(iv_int k1, const char * k2)
 bool itable_disk::has(const char * k1, iv_int k2)
 {
 	ssize_t k1i;
-	if(types[0] != 2)
+	if(k1t != STRING)
 		return false;
 	k1i = st_locate(&st, k1);
 	if(k1i < 0)
@@ -247,7 +249,7 @@ bool itable_disk::has(const char * k1, iv_int k2)
 bool itable_disk::has(const char * k1, const char * k2)
 {
 	ssize_t k1i, k2i;
-	if(types[0] != 2 || types[1] != 2)
+	if(k1t != STRING || k2t != STRING)
 		return false;
 	k1i = st_locate(&st, k1);
 	if(k1i < 0)
@@ -264,46 +266,46 @@ off_t itable_disk::get(iv_int k1, iv_int k2)
 	off_t k2_offset, offset;
 	int r = k1_find(k1, &k2_count, &k2_offset);
 	if(r < 0)
-		return -1;
+		return INVAL_OFF_T;
 	r = k2_find(k2_count, k1_offset + k2_offset, k2, &offset);
 	if(r < 0)
-		return -1;
+		return INVAL_OFF_T;
 	return offset;
 }
 
 off_t itable_disk::get(iv_int k1, const char * k2)
 {
 	ssize_t k2i;
-	if(types[1] != 2)
-		return -1;
+	if(k2t != STRING)
+		return INVAL_OFF_T;
 	k2i = st_locate(&st, k2);
 	if(k2i < 0)
-		return -1;
+		return INVAL_OFF_T;
 	return get(k1, (iv_int) k2i);
 }
 
 off_t itable_disk::get(const char * k1, iv_int k2)
 {
 	ssize_t k1i;
-	if(types[0] != 2)
-		return -1;
+	if(k1t != STRING)
+		return INVAL_OFF_T;
 	k1i = st_locate(&st, k1);
 	if(k1i < 0)
-		return -1;
+		return INVAL_OFF_T;
 	return get((iv_int) k1i, k2);
 }
 
 off_t itable_disk::get(const char * k1, const char * k2)
 {
 	ssize_t k1i, k2i;
-	if(types[0] != 2 || types[1] != 2)
-		return -1;
+	if(k1t != STRING || k2t != STRING)
+		return INVAL_OFF_T;
 	k1i = st_locate(&st, k1);
 	if(k1i < 0)
-		return -1;
+		return INVAL_OFF_T;
 	k2i = st_locate(&st, k2);
 	if(k2i < 0)
-		return -1;
+		return INVAL_OFF_T;
 	return get((iv_int) k1i, (iv_int) k2i);
 }
 
@@ -324,5 +326,9 @@ int itable_disk::next(const char * k1, iv_int k2, iv_int * key)
 {
 }
 int itable_disk::next(const char * k1, const char * k2, const char ** key)
+{
+}
+
+int itable_disk::create(int dfd, const char * file, itable * source)
 {
 }
