@@ -364,13 +364,13 @@ int itable_disk::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
 			r = k2_get(it->k2_count, it->k2_offset, it->k2i++, k2, off);
 			if(r < 0)
 				return r;
-			off += off_base;
+			*off += off_base;
 			return 0;
 		}
 		if(++it->k1i >= k1_count)
 			return -ENOENT;
 		it->k2i = 0;
-		r = k1_get(it->k1, &it->k1, &it->k2_count, &it->k2_offset);
+		r = k1_get(it->k1i, &it->k1, &it->k2_count, &it->k2_offset);
 		if(r < 0)
 			return r;
 		it->k2_offset += k1_offset;
@@ -432,4 +432,31 @@ int itable_disk::next(struct it * it, const char ** k1, const char ** k2, off_t 
 int itable_disk::create(int dfd, const char * file, itable * source)
 {
 	return -ENOSYS;
+}
+
+/* XXX HACK for testing... */
+extern "C" {
+int command_itable(int argc, const char * argv[])
+{
+	itable_disk it;
+	itable::it iter;
+	const char * col;
+	iv_int row;
+	off_t off;
+	int r;
+	if(argc < 2)
+		return 0;
+	r = it.init(AT_FDCWD, argv[1]);
+	printf("it.init(%s) = %d\n", argv[1], r);
+	if(r < 0)
+		return r;
+	r = it.iter(&iter);
+	printf("it.iter() = %d\n", r);
+	if(r < 0)
+		return r;
+	while(!(r = it.next(&iter, &row, &col, &off)))
+		printf("row = 0x%x, col = %s, offset = 0x%x\n", row, col, off);
+	printf("it.next() = %d\n", r);
+	return 0;
+}
 }
