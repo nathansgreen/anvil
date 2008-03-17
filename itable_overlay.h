@@ -5,6 +5,8 @@
 #ifndef __ITABLE_OVERLAY_H
 #define __ITABLE_OVERLAY_H
 
+#include <stdint.h>
+
 #include "itable.h"
 
 #ifndef __cplusplus
@@ -46,13 +48,17 @@ public:
 	
 	inline itable_overlay();
 	int init(itable * it1, ...);
+	int init(itable ** array, size_t length);
 	void deinit();
 	inline virtual ~itable_overlay();
 	
 private:
+	itable ** tables;
+	size_t table_count;
 };
 
 inline itable_overlay::itable_overlay()
+	: tables(NULL), table_count(0)
 {
 }
 
