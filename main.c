@@ -651,13 +651,14 @@ static int command_stable(int argc, const char * argv[])
 	const char * string_list[] = {"foo", "bar", "zot", "arg"};
 	const char * string;
 	struct stable st;
+	off_t start = 0;
 	int r, fd;
 	tx_fd tfd;
 	tfd = tx_open(AT_FDCWD, "teststrings", O_RDWR | O_CREAT, 0644);
 	printf("tx_open(teststrings) = %d\n", tfd);
 	r = tx_start();
 	printf("tx_start() = %d\n", r);
-	r = st_create(tfd, 0, string_list, sizeof(string_list) / sizeof(string_list[0]));
+	r = st_create(tfd, &start, string_list, sizeof(string_list) / sizeof(string_list[0]));
 	printf("st_create() = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end() = %d\n", r);

@@ -11,6 +11,7 @@
 #include <sys/types.h>
 
 #include "stable.h"
+#include "hash_map.h"
 
 #ifndef __cplusplus
 #error itable.h is a C++ header file
@@ -21,6 +22,7 @@
  * offsets are of type off_t but may be stored more compactly. The itable's data
  * is sorted on disk first by the primary key and then by the secondary key. */
 
+/* for itable_disk::create() iv_int should be unsigned */
 typedef unsigned int iv_int;
 #define IV_INT_MIN 0
 #define IV_INT_MAX UINT_MAX
@@ -69,14 +71,24 @@ public:
 	virtual int iter(struct it * it, iv_int k1) = 0;
 	virtual int iter(struct it * it, const char * k1) = 0;
 	
+	/* NOTE: These iterators are required to return the offsets in sorted order,
+	 * first by primary key and then by secondary key. */
 	/* return 0 for success and < 0 for failure (-ENOENT when done) */
 	virtual int next(struct it * it, iv_int * k1, iv_int * k2, off_t * off) = 0;
 	virtual int next(struct it * it, iv_int * k1, const char ** k2, off_t * off) = 0;
 	virtual int next(struct it * it, const char ** k1, iv_int * k2, off_t * off) = 0;
 	virtual int next(struct it * it, const char ** k1, const char ** k2, off_t * off) = 0;
 	
+	/* iterate only through the primary keys (not mixable with above calls!) */
+	virtual int next(struct it * it, iv_int * k1, size_t * k2_count) = 0;
+	virtual int next(struct it * it, const char ** k1, size_t * k2_count) = 0;
+	
 	inline itable();
 	inline virtual ~itable();
+	
+	/* number of bytes needed to store a value (1-4) */
+	static inline uint8_t byte_size(uint32_t value);
+	static inline void layout_bytes(uint8_t * array, uint8_t * index, uint32_t value, uint8_t size);
 	
 protected:
 	ktype k1t, k2t;
@@ -111,6 +123,10 @@ public:
 	virtual int next(struct it * it, const char ** k1, iv_int * k2, off_t * off);
 	virtual int next(struct it * it, const char ** k1, const char ** k2, off_t * off);
 	
+	/* iterate only through the primary keys (not mixable with above calls!) */
+	virtual int next(struct it * it, iv_int * k1, size_t * k2_count);
+	virtual int next(struct it * it, const char ** k1, size_t * k2_count);
+	
 	inline itable_disk();
 	int init(int dfd, const char * file);
 	void deinit();
@@ -134,6 +150,10 @@ private:
 	
 	int k2_get(size_t k2_count, off_t k2_offset, size_t index, iv_int * value, off_t * offset);
 	int k2_find(size_t k2_count, off_t k2_offset, iv_int k2, off_t * offset, size_t * index = NULL);
+	
+	/* helpers for create() above */
+	static int add_string(const char ** string, hash_map_t * string_map, size_t * max_strlen);
+	static ssize_t locate_string(const char ** array, ssize_t size, const char * string);
 };
 
 /* itable inlines */
@@ -155,6 +175,29 @@ inline itable::itable()
 
 inline itable::~itable()
 {
+}
+
+inline uint8_t itable::byte_size(uint32_t value)
+{
+	if(value < 0x100)
+		return 1;
+	if(value < 0x10000)
+		return 2;
+	if(value < 0x1000000)
+		return 3;
+	return 4;
+}
+
+inline void itable::layout_bytes(uint8_t * array, uint8_t * index, uint32_t value, uint8_t size)
+{
+	uint8_t i = *index;
+	*index += size;
+	/* write big endian order */
+	while(size-- > 0)
+	{
+		array[i + size] = value & 0xFF;
+		value >>= 8;
+	}
 }
 
 /* itable_disk inlines */

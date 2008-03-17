@@ -5,10 +5,15 @@
 #define _ATFILE_SOURCE
 
 #include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
 #include <errno.h>
+#include <assert.h>
 
 #include "openat.h"
 #include "stable.h"
+#include "hash_map.h"
+#include "transaction.h"
 #include "itable.h"
 
 /* itable file format:
@@ -118,6 +123,7 @@ int itable_disk::k1_get(size_t index, iv_int * value, size_t * k2_count, off_t *
 	r = read(fd, bytes, entry_sizes[0]);
 	if(r != entry_sizes[0])
 		return (r < 0) ? r : -1;
+	/* read big endian order */
 	*k2_count = 0;
 	for(i = 0; i < count_size; i++)
 		*k2_count = (*k2_count << 8) | bytes[bc++];
@@ -169,6 +175,7 @@ int itable_disk::k2_get(size_t k2_count, off_t k2_offset, size_t index, iv_int *
 	r = read(fd, bytes, entry_sizes[1]);
 	if(r != entry_sizes[1])
 		return (r < 0) ? r : -1;
+	/* read big endian order */
 	*value = 0;
 	for(i = 0; i < key_sizes[1]; i++)
 		*value = (*value << 8) | bytes[bc++];
@@ -429,9 +436,279 @@ int itable_disk::next(struct it * it, const char ** k1, const char ** k2, off_t 
 	return 0;
 }
 
+int itable_disk::next(struct it * it, iv_int * k1, size_t * k2_count)
+{
+	int r;
+	if(it->k1i >= k1_count)
+		return -ENOENT;
+	if(it->k1i)
+	{
+		off_t k2_offset;
+		r = k1_get(it->k1i, &it->k1, k2_count, &k2_offset);
+		if(r < 0)
+			return r;
+	}
+	else
+		*k2_count = it->k2_count;
+	*k1 = it->k1;
+	it->k1i++;
+	return 0;
+}
+
+int itable_disk::next(struct it * it, const char ** k1, size_t * k2_count)
+{
+	int r;
+	iv_int k1i;
+	if(k1t != STRING)
+		return -1;
+	r = next(it, &k1i, k2_count);
+	if(r < 0)
+		return r;
+	*k1 = st_get(&st, k1i);
+	if(!*k1)
+		return -1;
+	return 0;
+}
+
+/* get a unique pointer for the string by putting it in a string hash map */
+int itable_disk::add_string(const char ** string, hash_map_t * string_map, size_t * max_strlen)
+{
+	char * copy;
+	size_t length = strlen(*string);
+	if(length > *max_strlen)
+		*max_strlen = length;
+	copy = (char *) hash_map_find_val(string_map, *string);
+	if(!copy)
+	{
+		int r;
+		copy = strdup(*string);
+		if(!copy)
+			return -ENOMEM;
+		r = hash_map_insert(string_map, copy, copy);
+		if(r < 0)
+		{
+			free(copy);
+			return r;
+		}
+	}
+	*string = copy;
+	return 0;
+}
+
+ssize_t itable_disk::locate_string(const char ** array, ssize_t size, const char * string)
+{
+	/* binary search */
+	ssize_t min = 0, max = size - 1;
+	while(min <= max)
+	{
+		int c;
+		/* watch out for overflow! */
+		ssize_t index = min + (max - min) / 2;
+		c = strcmp(array[index], string);
+		if(c < 0)
+			min = index + 1;
+		else if(c > 0)
+			max = index - 1;
+		else
+			return index;
+	}
+	return -1;
+}
+
 int itable_disk::create(int dfd, const char * file, itable * source)
 {
-	return -ENOSYS;
+	struct it iter;
+	hash_map_t * string_map = NULL;
+	const char ** string_array = NULL;
+	off_t min_off = 0, max_off = 0, off;
+	size_t k1_count = 0, k2_count = 0, k2_count_max = 0, max_strlen = 0, strings = 0;
+	union { iv_int i; const char * s; } k1, old_k1, k2;
+	iv_int k1_max = 0, k2_max = 0;
+	int r = source->iter(&iter);
+	if(r < 0)
+		return r;
+	if(source->k1_type() == STRING || source->k2_type() == STRING)
+	{
+		string_map = hash_map_create_str();
+		if(!string_map)
+			return -ENOMEM;
+	}
+	for(;;)
+	{
+		if(source->k1_type() == STRING)
+		{
+			if(source->k2_type() == STRING)
+				r = source->next(&iter, &k1.s, &k2.s, &off);
+			else
+				r = source->next(&iter, &k1.s, &k2.i, &off);
+		}
+		else
+		{
+			if(source->k2_type() == STRING)
+				r = source->next(&iter, &k1.i, &k2.s, &off);
+			else
+				r = source->next(&iter, &k1.i, &k2.i, &off);
+		}
+		if(r)
+			break;
+		if(source->k1_type() == STRING)
+		{
+			if((r = add_string(&k1.s, string_map, &max_strlen)) < 0)
+				break;
+		}
+		else if(k1.i > k1_max)
+			k1_max = k1.i;
+		if(source->k2_type() == STRING)
+		{
+			if((r = add_string(&k2.s, string_map, &max_strlen)) < 0)
+				break;
+		}
+		else if(k2.i > k2_max)
+			k2_max = k2.i;
+		if(!k1_count)
+			min_off = off;
+		/* we can compare strings by pointer because add_string() makes them unique */
+		if(!k1_count || ((source->k1_type() == STRING) ? (k1.s != old_k1.s) : (k1.i != old_k1.i)))
+		{
+			if(k2_count > k2_count_max)
+				k2_count_max = k2_count;
+			k2_count = 0;
+			if(source->k1_type() == STRING)
+				old_k1.s = k1.s;
+			else
+				old_k1.i = k1.i;
+			k1_count++;
+		}
+		if(off < min_off)
+			min_off = off;
+		if(off > max_off)
+			max_off = off;
+		k2_count++;
+	}
+	if(r != -ENOENT)
+	{
+		if(string_map)
+		{
+			hash_map_it2_t hm_it;
+		fail_strings:
+			hm_it = hash_map_it2_create(string_map);
+			while(hash_map_it2_next(&hm_it))
+				free((void *) hm_it.val);
+			hash_map_destroy(string_map);
+		}
+		return (r < 0) ? r : -1;
+	}
+	/* now we have k1_count, k2_count_max, min_off, and max_off, and,
+	 * if appropriate, k1_max, k2_max, string_map, and max_strlen */
+	if(string_map)
+	{
+		size_t i = 0;
+		hash_map_it2_t hm_it;
+		strings = hash_map_size(string_map);
+		string_array = (const char **) malloc(sizeof(*string_array) * strings);
+		if(!string_array)
+		{
+			r = -ENOMEM;
+			goto fail_strings;
+		}
+		hm_it = hash_map_it2_create(string_map);
+		while(hash_map_it2_next(&hm_it))
+			string_array[i++] = (const char *) hm_it.val;
+		assert(i == strings);
+		hash_map_destroy(string_map);
+		string_map = NULL;
+	}
+	
+	/* now write the file */
+	tx_fd fd;
+	off_t out_off;
+	struct itable_header header;
+	uint8_t bytes[12], bc;
+	header.k1_count = k1_count;
+	header.off_base = min_off;
+	if(source->k1_type() == STRING)
+		header.key_sizes[0] = byte_size(strings - 1);
+	else
+		header.key_sizes[0] = byte_size(k1_max);
+	if(source->k2_type() == STRING)
+		header.key_sizes[1] = byte_size(strings - 1);
+	else
+		header.key_sizes[1] = byte_size(k2_max);
+	header.count_size = byte_size(k2_count_max);
+	header.off_sizes[0] = 4; /* TODO: find real value */
+	header.off_sizes[1] = byte_size(max_off -= min_off);
+	bytes[0] = (source->k1_type() == STRING) ? 2 : 1;
+	bytes[1] = (source->k2_type() == STRING) ? 2 : 1;
+	
+	/* ok, screw error handling for a while */
+	fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
+	tx_write(fd, bytes, 0, 2);
+	out_off = 2;
+	if(string_array)
+		st_create(fd, &out_off, string_array, strings);
+	tx_write(fd, &header, out_off, sizeof(header));
+	out_off += sizeof(header);
+	off = (header.count_size + header.key_sizes[0] + header.off_sizes[0]) * k1_count;
+	/* now the k1 array */
+	source->iter(&iter);
+	for(;;)
+	{
+		uint32_t value;
+		if(source->k1_type() == STRING)
+			r = source->next(&iter, &k1.s, &k2_count);
+		else
+			r = source->next(&iter, &k1.i, &k2_count);
+		if(r)
+			break;
+		bc = 0;
+		value = k2_count;
+		layout_bytes(bytes, &bc, value, header.count_size);
+		if(source->k1_type() == STRING)
+			value = locate_string(string_array, strings, k1.s);
+		else
+			value = k1.i;
+		layout_bytes(bytes, &bc, value, header.key_sizes[0]);
+		value = off;
+		off += (header.key_sizes[1] + header.off_sizes[1]) * k2_count;
+		layout_bytes(bytes, &bc, value, header.off_sizes[0]);
+		tx_write(fd, bytes, out_off, bc);
+		out_off += bc;
+	}
+	/* and the k2 arrays */
+	source->iter(&iter);
+	for(;;)
+	{
+		uint32_t value;
+		if(source->k1_type() == STRING)
+		{
+			if(source->k2_type() == STRING)
+				r = source->next(&iter, &k1.s, &k2.s, &off);
+			else
+				r = source->next(&iter, &k1.s, &k2.i, &off);
+		}
+		else
+		{
+			if(source->k2_type() == STRING)
+				r = source->next(&iter, &k1.i, &k2.s, &off);
+			else
+				r = source->next(&iter, &k1.i, &k2.i, &off);
+		}
+		if(r)
+			break;
+		bc = 0;
+		if(source->k2_type() == STRING)
+			value = locate_string(string_array, strings, k2.s);
+		else
+			value = k2.i;
+		layout_bytes(bytes, &bc, value, header.key_sizes[1]);
+		value = off - min_off;
+		layout_bytes(bytes, &bc, value, header.off_sizes[1]);
+		tx_write(fd, bytes, out_off, bc);
+		out_off += bc;
+	}
+	
+	tx_close(fd);
+	return 0;
 }
 
 /* XXX HACK for testing... */
@@ -441,6 +718,7 @@ int command_itable(int argc, const char * argv[])
 	itable_disk it;
 	itable::it iter;
 	const char * col;
+	size_t count;
 	iv_int row;
 	off_t off;
 	int r;
@@ -455,8 +733,29 @@ int command_itable(int argc, const char * argv[])
 	if(r < 0)
 		return r;
 	while(!(r = it.next(&iter, &row, &col, &off)))
-		printf("row = 0x%x, col = %s, offset = 0x%x\n", row, col, off);
+		printf("row = 0x%x, col = %s, offset = 0x%x\n", row, col, (int) off);
 	printf("it.next() = %d\n", r);
+	r = it.iter(&iter);
+	printf("it.iter() = %d\n", r);
+	if(r < 0)
+		return r;
+	while(!(r = it.next(&iter, &row, &count)))
+		printf("row = 0x%x\n", row);
+	if(argc > 2)
+	{
+		printf("%s -> %s\n", argv[1], argv[2]);
+		r = tx_start();
+		printf("tx_start() = %d\n", r);
+		r = itable_disk::create(AT_FDCWD, argv[2], &it);
+		printf("create() = %d\n", r);
+		r = tx_end(0);
+		printf("tx_end() = %d\n", r);
+		if(r >= 0)
+		{
+			argv[1] = argv[0];
+			return command_itable(argc - 1, &argv[1]);
+		}
+	}
 	return 0;
 }
 }

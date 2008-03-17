@@ -82,3 +82,11 @@ int itable_overlay::next(struct it * it, const char ** k1, iv_int * k2, off_t * 
 int itable_overlay::next(struct it * it, const char ** k1, const char ** k2, off_t * off)
 {
 }
+
+int itable_overlay::next(struct it * it, iv_int * k1, size_t * k2_count)
+{
+}
+
+int itable_overlay::next(struct it * it, const char ** k1, size_t * k2_count)
+{
+}

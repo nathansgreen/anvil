@@ -42,7 +42,7 @@ int st_init(struct stable * st, int fd, off_t start)
 		r = read(fd, bytes, st->bytes[2]);
 		if(r != st->bytes[2])
 			return (r < 0) ? r : -1;
-		st->size += 0;
+		/* read big endian order */
 		for(r = 0; r < st->bytes[0]; r++)
 			value = (value << 8) | bytes[r];
 		st->size += value;
@@ -85,6 +85,7 @@ const char * st_get(struct stable * st, ssize_t index)
 	i = read(st->fd, bytes, st->bytes[2]);
 	if(i != st->bytes[2])
 		return NULL;
+	/* read big endian order */
 	for(i = 0; i < st->bytes[0]; i++)
 		length = (length << 8) | bytes[bc++];
 	offset = 0;
@@ -175,7 +176,7 @@ static int st_strcmp(const void * a, const void * b)
 	return strcmp(*(const char **) a, *(const char **) b);
 }
 
-int st_create(tx_fd fd, off_t start, const char ** strings, ssize_t count)
+int st_create(tx_fd fd, off_t * start, const char ** strings, ssize_t count)
 {
 	struct st_header header = {count, {4, 1}};
 	size_t size = 0, max = 0;
@@ -211,10 +212,10 @@ int st_create(tx_fd fd, off_t start, const char ** strings, ssize_t count)
 			header.bytes[1] = 4;
 	}
 	/* write the header */
-	r = tx_write(fd, &header, start, sizeof(header));
+	r = tx_write(fd, &header, *start, sizeof(header));
 	if(r < 0)
 		return r;
-	start += sizeof(header);
+	*start += sizeof(header);
 	/* start of strings */
 	max = sizeof(header) + (header.bytes[0] + header.bytes[1]) * count;
 	/* write the length/offset table */
@@ -225,36 +226,39 @@ int st_create(tx_fd fd, off_t start, const char ** strings, ssize_t count)
 		uint32_t value;
 		size = strlen(strings[i]);
 		value = size;
+		bc += header.bytes[0];
+		/* write big endian order */
 		for(j = 0; j < header.bytes[0]; j++)
 		{
-			bytes[bc++] = value & 0xFF;
+			bytes[bc - j - 1] = value & 0xFF;
 			value >>= 8;
 		}
 		value = max;
+		bc += header.bytes[1];
 		for(j = 0; j < header.bytes[1]; j++)
 		{
-			bytes[bc++] = value & 0xFF;
+			bytes[bc - j - 1] = value & 0xFF;
 			value >>= 8;
 		}
 		max += size;
-		r = tx_write(fd, bytes, start, bc);
+		r = tx_write(fd, bytes, *start, bc);
 		if(r < 0)
 			return r;
-		start += bc;
+		*start += bc;
 	}
 	/* write the strings */
 	for(i = 0; i < count; i++)
 	{
 		size = strlen(strings[i]);
-		r = tx_write(fd, strings[i], start, size);
+		r = tx_write(fd, strings[i], *start, size);
 		if(r < 0)
 			return r;
-		start += size;
+		*start += size;
 	}
 	return 0;
 }
 
-int st_combine(tx_fd fd, off_t start, struct stable * st1, struct stable * st2)
+int st_combine(tx_fd fd, off_t * start, struct stable * st1, struct stable * st2)
 {
 	ssize_t i1 = 0, i2 = 0;
 	ssize_t total = 0;
