@@ -521,7 +521,8 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 	hash_map_t * string_map = NULL;
 	const char ** string_array = NULL;
 	off_t min_off = 0, max_off = 0, off;
-	size_t k1_count = 0, k2_count = 0, k2_count_max = 0, max_strlen = 0, strings = 0;
+	size_t k1_count = 0, k2_count = 0, k2_count_max = 0;
+	size_t k2_total = 0, max_strlen = 0, strings = 0;
 	union { iv_int i; const char * s; } k1, old_k1, k2;
 	iv_int k1_max = 0, k2_max = 0;
 	int r = source->iter(&iter);
@@ -584,6 +585,7 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 		if(off > max_off)
 			max_off = off;
 		k2_count++;
+		k2_total++;
 	}
 	if(r != -ENOENT)
 	{
@@ -598,8 +600,8 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 		}
 		return (r < 0) ? r : -1;
 	}
-	/* now we have k1_count, k2_count_max, min_off, and max_off, and,
-	 * if appropriate, k1_max, k2_max, string_map, and max_strlen */
+	/* now we have k1_count, k2_count_max, k2_total, min_off, and max_off,
+	 * and, if appropriate, k1_max, k2_max, string_map, and max_strlen */
 	if(string_map)
 	{
 		size_t i = 0;
@@ -620,10 +622,11 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 	}
 	
 	/* now write the file */
+	int bc;
 	tx_fd fd;
 	off_t out_off;
+	uint8_t bytes[12];
 	struct itable_header header;
-	uint8_t bytes[12], bc;
 	header.k1_count = k1_count;
 	header.off_base = min_off;
 	if(source->k1_type() == STRING)
@@ -635,20 +638,43 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 	else
 		header.key_sizes[1] = byte_size(k2_max);
 	header.count_size = byte_size(k2_count_max);
-	header.off_sizes[0] = 4; /* TODO: find real value */
+	header.off_sizes[0] = 1; /* will be corrected later */
 	header.off_sizes[1] = byte_size(max_off -= min_off);
 	bytes[0] = (source->k1_type() == STRING) ? 2 : 1;
 	bytes[1] = (source->k2_type() == STRING) ? 2 : 1;
 	
-	/* ok, screw error handling for a while */
 	fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
-	tx_write(fd, bytes, 0, 2);
+	if(fd < 0)
+	{
+		r = fd;
+		goto out_strings;
+	}
+	r = tx_write(fd, bytes, 0, 2);
+	if(r < 0)
+	{
+	fail_unlink:
+		tx_close(fd);
+		tx_unlink(dfd, file);
+		goto out_strings;
+	}
 	out_off = 2;
 	if(string_array)
-		st_create(fd, &out_off, string_array, strings);
-	tx_write(fd, &header, out_off, sizeof(header));
+	{
+		r = st_create(fd, &out_off, string_array, strings);
+		if(r < 0)
+			goto fail_unlink;
+	}
+	r = tx_write(fd, &header, out_off, sizeof(header));
+	if(r < 0)
+		goto fail_unlink;
 	out_off += sizeof(header);
 	off = (header.count_size + header.key_sizes[0] + header.off_sizes[0]) * k1_count;
+	/* minimize header.off_sizes[0] */
+	for(bc = 0; bc < 3; bc++)
+	{
+		header.off_sizes[0] = byte_size(off + (header.key_sizes[1] + header.off_sizes[1]) * k2_total);
+		off = (header.count_size + header.key_sizes[0] + header.off_sizes[0]) * k1_count;
+	}
 	/* now the k1 array */
 	source->iter(&iter);
 	for(;;)
@@ -671,9 +697,13 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 		value = off;
 		off += (header.key_sizes[1] + header.off_sizes[1]) * k2_count;
 		layout_bytes(bytes, &bc, value, header.off_sizes[0]);
-		tx_write(fd, bytes, out_off, bc);
+		r = tx_write(fd, bytes, out_off, bc);
+		if(r < 0)
+			goto fail_unlink;
 		out_off += bc;
 	}
+	if(r != -ENOENT)
+		goto fail_unlink;
 	/* and the k2 arrays */
 	source->iter(&iter);
 	for(;;)
@@ -703,12 +733,26 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 		layout_bytes(bytes, &bc, value, header.key_sizes[1]);
 		value = off - min_off;
 		layout_bytes(bytes, &bc, value, header.off_sizes[1]);
-		tx_write(fd, bytes, out_off, bc);
+		r = tx_write(fd, bytes, out_off, bc);
+		if(r < 0)
+			goto fail_unlink;
 		out_off += bc;
 	}
-	
+	if(r != -ENOENT)
+		goto fail_unlink;
+	/* assume tx_close() works */
 	tx_close(fd);
-	return 0;
+	r = 0;
+	
+out_strings:
+	if(string_array)
+	{
+		size_t i;
+		for(i = 0; i < strings; i++)
+			free((void *) string_array[i]);
+		free(string_array);
+	}
+	return r;
 }
 
 /* XXX HACK for testing... */

@@ -465,6 +465,7 @@ static tx_fd get_next_tx_fd(void)
 	return -1;
 }
 
+/* XXX: flags must either be stored in the journal, or some flags like O_TRUNC and O_EXCL must be disallowed */
 /* Note that using O_CREAT here will create the file immediately, rather than
  * during transaction playback. Also see the note below about tx_unlink(). */
 tx_fd tx_open(int dfd, const char * name, int flags, ...)
@@ -507,6 +508,7 @@ int tx_read_fd(tx_fd fd)
 	return tx_fds[fd].fd;
 }
 
+/* note that tx_write(), unlike write(), does not report the number of bytes written */
 int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length)
 {
 	struct tx_full_write full;

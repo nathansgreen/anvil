@@ -88,7 +88,7 @@ public:
 	
 	/* number of bytes needed to store a value (1-4) */
 	static inline uint8_t byte_size(uint32_t value);
-	static inline void layout_bytes(uint8_t * array, uint8_t * index, uint32_t value, uint8_t size);
+	static inline void layout_bytes(uint8_t * array, int * index, uint32_t value, int size);
 	
 protected:
 	ktype k1t, k2t;
@@ -188,7 +188,7 @@ inline uint8_t itable::byte_size(uint32_t value)
 	return 4;
 }
 
-inline void itable::layout_bytes(uint8_t * array, uint8_t * index, uint32_t value, uint8_t size)
+inline void itable::layout_bytes(uint8_t * array, int * index, uint32_t value, int size)
 {
 	uint8_t i = *index;
 	*index += size;
