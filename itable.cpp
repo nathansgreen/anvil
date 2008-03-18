@@ -17,10 +17,12 @@
 #include "itable.h"
 
 /* itable file format:
- * byte 0: k1 type (0 -> invalid, 1 -> int, 2 -> string)
- * byte 1: k2 type (same as k1 type)
- * byte 2-n: if k1 or k2 types are string, a string table
- * byte 2 or n+1: main data tables
+ * byte 0-3: magic number
+ * byte 4-5: format version
+ * byte 6: k1 type (0 -> invalid, 1 -> int, 2 -> string)
+ * byte 7: k2 type (same as k1 type)
+ * byte 8-n: if k1 or k2 types are string, a string table
+ * byte 8 or n+1: main data tables
  * 
  * main data tables:
  * bytes 0-3: k1 count
