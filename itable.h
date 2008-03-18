@@ -8,6 +8,7 @@
 #include <limits.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <assert.h>
 #include <sys/types.h>
 
 #include "stable.h"
@@ -44,7 +45,17 @@ public:
 		size_t k2_count;
 		off_t k2_offset;
 		iv_int k1;
+		
 		/* additional fields for other itable types */
+		struct overlay; /* only defined in itable_overlay.h */
+		struct overlay * ovr;
+		
+		/* automatic destructor to call itable::kill_iter(): set "table" to use */
+		inline it();
+		inline ~it();
+		itable * table;
+		/* always call clear() before using a struct it in itable::iter() */
+		inline void clear();
 	};
 	
 	/* get the types of the keys */
@@ -70,6 +81,7 @@ public:
 	virtual int iter(struct it * it) = 0;
 	virtual int iter(struct it * it, iv_int k1) = 0;
 	virtual int iter(struct it * it, const char * k1) = 0;
+	virtual void kill_iter(struct it * it);
 	
 	/* NOTE: These iterators are required to return the offsets in sorted order,
 	 * first by primary key and then by secondary key. */
@@ -175,6 +187,25 @@ inline itable::itable()
 
 inline itable::~itable()
 {
+}
+
+inline itable::it::it()
+	: table(NULL)
+{
+}
+
+inline itable::it::~it()
+{
+	clear();
+}
+
+inline void itable::it::clear()
+{
+	if(table)
+	{
+		table->kill_iter(this);
+		assert(!table);
+	}
 }
 
 inline uint8_t itable::byte_size(uint32_t value)

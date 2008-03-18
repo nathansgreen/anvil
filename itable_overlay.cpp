@@ -4,6 +4,7 @@
 
 #include <stdarg.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 
@@ -177,18 +178,86 @@ off_t itable_overlay::get(const char * k1, const char * k2)
 
 int itable_overlay::iter(struct it * it)
 {
+	size_t i;
+	it->clear();
+	it->ovr = new it::overlay[table_count];
+	if(!it->ovr)
+		return -ENOMEM;
+	for(i = 0; i < table_count; i++)
+	{
+		int r = tables[i]->iter(&it->ovr[i].iter);
+		if(r < 0)
+		{
+			delete[] it->ovr;
+			return r;
+		}
+		it->ovr[i].r = 0;
+		it->ovr[i].empty = 1;
+		it->ovr[i].last_k1.s = NULL;
+		it->ovr[i].last_k2.s = NULL;
+	}
+	it->table = this;
 }
 
 int itable_overlay::iter(struct it * it, iv_int k1)
 {
+	it->clear();
+	return -ENOSYS;
 }
 
 int itable_overlay::iter(struct it * it, const char * k1)
 {
+	it->clear();
+	return -ENOSYS;
+}
+
+void itable_overlay::kill_iter(struct it * it)
+{
+	if(k1t == STRING)
+		for(size_t i = 0; i < table_count; i++)
+			if(it->ovr[i].last_k1.s)
+				free((void *) it->ovr[i].last_k1.s);
+	if(k2t == STRING)
+		for(size_t i = 0; i < table_count; i++)
+			if(it->ovr[i].last_k2.s)
+				free((void *) it->ovr[i].last_k2.s);
+	delete[] it->ovr;
+	it->table = NULL;
 }
 
 int itable_overlay::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
 {
+	size_t i, min_idx = table_count;
+	iv_int min_k1, min_k2;
+	if(k1t != INT || k2t != INT)
+		return -EINVAL;
+	for(i = 0; i < table_count; i++)
+	{
+		if(it->ovr[i].empty)
+			/* fill in empty slots */
+			it->ovr[i].r = tables[i]->next(&it->ovr[i].iter, &it->ovr[i].last_k1.i, &it->ovr[i].last_k2.i, &it->ovr[i].last_off);
+		if(it->ovr[i].r == -ENOENT)
+			/* skip exhausted tables */
+			continue;
+		else if(it->ovr[i].r < 0)
+			return it->ovr[i].r;
+		if(!i || it->ovr[i].last_k1.i < min_k1 ||
+		   (it->ovr[i].last_k1.i == min_k1 && it->ovr[i].last_k2.i < min_k2))
+		{
+			min_idx = i;
+			min_k1 = it->ovr[i].last_k1.i;
+			min_k2 = it->ovr[i].last_k2.i;
+		}
+		else if(i && it->ovr[i].last_k1.i == min_k1 && it->ovr[i].last_k2.i == min_k2)
+			/* skip shadowed entry */
+			it->ovr[i].empty = 1;
+	}
+	if(min_idx == table_count)
+		return -ENOENT;
+	it->ovr[min_idx].empty = 1;
+	*k1 = it->ovr[min_idx].last_k1.i;
+	*k2 = it->ovr[min_idx].last_k2.i;
+	return it->ovr[min_idx].last_off;
 }
 
 int itable_overlay::next(struct it * it, iv_int * k1, const char ** k2, off_t * off)
@@ -209,4 +278,56 @@ int itable_overlay::next(struct it * it, iv_int * k1, size_t * k2_count)
 
 int itable_overlay::next(struct it * it, const char ** k1, size_t * k2_count)
 {
+}
+
+/* XXX HACK for testing... */
+#define _ATFILE_SOURCE
+#include <stdio.h>
+#include "openat.h"
+extern "C" {
+int command_itable(int argc, const char * argv[])
+{
+	itable_disk it;
+	itable::it iter;
+	const char * col;
+	size_t count;
+	iv_int row;
+	off_t off;
+	int r;
+	if(argc < 2)
+		return 0;
+	r = it.init(AT_FDCWD, argv[1]);
+	printf("it.init(%s) = %d\n", argv[1], r);
+	if(r < 0)
+		return r;
+	r = it.iter(&iter);
+	printf("it.iter() = %d\n", r);
+	if(r < 0)
+		return r;
+	while(!(r = it.next(&iter, &row, &col, &off)))
+		printf("row = 0x%x, col = %s, offset = 0x%x\n", row, col, (int) off);
+	printf("it.next() = %d\n", r);
+	r = it.iter(&iter);
+	printf("it.iter() = %d\n", r);
+	if(r < 0)
+		return r;
+	while(!(r = it.next(&iter, &row, &count)))
+		printf("row = 0x%x\n", row);
+	if(argc > 2)
+	{
+		printf("%s -> %s\n", argv[1], argv[2]);
+		r = tx_start();
+		printf("tx_start() = %d\n", r);
+		r = itable_disk::create(AT_FDCWD, argv[2], &it);
+		printf("create() = %d\n", r);
+		r = tx_end(0);
+		printf("tx_end() = %d\n", r);
+		if(r >= 0)
+		{
+			argv[1] = argv[0];
+			return command_itable(argc - 1, &argv[1]);
+		}
+	}
+	return 0;
+}
 }

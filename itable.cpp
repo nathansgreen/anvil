@@ -327,7 +327,9 @@ off_t itable_disk::get(const char * k1, const char * k2)
 
 int itable_disk::iter(struct it * it)
 {
-	int r = k1_get(0, &it->k1, &it->k2_count, &it->k2_offset);
+	int r;
+	it->clear();
+	r = k1_get(0, &it->k1, &it->k2_count, &it->k2_offset);
 	if(r < 0)
 		return r;
 	it->k1i = 0;
@@ -338,7 +340,9 @@ int itable_disk::iter(struct it * it)
 
 int itable_disk::iter(struct it * it, iv_int k1)
 {
-	int r = k1_find(k1, &it->k2_count, &it->k2_offset, &it->k1i);
+	int r;
+	it->clear();
+	r = k1_find(k1, &it->k2_count, &it->k2_offset, &it->k1i);
 	if(r < 0)
 		return r;
 	it->k2i = 0;
@@ -355,6 +359,11 @@ int itable_disk::iter(struct it * it, const char * k1)
 	if(k1i < 0)
 		return -1;
 	return iter(it, (iv_int) k1i);
+}
+
+void itable::kill_iter(struct it * it)
+{
+	it->table = NULL;
 }
 
 int itable_disk::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
@@ -746,60 +755,6 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 	
 out_strings:
 	if(string_array)
-	{
-		size_t i;
-		for(i = 0; i < strings; i++)
-			free((void *) string_array[i]);
-		free(string_array);
-	}
+		st_array_free(string_array, strings);
 	return r;
-}
-
-/* XXX HACK for testing... */
-extern "C" {
-int command_itable(int argc, const char * argv[])
-{
-	itable_disk it;
-	itable::it iter;
-	const char * col;
-	size_t count;
-	iv_int row;
-	off_t off;
-	int r;
-	if(argc < 2)
-		return 0;
-	r = it.init(AT_FDCWD, argv[1]);
-	printf("it.init(%s) = %d\n", argv[1], r);
-	if(r < 0)
-		return r;
-	r = it.iter(&iter);
-	printf("it.iter() = %d\n", r);
-	if(r < 0)
-		return r;
-	while(!(r = it.next(&iter, &row, &col, &off)))
-		printf("row = 0x%x, col = %s, offset = 0x%x\n", row, col, (int) off);
-	printf("it.next() = %d\n", r);
-	r = it.iter(&iter);
-	printf("it.iter() = %d\n", r);
-	if(r < 0)
-		return r;
-	while(!(r = it.next(&iter, &row, &count)))
-		printf("row = 0x%x\n", row);
-	if(argc > 2)
-	{
-		printf("%s -> %s\n", argv[1], argv[2]);
-		r = tx_start();
-		printf("tx_start() = %d\n", r);
-		r = itable_disk::create(AT_FDCWD, argv[2], &it);
-		printf("create() = %d\n", r);
-		r = tx_end(0);
-		printf("tx_end() = %d\n", r);
-		if(r >= 0)
-		{
-			argv[1] = argv[0];
-			return command_itable(argc - 1, &argv[1]);
-		}
-	}
-	return 0;
-}
 }

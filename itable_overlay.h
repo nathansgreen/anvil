@@ -35,6 +35,7 @@ public:
 	virtual int iter(struct it * it);
 	virtual int iter(struct it * it, iv_int k1);
 	virtual int iter(struct it * it, const char * k1);
+	virtual void kill_iter(struct it * it);
 	
 	/* return 0 for success and < 0 for failure (-ENOENT when done) */
 	virtual int next(struct it * it, iv_int * k1, iv_int * k2, off_t * off);
@@ -55,6 +56,16 @@ public:
 private:
 	itable ** tables;
 	size_t table_count;
+};
+
+struct itable::it::overlay {
+	struct it iter;
+	int r, empty;
+	union {
+		iv_int i;
+		const char * s;
+	} last_k1, last_k2;
+	off_t last_off;
 };
 
 inline itable_overlay::itable_overlay()
