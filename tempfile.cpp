@@ -89,3 +89,8 @@ int tempfile::read(uint32_t * value)
 		*value = (*value << 8) | array[i];
 	return 0;
 }
+
+size_t tempfile::count()
+{
+	return write_idx;
+}

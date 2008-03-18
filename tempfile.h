@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 #ifndef __cplusplus
-#error itable.h is a C++ header file
+#error tempfile.h is a C++ header file
 #endif
 
 class tempfile
@@ -22,6 +22,8 @@ public:
 	
 	int rewind();
 	int read(uint32_t * value);
+	
+	size_t count();
 	
 	inline tempfile();
 	inline ~tempfile();

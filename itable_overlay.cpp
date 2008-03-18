@@ -424,15 +424,85 @@ int itable_overlay::next(struct it * it, const char ** k1, const char ** k2, off
 	return 0;
 }
 
-/* hmm, these are a bit of a problem... how to calculate k2_count? shadowed entries do not count... */
-int itable_overlay::next(struct it * it, iv_int * k1, size_t * k2_count)
+int itable_overlay::next(struct it * it, iv_int * k1)
 {
-	return -ENOSYS;
+	size_t i, min_idx = table_count;
+	iv_int min_k1 = 0;
+	if(k1t != INT)
+		return -EINVAL;
+	for(i = 0; i < table_count; i++)
+	{
+		if(it->ovr[i].empty)
+		{
+			/* fill in empty slots */
+			it->ovr[i].empty = 0;
+			it->ovr[i].r = tables[i]->next(&it->ovr[i].iter, &it->ovr[i].last_k1.i);
+		}
+		if(it->ovr[i].r == -ENOENT)
+			/* skip exhausted tables */
+			continue;
+		else if(it->ovr[i].r < 0)
+			return it->ovr[i].r;
+		if(!i || it->ovr[i].last_k1.i < min_k1)
+		{
+			min_idx = i;
+			min_k1 = it->ovr[i].last_k1.i;
+		}
+		else if(it->ovr[i].last_k1.i == min_k1)
+			/* skip shadowed entry */
+			it->ovr[i].empty = 1;
+	}
+	if(min_idx == table_count)
+		return -ENOENT;
+	it->ovr[min_idx].empty = 1;
+	*k1 = it->ovr[min_idx].last_k1.i;
+	return 0;
 }
 
-int itable_overlay::next(struct it * it, const char ** k1, size_t * k2_count)
+int itable_overlay::next(struct it * it, const char ** k1)
 {
-	return -ENOSYS;
+	size_t i, min_idx = table_count;
+	const char * min_k1 = NULL;
+	if(k1t != STRING)
+		return -EINVAL;
+	for(i = 0; i < table_count; i++)
+	{
+		int c;
+		if(it->ovr[i].empty)
+		{
+			/* fill in empty slots */
+			it->ovr[i].empty = 0;
+			if(it->ovr[i].last_k1.s)
+				free((void *) it->ovr[i].last_k1.s);
+			it->ovr[i].r = tables[i]->next(&it->ovr[i].iter, &it->ovr[i].last_k1.s);
+			if(it->ovr[i].r >= 0)
+			{
+				it->ovr[i].last_k1.s = strdup(it->ovr[i].last_k1.s);
+				if(!it->ovr[i].last_k1.s)
+					it->ovr[i].r = -ENOMEM;
+			}
+			else
+				it->ovr[i].last_k1.s = NULL;
+		}
+		if(it->ovr[i].r == -ENOENT)
+			/* skip exhausted tables */
+			continue;
+		else if(it->ovr[i].r < 0)
+			return it->ovr[i].r;
+		if(!i || (c = strcmp(it->ovr[i].last_k1.s, min_k1)) < 0)
+		{
+			min_idx = i;
+			min_k1 = it->ovr[i].last_k1.s;
+		}
+		else if(!c)
+			/* skip shadowed entry */
+			it->ovr[i].empty = 1;
+	}
+	if(min_idx == table_count)
+		return -ENOENT;
+	it->ovr[min_idx].empty = 1;
+	*k1 = it->ovr[min_idx].last_k1.s;
+	return 0;
 }
 
 /* XXX HACK for testing... */
@@ -446,7 +516,6 @@ int command_itable(int argc, const char * argv[])
 	itable_overlay ovr;
 	itable::it iter;
 	const char * col;
-	size_t count;
 	iv_int row;
 	off_t off;
 	int r;
@@ -467,8 +536,8 @@ int command_itable(int argc, const char * argv[])
 	printf("tbl.iter() = %d\n", r);
 	if(r < 0)
 		return r;
-	while(!(r = tbl.next(&iter, &row, &count)))
-		printf("row = 0x%x (count %d)\n", row, count);
+	while(!(r = tbl.next(&iter, &row)))
+		printf("row = 0x%x\n", row);
 	printf("tbl.next() = %d\n", r);
 	r = ovr.init(&tbl, NULL);
 	printf("ovr.init(tbl) = %d\n", r);
@@ -485,8 +554,8 @@ int command_itable(int argc, const char * argv[])
 		printf("ovr.iter() = %d\n", r);
 		if(r < 0)
 			return r;
-		while(!(r = ovr.next(&iter, &row, &count)))
-			printf("row = 0x%x (count %d)\n", row, count);
+		while(!(r = ovr.next(&iter, &row)))
+			printf("row = 0x%x\n", row);
 		printf("ovr.next() = %d\n", r);
 	}
 	if(argc > 2)
@@ -494,8 +563,8 @@ int command_itable(int argc, const char * argv[])
 		printf("%s -> %s\n", argv[1], argv[2]);
 		r = tx_start();
 		printf("tx_start() = %d\n", r);
-		r = itable_disk::create(AT_FDCWD, argv[2], &tbl);
-		printf("create() = %d\n", r);
+		r = itable_disk::create(AT_FDCWD, argv[2], (argc % 2) ? (itable *) &tbl : (itable *) &ovr);
+		printf("create(%s) = %d\n", (argc % 2) ? "tbl" : "ovr", r);
 		r = tx_end(0);
 		printf("tx_end() = %d\n", r);
 		if(r >= 0)

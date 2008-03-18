@@ -44,8 +44,8 @@ public:
 	virtual int next(struct it * it, const char ** k1, const char ** k2, off_t * off);
 	
 	/* iterate only through the primary keys (not mixable with above calls!) */
-	virtual int next(struct it * it, iv_int * k1, size_t * k2_count);
-	virtual int next(struct it * it, const char ** k1, size_t * k2_count);
+	virtual int next(struct it * it, iv_int * k1);
+	virtual int next(struct it * it, const char ** k1);
 	
 	inline itable_overlay();
 	int init(itable * it1, ...);

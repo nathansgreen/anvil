@@ -14,6 +14,7 @@
 #include "stable.h"
 #include "hash_map.h"
 #include "transaction.h"
+#include "tempfile.h"
 #include "itable.h"
 
 /* itable file format:
@@ -455,32 +456,31 @@ int itable_disk::next(struct it * it, const char ** k1, const char ** k2, off_t 
 	return 0;
 }
 
-int itable_disk::next(struct it * it, iv_int * k1, size_t * k2_count)
+int itable_disk::next(struct it * it, iv_int * k1)
 {
 	int r;
 	if(it->k1i >= k1_count)
 		return -ENOENT;
 	if(it->k1i)
 	{
+		size_t k2_count;
 		off_t k2_offset;
-		r = k1_get(it->k1i, &it->k1, k2_count, &k2_offset);
+		r = k1_get(it->k1i, &it->k1, &k2_count, &k2_offset);
 		if(r < 0)
 			return r;
 	}
-	else
-		*k2_count = it->k2_count;
 	*k1 = it->k1;
 	it->k1i++;
 	return 0;
 }
 
-int itable_disk::next(struct it * it, const char ** k1, size_t * k2_count)
+int itable_disk::next(struct it * it, const char ** k1)
 {
 	int r;
 	iv_int k1i;
 	if(k1t != STRING)
 		return -1;
-	r = next(it, &k1i, k2_count);
+	r = next(it, &k1i);
 	if(r < 0)
 		return r;
 	*k1 = st_get(&st, k1i);
@@ -537,6 +537,7 @@ ssize_t itable_disk::locate_string(const char ** array, ssize_t size, const char
 int itable_disk::create(int dfd, const char * file, itable * source)
 {
 	struct it iter;
+	tempfile k2_counts;
 	hash_map_t * string_map = NULL;
 	const char ** string_array = NULL;
 	off_t min_off = 0, max_off = 0, off;
@@ -545,6 +546,9 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 	union { iv_int i; const char * s; } k1, old_k1, k2;
 	iv_int k1_max = 0, k2_max = 0;
 	int r = source->iter(&iter);
+	if(r < 0)
+		return r;
+	r = k2_counts.create();
 	if(r < 0)
 		return r;
 	if(source->k1_type() == STRING || source->k2_type() == STRING)
@@ -592,6 +596,12 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 		{
 			if(k2_count > k2_count_max)
 				k2_count_max = k2_count;
+			if(k2_count)
+			{
+				r = k2_counts.append(k2_count);
+				if(r < 0)
+					goto fail_temp;
+			}
 			k2_count = 0;
 			if(source->k1_type() == STRING)
 				old_k1.s = k1.s;
@@ -608,6 +618,7 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 	}
 	if(r != -ENOENT)
 	{
+	fail_temp:
 		if(string_map)
 		{
 			hash_map_it2_t hm_it;
@@ -619,6 +630,15 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 		}
 		return (r < 0) ? r : -1;
 	}
+	if(k2_count > k2_count_max)
+		k2_count_max = k2_count;
+	if(k2_count)
+	{
+		r = k2_counts.append(k2_count);
+		if(r < 0)
+			goto fail_temp;
+	}
+	assert(k1_count == k2_counts.count());
 	/* now we have k1_count, k2_count_max, k2_total, min_off, and max_off,
 	 * and, if appropriate, k1_max, k2_max, string_map, and max_strlen */
 	if(string_map)
@@ -703,13 +723,20 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 	{
 		uint32_t value;
 		if(source->k1_type() == STRING)
-			r = source->next(&iter, &k1.s, &k2_count);
+			r = source->next(&iter, &k1.s);
 		else
-			r = source->next(&iter, &k1.i, &k2_count);
+			r = source->next(&iter, &k1.i);
 		if(r)
 			break;
 		bc = 0;
-		value = k2_count;
+		r = k2_counts.read(&value);
+		if(r < 0)
+		{
+			if(r == -ENOENT)
+				r = -1;
+			break;
+		}
+		k2_count = value;
 		layout_bytes(bytes, &bc, value, header.count_size);
 		if(source->k1_type() == STRING)
 			value = locate_string(string_array, strings, k1.s);
