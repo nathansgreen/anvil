@@ -28,6 +28,9 @@ typedef unsigned int iv_int;
 #define IV_INT_MIN 0
 #define IV_INT_MAX UINT_MAX
 
+#define ITABLE_MAGIC 0x017AB1E0
+#define ITABLE_VERSION 0x0000
+
 #define INVAL_OFF_T ((off_t) -1)
 
 /* This is the abstract base class of several different kinds of itables. Aside

@@ -40,6 +40,12 @@
 
 /* TODO: use some sort of buffering here to avoid lots of small read()/write() calls */
 
+struct file_header {
+	uint32_t magic;
+	uint16_t version;
+	uint8_t types[2];
+} __attribute__((packed));
+
 struct itable_header {
 	uint32_t k1_count;
 	uint32_t off_base;
@@ -51,23 +57,25 @@ struct itable_header {
 int itable_disk::init(int dfd, const char * file)
 {
 	int r = -1;
-	uint8_t types[2];
+	struct file_header file_hdr;
 	struct itable_header header;
 	if(fd > -1)
 		deinit();
 	fd = openat(dfd, file, O_RDONLY);
 	if(fd < 0)
 		return fd;
-	if(read(fd, types, 2) != 2)
+	if(read(fd, &file_hdr, sizeof(file_hdr)) != sizeof(file_hdr))
 		goto fail;
-	if(!types[0] || !types[1])
+	if(file_hdr.magic != ITABLE_MAGIC || file_hdr.version != ITABLE_VERSION)
 		goto fail;
-	k1t = (types[0] == 2) ? STRING : INT;
-	k2t = (types[1] == 2) ? STRING : INT;
-	k1_offset = 2;
-	if(types[0] == 2 || types[1] == 2)
+	if(!file_hdr.types[0] || !file_hdr.types[1])
+		goto fail;
+	k1t = (file_hdr.types[0] == 2) ? STRING : INT;
+	k2t = (file_hdr.types[1] == 2) ? STRING : INT;
+	k1_offset = sizeof(file_hdr);
+	if(k1t == STRING || k2t == STRING)
 	{
-		r = st_init(&st, fd, 2);
+		r = st_init(&st, fd, k1_offset);
 		if(r < 0)
 			goto fail;
 		k1_offset += st.size;
@@ -635,6 +643,7 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 	tx_fd fd;
 	off_t out_off;
 	uint8_t bytes[12];
+	struct file_header file_hdr;
 	struct itable_header header;
 	header.k1_count = k1_count;
 	header.off_base = min_off;
@@ -649,8 +658,10 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 	header.count_size = byte_size(k2_count_max);
 	header.off_sizes[0] = 1; /* will be corrected later */
 	header.off_sizes[1] = byte_size(max_off -= min_off);
-	bytes[0] = (source->k1_type() == STRING) ? 2 : 1;
-	bytes[1] = (source->k2_type() == STRING) ? 2 : 1;
+	file_hdr.magic = ITABLE_MAGIC;
+	file_hdr.version = ITABLE_VERSION;
+	file_hdr.types[0] = (source->k1_type() == STRING) ? 2 : 1;
+	file_hdr.types[1] = (source->k2_type() == STRING) ? 2 : 1;
 	
 	fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
 	if(fd < 0)
@@ -658,7 +669,7 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 		r = fd;
 		goto out_strings;
 	}
-	r = tx_write(fd, bytes, 0, 2);
+	r = tx_write(fd, &file_hdr, 0, sizeof(file_hdr));
 	if(r < 0)
 	{
 	fail_unlink:
@@ -666,7 +677,7 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 		tx_unlink(dfd, file);
 		goto out_strings;
 	}
-	out_off = 2;
+	out_off = sizeof(file_hdr);
 	if(string_array)
 	{
 		r = st_create(fd, &out_off, string_array, strings);
