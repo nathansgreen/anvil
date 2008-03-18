@@ -379,6 +379,8 @@ static int tx_write_playback(struct tx_write_hdr * header, size_t length)
 	}
 	lseek(tx_fds[fd].fd, header->offset, SEEK_SET);
 	write(tx_fds[fd].fd, data, header->length);
+	if(tx_fds[fd].usage < 0 && !++tx_fds[fd].usage)
+		tx_close(fd);
 	return 0;
 }
 
@@ -548,7 +550,7 @@ int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length)
 
 int tx_close(tx_fd fd)
 {
-	if(tx_fds[fd].tid == last_tx_id && tx_fds[fd].usage)
+	if(tx_fds[fd].tid == last_tx_id && tx_fds[fd].usage && current_journal)
 	{
 		if(tx_fds[fd].usage > 0)
 			tx_fds[fd].usage = -tx_fds[fd].usage;
