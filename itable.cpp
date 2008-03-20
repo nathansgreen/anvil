@@ -152,14 +152,14 @@ int itable_disk::k1_find(iv_int k1, size_t * k2_count, off_t * k2_offset, size_t
 	/* binary search */
 	size_t min = 0, max = k1_count - 1;
 	if(!k1_count)
-		return -1;
+		return -ENOENT;
 	while(min <= max)
 	{
 		iv_int value;
 		/* watch out for overflow! */
 		size_t mid = min + (max - min) / 2;
 		if(k1_get(mid, &value, k2_count, k2_offset) < 0)
-			break;
+			return -1;
 		if(value < k1)
 			min = mid + 1;
 		else if(value > k1)
@@ -171,7 +171,7 @@ int itable_disk::k1_find(iv_int k1, size_t * k2_count, off_t * k2_offset, size_t
 			return 0;
 		}
 	}
-	return -1;
+	return -ENOENT;
 }
 
 int itable_disk::k2_get(size_t k2_count, off_t k2_offset, size_t index, iv_int * value, off_t * offset)
@@ -346,6 +346,8 @@ int itable_disk::iter(struct it * it)
 	it->k1i = 0;
 	it->k2i = 0;
 	it->k2_offset += k1_offset;
+	it->single_k1 = false;
+	it->only_k1 = false;
 	return 0;
 }
 
@@ -356,8 +358,11 @@ int itable_disk::iter(struct it * it, iv_int k1)
 	r = k1_find(k1, &it->k2_count, &it->k2_offset, &it->k1i);
 	if(r < 0)
 		return r;
+	it->k1 = k1;
 	it->k2i = 0;
 	it->k2_offset += k1_offset;
+	it->single_k1 = true;
+	it->only_k1 = false;
 	return 0;
 }
 
@@ -380,6 +385,8 @@ void itable::kill_iter(struct it * it)
 int itable_disk::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
 {
 	int r;
+	if(it->only_k1)
+		return -EINVAL;
 	if(it->k1i >= k1_count)
 		return -ENOENT;
 	for(;;)
@@ -394,6 +401,8 @@ int itable_disk::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
 			*off += off_base;
 			return 0;
 		}
+		if(it->single_k1)
+			return -ENOENT;
 		if(++it->k1i >= k1_count)
 			return -ENOENT;
 		it->k2i = 0;
@@ -459,6 +468,9 @@ int itable_disk::next(struct it * it, const char ** k1, const char ** k2, off_t 
 int itable_disk::next(struct it * it, iv_int * k1)
 {
 	int r;
+	if(it->single_k1)
+		return -EINVAL;
+	it->only_k1 = true;
 	if(it->k1i >= k1_count)
 		return -ENOENT;
 	if(it->k1i)

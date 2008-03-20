@@ -202,14 +202,50 @@ int itable_overlay::iter(struct it * it)
 
 int itable_overlay::iter(struct it * it, iv_int k1)
 {
+	size_t i;
 	it->clear();
-	return -ENOSYS;
+	it->ovr = new it::overlay[table_count];
+	if(!it->ovr)
+		return -ENOMEM;
+	for(i = 0; i < table_count; i++)
+	{
+		int r = tables[i]->iter(&it->ovr[i].iter, k1);
+		if(r < 0 && r != -ENOENT)
+		{
+			delete[] it->ovr;
+			return r;
+		}
+		it->ovr[i].r = 0;
+		it->ovr[i].empty = 1;
+		it->ovr[i].last_k1.s = NULL;
+		it->ovr[i].last_k2.s = NULL;
+	}
+	it->table = this;
+	return 0;
 }
 
 int itable_overlay::iter(struct it * it, const char * k1)
 {
+	size_t i;
 	it->clear();
-	return -ENOSYS;
+	it->ovr = new it::overlay[table_count];
+	if(!it->ovr)
+		return -ENOMEM;
+	for(i = 0; i < table_count; i++)
+	{
+		int r = tables[i]->iter(&it->ovr[i].iter, k1);
+		if(r < 0 && r != -ENOENT)
+		{
+			delete[] it->ovr;
+			return r;
+		}
+		it->ovr[i].r = 0;
+		it->ovr[i].empty = 1;
+		it->ovr[i].last_k1.s = NULL;
+		it->ovr[i].last_k2.s = NULL;
+	}
+	it->table = this;
+	return 0;
 }
 
 void itable_overlay::kill_iter(struct it * it)
@@ -539,6 +575,15 @@ int command_itable(int argc, const char * argv[])
 	while(!(r = tbl.next(&iter, &row)))
 		printf("row = 0x%x\n", row);
 	printf("tbl.next() = %d\n", r);
+	row /= 2;
+	r = tbl.iter(&iter, row);
+	printf("tbl.iter(0x%x) = %d\n", row, r);
+	if(r >= 0)
+	{
+		while(!(r = tbl.next(&iter, &row, &col, &off)))
+			printf("row = 0x%x, col = %s, offset = 0x%x\n", row, col, (int) off);
+		printf("tbl.next() = %d\n", r);
+	}
 	r = ovr.init(&tbl, NULL);
 	printf("ovr.init(tbl) = %d\n", r);
 	if(r >= 0)
@@ -557,6 +602,15 @@ int command_itable(int argc, const char * argv[])
 		while(!(r = ovr.next(&iter, &row)))
 			printf("row = 0x%x\n", row);
 		printf("ovr.next() = %d\n", r);
+		row /= 2;
+		r = ovr.iter(&iter, row);
+		printf("ovr.iter(0x%x) = %d\n", row, r);
+		if(r >= 0)
+		{
+			while(!(r = ovr.next(&iter, &row, &col, &off)))
+				printf("row = 0x%x, col = %s, offset = 0x%x\n", row, col, (int) off);
+			printf("ovr.next() = %d\n", r);
+		}
 	}
 	if(argc > 2)
 	{

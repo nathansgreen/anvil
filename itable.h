@@ -47,6 +47,7 @@ public:
 		size_t k1i, k2i;
 		size_t k2_count;
 		off_t k2_offset;
+		bool single_k1, only_k1;
 		iv_int k1;
 		
 		/* additional fields for other itable types */
