@@ -501,31 +501,6 @@ int itable_disk::next(struct it * it, const char ** k1)
 	return 0;
 }
 
-/* get a unique pointer for the string by putting it in a string hash map */
-int itable_disk::add_string(const char ** string, hash_map_t * string_map, size_t * max_strlen)
-{
-	char * copy;
-	size_t length = strlen(*string);
-	if(length > *max_strlen)
-		*max_strlen = length;
-	copy = (char *) hash_map_find_val(string_map, *string);
-	if(!copy)
-	{
-		int r;
-		copy = strdup(*string);
-		if(!copy)
-			return -ENOMEM;
-		r = hash_map_insert(string_map, copy, copy);
-		if(r < 0)
-		{
-			free(copy);
-			return r;
-		}
-	}
-	*string = copy;
-	return 0;
-}
-
 ssize_t itable_disk::locate_string(const char ** array, ssize_t size, const char * string)
 {
 	/* binary search */
@@ -550,7 +525,7 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 {
 	struct it iter;
 	tempfile k2_counts;
-	hash_map_t * string_map = NULL;
+	stringset stringset;
 	const char ** string_array = NULL;
 	off_t min_off = 0, max_off = 0, off;
 	size_t k1_count = 0, k2_count = 0, k2_count_max = 0;
@@ -565,9 +540,9 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 		return r;
 	if(source->k1_type() == STRING || source->k2_type() == STRING)
 	{
-		string_map = hash_map_create_str();
-		if(!string_map)
-			return -ENOMEM;
+		r = stringset.init();
+		if(r < 0)
+			return r;
 	}
 	for(;;)
 	{
@@ -589,21 +564,29 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 			break;
 		if(source->k1_type() == STRING)
 		{
-			if((r = add_string(&k1.s, string_map, &max_strlen)) < 0)
+			size_t length = strlen(k1.s);
+			if(length > max_strlen)
+				max_strlen = length;
+			k1.s = stringset.add(k1.s);
+			if(!k1.s)
 				break;
 		}
 		else if(k1.i > k1_max)
 			k1_max = k1.i;
 		if(source->k2_type() == STRING)
 		{
-			if((r = add_string(&k2.s, string_map, &max_strlen)) < 0)
+			size_t length = strlen(k2.s);
+			if(length > max_strlen)
+				max_strlen = length;
+			k2.s = stringset.add(k2.s);
+			if(!k2.s)
 				break;
 		}
 		else if(k2.i > k2_max)
 			k2_max = k2.i;
 		if(!k1_count)
 			min_off = off;
-		/* we can compare strings by pointer because add_string() makes them unique */
+		/* we can compare strings by pointer because the stringset makes them unique */
 		if(!k1_count || ((source->k1_type() == STRING) ? (k1.s != old_k1.s) : (k1.i != old_k1.i)))
 		{
 			if(k2_count > k2_count_max)
@@ -612,7 +595,7 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 			{
 				r = k2_counts.append(k2_count);
 				if(r < 0)
-					goto fail_temp;
+					return r;
 			}
 			k2_count = 0;
 			if(source->k1_type() == STRING)
@@ -629,47 +612,24 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 		k2_total++;
 	}
 	if(r != -ENOENT)
-	{
-	fail_temp:
-		if(string_map)
-		{
-			hash_map_it2_t hm_it;
-		fail_strings:
-			hm_it = hash_map_it2_create(string_map);
-			while(hash_map_it2_next(&hm_it))
-				free((void *) hm_it.val);
-			hash_map_destroy(string_map);
-		}
 		return (r < 0) ? r : -1;
-	}
 	if(k2_count > k2_count_max)
 		k2_count_max = k2_count;
 	if(k2_count)
 	{
 		r = k2_counts.append(k2_count);
 		if(r < 0)
-			goto fail_temp;
+			return r;
 	}
 	assert(k1_count == k2_counts.count());
 	/* now we have k1_count, k2_count_max, k2_total, min_off, and max_off,
-	 * and, if appropriate, k1_max, k2_max, string_map, and max_strlen */
-	if(string_map)
+	 * and, if appropriate, k1_max, k2_max, stringset, and max_strlen */
+	if(stringset.ready())
 	{
-		size_t i = 0;
-		hash_map_it2_t hm_it;
-		strings = hash_map_size(string_map);
-		string_array = (const char **) malloc(sizeof(*string_array) * strings);
+		strings = stringset.size();
+		string_array = stringset.array();
 		if(!string_array)
-		{
-			r = -ENOMEM;
-			goto fail_strings;
-		}
-		hm_it = hash_map_it2_create(string_map);
-		while(hash_map_it2_next(&hm_it))
-			string_array[i++] = (const char *) hm_it.val;
-		assert(i == strings);
-		hash_map_destroy(string_map);
-		string_map = NULL;
+			return -ENOMEM;
 	}
 	
 	/* now write the file */

@@ -242,7 +242,7 @@ void tx_deinit(void)
 int tx_start(void)
 {
 	char name[16];
-	if(current_journal)
+	if(journal_dir < 0 || current_journal)
 		return -EBUSY;
 	snprintf(name, sizeof(name), "%08x.jnl", last_tx_id + 1);
 	current_journal = journal_create(journal_dir, name, last_journal);
@@ -472,7 +472,10 @@ static tx_fd get_next_tx_fd(void)
  * during transaction playback. Also see the note below about tx_unlink(). */
 tx_fd tx_open(int dfd, const char * name, int flags, ...)
 {
-	int fd = get_next_tx_fd();
+	int fd;
+	if(journal_dir < 0)
+		return -EBUSY;
+	fd = get_next_tx_fd();
 	if(fd < 0)
 		return fd;
 	if(flags & O_CREAT)

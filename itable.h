@@ -12,7 +12,7 @@
 #include <sys/types.h>
 
 #include "stable.h"
-#include "hash_map.h"
+#include "stringset.h"
 
 #ifndef __cplusplus
 #error itable.h is a C++ header file
@@ -167,8 +167,7 @@ private:
 	int k2_get(size_t k2_count, off_t k2_offset, size_t index, iv_int * value, off_t * offset);
 	int k2_find(size_t k2_count, off_t k2_offset, iv_int k2, off_t * offset, size_t * index = NULL);
 	
-	/* helpers for create() above */
-	static int add_string(const char ** string, hash_map_t * string_map, size_t * max_strlen);
+	/* helper for create() above */
 	static ssize_t locate_string(const char ** array, ssize_t size, const char * string);
 };
 

@@ -1,5 +1,5 @@
 CSOURCES=blowfish.c hash_map.c hash_set.c journal.c md5.c openat.c stable.c toilet.c transaction.c vector.c
-CPPSOURCES=diskhash.cpp disktree.cpp index.cpp itable.cpp itable_overlay.cpp memcache.cpp multimap.cpp tempfile.cpp
+CPPSOURCES=atable.cpp diskhash.cpp disktree.cpp index.cpp itable.cpp itable_overlay.cpp memcache.cpp multimap.cpp stringset.cpp tempfile.cpp
 SOURCES=$(CSOURCES) $(CPPSOURCES)
 
 HEADERS=$(wildcard *.h)
@@ -24,8 +24,8 @@ all: tags main
 libtoilet.so: $(OBJECTS) fstitch/obj/kernel/lib/libpatchgroup.so
 	g++ -shared -o libtoilet.so $(OBJECTS) -ldl $(LDFLAGS)
 
-main: libtoilet.so main.c
-	gcc -o main main.c $(CFLAGS) -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
+main: libtoilet.so main.o main++.o
+	g++ -o main main.o main++.o $(CFLAGS) -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
 
 clean:
 	rm -f main libtoilet.so *.o .depend tags
