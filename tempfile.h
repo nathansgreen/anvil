@@ -28,7 +28,7 @@ public:
 	inline tempfile();
 	inline ~tempfile();
 	
-	static inline uint8_t tempfile::byte_size(uint32_t value);
+	static inline uint8_t byte_size(uint32_t value);
 	
 private:
 	FILE * file;
