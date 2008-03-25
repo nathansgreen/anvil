@@ -13,42 +13,56 @@
 
 bool atable::has(iv_int k1)
 {
+	return has_node(k1);
 }
 
 bool atable::has(const char * k1)
 {
+	return has_node(k1);
 }
 
 bool atable::has(iv_int k1, iv_int k2)
 {
+	return find_node(k1, k2) != NULL;
 }
 
 bool atable::has(iv_int k1, const char * k2)
 {
+	return find_node(k1, k2) != NULL;
 }
 
 bool atable::has(const char * k1, iv_int k2)
 {
+	return find_node(k1, k2) != NULL;
 }
 
 bool atable::has(const char * k1, const char * k2)
 {
+	return find_node(k1, k2) != NULL;
 }
 
 off_t atable::get(iv_int k1, iv_int k2)
 {
+	node * node = find_node(k1, k2);
+	return node ? node->value : INVAL_OFF_T;
 }
 
 off_t atable::get(iv_int k1, const char * k2)
 {
+	node * node = find_node(k1, k2);
+	return node ? node->value : INVAL_OFF_T;
 }
 
 off_t atable::get(const char * k1, iv_int k2)
 {
+	node * node = find_node(k1, k2);
+	return node ? node->value : INVAL_OFF_T;
 }
 
 off_t atable::get(const char * k1, const char * k2)
 {
+	node * node = find_node(k1, k2);
+	return node ? node->value : INVAL_OFF_T;
 }
 
 int atable::iter(struct it * it)
@@ -85,6 +99,88 @@ int atable::next(struct it * it, iv_int * k1)
 
 int atable::next(struct it * it, const char ** k1)
 {
+}
+
+bool atable::has_node(key k1)
+{
+	int r;
+	node * node = root;
+	while(node && (r = cmp_keys(k1t, node->k1, k1)))
+		node = (r < 0) ? node->right : node->left;
+	return node;
+}
+
+atable::node * atable::find_node(key k1, key k2)
+{
+	int r;
+	node * node = root;
+	while(node && (r = cmp_node(node, k1, k2)))
+		node = (r < 0) ? node->right : node->left;
+	return node;
+}
+
+/* a simple binary tree for now */
+int atable::add_node(key k1, key k2, off_t off)
+{
+	int r;
+	node ** ptr = &root;
+	node * old = NULL;
+	node * node = *ptr;
+	while(node && (r = cmp_node(node, k1, k2)))
+	{
+		ptr = (r < 0) ? &node->right : &node->left;
+		old = node;
+		node = *ptr;
+	}
+	if(node)
+	{
+		node->value = off;
+		return 0;
+	}
+	node = new struct node;
+	if(!node)
+		return -ENOMEM;
+	node->k1 = k1;
+	node->k2 = k2;
+	node->value = off;
+	node->up = old;
+	node->left = NULL;
+	node->right = NULL;
+	*ptr = node;
+	return 0;
+}
+
+int atable::cmp_keys(ktype type, key a, key b)
+{
+	switch(type)
+	{
+		case INT:
+			return (a.i < b.i) ? -1 : (a.i > b.i) ? 1 : 0;
+		case STRING:
+			return strcmp(a.s, b.s);
+		case NONE:
+			/* err... what? */ ;
+	}
+	assert(type == INT || type == STRING);
+	/* nothing we return will be correct, but returning 0 is worse */
+	return -1;
+}
+
+int atable::cmp_node(node * n, key k1, key k2)
+{
+	int r = cmp_keys(k1t, n->k1, k1);
+	if(r)
+		return r;
+	return cmp_keys(k2t, n->k2, k2);
+}
+
+void atable::kill_nodes(node * n)
+{
+	if(n->left)
+		kill_nodes(n->left);
+	if(n->right)
+		kill_nodes(n->right);
+	delete n;
 }
 
 #define ATABLE_VALUE 1
@@ -135,7 +231,7 @@ int atable::add_string(const char * string, uint32_t * index)
 	return 0;
 }
 
-int atable::append(iv_int k1, iv_int k2, off_t off)
+int atable::log(iv_int k1, iv_int k2, off_t off)
 {
 	int r;
 	struct atable_data data;
@@ -146,8 +242,15 @@ int atable::append(iv_int k1, iv_int k2, off_t off)
 	if(r < 0)
 		return r;
 	offset += sizeof(data);
-	/* XXX */
-	return -ENOSYS;
+	return 0;
+}
+
+int atable::append(iv_int k1, iv_int k2, off_t off)
+{
+	int r = log(k1, k2, off);
+	if(r < 0)
+		return r;
+	return add_node(k1, k2, off);
 }
 
 int atable::append(iv_int k1, const char * k2, off_t off)
@@ -159,7 +262,10 @@ int atable::append(iv_int k1, const char * k2, off_t off)
 	r = add_string(k2, &index);
 	if(r < 0)
 		return r;
-	return append(k1, (iv_int) index, off);
+	r = log(k1, (iv_int) index, off);
+	if(r < 0)
+		return r;
+	return add_node(k1, k2, off);
 }
 
 int atable::append(const char * k1, iv_int k2, off_t off)
@@ -171,7 +277,10 @@ int atable::append(const char * k1, iv_int k2, off_t off)
 	r = add_string(k1, &index);
 	if(r < 0)
 		return r;
-	return append((iv_int) index, k2, off);
+	r = log((iv_int) index, k2, off);
+	if(r < 0)
+		return r;
+	return add_node(k1, k2, off);
 }
 
 int atable::append(const char * k1, const char * k2, off_t off)
@@ -186,7 +295,10 @@ int atable::append(const char * k1, const char * k2, off_t off)
 	r = add_string(k2, &index2);
 	if(r < 0)
 		return r;
-	return append((iv_int) index1, (iv_int) index2, off);
+	r = log((iv_int) index1, (iv_int) index2, off);
+	if(r < 0)
+		return r;
+	return add_node(k1, k2, off);
 }
 
 int atable::playback()
@@ -234,7 +346,6 @@ int atable::playback()
 				if(!k2s)
 					return -EINVAL;
 			}
-			/* actually we could just use the integer indices here too */
 			if(k1t == STRING && k2t == STRING)
 				r = append(k1s, k2s, data.value);
 			else if(k2t == STRING)
@@ -259,7 +370,7 @@ int atable::playback()
 			if(!string)
 				return -ENOMEM;
 			r = read(ufd, string, length);
-			if(r != length)
+			if(r != (int) length)
 				return (r < 0) ? r : -EIO;
 			string[length] = 0;
 			if(!strings.add(string, &index))
@@ -321,7 +432,8 @@ int atable::init(int dfd, const char * file, ktype k1, ktype k2)
 	}
 	else
 		do_playback = true;
-	/* do other initialization here */
+	/* any other initialization here */
+	assert(!root);
 	if(do_playback)
 	{
 		int r = playback();
@@ -336,7 +448,12 @@ int atable::init(int dfd, const char * file, ktype k1, ktype k2)
 
 void atable::deinit()
 {
-	/* do other deinitialization here */
+	/* any other deinitialization here */
+	if(root)
+	{
+		kill_nodes(root);
+		root = NULL;
+	}
 	if(fd >= 0)
 	{
 		tx_close(fd);

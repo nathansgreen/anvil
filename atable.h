@@ -62,16 +62,43 @@ class atable : public itable
 	inline virtual ~atable();
 	
 private:
+	union key {
+		iv_int i;
+		const char * s;
+		/* convert iv_int or const char * to key automatically */
+		inline key() { }
+		inline key(iv_int x) : i(x) { }
+		inline key(const char * x) : s(x) { }
+	};
+	
+	struct node {
+		key k1, k2;
+		off_t value;
+		node * up;
+		node * left;
+		node * right;
+	};
+	
+	bool has_node(key k1);
+	node * find_node(key k1, key k2);
+	/* will reuse an existing node if possible */
+	int add_node(key k1, key k2, off_t off);
+	static inline int cmp_keys(ktype type, key a, key b);
+	inline int cmp_node(node * n, key k1, key k2);
+	static void kill_nodes(node * n);
+	
 	int add_string(const char * string, uint32_t * index);
+	int log(iv_int k1, iv_int k2, off_t off);
 	int playback();
 	
 	tx_fd fd;
 	off_t offset;
 	stringset strings;
+	node * root;
 };
 
 inline atable::atable()
-	: fd(-1), offset(-1)
+	: fd(-1), offset(-1), root(NULL)
 {
 }
 
