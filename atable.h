@@ -15,6 +15,9 @@
 #error atable.h is a C++ header file
 #endif
 
+#define ATABLE_MAGIC 0x0A7AB1E0
+#define ATABLE_VERSION 0x0000
+
 class atable : public itable
 {
 	/* test whether there is an entry for the given key */
@@ -59,14 +62,16 @@ class atable : public itable
 	inline virtual ~atable();
 	
 private:
+	int add_string(const char * string, uint32_t * index);
 	int playback();
 	
 	tx_fd fd;
+	off_t offset;
 	stringset strings;
 };
 
 inline atable::atable()
-	: fd(-1)
+	: fd(-1), offset(-1)
 {
 }
 

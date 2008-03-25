@@ -63,6 +63,9 @@ bool stringset::remove(const char * string)
 	{
 		void * key = hash_map_erase(index_map, elt.val);
 		assert(key == elt.key);
+		/* rewind the index if we've removed the most recently added string */
+		if(next_index - 1 == (uint32_t) elt.val)
+			next_index--;
 	}
 	free((void *) elt.key);
 	return true;

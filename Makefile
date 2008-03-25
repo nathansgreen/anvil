@@ -25,7 +25,7 @@ libtoilet.so: $(OBJECTS) fstitch/obj/kernel/lib/libpatchgroup.so
 	g++ -shared -o libtoilet.so $(OBJECTS) -ldl $(LDFLAGS)
 
 main: libtoilet.so main.o main++.o
-	g++ -o main main.o main++.o $(CFLAGS) -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
+	g++ -o main main.o main++.o -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
 
 clean:
 	rm -f main libtoilet.so *.o .depend tags

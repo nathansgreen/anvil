@@ -12,6 +12,9 @@
 #include "atable.h"
 
 extern "C" {
+int command_itable(int argc, const char * argv[]);
+};
+
 int command_itable(int argc, const char * argv[])
 {
 	itable_disk tbl;
@@ -94,5 +97,4 @@ int command_itable(int argc, const char * argv[])
 		}
 	}
 	return 0;
-}
 }

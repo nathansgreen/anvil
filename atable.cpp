@@ -3,6 +3,7 @@
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
 #include <unistd.h>
+#include <string.h>
 #include <assert.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -89,46 +90,127 @@ int atable::next(struct it * it, const char ** k1)
 #define ATABLE_VALUE 1
 #define ATABLE_STRING 2
 
+struct file_header {
+	uint32_t magic;
+	uint16_t version;
+	uint8_t types[2];
+} __attribute__((packed));
+
 struct atable_data {
 	uint32_t k1, k2;
 	off_t value;
-};
+} __attribute__((packed));
+
+int atable::add_string(const char * string, uint32_t * index)
+{
+	uint8_t type = ATABLE_STRING;
+	uint32_t length;
+	const char * copy = strings.lookup(string, index);
+	if(copy)
+		return 0;
+	copy = strings.add(string, index);
+	if(!copy)
+		return -ENOMEM;
+	if(tx_write(fd, &type, offset, 1) < 0)
+	{
+		strings.remove(copy);
+		return -1;
+	}
+	offset++;
+	length = strlen(copy);
+	if(tx_write(fd, &length, offset, sizeof(length)) < 0)
+	{
+		/* need to unwrite the type */
+		assert(0);
+		return -1;
+	}
+	offset += sizeof(length);
+	if(tx_write(fd, copy, offset, length) < 0)
+	{
+		/* need to unwrite the type and length */
+		assert(0);
+		return -1;
+	}
+	offset += length;
+	return 0;
+}
 
 int atable::append(iv_int k1, iv_int k2, off_t off)
 {
+	int r;
+	struct atable_data data;
+	data.k1 = k1;
+	data.k2 = k2;
+	data.value = off;
+	r = tx_write(fd, &data, offset, sizeof(data));
+	if(r < 0)
+		return r;
+	offset += sizeof(data);
+	/* XXX */
+	return -ENOSYS;
 }
 
 int atable::append(iv_int k1, const char * k2, off_t off)
 {
+	int r;
+	uint32_t index;
+	if(k2t != STRING)
+		return -EINVAL;
+	r = add_string(k2, &index);
+	if(r < 0)
+		return r;
+	return append(k1, (iv_int) index, off);
 }
 
 int atable::append(const char * k1, iv_int k2, off_t off)
 {
+	int r;
+	uint32_t index;
+	if(k1t != STRING)
+		return -EINVAL;
+	r = add_string(k1, &index);
+	if(r < 0)
+		return r;
+	return append((iv_int) index, k2, off);
 }
 
 int atable::append(const char * k1, const char * k2, off_t off)
 {
+	int r;
+	uint32_t index1, index2;
+	if(k1t != STRING || k2t != STRING)
+		return -EINVAL;
+	r = add_string(k1, &index1);
+	if(r < 0)
+		return r;
+	r = add_string(k2, &index2);
+	if(r < 0)
+		return r;
+	return append((iv_int) index1, (iv_int) index2, off);
 }
 
 int atable::playback()
 {
 	/* playback */
-	uint8_t type, types[2];
+	uint8_t type;
+	struct file_header header;
 	uint32_t string_index = 0;
 	int r, ufd = tx_read_fd(fd);
 	assert(ufd >= 0);
 	r = lseek(ufd, 0, SEEK_SET);
 	if(r < 0)
 		return r;
-	if((r = read(ufd, types, 2)) != 2)
+	if((r = read(ufd, &header, sizeof(header))) != sizeof(header))
 		return (r < 0) ? r : -EIO;
-	if(types[0] != 1 && types[0] != 2)
+	if(header.magic != ATABLE_MAGIC || header.version != ATABLE_VERSION)
 		return -EINVAL;
-	if(types[1] != 1 && types[1] != 2)
+	if(header.types[0] != 1 && header.types[0] != 2)
 		return -EINVAL;
-	if(types[0] == 2 && k1t != STRING)
+	if(header.types[1] != 1 && header.types[1] != 2)
 		return -EINVAL;
-	if(types[1] == 2 && k2t != STRING)
+	if(header.types[0] == 2 && k1t != STRING)
+		return -EINVAL;
+	if(header.types[1] == 2 && k2t != STRING)
 		return -EINVAL;
 	while((r = read(ufd, &type, 1)) == 1)
 	{
@@ -152,6 +234,7 @@ int atable::playback()
 				if(!k2s)
 					return -EINVAL;
 			}
+			/* actually we could just use the integer indices here too */
 			if(k1t == STRING && k2t == STRING)
 				r = append(k1s, k2s, data.value);
 			else if(k2t == STRING)
@@ -189,6 +272,7 @@ int atable::playback()
 			return -EINVAL;
 	}
 	assert(r <= 0);
+	offset = lseek(ufd, 0, SEEK_END);
 	return r;
 }
 
@@ -211,13 +295,18 @@ int atable::init(int dfd, const char * file, ktype k1, ktype k2)
 		if(fd == -ENOENT || errno == ENOENT)
 		{
 			int r;
-			uint8_t types[2];
+			struct file_header header;
+			/* XXX due to O_CREAT not being part of the transaction, we might get
+			 * an empty file as a result of this, which later will cause an error
+			 * below instead of here... we should handle that case somewhere */
 			fd = tx_open(dfd, file, O_RDWR | O_CREAT);
 			if(fd < 0)
 				return (int) fd;
-			types[0] = (k1 == STRING) ? 2 : 1;
-			types[1] = (k2 == STRING) ? 2 : 1;
-			r = tx_write(fd, types, 0, 2);
+			header.magic = ATABLE_MAGIC;
+			header.version = ATABLE_VERSION;
+			header.types[0] = (k1 == STRING) ? 2 : 1;
+			header.types[1] = (k2 == STRING) ? 2 : 1;
+			r = tx_write(fd, &header, 0, sizeof(header));
 			if(r < 0)
 			{
 				tx_close(fd);
@@ -225,6 +314,7 @@ int atable::init(int dfd, const char * file, ktype k1, ktype k2)
 				fd = -1;
 				return r;
 			}
+			offset = sizeof(header);
 		}
 		else
 			return (int) fd;
