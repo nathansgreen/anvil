@@ -20,6 +20,7 @@
 
 class atable : public itable
 {
+public:
 	/* test whether there is an entry for the given key */
 	virtual bool has(iv_int k1);
 	virtual bool has(const char * k1);

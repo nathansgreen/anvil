@@ -150,14 +150,14 @@ int itable_disk::k1_get(size_t index, iv_int * value, size_t * k2_count, off_t *
 int itable_disk::k1_find(iv_int k1, size_t * k2_count, off_t * k2_offset, size_t * index)
 {
 	/* binary search */
-	size_t min = 0, max = k1_count - 1;
+	ssize_t min = 0, max = k1_count - 1;
 	if(!k1_count)
 		return -ENOENT;
 	while(min <= max)
 	{
 		iv_int value;
 		/* watch out for overflow! */
-		size_t mid = min + (max - min) / 2;
+		ssize_t mid = min + (max - min) / 2;
 		if(k1_get(mid, &value, k2_count, k2_offset) < 0)
 			return -1;
 		if(value < k1)
@@ -199,14 +199,14 @@ int itable_disk::k2_get(size_t k2_count, off_t k2_offset, size_t index, iv_int *
 int itable_disk::k2_find(size_t k2_count, off_t k2_offset, iv_int k2, off_t * offset, size_t * index)
 {
 	/* binary search */
-	size_t min = 0, max = k2_count - 1;
+	ssize_t min = 0, max = k2_count - 1;
 	if(!k2_count)
 		return -1;
 	while(min <= max)
 	{
 		iv_int value;
 		/* watch out for overflow! */
-		size_t mid = min + (max - min) / 2;
+		ssize_t mid = min + (max - min) / 2;
 		if(k2_get(k2_count, k2_offset, mid, &value, offset) < 0)
 			break;
 		if(value < k2)

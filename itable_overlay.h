@@ -48,6 +48,7 @@ public:
 	virtual int next(struct it * it, const char ** k1);
 	
 	inline itable_overlay();
+	/* later parameters / higher indices are searched later, so put more recent data first */
 	int init(itable * it1, ...);
 	int init(itable ** array, size_t length);
 	void deinit();
