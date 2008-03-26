@@ -52,7 +52,10 @@ public:
 		
 		/* additional fields for other itable types */
 		struct overlay; /* only defined in itable_overlay.h */
-		struct overlay * ovr;
+		union {
+			struct overlay * ovr;
+			void * atb_next; /* really a struct atable::node * */
+		};
 		
 		/* automatic destructor to call itable::kill_iter(): set "table" to use */
 		inline it();

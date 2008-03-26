@@ -67,38 +67,152 @@ off_t atable::get(const char * k1, const char * k2)
 
 int atable::iter(struct it * it)
 {
+	node * node;
+	it->clear();
+	/* find first node */
+	for(node = root; node && node->left; node = node->left);
+	it->single_k1 = false;
+	it->only_k1 = false;
+	it->atb_next = node;
+	return 0;
 }
 
 int atable::iter(struct it * it, iv_int k1)
 {
+	int r;
+	node * node = root;
+	it->clear();
+	while(node && (r = cmp_keys(k1t, node->k1, k1)))
+		node = (r < 0) ? node->right : node->left;
+	if(!node)
+		return -ENOENT;
+	/* find the smallest k2 in this k1 */
+	while(node->left && !cmp_keys(k1t, node->left->k1, k1))
+		node = node->left;
+	it->single_k1 = true;
+	it->only_k1 = false;
+	it->atb_next = node;
+	return 0;
 }
 
 int atable::iter(struct it * it, const char * k1)
 {
+	int r;
+	node * node = root;
+	it->clear();
+	while(node && (r = cmp_keys(k1t, node->k1, k1)))
+		node = (r < 0) ? node->right : node->left;
+	if(!node)
+		return -ENOENT;
+	/* find the smallest k2 in this k1 */
+	while(node->left && !cmp_keys(k1t, node->left->k1, k1))
+		node = node->left;
+	it->single_k1 = true;
+	it->only_k1 = false;
+	it->atb_next = node;
+	return 0;
 }
 
 int atable::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
 {
+	node * node = (struct node *) it->atb_next;
+	if(it->only_k1)
+		return -EINVAL;
+	if(!node)
+		return -ENOENT;
+	*k1 = node->k1.i;
+	*k2 = node->k2.i;
+	*off = node->value;
+	next_node(&node);
+	if(it->single_k1)
+		if(node && cmp_keys(k1t, node->k1, *k1))
+			node = NULL;
+	it->atb_next = node;
+	return 0;
 }
 
 int atable::next(struct it * it, iv_int * k1, const char ** k2, off_t * off)
 {
+	node * node = (struct node *) it->atb_next;
+	if(it->only_k1)
+		return -EINVAL;
+	if(!node)
+		return -ENOENT;
+	*k1 = node->k1.i;
+	*k2 = node->k2.s;
+	*off = node->value;
+	next_node(&node);
+	if(it->single_k1)
+		if(node && cmp_keys(k1t, node->k1, *k1))
+			node = NULL;
+	it->atb_next = node;
+	return 0;
 }
 
 int atable::next(struct it * it, const char ** k1, iv_int * k2, off_t * off)
 {
+	node * node = (struct node *) it->atb_next;
+	if(it->only_k1)
+		return -EINVAL;
+	if(!node)
+		return -ENOENT;
+	*k1 = node->k1.s;
+	*k2 = node->k2.i;
+	*off = node->value;
+	next_node(&node);
+	if(it->single_k1)
+		if(node && cmp_keys(k1t, node->k1, *k1))
+			node = NULL;
+	it->atb_next = node;
+	return 0;
 }
 
 int atable::next(struct it * it, const char ** k1, const char ** k2, off_t * off)
 {
+	node * node = (struct node *) it->atb_next;
+	if(it->only_k1)
+		return -EINVAL;
+	if(!node)
+		return -ENOENT;
+	*k1 = node->k1.s;
+	*k2 = node->k2.s;
+	*off = node->value;
+	next_node(&node);
+	if(it->single_k1)
+		if(node && cmp_keys(k1t, node->k1, *k1))
+			node = NULL;
+	it->atb_next = node;
+	return 0;
 }
 
 int atable::next(struct it * it, iv_int * k1)
 {
+	node * node = (struct node *) it->atb_next;
+	if(it->single_k1)
+		return -EINVAL;
+	it->only_k1 = true;
+	if(!node)
+		return -ENOENT;
+	*k1 = node->k1.i;
+	while(node && !cmp_keys(k1t, node->k1, *k1))
+		next_node(&node);
+	it->atb_next = node;
+	return 0;
 }
 
 int atable::next(struct it * it, const char ** k1)
 {
+	node * node = (struct node *) it->atb_next;
+	if(it->single_k1)
+		return -EINVAL;
+	it->only_k1 = true;
+	if(!node)
+		return -ENOENT;
+	*k1 = node->k1.s;
+	while(node && !cmp_keys(k1t, node->k1, *k1))
+		next_node(&node);
+	it->atb_next = node;
+	return 0;
 }
 
 bool atable::has_node(key k1)
@@ -148,6 +262,24 @@ int atable::add_node(key k1, key k2, off_t off)
 	node->right = NULL;
 	*ptr = node;
 	return 0;
+}
+
+void atable::next_node(node ** n)
+{
+	node * node = *n;
+	if(node->right)
+	{
+		node = node->right;
+		while(node->left)
+			node = node->left;
+	}
+	else
+	{
+		while(node->up && node->up->right == node)
+			node = node->up;
+		node = node->up;
+	}
+	*n = node;
 }
 
 int atable::cmp_keys(ktype type, key a, key b)

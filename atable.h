@@ -62,6 +62,7 @@ class atable : public itable
 	inline virtual ~atable();
 	
 private:
+	/* this maybe should be part of itable, and used in other itable subclasses? */
 	union key {
 		iv_int i;
 		const char * s;
@@ -83,6 +84,7 @@ private:
 	node * find_node(key k1, key k2);
 	/* will reuse an existing node if possible */
 	int add_node(key k1, key k2, off_t off);
+	static void next_node(node ** n);
 	static inline int cmp_keys(ktype type, key a, key b);
 	inline int cmp_node(node * n, key k1, key k2);
 	static void kill_nodes(node * n);
