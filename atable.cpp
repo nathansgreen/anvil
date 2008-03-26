@@ -365,14 +365,20 @@ int atable::add_string(const char * string, uint32_t * index)
 
 int atable::log(iv_int k1, iv_int k2, off_t off)
 {
-	int r;
+	uint8_t type = ATABLE_VALUE;
 	struct atable_data data;
+	if(tx_write(fd, &type, offset, 1) < 0)
+		return -1;
+	offset++;
 	data.k1 = k1;
 	data.k2 = k2;
 	data.value = off;
-	r = tx_write(fd, &data, offset, sizeof(data));
-	if(r < 0)
-		return r;
+	if(tx_write(fd, &data, offset, sizeof(data)) < 0)
+	{
+		/* need to unwrite the type */
+		assert(0);
+		return -1;
+	}
 	offset += sizeof(data);
 	return 0;
 }
@@ -479,13 +485,13 @@ int atable::playback()
 					return -EINVAL;
 			}
 			if(k1t == STRING && k2t == STRING)
-				r = append(k1s, k2s, data.value);
+				r = add_node(k1s, k2s, data.value);
 			else if(k2t == STRING)
-				r = append(data.k1, k2s, data.value);
+				r = add_node(data.k1, k2s, data.value);
 			else if(k1t == STRING)
-				r = append(k1s, data.k2, data.value);
+				r = add_node(k1s, data.k2, data.value);
 			else
-				r = append(data.k1, data.k2, data.value);
+				r = add_node(data.k1, data.k2, data.value);
 			if(r < 0)
 				return r;
 		}
@@ -542,7 +548,7 @@ int atable::init(int dfd, const char * file, ktype k1, ktype k2)
 			/* XXX due to O_CREAT not being part of the transaction, we might get
 			 * an empty file as a result of this, which later will cause an error
 			 * below instead of here... we should handle that case somewhere */
-			fd = tx_open(dfd, file, O_RDWR | O_CREAT);
+			fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
 			if(fd < 0)
 				return (int) fd;
 			header.magic = ATABLE_MAGIC;
