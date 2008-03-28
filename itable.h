@@ -31,7 +31,9 @@ typedef unsigned int iv_int;
 #define ITABLE_MAGIC 0x017AB1E0
 #define ITABLE_VERSION 0x0000
 
+#ifndef INVAL_OFF_T
 #define INVAL_OFF_T ((off_t) -1)
+#endif
 
 /* This is the abstract base class of several different kinds of itables. Aside
  * from the obvious implementation that reads a single file storing all the
