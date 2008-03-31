@@ -1,0 +1,62 @@
+#!/bin/bash
+
+CFLAGS=-ggdb make || exit $?
+
+HOST="`hostname`"
+if [ "${HOST#kudos-}" == "$HOST" ]
+then
+	echo "Not running on a kudos-* test machine, won't overwrite your file systems."
+	exit 1
+fi
+
+echo -n "Creating file system... "
+sudo mke2fs -m 0 -b 4096 /dev/sdb1 &> /dev/null
+sudo mount /dev/sdb1 /mnt/test -t ext2
+sudo chown `whoami` /mnt/test
+cat > /mnt/test/run << EOF
+journal create tj
+journal append record1
+journal append record2
+journal commit
+journal playback
+journal erase
+tx
+stable
+itable test.iot copy.iot copy2.iot
+atable test.iot new.aot new.iot
+EOF
+mkdir /mnt/test/journals
+cp test.iot /mnt/test
+sudo umount /mnt/test
+echo "done."
+
+echo -n "Loading Featherstitch... "
+sudo insmod fstitch/kfstitchd.ko device=/dev/sdb
+[ -f /proc/kfstitchd_debug ] && (cat /proc/kfstitchd_debug > try.fdb &) || rm -f try.fdb
+sudo mount /mnt/test
+echo "done."
+
+WD="`pwd`"
+echo "script run" | (cd /mnt/test; ulimit -c unlimited; exec "$WD/toilet")
+
+ls -lR /mnt/test
+true | hexdump -C /mnt/test/teststrings
+true | hexdump -C /mnt/test/copy.iot
+true | hexdump -C /mnt/test/copy2.iot
+true | hexdump -C /mnt/test/new.aot
+true | hexdump -C /mnt/test/new.iot
+
+echo "Unloading Featherstitch... "
+sudo umount /mnt/test
+sudo rmmod kfstitchd
+echo "done."
+
+sudo mount /dev/sdb1 /mnt/test -t ext2
+if [ -f /mnt/test/core ]
+then
+	echo "Starting debugger on core."
+	gdb -c /mnt/test/core main
+fi
+sudo umount /mnt/test
+
+#dmesg | tail -n 30
