@@ -278,7 +278,7 @@ void itable_overlay::kill_iter(struct it * it)
 	it->table = NULL;
 }
 
-int itable_overlay::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
+int itable_overlay::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source)
 {
 	bool first = true;
 	size_t i, min_idx = table_count;
@@ -316,10 +316,12 @@ int itable_overlay::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
 	*k1 = it->ovr[min_idx].last_k1.i;
 	*k2 = it->ovr[min_idx].last_k2.i;
 	*off = it->ovr[min_idx].last_off;
+	if(source)
+		*source = tables[min_idx];
 	return 0;
 }
 
-int itable_overlay::next(struct it * it, iv_int * k1, const char ** k2, off_t * off)
+int itable_overlay::next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source)
 {
 	bool first = true;
 	size_t i, min_idx = table_count;
@@ -369,10 +371,12 @@ int itable_overlay::next(struct it * it, iv_int * k1, const char ** k2, off_t * 
 	*k1 = it->ovr[min_idx].last_k1.i;
 	*k2 = it->ovr[min_idx].last_k2.s;
 	*off = it->ovr[min_idx].last_off;
+	if(source)
+		*source = tables[min_idx];
 	return 0;
 }
 
-int itable_overlay::next(struct it * it, const char ** k1, iv_int * k2, off_t * off)
+int itable_overlay::next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source)
 {
 	bool first = true;
 	size_t i, min_idx = table_count;
@@ -422,10 +426,12 @@ int itable_overlay::next(struct it * it, const char ** k1, iv_int * k2, off_t * 
 	*k1 = it->ovr[min_idx].last_k1.s;
 	*k2 = it->ovr[min_idx].last_k2.i;
 	*off = it->ovr[min_idx].last_off;
+	if(source)
+		*source = tables[min_idx];
 	return 0;
 }
 
-int itable_overlay::next(struct it * it, const char ** k1, const char ** k2, off_t * off)
+int itable_overlay::next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source)
 {
 	bool first = true;
 	size_t i, min_idx = table_count;
@@ -481,6 +487,8 @@ int itable_overlay::next(struct it * it, const char ** k1, const char ** k2, off
 	*k1 = it->ovr[min_idx].last_k1.s;
 	*k2 = it->ovr[min_idx].last_k2.s;
 	*off = it->ovr[min_idx].last_off;
+	if(source)
+		*source = tables[min_idx];
 	return 0;
 }
 

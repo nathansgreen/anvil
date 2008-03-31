@@ -18,6 +18,7 @@ int command_atable(int argc, const char * argv[]);
 
 static int run_iter(itable * itable, const char * name)
 {
+	class itable * source;
 	itable::it iter;
 	const char * col;
 	iv_int row = 0;
@@ -27,8 +28,13 @@ static int run_iter(itable * itable, const char * name)
 	printf("%s.iter() = %d\n", name, r);
 	if(r < 0)
 		return r;
-	while(!(r = itable->next(&iter, &row, &col, &off)))
-		printf("row = 0x%x, col = %s, offset = 0x%x\n", row, col, (int) off);
+	while(!(r = itable->next(&iter, &row, &col, &off, &source)))
+	{
+		printf("row = 0x%x, col = %s, offset = 0x%x", row, col, (int) off);
+		if(source != itable)
+			printf(" (source = %p)", source);
+		printf("\n");
+	}
 	printf("%s.next() = %d\n", name, r);
 	r = itable->iter(&iter);
 	printf("%s.iter() = %d\n", name, r);

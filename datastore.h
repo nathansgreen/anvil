@@ -25,9 +25,7 @@
 #define DATASTORE_MAGIC 0xDA7ABA5E
 #define DATASTORE_VERSION 0x0000
 
-#ifndef INVAL_OFF_T
 #define INVAL_OFF_T ((off_t) -1)
-#endif
 
 class datastore
 {

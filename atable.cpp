@@ -113,7 +113,7 @@ int atable::iter(struct it * it, const char * k1)
 	return 0;
 }
 
-int atable::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
+int atable::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source)
 {
 	node * node = (struct node *) it->atb_next;
 	if(it->only_k1)
@@ -128,10 +128,12 @@ int atable::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
 		if(node && cmp_keys(k1t, node->k1, *k1))
 			node = NULL;
 	it->atb_next = node;
+	if(source)
+		*source = this;
 	return 0;
 }
 
-int atable::next(struct it * it, iv_int * k1, const char ** k2, off_t * off)
+int atable::next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source)
 {
 	node * node = (struct node *) it->atb_next;
 	if(it->only_k1)
@@ -146,10 +148,12 @@ int atable::next(struct it * it, iv_int * k1, const char ** k2, off_t * off)
 		if(node && cmp_keys(k1t, node->k1, *k1))
 			node = NULL;
 	it->atb_next = node;
+	if(source)
+		*source = this;
 	return 0;
 }
 
-int atable::next(struct it * it, const char ** k1, iv_int * k2, off_t * off)
+int atable::next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source)
 {
 	node * node = (struct node *) it->atb_next;
 	if(it->only_k1)
@@ -164,10 +168,12 @@ int atable::next(struct it * it, const char ** k1, iv_int * k2, off_t * off)
 		if(node && cmp_keys(k1t, node->k1, *k1))
 			node = NULL;
 	it->atb_next = node;
+	if(source)
+		*source = this;
 	return 0;
 }
 
-int atable::next(struct it * it, const char ** k1, const char ** k2, off_t * off)
+int atable::next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source)
 {
 	node * node = (struct node *) it->atb_next;
 	if(it->only_k1)
@@ -182,6 +188,8 @@ int atable::next(struct it * it, const char ** k1, const char ** k2, off_t * off
 		if(node && cmp_keys(k1t, node->k1, *k1))
 			node = NULL;
 	it->atb_next = node;
+	if(source)
+		*source = this;
 	return 0;
 }
 

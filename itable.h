@@ -12,6 +12,7 @@
 #include <sys/types.h>
 
 #include "stable.h"
+#include "datastore.h"
 #include "stringset.h"
 
 #ifndef __cplusplus
@@ -30,10 +31,6 @@ typedef unsigned int iv_int;
 
 #define ITABLE_MAGIC 0x017AB1E0
 #define ITABLE_VERSION 0x0000
-
-#ifndef INVAL_OFF_T
-#define INVAL_OFF_T ((off_t) -1)
-#endif
 
 /* This is the abstract base class of several different kinds of itables. Aside
  * from the obvious implementation that reads a single file storing all the
@@ -95,14 +92,19 @@ public:
 	/* NOTE: These iterators are required to return the offsets in sorted order,
 	 * first by primary key and then by secondary key. */
 	/* return 0 for success and < 0 for failure (-ENOENT when done) */
-	virtual int next(struct it * it, iv_int * k1, iv_int * k2, off_t * off) = 0;
-	virtual int next(struct it * it, iv_int * k1, const char ** k2, off_t * off) = 0;
-	virtual int next(struct it * it, const char ** k1, iv_int * k2, off_t * off) = 0;
-	virtual int next(struct it * it, const char ** k1, const char ** k2, off_t * off) = 0;
+	virtual int next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source = NULL) = 0;
+	virtual int next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source = NULL) = 0;
+	virtual int next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source = NULL) = 0;
+	virtual int next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source = NULL) = 0;
 	
 	/* iterate only through the primary keys (not mixable with above calls!) */
 	virtual int next(struct it * it, iv_int * k1) = 0;
 	virtual int next(struct it * it, const char ** k1) = 0;
+	
+	virtual datastore * get_datastore(iv_int k1, iv_int k2);
+	virtual datastore * get_datastore(iv_int k1, const char * k2);
+	virtual datastore * get_datastore(const char * k1, iv_int k2);
+	virtual datastore * get_datastore(const char * k1, const char * k2);
 	
 	inline itable();
 	inline virtual ~itable();
@@ -139,10 +141,10 @@ public:
 	virtual int iter(struct it * it, const char * k1);
 	
 	/* return 0 for success and < 0 for failure (-ENOENT when done) */
-	virtual int next(struct it * it, iv_int * k1, iv_int * k2, off_t * off);
-	virtual int next(struct it * it, iv_int * k1, const char ** k2, off_t * off);
-	virtual int next(struct it * it, const char ** k1, iv_int * k2, off_t * off);
-	virtual int next(struct it * it, const char ** k1, const char ** k2, off_t * off);
+	virtual int next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source = NULL);
+	virtual int next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source = NULL);
+	virtual int next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source = NULL);
+	virtual int next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source = NULL);
 	
 	/* iterate only through the primary keys (not mixable with above calls!) */
 	virtual int next(struct it * it, iv_int * k1);

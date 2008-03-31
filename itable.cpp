@@ -377,12 +377,13 @@ int itable_disk::iter(struct it * it, const char * k1)
 	return iter(it, (iv_int) k1i);
 }
 
+/* itable, not itable_disk */
 void itable::kill_iter(struct it * it)
 {
 	it->table = NULL;
 }
 
-int itable_disk::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
+int itable_disk::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source)
 {
 	int r;
 	if(it->only_k1)
@@ -399,6 +400,8 @@ int itable_disk::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
 			if(r < 0)
 				return r;
 			*off += off_base;
+			if(source)
+				*source = this;
 			return 0;
 		}
 		if(it->single_k1)
@@ -414,13 +417,13 @@ int itable_disk::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off)
 	/* never get here */
 }
 
-int itable_disk::next(struct it * it, iv_int * k1, const char ** k2, off_t * off)
+int itable_disk::next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source)
 {
 	int r;
 	iv_int k2i;
 	if(k2t != STRING)
 		return -1;
-	r = next(it, k1, &k2i, off);
+	r = next(it, k1, &k2i, off, source);
 	if(r < 0)
 		return r;
 	*k2 = st_get(&st, k2i);
@@ -429,13 +432,13 @@ int itable_disk::next(struct it * it, iv_int * k1, const char ** k2, off_t * off
 	return 0;
 }
 
-int itable_disk::next(struct it * it, const char ** k1, iv_int * k2, off_t * off)
+int itable_disk::next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source)
 {
 	int r;
 	iv_int k1i;
 	if(k1t != STRING)
 		return -1;
-	r = next(it, &k1i, k2, off);
+	r = next(it, &k1i, k2, off, source);
 	if(r < 0)
 		return r;
 	*k1 = st_get(&st, k1i);
@@ -447,13 +450,13 @@ int itable_disk::next(struct it * it, const char ** k1, iv_int * k2, off_t * off
 #if ST_LRU < 2
 #error ST_LRU must be at least 2
 #endif
-int itable_disk::next(struct it * it, const char ** k1, const char ** k2, off_t * off)
+int itable_disk::next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source)
 {
 	int r;
 	iv_int k1i, k2i;
 	if(k1t != STRING || k2t != STRING)
 		return -1;
-	r = next(it, &k1i, &k2i, off);
+	r = next(it, &k1i, &k2i, off, source);
 	if(r < 0)
 		return r;
 	*k1 = st_get(&st, k1i);
@@ -499,6 +502,27 @@ int itable_disk::next(struct it * it, const char ** k1)
 	if(!*k1)
 		return -1;
 	return 0;
+}
+
+/* itable, not itable_disk, for these next four */
+datastore * itable::get_datastore(iv_int k1, iv_int k2)
+{
+	return NULL;
+}
+
+datastore * itable::get_datastore(iv_int k1, const char * k2)
+{
+	return NULL;
+}
+
+datastore * itable::get_datastore(const char * k1, iv_int k2)
+{
+	return NULL;
+}
+
+datastore * itable::get_datastore(const char * k1, const char * k2)
+{
+	return NULL;
 }
 
 ssize_t itable_disk::locate_string(const char ** array, ssize_t size, const char * string)
