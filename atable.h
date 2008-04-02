@@ -42,10 +42,10 @@ public:
 	virtual int iter(struct it * it, const char * k1);
 	
 	/* return 0 for success and < 0 for failure (-ENOENT when done) */
-	virtual int _next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source = NULL);
-	virtual int _next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source = NULL);
-	virtual int _next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source = NULL);
-	virtual int _next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source = NULL);
+	virtual int _next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source);
+	virtual int _next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source);
+	virtual int _next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source);
+	virtual int _next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source);
 	
 	/* iterate only through the primary keys (not mixable with above calls!) */
 	virtual int _next(struct it * it, iv_int * k1);
