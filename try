@@ -3,7 +3,7 @@
 CFLAGS=-ggdb make || exit $?
 
 HOST="`hostname`"
-if [ "${HOST#kudos-}" == "$HOST" ]
+if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" ]
 then
 	echo "Not running on a kudos-* test machine, won't overwrite your file systems."
 	exit 1
