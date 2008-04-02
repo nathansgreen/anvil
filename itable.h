@@ -313,7 +313,8 @@ inline itable_disk::itable_disk()
 
 inline itable_disk::~itable_disk()
 {
-	deinit();
+	if(fd >= 0)
+		deinit();
 }
 
 #endif /* __ITABLE_H */

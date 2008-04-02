@@ -6,6 +6,7 @@
 #define HASH_MAP_H
 
 #include <stdbool.h>
+#include <sys/types.h>
 
 #ifdef __cplusplus
 extern "C" {
