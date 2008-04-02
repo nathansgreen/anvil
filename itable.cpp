@@ -287,7 +287,7 @@ bool itable_disk::has(const char * k1, const char * k2)
 	return has((iv_int) k1i, (iv_int) k2i);
 }
 
-off_t itable_disk::get(iv_int k1, iv_int k2)
+off_t itable_disk::_get(iv_int k1, iv_int k2, itable ** source)
 {
 	size_t k2_count;
 	off_t k2_offset, offset;
@@ -297,10 +297,12 @@ off_t itable_disk::get(iv_int k1, iv_int k2)
 	r = k2_find(k2_count, k1_offset + k2_offset, k2, &offset);
 	if(r < 0)
 		return INVAL_OFF_T;
+	if(source)
+		*source = this;
 	return off_base + offset;
 }
 
-off_t itable_disk::get(iv_int k1, const char * k2)
+off_t itable_disk::_get(iv_int k1, const char * k2, itable ** source)
 {
 	ssize_t k2i;
 	if(k2t != STRING)
@@ -308,10 +310,10 @@ off_t itable_disk::get(iv_int k1, const char * k2)
 	k2i = st_locate(&st, k2);
 	if(k2i < 0)
 		return INVAL_OFF_T;
-	return get(k1, (iv_int) k2i);
+	return _get(k1, (iv_int) k2i, source);
 }
 
-off_t itable_disk::get(const char * k1, iv_int k2)
+off_t itable_disk::_get(const char * k1, iv_int k2, itable ** source)
 {
 	ssize_t k1i;
 	if(k1t != STRING)
@@ -319,10 +321,10 @@ off_t itable_disk::get(const char * k1, iv_int k2)
 	k1i = st_locate(&st, k1);
 	if(k1i < 0)
 		return INVAL_OFF_T;
-	return get((iv_int) k1i, k2);
+	return _get((iv_int) k1i, k2, source);
 }
 
-off_t itable_disk::get(const char * k1, const char * k2)
+off_t itable_disk::_get(const char * k1, const char * k2, itable ** source)
 {
 	ssize_t k1i, k2i;
 	if(k1t != STRING || k2t != STRING)
@@ -333,7 +335,7 @@ off_t itable_disk::get(const char * k1, const char * k2)
 	k2i = st_locate(&st, k2);
 	if(k2i < 0)
 		return INVAL_OFF_T;
-	return get((iv_int) k1i, (iv_int) k2i);
+	return _get((iv_int) k1i, (iv_int) k2i, source);
 }
 
 int itable_disk::iter(struct it * it)
@@ -383,7 +385,7 @@ void itable::kill_iter(struct it * it)
 	it->table = NULL;
 }
 
-int itable_disk::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source)
+int itable_disk::_next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source)
 {
 	int r;
 	if(it->only_k1)
@@ -417,13 +419,13 @@ int itable_disk::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, ita
 	/* never get here */
 }
 
-int itable_disk::next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source)
+int itable_disk::_next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source)
 {
 	int r;
 	iv_int k2i;
 	if(k2t != STRING)
 		return -1;
-	r = next(it, k1, &k2i, off, source);
+	r = _next(it, k1, &k2i, off, source);
 	if(r < 0)
 		return r;
 	*k2 = st_get(&st, k2i);
@@ -432,13 +434,13 @@ int itable_disk::next(struct it * it, iv_int * k1, const char ** k2, off_t * off
 	return 0;
 }
 
-int itable_disk::next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source)
+int itable_disk::_next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source)
 {
 	int r;
 	iv_int k1i;
 	if(k1t != STRING)
 		return -1;
-	r = next(it, &k1i, k2, off, source);
+	r = _next(it, &k1i, k2, off, source);
 	if(r < 0)
 		return r;
 	*k1 = st_get(&st, k1i);
@@ -450,13 +452,13 @@ int itable_disk::next(struct it * it, const char ** k1, iv_int * k2, off_t * off
 #if ST_LRU < 2
 #error ST_LRU must be at least 2
 #endif
-int itable_disk::next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source)
+int itable_disk::_next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source)
 {
 	int r;
 	iv_int k1i, k2i;
 	if(k1t != STRING || k2t != STRING)
 		return -1;
-	r = next(it, &k1i, &k2i, off, source);
+	r = _next(it, &k1i, &k2i, off, source);
 	if(r < 0)
 		return r;
 	*k1 = st_get(&st, k1i);
@@ -468,7 +470,7 @@ int itable_disk::next(struct it * it, const char ** k1, const char ** k2, off_t 
 	return 0;
 }
 
-int itable_disk::next(struct it * it, iv_int * k1)
+int itable_disk::_next(struct it * it, iv_int * k1)
 {
 	int r;
 	if(it->single_k1)
@@ -489,13 +491,13 @@ int itable_disk::next(struct it * it, iv_int * k1)
 	return 0;
 }
 
-int itable_disk::next(struct it * it, const char ** k1)
+int itable_disk::_next(struct it * it, const char ** k1)
 {
 	int r;
 	iv_int k1i;
 	if(k1t != STRING)
 		return -1;
-	r = next(it, &k1i);
+	r = _next(it, &k1i);
 	if(r < 0)
 		return r;
 	*k1 = st_get(&st, k1i);

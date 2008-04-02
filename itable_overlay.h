@@ -26,10 +26,10 @@ public:
 	virtual bool has(const char * k1, const char * k2);
 	
 	/* get the offset for the given key */
-	virtual off_t get(iv_int k1, iv_int k2);
-	virtual off_t get(iv_int k1, const char * k2);
-	virtual off_t get(const char * k1, iv_int k2);
-	virtual off_t get(const char * k1, const char * k2);
+	virtual off_t _get(iv_int k1, iv_int k2, itable ** source);
+	virtual off_t _get(iv_int k1, const char * k2, itable ** source);
+	virtual off_t _get(const char * k1, iv_int k2, itable ** source);
+	virtual off_t _get(const char * k1, const char * k2, itable ** source);
 	
 	/* iterate through the offsets: set up iterators */
 	virtual int iter(struct it * it);
@@ -38,14 +38,14 @@ public:
 	virtual void kill_iter(struct it * it);
 	
 	/* return 0 for success and < 0 for failure (-ENOENT when done) */
-	virtual int next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source = NULL);
-	virtual int next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source = NULL);
-	virtual int next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source = NULL);
-	virtual int next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source = NULL);
+	virtual int _next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source = NULL);
+	virtual int _next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source = NULL);
+	virtual int _next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source = NULL);
+	virtual int _next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source = NULL);
 	
 	/* iterate only through the primary keys (not mixable with above calls!) */
-	virtual int next(struct it * it, iv_int * k1);
-	virtual int next(struct it * it, const char ** k1);
+	virtual int _next(struct it * it, iv_int * k1);
+	virtual int _next(struct it * it, const char ** k1);
 	
 	inline itable_overlay();
 	/* later parameters / higher indices are searched later, so put more recent data first */
@@ -67,6 +67,7 @@ struct itable::it::overlay {
 		const char * s;
 	} last_k1, last_k2;
 	off_t last_off;
+	itable * last_source;
 };
 
 inline itable_overlay::itable_overlay()

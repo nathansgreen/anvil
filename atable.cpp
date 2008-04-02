@@ -41,27 +41,35 @@ bool atable::has(const char * k1, const char * k2)
 	return find_node(k1, k2) != NULL;
 }
 
-off_t atable::get(iv_int k1, iv_int k2)
+off_t atable::_get(iv_int k1, iv_int k2, itable ** source)
 {
 	node * node = find_node(k1, k2);
+	if(source)
+		*source = this;
 	return node ? node->value : INVAL_OFF_T;
 }
 
-off_t atable::get(iv_int k1, const char * k2)
+off_t atable::_get(iv_int k1, const char * k2, itable ** source)
 {
 	node * node = find_node(k1, k2);
+	if(source)
+		*source = this;
 	return node ? node->value : INVAL_OFF_T;
 }
 
-off_t atable::get(const char * k1, iv_int k2)
+off_t atable::_get(const char * k1, iv_int k2, itable ** source)
 {
 	node * node = find_node(k1, k2);
+	if(source)
+		*source = this;
 	return node ? node->value : INVAL_OFF_T;
 }
 
-off_t atable::get(const char * k1, const char * k2)
+off_t atable::_get(const char * k1, const char * k2, itable ** source)
 {
 	node * node = find_node(k1, k2);
+	if(source)
+		*source = this;
 	return node ? node->value : INVAL_OFF_T;
 }
 
@@ -113,7 +121,7 @@ int atable::iter(struct it * it, const char * k1)
 	return 0;
 }
 
-int atable::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source)
+int atable::_next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source)
 {
 	node * node = (struct node *) it->atb_next;
 	if(it->only_k1)
@@ -133,7 +141,7 @@ int atable::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable *
 	return 0;
 }
 
-int atable::next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source)
+int atable::_next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source)
 {
 	node * node = (struct node *) it->atb_next;
 	if(it->only_k1)
@@ -153,7 +161,7 @@ int atable::next(struct it * it, iv_int * k1, const char ** k2, off_t * off, ita
 	return 0;
 }
 
-int atable::next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source)
+int atable::_next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source)
 {
 	node * node = (struct node *) it->atb_next;
 	if(it->only_k1)
@@ -173,7 +181,7 @@ int atable::next(struct it * it, const char ** k1, iv_int * k2, off_t * off, ita
 	return 0;
 }
 
-int atable::next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source)
+int atable::_next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source)
 {
 	node * node = (struct node *) it->atb_next;
 	if(it->only_k1)
@@ -193,7 +201,7 @@ int atable::next(struct it * it, const char ** k1, const char ** k2, off_t * off
 	return 0;
 }
 
-int atable::next(struct it * it, iv_int * k1)
+int atable::_next(struct it * it, iv_int * k1)
 {
 	node * node = (struct node *) it->atb_next;
 	if(it->single_k1)
@@ -208,7 +216,7 @@ int atable::next(struct it * it, iv_int * k1)
 	return 0;
 }
 
-int atable::next(struct it * it, const char ** k1)
+int atable::_next(struct it * it, const char ** k1)
 {
 	node * node = (struct node *) it->atb_next;
 	if(it->single_k1)

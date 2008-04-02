@@ -128,48 +128,48 @@ bool itable_overlay::has(const char * k1, const char * k2)
 	return false;
 }
 
-off_t itable_overlay::get(iv_int k1, iv_int k2)
+off_t itable_overlay::_get(iv_int k1, iv_int k2, itable ** source)
 {
 	size_t i;
 	for(i = 0; i < table_count; i++)
 	{
-		off_t off = tables[i]->get(k1, k2);
+		off_t off = tables[i]->get(k1, k2, source);
 		if(off != INVAL_OFF_T)
 			return off;
 	}
 	return INVAL_OFF_T;
 }
 
-off_t itable_overlay::get(iv_int k1, const char * k2)
+off_t itable_overlay::_get(iv_int k1, const char * k2, itable ** source)
 {
 	size_t i;
 	for(i = 0; i < table_count; i++)
 	{
-		off_t off = tables[i]->get(k1, k2);
+		off_t off = tables[i]->get(k1, k2, source);
 		if(off != INVAL_OFF_T)
 			return off;
 	}
 	return INVAL_OFF_T;
 }
 
-off_t itable_overlay::get(const char * k1, iv_int k2)
+off_t itable_overlay::_get(const char * k1, iv_int k2, itable ** source)
 {
 	size_t i;
 	for(i = 0; i < table_count; i++)
 	{
-		off_t off = tables[i]->get(k1, k2);
+		off_t off = tables[i]->get(k1, k2, source);
 		if(off != INVAL_OFF_T)
 			return off;
 	}
 	return INVAL_OFF_T;
 }
 
-off_t itable_overlay::get(const char * k1, const char * k2)
+off_t itable_overlay::_get(const char * k1, const char * k2, itable ** source)
 {
 	size_t i;
 	for(i = 0; i < table_count; i++)
 	{
-		off_t off = tables[i]->get(k1, k2);
+		off_t off = tables[i]->get(k1, k2, source);
 		if(off != INVAL_OFF_T)
 			return off;
 	}
@@ -278,7 +278,7 @@ void itable_overlay::kill_iter(struct it * it)
 	it->table = NULL;
 }
 
-int itable_overlay::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source)
+int itable_overlay::_next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, itable ** source)
 {
 	bool first = true;
 	size_t i, min_idx = table_count;
@@ -291,7 +291,7 @@ int itable_overlay::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, 
 		{
 			/* fill in empty slots */
 			it->ovr[i].empty = 0;
-			it->ovr[i].r = tables[i]->next(&it->ovr[i].iter, &it->ovr[i].last_k1.i, &it->ovr[i].last_k2.i, &it->ovr[i].last_off);
+			it->ovr[i].r = tables[i]->next(&it->ovr[i].iter, &it->ovr[i].last_k1.i, &it->ovr[i].last_k2.i, &it->ovr[i].last_off, &it->ovr[i].last_source);
 		}
 		if(it->ovr[i].r == -ENOENT)
 			/* skip exhausted tables */
@@ -317,11 +317,11 @@ int itable_overlay::next(struct it * it, iv_int * k1, iv_int * k2, off_t * off, 
 	*k2 = it->ovr[min_idx].last_k2.i;
 	*off = it->ovr[min_idx].last_off;
 	if(source)
-		*source = tables[min_idx];
+		*source = it->ovr[min_idx].last_source;
 	return 0;
 }
 
-int itable_overlay::next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source)
+int itable_overlay::_next(struct it * it, iv_int * k1, const char ** k2, off_t * off, itable ** source)
 {
 	bool first = true;
 	size_t i, min_idx = table_count;
@@ -338,7 +338,7 @@ int itable_overlay::next(struct it * it, iv_int * k1, const char ** k2, off_t * 
 			it->ovr[i].empty = 0;
 			if(it->ovr[i].last_k2.s)
 				free((void *) it->ovr[i].last_k2.s);
-			it->ovr[i].r = tables[i]->next(&it->ovr[i].iter, &it->ovr[i].last_k1.i, &it->ovr[i].last_k2.s, &it->ovr[i].last_off);
+			it->ovr[i].r = tables[i]->next(&it->ovr[i].iter, &it->ovr[i].last_k1.i, &it->ovr[i].last_k2.s, &it->ovr[i].last_off, &it->ovr[i].last_source);
 			if(it->ovr[i].r >= 0)
 			{
 				it->ovr[i].last_k2.s = strdup(it->ovr[i].last_k2.s);
@@ -372,11 +372,11 @@ int itable_overlay::next(struct it * it, iv_int * k1, const char ** k2, off_t * 
 	*k2 = it->ovr[min_idx].last_k2.s;
 	*off = it->ovr[min_idx].last_off;
 	if(source)
-		*source = tables[min_idx];
+		*source = it->ovr[min_idx].last_source;
 	return 0;
 }
 
-int itable_overlay::next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source)
+int itable_overlay::_next(struct it * it, const char ** k1, iv_int * k2, off_t * off, itable ** source)
 {
 	bool first = true;
 	size_t i, min_idx = table_count;
@@ -393,7 +393,7 @@ int itable_overlay::next(struct it * it, const char ** k1, iv_int * k2, off_t * 
 			it->ovr[i].empty = 0;
 			if(it->ovr[i].last_k1.s)
 				free((void *) it->ovr[i].last_k1.s);
-			it->ovr[i].r = tables[i]->next(&it->ovr[i].iter, &it->ovr[i].last_k1.s, &it->ovr[i].last_k2.i, &it->ovr[i].last_off);
+			it->ovr[i].r = tables[i]->next(&it->ovr[i].iter, &it->ovr[i].last_k1.s, &it->ovr[i].last_k2.i, &it->ovr[i].last_off, &it->ovr[i].last_source);
 			if(it->ovr[i].r >= 0)
 			{
 				it->ovr[i].last_k1.s = strdup(it->ovr[i].last_k1.s);
@@ -427,11 +427,11 @@ int itable_overlay::next(struct it * it, const char ** k1, iv_int * k2, off_t * 
 	*k2 = it->ovr[min_idx].last_k2.i;
 	*off = it->ovr[min_idx].last_off;
 	if(source)
-		*source = tables[min_idx];
+		*source = it->ovr[min_idx].last_source;
 	return 0;
 }
 
-int itable_overlay::next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source)
+int itable_overlay::_next(struct it * it, const char ** k1, const char ** k2, off_t * off, itable ** source)
 {
 	bool first = true;
 	size_t i, min_idx = table_count;
@@ -450,7 +450,7 @@ int itable_overlay::next(struct it * it, const char ** k1, const char ** k2, off
 				free((void *) it->ovr[i].last_k1.s);
 			if(it->ovr[i].last_k2.s)
 				free((void *) it->ovr[i].last_k2.s);
-			it->ovr[i].r = tables[i]->next(&it->ovr[i].iter, &it->ovr[i].last_k1.s, &it->ovr[i].last_k2.s, &it->ovr[i].last_off);
+			it->ovr[i].r = tables[i]->next(&it->ovr[i].iter, &it->ovr[i].last_k1.s, &it->ovr[i].last_k2.s, &it->ovr[i].last_off, &it->ovr[i].last_source);
 			if(it->ovr[i].r >= 0)
 			{
 				it->ovr[i].last_k1.s = strdup(it->ovr[i].last_k1.s);
@@ -488,11 +488,11 @@ int itable_overlay::next(struct it * it, const char ** k1, const char ** k2, off
 	*k2 = it->ovr[min_idx].last_k2.s;
 	*off = it->ovr[min_idx].last_off;
 	if(source)
-		*source = tables[min_idx];
+		*source = it->ovr[min_idx].last_source;
 	return 0;
 }
 
-int itable_overlay::next(struct it * it, iv_int * k1)
+int itable_overlay::_next(struct it * it, iv_int * k1)
 {
 	bool first = true;
 	size_t i, min_idx = table_count;
@@ -529,7 +529,7 @@ int itable_overlay::next(struct it * it, iv_int * k1)
 	return 0;
 }
 
-int itable_overlay::next(struct it * it, const char ** k1)
+int itable_overlay::_next(struct it * it, const char ** k1)
 {
 	bool first = true;
 	size_t i, min_idx = table_count;
