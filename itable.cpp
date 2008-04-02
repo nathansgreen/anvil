@@ -509,23 +509,3 @@ datastore * itable::get_datastore(const char * k1, const char * k2)
 {
 	return NULL;
 }
-
-ssize_t itable_disk::locate_string(const char ** array, ssize_t size, const char * string)
-{
-	/* binary search */
-	ssize_t min = 0, max = size - 1;
-	while(min <= max)
-	{
-		int c;
-		/* watch out for overflow! */
-		ssize_t index = min + (max - min) / 2;
-		c = strcmp(array[index], string);
-		if(c < 0)
-			min = index + 1;
-		else if(c > 0)
-			max = index - 1;
-		else
-			return index;
-	}
-	return -1;
-}

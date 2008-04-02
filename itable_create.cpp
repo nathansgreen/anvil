@@ -17,9 +17,29 @@
 #include "tempfile.h"
 #include "itable.h"
 
-/* These two methods are part of the itable_disk class, but are here because
- * they are substantially different than the rest of the class (being for
- * writing itable_disk files instead of reading them). */
+/* These methods are part of the itable_disk class, but are here because they
+ * are substantially different than the rest of the class (being for writing
+ * itable_disk files instead of reading them). */
+
+ssize_t itable_disk::locate_string(const char ** array, ssize_t size, const char * string)
+{
+	/* binary search */
+	ssize_t min = 0, max = size - 1;
+	while(min <= max)
+	{
+		int c;
+		/* watch out for overflow! */
+		ssize_t index = min + (max - min) / 2;
+		c = strcmp(array[index], string);
+		if(c < 0)
+			min = index + 1;
+		else if(c > 0)
+			max = index - 1;
+		else
+			return index;
+	}
+	return -1;
+}
 
 int itable_disk::create(int dfd, const char * file, itable * source)
 {
