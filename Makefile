@@ -1,5 +1,6 @@
 CSOURCES=blowfish.c hash_map.c hash_set.c journal.c md5.c openat.c stable.c toilet.c transaction.c vector.c
-CPPSOURCES=atable.cpp datastore.cpp diskhash.cpp disktree.cpp index.cpp itable.cpp itable_datamap.cpp itable_overlay.cpp memcache.cpp multimap.cpp stringset.cpp tempfile.cpp
+CPPSOURCES=atable.cpp datastore.cpp dummy_datastore.cpp itable.cpp itable_create.cpp itable_datamap.cpp itable_overlay.cpp stringset.cpp tempfile.cpp
+CPPSOURCES+=diskhash.cpp disktree.cpp index.cpp memcache.cpp multimap.cpp
 SOURCES=$(CSOURCES) $(CPPSOURCES)
 
 HEADERS=$(wildcard *.h)

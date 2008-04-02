@@ -2,13 +2,14 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#include "itable.h"
+
 #ifndef __ITABLE_DATAMAP_H
 #define __ITABLE_DATAMAP_H
 
 #include <stdint.h>
 
 #include "hash_map.h"
-#include "itable.h"
 
 #ifndef __cplusplus
 #error itable_datamap.h is a C++ header file

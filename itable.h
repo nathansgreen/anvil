@@ -130,6 +130,8 @@ protected:
 	ktype k1t, k2t;
 };
 
+#include "itable_datamap.h"
+
 class itable_disk : public itable
 {
 public:
@@ -170,8 +172,23 @@ public:
 	
 	/* not just copy, since the source can be composite */
 	static int create(int dfd, const char * file, itable * source);
+	static int create_with_datastore(int i_dfd, const char * i_file, itable * source, itable_datamap * map);
 	
 private:
+	struct file_header {
+		uint32_t magic;
+		uint16_t version;
+		uint8_t types[2];
+	} __attribute__((packed));
+	
+	struct itable_header {
+		uint32_t k1_count;
+		uint32_t off_base;
+		uint8_t key_sizes[2];
+		uint8_t count_size;
+		uint8_t off_sizes[2];
+	} __attribute__((packed));
+	
 	int fd;
 	off_t k1_offset;
 	uint8_t key_sizes[2];
