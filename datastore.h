@@ -69,12 +69,12 @@ public:
 	/* length is always required here */
 	char * read_stringX(off_t off, char * string, size_t length);
 	
-	/* length is only needed if you provide a blob instead of NULL */
-	void * read_blob255(off_t off, void * blob = NULL, uint8_t * length = NULL);
-	void * read_blob65k(off_t off, void * blob = NULL, uint16_t * length = NULL);
-	void * read_blob4g(off_t off, void * blob = NULL, uint32_t * length = NULL);
+	/* length is input/output if you provide a blob instead of NULL, else output only */
+	void * read_blob255(off_t off, uint8_t * length, void * blob = NULL);
+	void * read_blob65k(off_t off, uint16_t * length, void * blob = NULL);
+	void * read_blob4g(off_t off, uint32_t * length, void * blob = NULL);
 	/* length is always required here */
-	void * read_blobX(off_t off, void * blob, size_t length);
+	void * read_blobX(off_t off, size_t length, void * blob);
 	
 	inline datastore();
 	int init(int dfd, const char * file, bool create = false);

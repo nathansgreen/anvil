@@ -314,7 +314,7 @@ char * datastore::read_stringX(off_t off, char * string, size_t length)
 	return string;
 }
 
-void * datastore::read_blob255(off_t off, void * blob, uint8_t * length)
+void * datastore::read_blob255(off_t off, uint8_t * length, void * blob)
 {
 	ssize_t r;
 	bool do_free = !blob;
@@ -327,11 +327,11 @@ void * datastore::read_blob255(off_t off, void * blob, uint8_t * length)
 	{
 		if(real_length > *length)
 			return NULL;
-		*length = real_length;
 		blob = malloc(real_length);
 		if(!blob)
 			return NULL;
 	}
+	*length = real_length;
 	r = read(ufd, blob, real_length);
 	if(r < 0 || r < real_length)
 	{
@@ -342,7 +342,7 @@ void * datastore::read_blob255(off_t off, void * blob, uint8_t * length)
 	return blob;
 }
 
-void * datastore::read_blob65k(off_t off, void * blob, uint16_t * length)
+void * datastore::read_blob65k(off_t off, uint16_t * length, void * blob)
 {
 	ssize_t r;
 	bool do_free = !blob;
@@ -355,11 +355,11 @@ void * datastore::read_blob65k(off_t off, void * blob, uint16_t * length)
 	{
 		if(real_length > *length)
 			return NULL;
-		*length = real_length;
 		blob = malloc(real_length);
 		if(!blob)
 			return NULL;
 	}
+	*length = real_length;
 	r = read(ufd, blob, real_length);
 	if(r < 0 || r < real_length)
 	{
@@ -370,7 +370,7 @@ void * datastore::read_blob65k(off_t off, void * blob, uint16_t * length)
 	return blob;
 }
 
-void * datastore::read_blob4g(off_t off, void * blob, uint32_t * length)
+void * datastore::read_blob4g(off_t off, uint32_t * length, void * blob)
 {
 	ssize_t r;
 	bool do_free = !blob;
@@ -383,11 +383,11 @@ void * datastore::read_blob4g(off_t off, void * blob, uint32_t * length)
 	{
 		if(real_length > *length)
 			return NULL;
-		*length = real_length;
 		blob = malloc(real_length);
 		if(!blob)
 			return NULL;
 	}
+	*length = real_length;
 	r = read(ufd, blob, real_length);
 	if(r < 0 || r < real_length)
 	{
@@ -398,7 +398,7 @@ void * datastore::read_blob4g(off_t off, void * blob, uint32_t * length)
 	return blob;
 }
 
-void * datastore::read_blobX(off_t off, void * blob, size_t length)
+void * datastore::read_blobX(off_t off, size_t length, void * blob)
 {
 	ssize_t r;
 	bool do_free = !blob;

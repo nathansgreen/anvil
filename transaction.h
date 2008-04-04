@@ -5,6 +5,7 @@
 #ifndef __TRANSACTION_H
 #define __TRANSACTION_H
 
+#include <stdarg.h>
 #include <stdint.h>
 #include <sys/types.h>
 
@@ -27,6 +28,8 @@ int tx_forget(tx_id id);
 tx_fd tx_open(int dfd, const char * name, int flags, ...);
 int tx_read_fd(tx_fd fd);
 int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length);
+int tx_vnprintf(tx_fd fd, off_t offset, size_t max, const char * format, va_list ap);
+int tx_nprintf(tx_fd fd, off_t offset, size_t max, const char * format, ...);
 int tx_close(tx_fd fd);
 
 int tx_unlink(int dfd, const char * name);
