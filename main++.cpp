@@ -103,9 +103,6 @@ int command_atable(int argc, const char * argv[])
 	itable_disk tbl;
 	itable_overlay ovr;
 	itable::it iter;
-	const char * col;
-	iv_int row;
-	off_t off;
 	int r;
 	if(argc < 3)
 		return 0;

@@ -16,7 +16,7 @@ off_t datastore::append_uint8(uint8_t i)
 	if(tx_write(fd, &i, offset, sizeof(i)) < 0)
 		return INVAL_OFF_T;
 	offset += sizeof(i);
-	return 0;
+	return off;
 }
 
 off_t datastore::append_uint16(uint16_t i)
@@ -25,7 +25,7 @@ off_t datastore::append_uint16(uint16_t i)
 	if(tx_write(fd, &i, offset, sizeof(i)) < 0)
 		return INVAL_OFF_T;
 	offset += sizeof(i);
-	return 0;
+	return off;
 }
 
 off_t datastore::append_uint32(uint32_t i)
@@ -34,7 +34,7 @@ off_t datastore::append_uint32(uint32_t i)
 	if(tx_write(fd, &i, offset, sizeof(i)) < 0)
 		return INVAL_OFF_T;
 	offset += sizeof(i);
-	return 0;
+	return off;
 }
 
 off_t datastore::append_uint64(uint64_t i)
@@ -43,7 +43,7 @@ off_t datastore::append_uint64(uint64_t i)
 	if(tx_write(fd, &i, offset, sizeof(i)) < 0)
 		return INVAL_OFF_T;
 	offset += sizeof(i);
-	return 0;
+	return off;
 }
 
 off_t datastore::append_float(float f)
@@ -52,7 +52,7 @@ off_t datastore::append_float(float f)
 	if(tx_write(fd, &f, offset, sizeof(f)) < 0)
 		return INVAL_OFF_T;
 	offset += sizeof(f);
-	return 0;
+	return off;
 }
 
 off_t datastore::append_double(double d)
@@ -61,7 +61,7 @@ off_t datastore::append_double(double d)
 	if(tx_write(fd, &d, offset, sizeof(d)) < 0)
 		return INVAL_OFF_T;
 	offset += sizeof(d);
-	return 0;
+	return off;
 }
 
 off_t datastore::append_string255(const char * string)
@@ -153,7 +153,7 @@ int datastore::read_uint8(off_t off, uint8_t * i)
 	ssize_t r;
 	lseek(ufd, off, SEEK_SET);
 	r = read(ufd, i, sizeof(*i));
-	if(r < 0 || r < sizeof(*i))
+	if(r < 0 || r < (ssize_t) sizeof(*i))
 		return -1;
 	return 0;
 }
@@ -163,7 +163,7 @@ int datastore::read_uint16(off_t off, uint16_t * i)
 	ssize_t r;
 	lseek(ufd, off, SEEK_SET);
 	r = read(ufd, i, sizeof(*i));
-	if(r < 0 || r < sizeof(*i))
+	if(r < 0 || r < (ssize_t) sizeof(*i))
 		return -1;
 	return 0;
 }
@@ -173,7 +173,7 @@ int datastore::read_uint32(off_t off, uint32_t * i)
 	ssize_t r;
 	lseek(ufd, off, SEEK_SET);
 	r = read(ufd, i, sizeof(*i));
-	if(r < 0 || r < sizeof(*i))
+	if(r < 0 || r < (ssize_t) sizeof(*i))
 		return -1;
 	return 0;
 }
@@ -183,7 +183,7 @@ int datastore::read_uint64(off_t off, uint64_t * i)
 	ssize_t r;
 	lseek(ufd, off, SEEK_SET);
 	r = read(ufd, i, sizeof(*i));
-	if(r < 0 || r < sizeof(*i))
+	if(r < 0 || r < (ssize_t) sizeof(*i))
 		return -1;
 	return 0;
 }
@@ -193,7 +193,7 @@ int datastore::read_float(off_t off, float * f)
 	ssize_t r;
 	lseek(ufd, off, SEEK_SET);
 	r = read(ufd, f, sizeof(*f));
-	if(r < 0 || r < sizeof(*f))
+	if(r < 0 || r < (ssize_t) sizeof(*f))
 		return -1;
 	return 0;
 }
@@ -203,7 +203,7 @@ int datastore::read_double(off_t off, double * d)
 	ssize_t r;
 	lseek(ufd, off, SEEK_SET);
 	r = read(ufd, d, sizeof(*d));
-	if(r < 0 || r < sizeof(*d))
+	if(r < 0 || r < (ssize_t) sizeof(*d))
 		return -1;
 	return 0;
 }
@@ -215,7 +215,7 @@ char * datastore::read_string255(off_t off, char * string, uint8_t length)
 	uint8_t real_length;
 	lseek(ufd, off, SEEK_SET);
 	r = read(ufd, &real_length, sizeof(real_length));
-	if(r < 0 || r < sizeof(real_length))
+	if(r < 0 || r < (ssize_t) sizeof(real_length))
 		return NULL;
 	if(do_free)
 	{
@@ -243,7 +243,7 @@ char * datastore::read_string65k(off_t off, char * string, uint16_t length)
 	uint16_t real_length;
 	lseek(ufd, off, SEEK_SET);
 	r = read(ufd, &real_length, sizeof(real_length));
-	if(r < 0 || r < sizeof(real_length))
+	if(r < 0 || r < (ssize_t) sizeof(real_length))
 		return NULL;
 	if(do_free)
 	{
@@ -271,7 +271,7 @@ char * datastore::read_string4g(off_t off, char * string, uint32_t length)
 	uint32_t real_length;
 	lseek(ufd, off, SEEK_SET);
 	r = read(ufd, &real_length, sizeof(real_length));
-	if(r < 0 || r < sizeof(real_length))
+	if(r < 0 || r < (ssize_t) sizeof(real_length))
 		return NULL;
 	if(do_free)
 	{
@@ -282,7 +282,7 @@ char * datastore::read_string4g(off_t off, char * string, uint32_t length)
 			return NULL;
 	}
 	r = read(ufd, string, real_length);
-	if(r < 0 || r < real_length)
+	if(r < 0 || r < (ssize_t) real_length)
 	{
 		if(do_free)
 			free(string);
@@ -304,7 +304,7 @@ char * datastore::read_stringX(off_t off, char * string, size_t length)
 			return NULL;
 	}
 	r = read(ufd, string, --length);
-	if(r < 0 || r < length)
+	if(r < 0 || r < (ssize_t) length)
 	{
 		if(do_free)
 			free(string);
@@ -321,7 +321,7 @@ void * datastore::read_blob255(off_t off, uint8_t * length, void * blob)
 	uint8_t real_length;
 	lseek(ufd, off, SEEK_SET);
 	r = read(ufd, &real_length, sizeof(real_length));
-	if(r < 0 || r < sizeof(real_length))
+	if(r < 0 || r < (ssize_t) sizeof(real_length))
 		return NULL;
 	if(do_free)
 	{
@@ -349,7 +349,7 @@ void * datastore::read_blob65k(off_t off, uint16_t * length, void * blob)
 	uint16_t real_length;
 	lseek(ufd, off, SEEK_SET);
 	r = read(ufd, &real_length, sizeof(real_length));
-	if(r < 0 || r < sizeof(real_length))
+	if(r < 0 || r < (ssize_t) sizeof(real_length))
 		return NULL;
 	if(do_free)
 	{
@@ -377,7 +377,7 @@ void * datastore::read_blob4g(off_t off, uint32_t * length, void * blob)
 	uint32_t real_length;
 	lseek(ufd, off, SEEK_SET);
 	r = read(ufd, &real_length, sizeof(real_length));
-	if(r < 0 || r < sizeof(real_length))
+	if(r < 0 || r < (ssize_t) sizeof(real_length))
 		return NULL;
 	if(do_free)
 	{
@@ -389,7 +389,7 @@ void * datastore::read_blob4g(off_t off, uint32_t * length, void * blob)
 	}
 	*length = real_length;
 	r = read(ufd, blob, real_length);
-	if(r < 0 || r < real_length)
+	if(r < 0 || r < (ssize_t) real_length)
 	{
 		if(do_free)
 			free(blob);
@@ -410,7 +410,7 @@ void * datastore::read_blobX(off_t off, size_t length, void * blob)
 			return NULL;
 	}
 	r = read(ufd, blob, length);
-	if(r < 0 || r < length)
+	if(r < 0 || r < (ssize_t) length)
 	{
 		if(do_free)
 			free(blob);

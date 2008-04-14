@@ -11,42 +11,42 @@ off_t dummy_datastore::append_uint8(uint8_t i)
 {
 	off_t off = offset;
 	offset += sizeof(i);
-	return 0;
+	return off;
 }
 
 off_t dummy_datastore::append_uint16(uint16_t i)
 {
 	off_t off = offset;
 	offset += sizeof(i);
-	return 0;
+	return off;
 }
 
 off_t dummy_datastore::append_uint32(uint32_t i)
 {
 	off_t off = offset;
 	offset += sizeof(i);
-	return 0;
+	return off;
 }
 
 off_t dummy_datastore::append_uint64(uint64_t i)
 {
 	off_t off = offset;
 	offset += sizeof(i);
-	return 0;
+	return off;
 }
 
 off_t dummy_datastore::append_float(float f)
 {
 	off_t off = offset;
 	offset += sizeof(f);
-	return 0;
+	return off;
 }
 
 off_t dummy_datastore::append_double(double d)
 {
 	off_t off = offset;
 	offset += sizeof(d);
-	return 0;
+	return off;
 }
 
 off_t dummy_datastore::append_string255(const char * string)
