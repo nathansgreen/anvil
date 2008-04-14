@@ -4,7 +4,7 @@
 
 #include <errno.h>
 
-#include "append_dtable.h"
+#include "journal_dtable.h"
 
 bool journal_dtable::iter::valid() const
 {
