@@ -69,7 +69,7 @@ void itable_overlay::deinit()
 {
 	if(!tables)
 		return;
-	delete tables;
+	delete[] tables;
 	tables = NULL;
 	table_count = 0;
 }

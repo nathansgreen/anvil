@@ -29,6 +29,13 @@ public:
 	virtual ~sane_iter() {}
 };
 
+template<class T, class U, class V> class sane_iter3 : public sane_iter<T, U>
+{
+public:
+	virtual V extra() const = 0;
+	virtual ~sane_iter3() {}
+};
+
 /* data tables */
 
 class dtable
@@ -57,9 +64,9 @@ public:
 		}
 	}
 	
-	virtual sane_iter<dtype, blob> * iterator() const = 0;
-	virtual blob lookup(dtype key, bool * found) const = 0;
-	inline blob find(dtype key) const { bool found; return lookup(key, &found); }
+	virtual sane_iter3<dtype, blob, const dtable *> * iterator() const = 0;
+	virtual blob lookup(dtype key, const dtable ** source) const = 0;
+	inline blob find(dtype key) const { const dtable * source; return lookup(key, &source); }
 	inline virtual ~dtable() {}
 };
 

@@ -77,7 +77,8 @@ inline itable_overlay::itable_overlay()
 
 inline itable_overlay::~itable_overlay()
 {
-	deinit();
+	if(tables)
+		deinit();
 }
 
 #endif /* __ITABLE_OVERLAY_H */

@@ -27,23 +27,28 @@ blob journal_dtable::iter::value() const
 	return jdt_next->value;
 }
 
-sane_iter<dtype, blob> * journal_dtable::iterator() const
+const dtable * journal_dtable::iter::extra() const
+{
+	return source;
+}
+
+sane_iter3<dtype, blob, const dtable *> * journal_dtable::iterator() const
 {
 	node * node;
 	/* find first node */
 	for(node = root; node && node->left; node = node->left);
-	return new iter(node);
+	return new iter(node, this);
 }
 
-blob journal_dtable::lookup(dtype key, bool * found) const
+blob journal_dtable::lookup(dtype key, const dtable ** source) const
 {
 	node * node = find_node(key);
 	if(node)
 	{
-		*found = true;
+		*source = this;
 		return node->value;
 	}
-	*found = false;
+	*source = NULL;
 	return blob();
 }
 
