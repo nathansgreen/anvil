@@ -18,12 +18,17 @@ overlay_dtable::iter::iter(const overlay_dtable * source)
 		subs[i].empty = true;
 		subs[i].valid = true;
 	}
-	advance();
+	next();
+}
+
+bool overlay_dtable::iter::valid() const
+{
+	return next_index < source->table_count;
 }
 
 /* this will let negative entry blobs shadow positive ones just like we want
  * without any special handling, since next() and valid() still return true */
-bool overlay_dtable::iter::advance()
+bool overlay_dtable::iter::next()
 {
 	size_t i;
 	bool first = true;
@@ -54,16 +59,6 @@ bool overlay_dtable::iter::advance()
 		return false;
 	subs[i].empty = true;
 	return true;
-}
-
-bool overlay_dtable::iter::valid() const
-{
-	return next_index < source->table_count;
-}
-
-bool overlay_dtable::iter::next()
-{
-	return advance();
 }
 
 dtype overlay_dtable::iter::key() const

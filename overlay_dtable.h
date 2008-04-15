@@ -44,14 +44,13 @@ private:
 		virtual const dtable * extra() const;
 		inline iter(const overlay_dtable * source);
 		virtual ~iter() { delete[] subs; }
+		
 	private:
 		struct sub
 		{
 			sane_iter3<dtype, blob, const dtable *> * iter;
 			bool empty, valid;
 		};
-		
-		bool advance();
 		
 		sub * subs;
 		size_t next_index;
