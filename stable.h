@@ -37,8 +37,8 @@ int st_kill(struct stable * st);
 
 /* The return value of st_get() is good until at least ST_LRU
  * more calls to st_get(), or one call to st_locate(). */
-const char * st_get(struct stable * st, ssize_t index);
-ssize_t st_locate(struct stable * st, const char * string);
+const char * st_get(const struct stable * st, ssize_t index);
+ssize_t st_locate(const struct stable * st, const char * string);
 
 const char ** st_read(struct stable * st);
 void st_array_free(const char ** array, ssize_t count);

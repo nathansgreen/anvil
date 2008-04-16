@@ -9,6 +9,8 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
+#include "stable.h"
+
 #include "blob.h"
 #include "dtable.h"
 
@@ -24,6 +26,9 @@
  * efficiently given knowledge of what it will probably be. It is considered bad
  * form to have such a custom class outright reject data that it does not know
  * how to store conveniently, however. */
+
+#define SDTABLE_MAGIC 0xF029DDE3
+#define SDTABLE_VERSION 0
 
 class simple_dtable : public dtable
 {
@@ -45,6 +50,16 @@ class simple_dtable : public dtable
 	static int create(int dfd, const char * file, const dtable * source, const dtable * shadow = NULL);
 	
 private:
+	struct dtable_header {
+		uint32_t magic;
+		uint32_t version;
+		uint32_t key_count;
+		uint8_t key_type;
+		uint8_t key_size;
+		uint8_t length_size;
+		uint8_t offset_size;
+	} __attribute__((packed));
+	
 	class iter : public sane_iter3<dtype, blob, const dtable *>
 	{
 	public:
@@ -57,10 +72,21 @@ private:
 		virtual ~iter() { }
 		
 	private:
+		size_t index;
 		const simple_dtable * source;
 	};
 	
+	dtype get_key(size_t index, size_t * data_length = NULL, off_t * data_offset = NULL) const;
+	int find_key(dtype key, size_t * data_length, off_t * data_offset, size_t * index) const;
+	blob get_value(size_t index, size_t data_length, off_t data_offset) const;
+	blob get_value(size_t index) const;
+	
 	int fd;
+	size_t key_count;
+	struct stable st;
+	dtype::ctype key_type;
+	uint8_t key_size, length_size, offset_size;
+	off_t key_start_off, data_start_off;
 };
 
 #endif /* __SIMPLE_DTABLE_H */

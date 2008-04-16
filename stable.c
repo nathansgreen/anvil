@@ -65,7 +65,7 @@ int st_kill(struct stable * st)
 	return 0;
 }
 
-const char * st_get(struct stable * st, ssize_t index)
+const char * st_get(const struct stable * st, ssize_t index)
 {
 	int i, bc = 0;
 	off_t offset;
@@ -107,14 +107,15 @@ const char * st_get(struct stable * st, ssize_t index)
 	}
 	string[length] = 0;
 	i = st->lru_next;
-	st->lru[i].index = index;
+	/* the LRU entries don't count as const */
+	((struct stable *) st)->lru[i].index = index;
 	if(st->lru[i].string)
 		free((void *) st->lru[i].string);
-	st->lru[i].string = string;
+	((struct stable *) st)->lru[i].string = string;
 	return string;
 }
 
-ssize_t st_locate(struct stable * st, const char * string)
+ssize_t st_locate(const struct stable * st, const char * string)
 {
 	/* binary search */
 	ssize_t min = 0, max = st->count - 1;
