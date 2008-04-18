@@ -163,8 +163,11 @@ int journal_dtable::log(dtype key, const blob & blob)
 
 int journal_dtable::append(dtype key, const blob & blob)
 {
+	int r;
 	node * node;
-	int r = log(key, blob);
+	if(key.type != ktype)
+		return -EINVAL;
+	r = log(key, blob);
 	if(r < 0)
 		return r;
 	node = find_node(key);
@@ -181,12 +184,13 @@ int journal_dtable::remove(dtype key)
 	return append(key, blob());
 }
 
-int journal_dtable::init(sys_journal::listener_id id)
+int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id id)
 {
 	int r;
 	if(listener_id != sys_journal::NO_ID)
 		deinit();
 	assert(!root);
+	ktype = key_type;
 	r = strings.init(true);
 	if(r < 0)
 		return r;
@@ -295,6 +299,8 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 		case JDT_KEY_U32:
 		{
 			jdt_key_u32 * u32 = (jdt_key_u32 *) entry;
+			if(ktype != dtype::UINT32)
+				return -EINVAL;
 			if(u32->size == (size_t) -1)
 				return add_node(u32->key, blob());
 			return add_node(u32->key, blob(u32->size, u32->data));
@@ -302,6 +308,8 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 		case JDT_KEY_DBL:
 		{
 			jdt_key_dbl * dbl = (jdt_key_dbl *) entry;
+			if(ktype != dtype::DOUBLE)
+				return -EINVAL;
 			if(dbl->size == (size_t) -1)
 				return add_node(dbl->key, blob());
 			return add_node(dbl->key, blob(dbl->size, dbl->data));
@@ -310,7 +318,7 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 		{
 			jdt_key_str * str = (jdt_key_str *) entry;
 			const char * string = strings.lookup(str->index);
-			if(!string)
+			if(!string || ktype != dtype::STRING)
 				return -EINVAL;
 			if(str->size == (size_t) -1)
 				return add_node(string, blob());

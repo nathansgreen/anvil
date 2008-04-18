@@ -11,6 +11,7 @@
 #include "openat.h"
 #include "transaction.h"
 
+#include "stringset.h"
 #include "simple_dtable.h"
 
 /* simple dtable file format:
@@ -95,7 +96,7 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 			*data_offset = ((*data_offset) << 8) | bytes[i];
 	}
 	
-	switch(key_type)
+	switch(ktype)
 	{
 		case dtype::UINT32:
 		{
@@ -201,17 +202,17 @@ int simple_dtable::init(int dfd, const char * file)
 	switch(header.key_type)
 	{
 		case 1:
-			key_type = dtype::UINT32;
+			ktype = dtype::UINT32;
 			if(key_size > 4)
 				goto fail;
 			break;
 		case 2:
-			key_type = dtype::DOUBLE;
+			ktype = dtype::DOUBLE;
 			if(key_size != sizeof(double))
 				goto fail;
 			break;
 		case 3:
-			key_type = dtype::STRING;
+			ktype = dtype::STRING;
 			if(key_size > 4)
 				goto fail;
 			r = st_init(&st, fd, key_start_off);
@@ -242,14 +243,178 @@ void simple_dtable::deinit()
 {
 	if(fd >= 0)
 	{
-		if(key_type == dtype::STRING)
+		if(ktype == dtype::STRING)
 			st_kill(&st);
 		close(fd);
 		fd = -1;
 	}
 }
 
+/* FIXME: by reserving space for the header, and storing the string table at the end of the file, we
+ * can reduce the number of passes over the input keys to only 1 (but still that plus the data) */
 int simple_dtable::create(int dfd, const char * file, const dtable * source, const dtable * shadow)
 {
-	return -ENOSYS;
+	sane_iter3<dtype, blob, const dtable *> * iter;
+	dtype::ctype key_type = source->key_type();
+	stringset strings;
+	const char ** string_array = NULL;
+	size_t string_count = 0, key_count = 0;
+	size_t max_data_size = 0, total_data_size = 0;
+	uint32_t max_key = 0;
+	if(shadow && shadow->key_type() != key_type)
+		return -EINVAL;
+	if(key_type == dtype::STRING)
+	{
+		int r = strings.init();
+		if(r < 0)
+			return r;
+	}
+	iter = source->iterator();
+	while(iter->valid())
+	{
+		dtype key = iter->key();
+		/* XXX get value size without reading value */
+		blob value = iter->value();
+		iter->next();
+		if(value.negative())
+			/* omit negative entries no longer needed */
+			if(!shadow || shadow->find(key).negative())
+				continue;
+		key_count++;
+		assert(key.type == key_type);
+		switch(key.type)
+		{
+			case dtype::UINT32:
+				if(key.u32 > max_key)
+					max_key = key.u32;
+				break;
+			case dtype::DOUBLE:
+				/* nothing to do */
+				break;
+			case dtype::STRING:
+				strings.add(key.str);
+				break;
+		}
+		if(value.size() > max_data_size)
+			max_data_size = value.size();
+		total_data_size += value.size();
+	}
+	delete iter;
+	if(strings.ready())
+	{
+		string_count = strings.size();
+		string_array = strings.array();
+		if(!string_array)
+			return -ENOMEM;
+	}
+	
+	/* now write the file */
+	int r, i, size;
+	tx_fd fd;
+	off_t out_off;
+	
+	dtable_header header;
+	header.magic = SDTABLE_MAGIC;
+	header.version = SDTABLE_VERSION;
+	header.key_count = key_count;
+	switch(key_type)
+	{
+		case dtype::UINT32:
+			header.key_type = 1;
+			header.key_size = byte_size(max_key);
+			break;
+		case dtype::DOUBLE:
+			header.key_type = 2;
+			header.key_size = sizeof(double);
+			break;
+		case dtype::STRING:
+			header.key_type = 3;
+			header.key_size = byte_size(string_count - 1);
+			break;
+	}
+	/* we reserve size 0 for negative entries, so add 1 */
+	header.length_size = byte_size(max_data_size + 1);
+	header.offset_size = byte_size(total_data_size);
+	size = header.key_size + header.length_size + header.offset_size;
+	
+	fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
+	if(fd < 0)
+	{
+		r = fd;
+		goto out_strings;
+	}
+	r = tx_write(fd, &header, 0, sizeof(header));
+	if(r < 0)
+	{
+	fail_unlink:
+		tx_close(fd);
+		tx_unlink(dfd, file);
+		goto out_strings;
+	}
+	out_off = sizeof(header);
+	if(string_array)
+	{
+		r = st_create(fd, &out_off, string_array, string_count);
+		if(r < 0)
+			goto fail_unlink;
+	}
+	
+	/* now the key array */
+	total_data_size = 0;
+	iter = source->iterator();
+	while(iter->valid())
+	{
+		uint8_t bytes[size];
+		dtype key = iter->key();
+		/* XXX get value negativity without reading value */
+		blob value = iter->value();
+		iter->next();
+		i = 0;
+		switch(key.type)
+		{
+			case dtype::UINT32:
+				layout_bytes(bytes, &i, key.u32, header.key_size);
+				break;
+			case dtype::DOUBLE:
+				memcpy(bytes, &key.dbl, sizeof(double));
+				i += sizeof(double);
+				break;
+			case dtype::STRING:
+				break;
+		}
+		layout_bytes(bytes, &i, value.negative() ? 0 : (value.size() + 1), header.length_size);
+		layout_bytes(bytes, &i, total_data_size, header.offset_size);
+		r = tx_write(fd, bytes, out_off, i);
+		if(r < 0)
+		{
+			delete iter;
+			goto fail_unlink;
+		}
+		out_off += i;
+		total_data_size += value.size();
+	}
+	delete iter;
+	
+	/* and the data itself*/
+	iter = source->iterator();
+	while(iter->valid())
+	{
+		blob value = iter->value();
+		r = tx_write(fd, &value[0], out_off, value.size());
+		if(r < 0)
+		{
+			delete iter;
+			goto fail_unlink;
+		}
+		out_off += value.size();
+	}
+	delete iter;
+	/* assume tx_close() works */
+	tx_close(fd);
+	r = 0;
+	
+out_strings:
+	if(string_array)
+		st_array_free(string_array, string_count);
+	return r;
 }

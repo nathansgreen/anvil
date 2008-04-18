@@ -84,7 +84,6 @@ private:
 	int fd;
 	size_t key_count;
 	struct stable st;
-	dtype::ctype key_type;
 	uint8_t key_size, length_size, offset_size;
 	off_t key_start_off, data_start_off;
 };

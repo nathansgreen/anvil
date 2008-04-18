@@ -16,6 +16,8 @@
 #endif
 
 /* blobs, the storage units of dtables */
+/* need to allow finding sizes of blobs without reading the blob data:
+ * make a sub-blob that doesn't have data? make data access virtual? */
 
 class blob
 {

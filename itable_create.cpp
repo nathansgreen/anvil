@@ -49,7 +49,7 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 	const char ** string_array = NULL;
 	off_t min_off = 0, max_off = 0, off;
 	size_t k1_count = 0, k2_count = 0, k2_count_max = 0;
-	size_t k2_total = 0, max_strlen = 0, strings = 0;
+	size_t k2_total = 0, strings = 0;
 	union { iv_int i; const char * s; } k1, old_k1, k2;
 	iv_int k1_max = 0, k2_max = 0;
 	int r = source->iter(&iter);
@@ -84,9 +84,6 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 			break;
 		if(source->k1_type() == STRING)
 		{
-			size_t length = strlen(k1.s);
-			if(length > max_strlen)
-				max_strlen = length;
 			k1.s = stringset.add(k1.s);
 			if(!k1.s)
 				break;
@@ -95,9 +92,6 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 			k1_max = k1.i;
 		if(source->k2_type() == STRING)
 		{
-			size_t length = strlen(k2.s);
-			if(length > max_strlen)
-				max_strlen = length;
 			k2.s = stringset.add(k2.s);
 			if(!k2.s)
 				break;
@@ -142,8 +136,8 @@ int itable_disk::create(int dfd, const char * file, itable * source)
 			return r;
 	}
 	assert(k1_count == k2_counts.count());
-	/* now we have k1_count, k2_count_max, k2_total, min_off, and max_off,
-	 * and, if appropriate, k1_max, k2_max, stringset, and max_strlen */
+	/* now we have k1_count, k2_count_max, k2_total, min_off, and
+	 * max_off, and, if appropriate, k1_max, k2_max, and stringset */
 	if(stringset.ready())
 	{
 		strings = stringset.size();

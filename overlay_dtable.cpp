@@ -100,10 +100,17 @@ int overlay_dtable::init(const dtable * dt1, ...)
 	size_t count = 1;
 	dtable * table;
 	
+	if(tables)
+		deinit();
+	ktype = dt1->key_type();
 	va_start(ap, dt1);
 	while((table = va_arg(ap, dtable *)))
 	{
-		/* check key type? */
+		if(table->key_type() != ktype)
+		{
+			va_end(ap);
+			return -EINVAL;
+		}
 		count++;
 	}
 	va_end(ap);
@@ -123,10 +130,15 @@ int overlay_dtable::init(const dtable * dt1, ...)
 
 int overlay_dtable::init(const dtable ** dts, size_t count)
 {
+	size_t i;
 	if(count < 1)
 		return -EINVAL;
-	
-	/* check key types? */
+	if(tables)
+		deinit();
+	ktype = dts[0]->key_type();
+	for(i = 1; i < count; i++)
+		if(dts[i]->key_type() != ktype)
+			return -EINVAL;
 	
 	tables = new const dtable *[count];
 	if(!tables)

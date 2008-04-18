@@ -67,7 +67,10 @@ public:
 	virtual sane_iter3<dtype, blob, const dtable *> * iterator() const = 0;
 	virtual blob lookup(dtype key, const dtable ** source) const = 0;
 	inline blob find(dtype key) const { const dtable * source; return lookup(key, &source); }
+	inline dtype::ctype key_type() const { return ktype; }
 	inline virtual ~dtable() {}
+protected:
+	dtype::ctype ktype;
 };
 
 #endif /* __DTABLE_H */
