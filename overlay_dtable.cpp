@@ -8,7 +8,7 @@
 #include "overlay_dtable.h"
 
 overlay_dtable::iter::iter(const overlay_dtable * source)
-	: source(source)
+	: ovr_source(source)
 {
 	size_t i;
 	subs = new sub[source->table_count];
@@ -23,7 +23,7 @@ overlay_dtable::iter::iter(const overlay_dtable * source)
 
 bool overlay_dtable::iter::valid() const
 {
-	return next_index < source->table_count;
+	return next_index < ovr_source->table_count;
 }
 
 /* this will let negative entry blobs shadow positive ones just like we want
@@ -33,8 +33,8 @@ bool overlay_dtable::iter::next()
 	size_t i;
 	bool first = true;
 	dtype min_key((uint32_t) 0);
-	next_index = source->table_count;
-	for(i = 0; i < source->table_count; i++)
+	next_index = ovr_source->table_count;
+	for(i = 0; i < ovr_source->table_count; i++)
 	{
 		if(subs[i].empty)
 		{
@@ -55,7 +55,7 @@ bool overlay_dtable::iter::next()
 			/* skip shadowed entry */
 			subs[i].empty = true;
 	}
-	if(next_index == source->table_count)
+	if(next_index == ovr_source->table_count)
 		return false;
 	subs[i].empty = true;
 	return true;
@@ -66,17 +66,22 @@ dtype overlay_dtable::iter::key() const
 	return subs[next_index].iter->key();
 }
 
+metablob overlay_dtable::iter::meta() const
+{
+	return subs[next_index].iter->meta();
+}
+
 blob overlay_dtable::iter::value() const
 {
 	return subs[next_index].iter->value();
 }
 
-const dtable * overlay_dtable::iter::extra() const
+const dtable * overlay_dtable::iter::source() const
 {
-	return subs[next_index].iter->extra();
+	return subs[next_index].iter->source();
 }
 
-sane_iter3<dtype, blob, const dtable *> * overlay_dtable::iterator() const
+dtable_iter * overlay_dtable::iterator() const
 {
 	return new iter(this);
 }

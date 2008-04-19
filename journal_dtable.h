@@ -24,7 +24,7 @@
 
 class journal_dtable : public dtable, public sys_journal::journal_listener
 {
-	virtual sane_iter3<dtype, blob, const dtable *> * iterator() const;
+	virtual dtable_iter * iterator() const;
 	virtual blob lookup(dtype key, const dtable ** source) const;
 	
 	int append(dtype key, const blob & blob);
@@ -59,19 +59,20 @@ private:
 	static void next_node(node ** n);
 	static void kill_nodes(node * n);
 	
-	class iter : public sane_iter3<dtype, blob, const dtable *>
+	class iter : public dtable_iter
 	{
 	public:
 		virtual bool valid() const;
 		virtual bool next();
 		virtual dtype key() const;
+		virtual metablob meta() const;
 		virtual blob value() const;
-		virtual const dtable * extra() const;
-		inline iter(node * start, const dtable * source) : jdt_next(start), source(source) {}
+		virtual const dtable * source() const;
+		inline iter(node * start, const dtable * source) : jdt_next(start), jdt_source(source) {}
 		virtual ~iter() {}
 	private:
 		node * jdt_next;
-		const dtable * source;
+		const dtable * jdt_source;
 	};
 	
 	int add_string(const char * string, uint32_t * index);

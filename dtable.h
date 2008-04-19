@@ -18,22 +18,19 @@
 
 /* iterating through stuff seems like it is useful */
 
-template<class T, class U = T> class sane_iter
+class dtable;
+
+class dtable_iter
 {
 public:
 	virtual bool valid() const = 0;
 	/* operator++ can suck it; we're using next() */
 	virtual bool next() = 0;
-	virtual T key() const = 0;
-	virtual U value() const = 0;
-	virtual ~sane_iter() {}
-};
-
-template<class T, class U, class V> class sane_iter3 : public sane_iter<T, U>
-{
-public:
-	virtual V extra() const = 0;
-	virtual ~sane_iter3() {}
+	virtual dtype key() const = 0;
+	virtual metablob meta() const = 0;
+	virtual blob value() const = 0;
+	virtual const dtable * source() const = 0;
+	virtual ~dtable_iter() {}
 };
 
 /* data tables */
@@ -64,7 +61,7 @@ public:
 		}
 	}
 	
-	virtual sane_iter3<dtype, blob, const dtable *> * iterator() const = 0;
+	virtual dtable_iter * iterator() const = 0;
 	virtual blob lookup(dtype key, const dtable ** source) const = 0;
 	inline blob find(dtype key) const { const dtable * source; return lookup(key, &source); }
 	inline dtype::ctype key_type() const { return ktype; }

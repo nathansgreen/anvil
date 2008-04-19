@@ -36,36 +36,43 @@
 /* TODO: use some sort of buffering here to avoid lots of small read()/write() calls */
 
 simple_dtable::iter::iter(const simple_dtable * source)
-	: index(0), source(source)
+	: index(0), sdt_source(source)
 {
 }
 
 bool simple_dtable::iter::valid() const
 {
-	return index < source->key_count;
+	return index < sdt_source->key_count;
 }
 
 bool simple_dtable::iter::next()
 {
-	return ++index < source->key_count;
+	return ++index < sdt_source->key_count;
 }
 
 dtype simple_dtable::iter::key() const
 {
-	return source->get_key(index);
+	return sdt_source->get_key(index);
+}
+
+metablob simple_dtable::iter::meta() const
+{
+	size_t data_length;
+	sdt_source->get_key(index, &data_length);
+	return data_length ? metablob(data_length - 1) : metablob();
 }
 
 blob simple_dtable::iter::value() const
 {
-	return source->get_value(index);
+	return sdt_source->get_value(index);
 }
 
-const dtable * simple_dtable::iter::extra() const
+const dtable * simple_dtable::iter::source() const
 {
-	return source;
+	return sdt_source;
 }
 
-sane_iter3<dtype, blob, const dtable *> * simple_dtable::iterator() const
+dtable_iter * simple_dtable::iterator() const
 {
 	return new iter(this);
 }
@@ -254,7 +261,7 @@ void simple_dtable::deinit()
  * can reduce the number of passes over the input keys to only 1 (but still that plus the data) */
 int simple_dtable::create(int dfd, const char * file, const dtable * source, const dtable * shadow)
 {
-	sane_iter3<dtype, blob, const dtable *> * iter;
+	dtable_iter * iter;
 	dtype::ctype key_type = source->key_type();
 	stringset strings;
 	const char ** string_array = NULL;
@@ -273,10 +280,9 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 	while(iter->valid())
 	{
 		dtype key = iter->key();
-		/* XXX get value size without reading value */
-		blob value = iter->value();
+		metablob meta = iter->meta();
 		iter->next();
-		if(value.negative())
+		if(meta.negative())
 			/* omit negative entries no longer needed */
 			if(!shadow || shadow->find(key).negative())
 				continue;
@@ -295,9 +301,9 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 				strings.add(key.str);
 				break;
 		}
-		if(value.size() > max_data_size)
-			max_data_size = value.size();
-		total_data_size += value.size();
+		if(meta.size() > max_data_size)
+			max_data_size = meta.size();
+		total_data_size += meta.size();
 	}
 	delete iter;
 	if(strings.ready())
@@ -366,8 +372,7 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 	{
 		uint8_t bytes[size];
 		dtype key = iter->key();
-		/* XXX get value negativity without reading value */
-		blob value = iter->value();
+		metablob meta = iter->meta();
 		iter->next();
 		i = 0;
 		switch(key.type)
@@ -382,7 +387,7 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 			case dtype::STRING:
 				break;
 		}
-		layout_bytes(bytes, &i, value.negative() ? 0 : (value.size() + 1), header.length_size);
+		layout_bytes(bytes, &i, meta.negative() ? 0 : (meta.size() + 1), header.length_size);
 		layout_bytes(bytes, &i, total_data_size, header.offset_size);
 		r = tx_write(fd, bytes, out_off, i);
 		if(r < 0)
@@ -391,7 +396,7 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 			goto fail_unlink;
 		}
 		out_off += i;
-		total_data_size += value.size();
+		total_data_size += meta.size();
 	}
 	delete iter;
 	

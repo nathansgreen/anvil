@@ -22,17 +22,22 @@ dtype journal_dtable::iter::key() const
 	return jdt_next->key;
 }
 
+metablob journal_dtable::iter::meta() const
+{
+	return jdt_next->value;
+}
+
 blob journal_dtable::iter::value() const
 {
 	return jdt_next->value;
 }
 
-const dtable * journal_dtable::iter::extra() const
+const dtable * journal_dtable::iter::source() const
 {
-	return source;
+	return jdt_source;
 }
 
-sane_iter3<dtype, blob, const dtable *> * journal_dtable::iterator() const
+dtable_iter * journal_dtable::iterator() const
 {
 	node * node;
 	/* find first node */

@@ -20,7 +20,7 @@
 
 class overlay_dtable : public dtable
 {
-	virtual sane_iter3<dtype, blob, const dtable *> * iterator() const;
+	virtual dtable_iter * iterator() const;
 	virtual blob lookup(dtype key, const dtable ** source) const;
 	
 	inline overlay_dtable() : tables(NULL), table_count(0) {}
@@ -34,27 +34,28 @@ class overlay_dtable : public dtable
 	}
 	
 private:
-	class iter : public sane_iter3<dtype, blob, const dtable *>
+	class iter : public dtable_iter
 	{
 	public:
 		virtual bool valid() const;
 		virtual bool next();
 		virtual dtype key() const;
+		virtual metablob meta() const;
 		virtual blob value() const;
-		virtual const dtable * extra() const;
+		virtual const dtable * source() const;
 		inline iter(const overlay_dtable * source);
 		virtual ~iter() { delete[] subs; }
 		
 	private:
 		struct sub
 		{
-			sane_iter3<dtype, blob, const dtable *> * iter;
+			dtable_iter * iter;
 			bool empty, valid;
 		};
 		
 		sub * subs;
 		size_t next_index;
-		const overlay_dtable * source;
+		const overlay_dtable * ovr_source;
 	};
 	
 	const dtable ** tables;

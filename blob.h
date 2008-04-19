@@ -16,8 +16,6 @@
 #endif
 
 /* blobs, the storage units of dtables */
-/* need to allow finding sizes of blobs without reading the blob data:
- * make a sub-blob that doesn't have data? make data access virtual? */
 
 class blob
 {
@@ -81,6 +79,22 @@ private:
 		size_t shares;
 		uint8_t bytes[0];
 	} * internal;
+};
+
+/* a metablob does not have any actual data, but knows how long the data would
+ * be and whether or not it's even present (i.e. a negative entry) */
+class metablob
+{
+public:
+	inline metablob() : data_size(0), is_negative(true) {}
+	inline metablob(size_t size) : data_size(size), is_negative(false) {}
+	inline metablob(const metablob & x) : data_size(x.data_size), is_negative(x.is_negative) {}
+	inline metablob(const blob & x) : data_size(x.size()), is_negative(x.negative()) {}
+	inline size_t size() const { return data_size; }
+	inline bool negative() const { return is_negative; }
+private:
+	size_t data_size;
+	bool is_negative;
 };
 
 #endif /* __BLOB_H */

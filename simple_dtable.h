@@ -32,7 +32,7 @@
 
 class simple_dtable : public dtable
 {
-	virtual sane_iter3<dtype, blob, const dtable *> * iterator() const;
+	virtual dtable_iter * iterator() const;
 	virtual blob lookup(dtype key, const dtable ** source) const;
 	
 	inline simple_dtable() : fd(-1) {}
@@ -60,20 +60,21 @@ private:
 		uint8_t offset_size;
 	} __attribute__((packed));
 	
-	class iter : public sane_iter3<dtype, blob, const dtable *>
+	class iter : public dtable_iter
 	{
 	public:
 		virtual bool valid() const;
 		virtual bool next();
 		virtual dtype key() const;
+		virtual metablob meta() const;
 		virtual blob value() const;
-		virtual const dtable * extra() const;
+		virtual const dtable * source() const;
 		inline iter(const simple_dtable * source);
 		virtual ~iter() { }
 		
 	private:
 		size_t index;
-		const simple_dtable * source;
+		const simple_dtable * sdt_source;
 	};
 	
 	dtype get_key(size_t index, size_t * data_length = NULL, off_t * data_offset = NULL) const;
