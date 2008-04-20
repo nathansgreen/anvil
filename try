@@ -22,11 +22,9 @@ journal playback
 journal erase
 tx
 stable
-itable test.iot copy.iot copy2.iot
-atable test.iot new.aot new.iot
+dtable
 EOF
 mkdir /mnt/test/journals
-cp test.iot /mnt/test
 sudo umount /mnt/test
 echo "done."
 
@@ -41,10 +39,6 @@ echo "script run" | (cd /mnt/test; ulimit -c unlimited; exec "$WD/toilet")
 
 ls -lR /mnt/test
 true | hexdump -C /mnt/test/teststrings
-true | hexdump -C /mnt/test/copy.iot
-true | hexdump -C /mnt/test/copy2.iot
-true | hexdump -C /mnt/test/new.aot
-true | hexdump -C /mnt/test/new.iot
 
 echo "Unloading Featherstitch... "
 sudo umount /mnt/test
