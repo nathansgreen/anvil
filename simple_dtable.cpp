@@ -89,29 +89,15 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 	assert(r == size);
 	
 	if(data_length)
-	{
-		*data_length = 0;
-		for(i = key_size; i < key_size + length_size; i++)
-			*data_length = ((*data_length) << 8) | bytes[i];
 		/* all data lengths are stored incremented by 1, to free up 0 for negative entries */
-		--*data_length;
-	}
+		*data_length = read_bytes(bytes, key_size, length_size) - 1;
 	if(data_offset)
-	{
-		*data_offset = 0;
-		for(i = key_size + length_size; i < size; i++)
-			*data_offset = ((*data_offset) << 8) | bytes[i];
-	}
+		*data_offset = read_bytes(bytes, key_size + length_size, offset_size);
 	
 	switch(ktype)
 	{
 		case dtype::UINT32:
-		{
-			uint32_t value = 0;
-			for(i = 0; i < key_size; i++)
-				value = (value << 8) | bytes[i];
-			return dtype(value);
-		}
+			return dtype(read_bytes(bytes, 0, key_size));
 		case dtype::DOUBLE:
 		{
 			double value;
@@ -119,12 +105,7 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 			return dtype(value);
 		}
 		case dtype::STRING:
-		{
-			uint32_t index = 0;
-			for(i = 0; i < key_size; i++)
-				index = (index << 8) | bytes[i];
-			return dtype(st_get(&st, index));
-		}
+			return dtype(st_get(&st, read_bytes(bytes, 0, key_size)));
 	}
 	abort();
 }

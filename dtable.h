@@ -38,34 +38,12 @@ public:
 class dtable
 {
 public:
-	static inline uint8_t byte_size(uint32_t value)
-	{
-		if(value < 0x100)
-			return 1;
-		if(value < 0x10000)
-			return 2;
-		if(value < 0x1000000)
-			return 3;
-		return 4;
-	}
-	
-	static inline void layout_bytes(uint8_t * array, int * index, uint32_t value, int size)
-	{
-		uint8_t i = *index;
-		*index += size;
-		/* write big endian order */
-		while(size-- > 0)
-		{
-			array[i + size] = value & 0xFF;
-			value >>= 8;
-		}
-	}
-	
 	virtual dtable_iter * iterator() const = 0;
 	virtual blob lookup(dtype key, const dtable ** source) const = 0;
 	inline blob find(dtype key) const { const dtable * source; return lookup(key, &source); }
 	inline dtype::ctype key_type() const { return ktype; }
 	inline virtual ~dtable() {}
+	
 protected:
 	dtype::ctype ktype;
 };

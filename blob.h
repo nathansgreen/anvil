@@ -97,4 +97,52 @@ private:
 	bool is_negative;
 };
 
+/* some useful marshalling functions */
+
+static inline uint8_t byte_size(uint32_t value)
+{
+	if(value < 0x100)
+		return 1;
+	if(value < 0x10000)
+		return 2;
+	if(value < 0x1000000)
+		return 3;
+	return 4;
+}
+
+template<class T>
+static inline void layout_bytes(uint8_t * array, T * index, uint32_t value, uint8_t size)
+{
+	T i = *index;
+	*index += size;
+	/* write big endian order */
+	while(size-- > 0)
+	{
+		array[i + size] = value & 0xFF;
+		value >>= 8;
+	}
+}
+
+template<class T>
+static inline uint32_t read_bytes(const uint8_t * array, T * index, uint8_t size)
+{
+	uint32_t value = 0;
+	T max = size + *index;
+	/* read big endian order */
+	for(; *index < max; ++*index)
+		value = (value << 8) | array[*index];
+	return value;
+}
+
+template<class T>
+static inline uint32_t read_bytes(const uint8_t * array, T index, uint8_t size)
+{
+	uint32_t value = 0;
+	T max = size + index;
+	/* read big endian order */
+	for(; index < max; ++index)
+		value = (value << 8) | array[index];
+	return value;
+}
+
 #endif /* __BLOB_H */
