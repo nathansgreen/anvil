@@ -16,8 +16,6 @@
 #include "blob.h"
 #include "dtype.h"
 
-/* iterating through stuff seems like it is useful */
-
 class dtable;
 
 class dtable_iter
