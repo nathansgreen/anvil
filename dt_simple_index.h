@@ -5,10 +5,6 @@
 #ifndef __DT_SIMPLE_INDEX_H
 #define __DT_SIMPLE_INDEX_H
 
-#include <stdint.h>
-#include <inttypes.h>
-#include <sys/types.h>
-
 #ifndef __cplusplus
 #error dt_simple_index.h is a C++ header file
 #endif

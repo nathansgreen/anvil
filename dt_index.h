@@ -5,10 +5,6 @@
 #ifndef __DT_INDEX_H
 #define __DT_INDEX_H
 
-#include <stdint.h>
-#include <inttypes.h>
-#include <sys/types.h>
-
 #ifndef __cplusplus
 #error dt_index.h is a C++ header file
 #endif
@@ -25,7 +21,6 @@ public:
 	virtual bool next() = 0;
 	virtual dtype key() const = 0;
 	virtual dtype pri() const = 0;
-	virtual const dt_index * source() const = 0;
 	virtual ~dt_index_iter() {}
 };
 
