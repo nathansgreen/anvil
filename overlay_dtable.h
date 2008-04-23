@@ -20,6 +20,7 @@
 
 class overlay_dtable : public dtable
 {
+public:
 	virtual dtable_iter * iterator() const;
 	virtual blob lookup(dtype key, const dtable ** source) const;
 	

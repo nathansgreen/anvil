@@ -24,6 +24,7 @@
 
 class journal_dtable : public dtable, public sys_journal::journal_listener
 {
+public:
 	virtual dtable_iter * iterator() const;
 	virtual blob lookup(dtype key, const dtable ** source) const;
 	
