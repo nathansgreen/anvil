@@ -144,6 +144,7 @@ void sys_journal::deinit()
 	}
 }
 
+sys_journal sys_journal::global_journal;
 std::map<sys_journal::listener_id, sys_journal::journal_listener *> sys_journal::listener_map;
 
 sys_journal::journal_listener * sys_journal::lookup_listener(listener_id id)

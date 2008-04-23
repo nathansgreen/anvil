@@ -9,12 +9,12 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
-#include "blob.h"
-#include "dtable.h"
-
 #ifndef __cplusplus
 #error overlay_dtable.h is a C++ header file
 #endif
+
+#include "blob.h"
+#include "dtable.h"
 
 /* The overlay dtable just combines underlying dtables in the order specified. */
 

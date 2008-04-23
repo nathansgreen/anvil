@@ -11,12 +11,12 @@
 
 #include "stable.h"
 
-#include "blob.h"
-#include "dtable.h"
-
 #ifndef __cplusplus
 #error simple_dtable.h is a C++ header file
 #endif
+
+#include "blob.h"
+#include "dtable.h"
 
 /* The simple dtable does nothing fancy to store the blobs efficiently. It just
  * stores the key and the blob literally, including size information. These

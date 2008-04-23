@@ -189,10 +189,10 @@ int journal_dtable::remove(dtype key)
 	return append(key, blob());
 }
 
-int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id id)
+int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal)
 {
 	int r;
-	if(listener_id != sys_journal::NO_ID)
+	if(id() != sys_journal::NO_ID)
 		deinit();
 	assert(!root);
 	ktype = key_type;
@@ -200,13 +200,14 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id id)
 	if(r < 0)
 		return r;
 	string_index = 0;
-	listener_id = id;
+	set_id(lid);
+	set_journal(journal);
 	return 0;
 }
 
 void journal_dtable::deinit()
 {
-	listener_id = sys_journal::NO_ID;
+	set_id(sys_journal::NO_ID);
 	strings.deinit();
 	if(root)
 	{
@@ -333,9 +334,4 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 			return -EINVAL;
 	}
 	return 0;
-}
-
-sys_journal::listener_id journal_dtable::id()
-{
-	return listener_id;
 }

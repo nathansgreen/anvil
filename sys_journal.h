@@ -28,27 +28,49 @@ public:
 	{
 	public:
 		virtual int journal_replay(void *& entry, size_t length) = 0;
-		virtual listener_id id() = 0;
 		
-		journal_listener() : journal(NULL) {}
+		inline journal_listener() : local_id(NO_ID), journal(NULL) {}
 		
-		virtual ~journal_listener()
+		inline listener_id id()
 		{
-			sys_journal::unregister_listener(this);
+			return local_id;
+		}
+		
+		inline virtual ~journal_listener()
+		{
+			if(local_id != NO_ID)
+				unregister_listener(this);
 		}
 		
 	protected:
-		void set_journal(sys_journal * journal)
+		inline int set_id(listener_id lid)
+		{
+			if(local_id != NO_ID)
+				unregister_listener(this);
+			local_id = lid;
+			if(lid != NO_ID)
+			{
+				int r = register_listener(this);
+				if(r < 0)
+					local_id = NO_ID;
+				return r;
+			}
+			return 0;
+		}
+		
+		inline void set_journal(sys_journal * journal)
 		{
 			this->journal = journal;
 		}
 		
-		int journal_append(void * entry, size_t length)
+		inline int journal_append(void * entry, size_t length)
 		{
-			return journal->append(this, entry, length);
+			sys_journal * j = journal ? journal : sys_journal::get_global_journal();
+			return j->append(this, entry, length);
 		}
 		
 	private:
+		listener_id local_id;
 		sys_journal * journal;
 	};
 	
@@ -63,12 +85,17 @@ public:
 			deinit();
 	}
 	
+	static inline sys_journal * get_global_journal()
+	{
+		return &global_journal;
+	}
 	static journal_listener * lookup_listener(listener_id id);
 	static int register_listener(journal_listener * listener);
 	static void unregister_listener(journal_listener * listener);
 private:
 	tx_fd fd;
 	off_t offset;
+	static sys_journal global_journal;
 	static std::map<listener_id, journal_listener *> listener_map;
 	
 	int playback();

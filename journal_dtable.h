@@ -9,14 +9,14 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
+#ifndef __cplusplus
+#error journal_dtable.h is a C++ header file
+#endif
+
 #include "blob.h"
 #include "stringset.h"
 #include "sys_journal.h"
 #include "dtable.h"
-
-#ifndef __cplusplus
-#error journal_dtable.h is a C++ header file
-#endif
 
 /* The journal dtable doesn't have an associated file: all its data is stored in
  * a sys_journal. The only identifying part of journal dtables is their listener
@@ -30,17 +30,16 @@ class journal_dtable : public dtable, public sys_journal::journal_listener
 	int append(dtype key, const blob & blob);
 	int remove(dtype key);
 	
-	inline journal_dtable() : root(NULL), string_index(0), listener_id(sys_journal::NO_ID) {}
-	int init(dtype::ctype key_type, sys_journal::listener_id id);
+	inline journal_dtable() : root(NULL), string_index(0) {}
+	int init(dtype::ctype key_type, sys_journal::listener_id id, sys_journal * journal = NULL);
 	void deinit();
 	inline virtual ~journal_dtable()
 	{
-		if(listener_id != sys_journal::NO_ID)
+		if(id() != sys_journal::NO_ID)
 			deinit();
 	}
 	
 	virtual int journal_replay(void *& entry, size_t length);
-	virtual sys_journal::listener_id id();
 	
 private:
 	struct node
@@ -82,7 +81,6 @@ private:
 	node * root;
 	stringset strings;
 	uint32_t string_index;
-	sys_journal::listener_id listener_id;
 };
 
 #endif /* __JOURNAL_DTABLE_H */
