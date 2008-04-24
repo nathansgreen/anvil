@@ -82,7 +82,7 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 	assert(index < key_count);
 	int r;
 	uint8_t size = key_size + length_size + offset_size;
-	uint8_t i = 0, bytes[size];
+	uint8_t bytes[size];
 	
 	lseek(fd, key_start_off + size * index, SEEK_SET);
 	r = read(fd, bytes, size);
