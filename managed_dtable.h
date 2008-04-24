@@ -69,7 +69,7 @@ public:
 	
 	/* combine the last count dtables into two new ones: a combined disk
 	 * dtable, and a new journal dtable */
-	inline int combine(size_t count)
+	inline int combine(size_t count = 0)
 	{
 		if(--count > disks.size())
 			return combine(0, disks.size());
@@ -90,7 +90,7 @@ public:
 	static int create(int dfd, const char * name, dtype::ctype key_type);
 	
 	inline managed_dtable() : md_dfd(-1) {}
-	int init(int dfd, const char * name, sys_journal * sys_journal = NULL);
+	int init(int dfd, const char * name, bool query_journal = false, sys_journal * sys_journal = NULL);
 	void deinit();
 	inline virtual ~managed_dtable()
 	{

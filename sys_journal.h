@@ -75,9 +75,11 @@ public:
 	};
 	
 	int append(journal_listener * listener, void * entry, size_t length);
+	/* gets only those entries that have been committed */
+	int get_entries(journal_listener * listener);
 	
 	inline sys_journal() : fd(-1) {}
-	int init(int dfd, const char * file, bool create = true);
+	int init(int dfd, const char * file, bool create = false);
 	void deinit();
 	inline ~sys_journal()
 	{
@@ -116,7 +118,8 @@ private:
 	};
 	static unique_id id;
 	
-	int playback();
+	/* if no listener provided, all listeners, via global registry */
+	int playback(journal_listener * target = NULL);
 };
 
 #endif /* __SYS_JOURNAL_H */

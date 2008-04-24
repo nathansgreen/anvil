@@ -51,6 +51,11 @@ int sys_journal::append(journal_listener * listener, void * entry, size_t length
 	return 0;
 }
 
+int sys_journal::get_entries(journal_listener * listener)
+{
+	return playback(listener);
+}
+
 int sys_journal::init(int dfd, const char * file, bool create)
 {
 	bool do_playback = false;
@@ -99,7 +104,7 @@ int sys_journal::init(int dfd, const char * file, bool create)
 	return 0;
 }
 
-int sys_journal::playback()
+int sys_journal::playback(journal_listener * target)
 {
 	/* playback */
 	file_header header;
@@ -116,9 +121,20 @@ int sys_journal::playback()
 	while((r = read(ufd, &entry, sizeof(entry))) == sizeof(entry))
 	{
 		void * data;
-		journal_listener * listener = lookup_listener(entry.id);
-		if(!listener)
-			return -ENOENT;
+		journal_listener * listener;
+		if(target)
+		{
+			listener = target;
+			/* skip other entries */
+			if(listener->id() != entry.id)
+				continue;
+		}
+		else
+		{
+			listener = lookup_listener(entry.id);
+			if(!listener)
+				return -ENOENT;
+		}
 		data = malloc(entry.length);
 		if(!data)
 			return -ENOMEM;
@@ -176,13 +192,13 @@ int sys_journal::set_unique_id_file(int dfd, const char * file, bool create)
 	int r;
 	if(id.fd >= 0)
 		tx_close(id.fd);
-	id.fd = openat(dfd, file, O_RDWR);
+	id.fd = tx_open(dfd, file, O_RDWR);
 	if(id.fd < 0)
 	{
-		if(!create)
+		if(!create || (id.fd != -ENOENT && errno != ENOENT))
 			return (int) id.fd;
 		id.next = 0;
-		id.fd = openat(dfd, file, O_RDWR | O_CREAT, 0644);
+		id.fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
 		if(id.fd < 0)
 			return (int) id.fd;
 		r = tx_write(id.fd, &id.next, 0, sizeof(id.next));

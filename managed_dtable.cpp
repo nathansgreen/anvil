@@ -12,7 +12,7 @@
 
 #include "managed_dtable.h"
 
-int managed_dtable::init(int dfd, const char * name, sys_journal * sys_journal)
+int managed_dtable::init(int dfd, const char * name, bool query_journal, sys_journal * sys_journal)
 {
 	int r = -1, meta;
 	if(md_dfd >= 0)
@@ -59,6 +59,12 @@ int managed_dtable::init(int dfd, const char * name, sys_journal * sys_journal)
 	
 	journal = new journal_dtable;
 	journal->init(ktype, header.journal_id, sys_journal);
+	if(query_journal)
+	{
+		if(!sys_journal)
+			sys_journal = sys_journal::get_global_journal();
+		sys_journal->get_entries(journal);
+	}
 	
 	/* force array scope to end */
 	{
