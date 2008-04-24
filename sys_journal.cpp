@@ -2,11 +2,15 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#define _ATFILE_SOURCE
+
 #include <errno.h>
 #include <assert.h>
 #include <fcntl.h>
 
+#include "openat.h"
 #include "transaction.h"
+
 #include "sys_journal.h"
 
 /* Currently, sys_journal is built on top of transactions, which are built on
@@ -163,4 +167,58 @@ int sys_journal::register_listener(journal_listener * listener)
 void sys_journal::unregister_listener(journal_listener * listener)
 {
 	listener_map.erase(listener->id());
+}
+
+sys_journal::unique_id sys_journal::id;
+
+int sys_journal::set_unique_id_file(int dfd, const char * file, bool create)
+{
+	int r;
+	if(id.fd >= 0)
+		tx_close(id.fd);
+	id.fd = openat(dfd, file, O_RDWR);
+	if(id.fd < 0)
+	{
+		if(!create)
+			return (int) id.fd;
+		id.next = 0;
+		id.fd = openat(dfd, file, O_RDWR | O_CREAT, 0644);
+		if(id.fd < 0)
+			return (int) id.fd;
+		r = tx_write(id.fd, &id.next, 0, sizeof(id.next));
+		if(r < 0)
+		{
+			tx_close(id.fd);
+			id.fd = -1;
+			unlinkat(dfd, file, 0);
+			return r;
+		}
+	}
+	else
+	{
+		r = read(tx_read_fd(id.fd), &id.next, sizeof(id.next));
+		if(r != sizeof(id.next))
+		{
+			tx_close(id.fd);
+			id.fd = -1;
+			return (r < 0) ? r : -1;
+		}
+	}
+	return 0;
+}
+
+sys_journal::listener_id sys_journal::get_unique_id()
+{
+	int r;
+	listener_id next;
+	if(id.fd < 0)
+		return NO_ID;
+	next = id.next++;
+	r = tx_write(id.fd, &id.next, 0, sizeof(id.next));
+	if(r < 0)
+	{
+		id.next = next;
+		return NO_ID;
+	}
+	return next;
 }

@@ -205,6 +205,20 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sy
 	return 0;
 }
 
+int journal_dtable::reinit(sys_journal::listener_id lid)
+{
+	int r;
+	if(id() == sys_journal::NO_ID)
+		return -EBUSY;
+	deinit();
+	r = strings.init(true);
+	if(r < 0)
+		return r;
+	string_index = 0;
+	set_id(lid);
+	return 0;
+}
+
 void journal_dtable::deinit()
 {
 	set_id(sys_journal::NO_ID);

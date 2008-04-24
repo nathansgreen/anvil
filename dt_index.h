@@ -17,7 +17,7 @@ class dt_index_iter
 {
 public:
 	virtual bool valid() const = 0;
-	/* operator++ can suck it; we're using next() */
+	/* see the note about dtable_iter in dtable.h */
 	virtual bool next() = 0;
 	virtual dtype key() const = 0;
 	virtual dtype pri() const = 0;

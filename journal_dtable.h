@@ -32,7 +32,8 @@ public:
 	int remove(dtype key);
 	
 	inline journal_dtable() : root(NULL), string_index(0) {}
-	int init(dtype::ctype key_type, sys_journal::listener_id id, sys_journal * journal = NULL);
+	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL);
+	int reinit(sys_journal::listener_id lid);
 	void deinit();
 	inline virtual ~journal_dtable()
 	{

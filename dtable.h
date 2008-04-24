@@ -22,7 +22,12 @@ class dtable_iter
 {
 public:
 	virtual bool valid() const = 0;
-	/* operator++ can suck it; we're using next() */
+	/* Since these iterators are virtual, we will have a pointer to them
+	 * rather than an actual instance when we're using them. As a result, it
+	 * is not as useful to override operators, because we'd have to
+	 * dereference the local variable in order to use the overloaded
+	 * operators. In particular we'd need ++*it instead of just ++it, yet
+	 * both would compile without error. So, we use next() here. */
 	virtual bool next() = 0;
 	virtual dtype key() const = 0;
 	virtual metablob meta() const = 0;

@@ -95,22 +95,12 @@ public:
 	
 	inline bool operator<=(const dtype & x) const
 	{
-		assert(type == x.type);
-		switch(type)
-		{
-			case UINT32:
-				return u32 <= x.u32;
-			case DOUBLE:
-				return dbl <= x.dbl;
-			case STRING:
-				return strcmp(str, x.str) <= 0;
-		}
-		abort();
+		return !(x < *this);
 	}
 	
 	inline bool operator>(const dtype & x) const
 	{
-		return !(*this <= x);
+		return x < *this;
 	}
 	
 	inline bool operator>=(const dtype & x) const

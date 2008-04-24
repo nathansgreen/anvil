@@ -92,11 +92,29 @@ public:
 	static journal_listener * lookup_listener(listener_id id);
 	static int register_listener(journal_listener * listener);
 	static void unregister_listener(journal_listener * listener);
+	static int set_unique_id_file(int dfd, const char * file, bool create = false);
+	static listener_id get_unique_id();
+	
 private:
 	tx_fd fd;
 	off_t offset;
 	static sys_journal global_journal;
 	static std::map<listener_id, journal_listener *> listener_map;
+	
+	/* this is a class purely for the destructor */
+	class unique_id
+	{
+	public:
+		tx_fd fd;
+		listener_id next;
+		inline unique_id() : fd(-1), next(NO_ID) {}
+		inline ~unique_id()
+		{
+			if(fd >= 0)
+				tx_close(fd);
+		}
+	};
+	static unique_id id;
 	
 	int playback();
 };
