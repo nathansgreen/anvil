@@ -241,13 +241,15 @@ void simple_dtable::deinit()
  * can reduce the number of passes over the input keys to only 1 (but still that plus the data) */
 int simple_dtable::create(int dfd, const char * file, const dtable * source, const dtable * shadow)
 {
+	stringset strings;
 	dtable_iter * iter;
 	dtype::ctype key_type = source->key_type();
-	stringset strings;
 	const char ** string_array = NULL;
 	size_t string_count = 0, key_count = 0;
 	size_t max_data_size = 0, total_data_size = 0;
 	uint32_t max_key = 0;
+	dtable_header header;
+	int r, i, fd, size;
 	if(shadow && shadow->key_type() != key_type)
 		return -EINVAL;
 	if(key_type == dtype::STRING)
@@ -295,9 +297,6 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 	}
 	
 	/* now write the file */
-	int r, i, fd, size;
-	
-	dtable_header header;
 	header.magic = SDTABLE_MAGIC;
 	header.version = SDTABLE_VERSION;
 	header.key_count = key_count;
@@ -390,7 +389,7 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 		blob value = iter->value();
 		iter->next();
 		r = write(fd, &value[0], value.size());
-		if(r != value.size())
+		if(r != (int) value.size())
 		{
 			delete iter;
 			goto fail_unlink;
