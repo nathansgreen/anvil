@@ -34,10 +34,13 @@ int managed_dtable::init(int dfd, const char * name, bool query_journal, sys_jou
 	{
 		case 1:
 			ktype = dtype::UINT32;
+			break;
 		case 2:
 			ktype = dtype::DOUBLE;
+			break;
 		case 3:
 			ktype = dtype::STRING;
+			break;
 		default:
 			goto fail_header;
 	}
@@ -68,7 +71,7 @@ int managed_dtable::init(int dfd, const char * name, bool query_journal, sys_jou
 	
 	/* force array scope to end */
 	{
-		size_t count = 0;
+		size_t count = header.ddt_count;
 		const dtable * array[count + 1];
 		array[count] = journal;
 		for(size_t i = 0; i < count; i++)
@@ -76,6 +79,7 @@ int managed_dtable::init(int dfd, const char * name, bool query_journal, sys_jou
 		overlay = new overlay_dtable;
 		overlay->init(array, count + 1);
 	}
+	return 0;
 	
 fail_disks:
 	for(size_t i = 0; i < disks.size(); i++)

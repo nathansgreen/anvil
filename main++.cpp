@@ -53,86 +53,115 @@ static void print(blob x, const char * prefix = NULL)
 			if((i % 16) == 8)
 				printf(" ");
 		}
-		printf(" ");
+		printf(" |");
 		for(size_t j = i; j < m; j++)
 		{
 			if(j < x.size())
 				printf("%c", isprint(x[j]) ? x[j] : '.');
 			else
 				printf(" ");
-			if((i % 16) == 8)
-				printf(" ");
 		}
-		printf("\n");
+		printf("|\n");
 	}
 }
 
 static void run_iterator(dtable * table)
 {
+	bool more = true;
 	dtable_iter * iter = table->iterator();
 	while(iter->valid())
 	{
+		if(!more)
+		{
+			printf("iter->next() returned false, but iter->valid() says there is more!\n");
+			break;
+		}
 		print(iter->key());
 		printf(":\n");
 		print(iter->value(), "\t");
-		iter->next();
+		more = iter->next();
 	}
 	delete iter;
 }
 
 int command_dtable(int argc, const char * argv[])
 {
+	int r;
 	managed_simple_dtable * mdt;
 	sys_journal * journal = sys_journal::get_global_journal();
 	
-	tx_start();
-	sys_journal::set_unique_id_file(AT_FDCWD, "sys_journal_id", true);
-	journal->init(AT_FDCWD, "sys_journal", true);
-	managed_dtable::create(AT_FDCWD, "managed_dtable", dtype::UINT32);
-	tx_end(0);
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = sys_journal::set_unique_id_file(AT_FDCWD, "sys_journal_id", true);
+	printf("set_unique_id_file = %d\n", r);
+	r = journal->init(AT_FDCWD, "sys_journal", true);
+	printf("journal->init = %d\n", r);
+	r = managed_dtable::create(AT_FDCWD, "managed_dtable", dtype::UINT32);
+	printf("dtable::create = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
 	
 	mdt = new managed_simple_dtable;
-	mdt->init(AT_FDCWD, "managed_dtable", journal);
-	tx_start();
-	mdt->append((uint32_t) 4, blob(5, (const uint8_t *) "hello"));
-	mdt->append((uint32_t) 2, blob(5, (const uint8_t *) "world"));
+	r = mdt->init(AT_FDCWD, "managed_dtable", journal);
+	printf("mdt->init = %d\n", r);
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = mdt->append((uint32_t) 4, blob(5, (const uint8_t *) "hello"));
+	printf("mdt->append = %d\n", r);
+	r = mdt->append((uint32_t) 2, blob(5, (const uint8_t *) "world"));
+	printf("mdt->append = %d\n", r);
 	run_iterator(mdt);
-	tx_end(0);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
 	delete mdt;
 	
 	mdt = new managed_simple_dtable;
-	mdt->init(AT_FDCWD, "managed_dtable", true, journal);
+	r = mdt->init(AT_FDCWD, "managed_dtable", true, journal);
+	printf("mdt->init = %d\n", r);
 	run_iterator(mdt);
-	tx_start();
+	r = tx_start();
+	printf("tx_start = %d\n", r);
 	/* I suspect the fact that we cannot read from a tx_written file until
 	 * tx_end() is going to kick our ass now. That will have to be taken
 	 * care of somehow... */
-	mdt->digest();
+	r = mdt->digest();
+	printf("mdt->digest = %d\n", r);
 	run_iterator(mdt);
-	tx_end(0);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
 	delete mdt;
 	
 	mdt = new managed_simple_dtable;
-	mdt->init(AT_FDCWD, "managed_dtable", journal);
+	r = mdt->init(AT_FDCWD, "managed_dtable", journal);
+	printf("mdt->init = %d\n", r);
 	run_iterator(mdt);
-	tx_start();
-	mdt->append((uint32_t) 8, blob(7, (const uint8_t *) "icanhas"));
-	mdt->append((uint32_t) 6, blob(11, (const uint8_t *) "cheezburger"));
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = mdt->append((uint32_t) 8, blob(7, (const uint8_t *) "icanhas"));
+	printf("mdt->append = %d\n", r);
+	r = mdt->append((uint32_t) 6, blob(11, (const uint8_t *) "cheezburger"));
+	printf("mdt->append = %d\n", r);
 	run_iterator(mdt);
 	/* ditto */
-	mdt->digest();
+	r = mdt->digest();
+	printf("mdt->digest = %d\n", r);
 	run_iterator(mdt);
-	tx_end(0);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
 	delete mdt;
 	
 	mdt = new managed_simple_dtable;
-	mdt->init(AT_FDCWD, "managed_dtable", journal);
+	r = mdt->init(AT_FDCWD, "managed_dtable", journal);
+	printf("mdt->init = %d\n", r);
 	run_iterator(mdt);
-	tx_start();
+	r = tx_start();
+	printf("tx_start = %d\n", r);
 	/* ditto */
-	mdt->combine();
+	r = mdt->combine();
+	printf("mdt->combine = %d\n", r);
 	run_iterator(mdt);
-	tx_end(0);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
 	delete mdt;
 	
 	return 0;

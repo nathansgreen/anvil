@@ -10,13 +10,12 @@
 overlay_dtable::iter::iter(const overlay_dtable * source)
 	: ovr_source(source)
 {
-	size_t i;
 	subs = new sub[source->table_count];
-	for(i = 0; i < source->table_count; i++)
+	for(size_t i = 0; i < source->table_count; i++)
 	{
 		subs[i].iter = source->tables[i]->iterator();
-		subs[i].empty = true;
-		subs[i].valid = true;
+		subs[i].empty = !subs[i].iter->valid();
+		subs[i].valid = subs[i].iter->valid();
 	}
 	next();
 }
@@ -30,13 +29,12 @@ bool overlay_dtable::iter::valid() const
  * without any special handling, since next() and valid() still return true */
 bool overlay_dtable::iter::next()
 {
-	size_t i;
 	bool first = true;
 	dtype min_key((uint32_t) 0);
 	next_index = ovr_source->table_count;
-	for(i = 0; i < ovr_source->table_count; i++)
+	for(size_t i = 0; i < ovr_source->table_count; i++)
 	{
-		if(subs[i].empty)
+		if(subs[i].empty && subs[i].valid)
 		{
 			/* fill in empty slots */
 			subs[i].empty = false;
@@ -57,7 +55,7 @@ bool overlay_dtable::iter::next()
 	}
 	if(next_index == ovr_source->table_count)
 		return false;
-	subs[i].empty = true;
+	subs[next_index].empty = true;
 	return true;
 }
 
