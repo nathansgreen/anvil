@@ -257,6 +257,13 @@ int tx_start(void)
 	return 0;
 }
 
+int tx_add_depend(patchgroup_id_t pid)
+{
+	if(!current_journal)
+		return -ENOENT;
+	return journal_add_depend(current_journal, pid);
+}
+
 tx_id tx_end(int assign_id)
 {
 	int r;

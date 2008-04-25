@@ -9,6 +9,7 @@
 #include <assert.h>
 
 #include "openat.h"
+#include "transaction.h"
 
 #include "managed_dtable.h"
 
@@ -112,6 +113,7 @@ int managed_dtable::combine(size_t first, size_t last)
 	overlay_dtable * shadow = NULL;
 	overlay_dtable * source;
 	bool reset_journal = false;
+	patchgroup_id_t pid;
 	dtable_list copy;
 	dtable * result;
 	char name[32];
@@ -145,8 +147,27 @@ int managed_dtable::combine(size_t first, size_t last)
 		source->init(array, count);
 	}
 	
+	pid = patchgroup_create(0);
+	if(pid <= 0)
+		return (int) pid;
+	r = patchgroup_release(pid);
+	assert(r >= 0);
+	r = patchgroup_engage(pid);
+	assert(r >= 0);
 	sprintf(name, "md_data.%u", header.ddt_next);
 	r = disk_create(md_dfd, name, source, shadow);
+	{
+		int r2 = patchgroup_disengage(pid);
+		assert(r2 >= 0);
+		/* make the transaction (which modifies the metadata below) depend on having written the new file */
+		if(r >= 0)
+		{
+			r2 = tx_add_depend(pid);
+			assert(r2 >= 0);
+		}
+		r2 = patchgroup_abandon(pid);
+		assert(r2 >= 0);
+	}
 	delete source;
 	if(shadow)
 		delete shadow;
@@ -210,6 +231,13 @@ int managed_dtable::combine(size_t first, size_t last)
 	tx_close(fd);
 	
 	disks.swap(copy);
+	/* unlink the source files in the transaction, which depends on writing the new data */
+	if(last != (size_t) -1)
+		for(size_t i = first; i <= last; i++)
+		{
+			sprintf(name, "md_data.%u", copy[i].second);
+			tx_unlink(md_dfd, name);
+		}
 	if(reset_journal)
 		journal->reinit(header.journal_id);
 	return 0;

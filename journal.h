@@ -21,7 +21,7 @@ struct journal {
 	int fd, dfd;
 	char * path;
 	patchgroup_id_t records;
-	/* TODO: we don't actually need "commit" separate from "records" since there is a checksum */
+	patchgroup_id_t future_commit;
 	patchgroup_id_t commit;
 	patchgroup_id_t playback;
 	patchgroup_id_t erase;
@@ -48,6 +48,9 @@ int journal_appendv4(journal * j, const struct iovec * iovp, size_t count, journ
 /* amends a record in the journal with new data */
 int journal_amend(journal * j, const journal_record * location, const void * data);
 int journal_amendv4(journal * j, const journal_record * location, const struct iovec * iovp, size_t count);
+
+/* adds a patchgroup dependency to the (future) commit record, so that this journal will depend on it */
+int journal_add_depend(journal * j, patchgroup_id_t pid);
 
 /* commits a journal atomically, but does not block waiting for it */
 int journal_commit(journal * j);

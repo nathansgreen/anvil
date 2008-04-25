@@ -13,6 +13,10 @@
 extern "C" {
 #endif
 
+/* Featherstitch does not know about C++ so we include
+ * its header file inside the extern "C" block. */
+#include <patchgroup.h>
+
 typedef uint32_t tx_id;
 typedef int tx_fd;
 
@@ -20,6 +24,8 @@ int tx_init(int dfd);
 void tx_deinit(void);
 
 int tx_start(void);
+/* adds a patchgroup dependency this transaction, so it will commit only after the patchgroup */
+int tx_add_depend(patchgroup_id_t pid);
 tx_id tx_end(int assign_id);
 
 int tx_sync(tx_id id);

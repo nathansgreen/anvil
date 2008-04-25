@@ -121,9 +121,6 @@ int command_dtable(int argc, const char * argv[])
 	run_iterator(mdt);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	/* I suspect the fact that we cannot read from a tx_written file until
-	 * tx_end() is going to kick our ass now. That will have to be taken
-	 * care of somehow... */
 	r = mdt->digest();
 	printf("mdt->digest = %d\n", r);
 	run_iterator(mdt);
@@ -142,7 +139,6 @@ int command_dtable(int argc, const char * argv[])
 	r = mdt->append((uint32_t) 0, blob(11, (const uint8_t *) "cheezburger"));
 	printf("mdt->append = %d\n", r);
 	run_iterator(mdt);
-	/* ditto */
 	r = mdt->digest();
 	printf("mdt->digest = %d\n", r);
 	run_iterator(mdt);
@@ -156,12 +152,17 @@ int command_dtable(int argc, const char * argv[])
 	run_iterator(mdt);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	/* ditto */
 	r = mdt->combine();
 	printf("mdt->combine = %d\n", r);
 	run_iterator(mdt);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
+	delete mdt;
+	
+	mdt = new managed_simple_dtable;
+	r = mdt->init(AT_FDCWD, "managed_dtable", journal);
+	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
+	run_iterator(mdt);
 	delete mdt;
 	
 	return 0;

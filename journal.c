@@ -69,6 +69,7 @@ journal * journal_create(int dfd, const char * path, journal * prev)
 	}
 	patchgroup_label(j->records, "records");
 	patchgroup_release(j->records);
+	j->future_commit = 0;
 	j->commit = 0;
 	j->playback = 0;
 	j->erase = 0;
@@ -158,6 +159,21 @@ int journal_amend(journal * j, const journal_record * location, const void * dat
 	return journal_amendv4(j, location, &iov, 1);
 }
 
+int journal_add_depend(journal * j, patchgroup_id_t pid)
+{
+	if(j->commit)
+		return -EINVAL;
+	if(!j->future_commit)
+	{
+		patchgroup_id_t future = patchgroup_create(0);
+		if(future <= 0)
+			return -1;
+		patchgroup_label(future, "future");
+		j->future_commit = future;
+	}
+	return patchgroup_add_depend(j->future_commit, pid);
+}
+
 #define CHECKSUM_LENGTH 16
 static int journal_checksum(journal * j, off_t max, uint8_t * checksum)
 {
@@ -202,15 +218,23 @@ int journal_commit(journal * j)
 	offset = lseek(j->fd, 0, SEEK_END);
 	if(journal_checksum(j, offset, checksum) < 0)
 		return -1;
-	commit = patchgroup_create(0);
-	if(commit <= 0)
-		return -1;
+	if(!j->future_commit)
+	{
+		commit = patchgroup_create(0);
+		if(commit <= 0)
+			return -1;
+	}
+	else
+		commit = j->future_commit;
 	patchgroup_label(commit, "commit");
 	if(patchgroup_add_depend(commit, j->records) < 0)
 	{
 	fail:
-		patchgroup_release(commit);
-		patchgroup_abandon(commit);
+		if(commit != j->future_commit)
+		{
+			patchgroup_release(commit);
+			patchgroup_abandon(commit);
+		}
 		return -1;
 	}
 	if(j->prev && patchgroup_add_depend(commit, j->prev->commit) < 0)
