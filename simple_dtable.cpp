@@ -318,6 +318,9 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 			header.key_type = 3;
 			header.key_size = byte_size(string_count - 1);
 			break;
+		default:
+			r = -EINVAL;
+			goto out_strings;
 	}
 	/* we reserve size 0 for negative entries, so add 1 */
 	header.length_size = byte_size(max_data_size + 1);
@@ -386,6 +389,7 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 	while(iter->valid())
 	{
 		blob value = iter->value();
+		iter->next();
 		r = tx_write(fd, &value[0], out_off, value.size());
 		if(r < 0)
 		{

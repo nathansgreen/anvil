@@ -77,7 +77,7 @@ static void run_iterator(dtable * table)
 			break;
 		}
 		print(iter->key());
-		printf(":\n");
+		printf(":");
 		print(iter->value(), "\t");
 		more = iter->next();
 	}
@@ -103,7 +103,7 @@ int command_dtable(int argc, const char * argv[])
 	
 	mdt = new managed_simple_dtable;
 	r = mdt->init(AT_FDCWD, "managed_dtable", journal);
-	printf("mdt->init = %d\n", r);
+	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	r = tx_start();
 	printf("tx_start = %d\n", r);
 	r = mdt->append((uint32_t) 4, blob(5, (const uint8_t *) "hello"));
@@ -117,7 +117,7 @@ int command_dtable(int argc, const char * argv[])
 	
 	mdt = new managed_simple_dtable;
 	r = mdt->init(AT_FDCWD, "managed_dtable", true, journal);
-	printf("mdt->init = %d\n", r);
+	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -133,13 +133,13 @@ int command_dtable(int argc, const char * argv[])
 	
 	mdt = new managed_simple_dtable;
 	r = mdt->init(AT_FDCWD, "managed_dtable", journal);
-	printf("mdt->init = %d\n", r);
+	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = mdt->append((uint32_t) 8, blob(7, (const uint8_t *) "icanhas"));
+	r = mdt->append((uint32_t) 6, blob(7, (const uint8_t *) "icanhas"));
 	printf("mdt->append = %d\n", r);
-	r = mdt->append((uint32_t) 6, blob(11, (const uint8_t *) "cheezburger"));
+	r = mdt->append((uint32_t) 0, blob(11, (const uint8_t *) "cheezburger"));
 	printf("mdt->append = %d\n", r);
 	run_iterator(mdt);
 	/* ditto */
@@ -152,7 +152,7 @@ int command_dtable(int argc, const char * argv[])
 	
 	mdt = new managed_simple_dtable;
 	r = mdt->init(AT_FDCWD, "managed_dtable", journal);
-	printf("mdt->init = %d\n", r);
+	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
 	printf("tx_start = %d\n", r);

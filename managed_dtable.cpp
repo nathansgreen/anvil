@@ -138,8 +138,9 @@ int managed_dtable::combine(size_t first, size_t last)
 			reset_journal = true;
 			last--;
 		}
-		for(size_t i = first; i <= last; i++)
-			array[i - first] = disks[i].first;
+		if(last != (size_t) -1)
+			for(size_t i = first; i <= last; i++)
+				array[i - first] = disks[i].first;
 		source = new overlay_dtable;
 		source->init(array, count);
 	}
