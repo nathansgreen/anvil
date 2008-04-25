@@ -2,6 +2,8 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -177,7 +179,7 @@ static int st_strcmp(const void * a, const void * b)
 	return strcmp(*(const char **) a, *(const char **) b);
 }
 
-int st_create(tx_fd fd, off_t * start, const char ** strings, ssize_t count)
+static int _st_create(int fd, off_t * start, const char ** strings, ssize_t count, int (*do_write)(int, const void *, size_t, off_t))
 {
 	struct st_header header = {count, {4, 1}};
 	size_t size = 0, max = 0;
@@ -213,7 +215,7 @@ int st_create(tx_fd fd, off_t * start, const char ** strings, ssize_t count)
 			header.bytes[1] = 4;
 	}
 	/* write the header */
-	r = tx_write(fd, &header, *start, sizeof(header));
+	r = do_write(fd, &header, sizeof(header), *start);
 	if(r < 0)
 		return r;
 	*start += sizeof(header);
@@ -242,7 +244,7 @@ int st_create(tx_fd fd, off_t * start, const char ** strings, ssize_t count)
 			value >>= 8;
 		}
 		max += size;
-		r = tx_write(fd, bytes, *start, bc);
+		r = do_write(fd, bytes, bc, *start);
 		if(r < 0)
 			return r;
 		*start += bc;
@@ -251,7 +253,7 @@ int st_create(tx_fd fd, off_t * start, const char ** strings, ssize_t count)
 	for(i = 0; i < count; i++)
 	{
 		size = strlen(strings[i]);
-		r = tx_write(fd, strings[i], *start, size);
+		r = do_write(fd, strings[i], size, *start);
 		if(r < 0)
 			return r;
 		*start += size;
@@ -259,7 +261,17 @@ int st_create(tx_fd fd, off_t * start, const char ** strings, ssize_t count)
 	return 0;
 }
 
-int st_combine(tx_fd fd, off_t * start, struct stable * st1, struct stable * st2)
+int st_create(int fd, off_t * start, const char ** strings, ssize_t count)
+{
+	return _st_create(fd, start, strings, count, pwrite);
+}
+
+int st_create_tx(tx_fd fd, off_t * start, const char ** strings, ssize_t count)
+{
+	return _st_create(fd, start, strings, count, tx_write);
+}
+
+static int _st_combine(int fd, off_t * start, struct stable * st1, struct stable * st2, int (*do_create)(int, off_t *, const char **, ssize_t))
 {
 	ssize_t i1 = 0, i2 = 0;
 	ssize_t total = 0;
@@ -316,7 +328,17 @@ int st_combine(tx_fd fd, off_t * start, struct stable * st1, struct stable * st2
 	free(s2);
 	free(s1);
 	/* create the combined string table */
-	r = st_create(fd, start, u, total);
+	r = do_create(fd, start, u, total);
 	st_array_free(u, total);
 	return r;
+}
+
+int st_combine(int fd, off_t * start, struct stable * st1, struct stable * st2)
+{
+	return _st_combine(fd, start, st1, st2, st_create);
+}
+
+int st_combine_tx(tx_fd fd, off_t * start, struct stable * st1, struct stable * st2)
+{
+	return _st_combine(fd, start, st1, st2, st_create_tx);
 }

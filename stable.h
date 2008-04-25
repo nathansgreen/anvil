@@ -44,8 +44,11 @@ const char ** st_read(struct stable * st);
 void st_array_free(const char ** array, ssize_t count);
 
 /* leaves the input string array sorted */
-int st_create(tx_fd fd, off_t * start, const char ** strings, ssize_t count);
-int st_combine(tx_fd fd, off_t * start, struct stable * st1, struct stable * st2);
+int st_create(int fd, off_t * start, const char ** strings, ssize_t count);
+int st_combine(int fd, off_t * start, struct stable * st1, struct stable * st2);
+
+int st_create_tx(tx_fd fd, off_t * start, const char ** strings, ssize_t count);
+int st_combine_tx(tx_fd fd, off_t * start, struct stable * st1, struct stable * st2);
 
 #ifdef __cplusplus
 }

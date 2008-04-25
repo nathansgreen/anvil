@@ -514,7 +514,7 @@ int tx_read_fd(tx_fd fd)
 }
 
 /* note that tx_write(), unlike write(), does not report the number of bytes written */
-int tx_write(tx_fd fd, const void * buf, off_t offset, size_t length)
+int tx_write(tx_fd fd, const void * buf, size_t length, off_t offset)
 {
 	struct tx_full_write full;
 	struct tx_write * header = &full.write;
@@ -557,7 +557,7 @@ int tx_vnprintf(tx_fd fd, off_t offset, size_t max, const char * format, va_list
 	int r, length = vsnprintf(buffer, sizeof(buffer), format, ap);
 	if(length >= sizeof(buffer) || (max != (size_t) -1 && length > max))
 		return -E2BIG;
-	r = tx_write(fd, buffer, offset, length);
+	r = tx_write(fd, buffer, length, offset);
 	if(r < 0)
 		return r;
 	return length;

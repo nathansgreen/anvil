@@ -183,7 +183,7 @@ int managed_dtable::combine(size_t first, size_t last)
 	header.ddt_count = copy.size();
 	header.ddt_next++;
 	
-	r = tx_write(fd, &header, 0, sizeof(header));
+	r = tx_write(fd, &header, sizeof(header), 0);
 	if(r < 0)
 	{
 		header.ddt_next--;
@@ -196,9 +196,9 @@ int managed_dtable::combine(size_t first, size_t last)
 	{
 		uint32_t array[header.ddt_count];
 		for(uint32_t i = 0; i < header.ddt_count; i++)
-			array[i] = disks[i].second;
+			array[i] = copy[i].second;
 		/* hmm... would sizeof(array) work here? */
-		r = tx_write(fd, array, sizeof(header), header.ddt_count * sizeof(array[0]));
+		r = tx_write(fd, array, header.ddt_count * sizeof(array[0]), sizeof(header));
 		if(r < 0)
 		{
 			/* umm... we are screwed? */
@@ -259,7 +259,7 @@ int managed_dtable::create(int dfd, const char * name, dtype::ctype key_type)
 		unlinkat(dfd, name, AT_REMOVEDIR);
 		return (int) fd;
 	}
-	r = tx_write(fd, &header, 0, sizeof(header));
+	r = tx_write(fd, &header, sizeof(header), 0);
 	tx_close(fd);
 	if(r < 0)
 		unlinkat(sdfd, "md_meta", 0);

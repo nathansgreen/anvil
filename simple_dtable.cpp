@@ -9,7 +9,6 @@
 #include <assert.h>
 
 #include "openat.h"
-#include "transaction.h"
 
 #include "stringset.h"
 #include "simple_dtable.h"
@@ -296,9 +295,7 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 	}
 	
 	/* now write the file */
-	int r, i, size;
-	tx_fd fd;
-	off_t out_off;
+	int r, i, fd, size;
 	
 	dtable_header header;
 	header.magic = SDTABLE_MAGIC;
@@ -327,26 +324,29 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 	header.offset_size = byte_size(total_data_size);
 	size = header.key_size + header.length_size + header.offset_size;
 	
-	fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
+	fd = openat(dfd, file, O_RDWR | O_TRUNC | O_CREAT, 0644);
 	if(fd < 0)
 	{
 		r = fd;
 		goto out_strings;
 	}
-	r = tx_write(fd, &header, 0, sizeof(header));
-	if(r < 0)
+	r = write(fd, &header, sizeof(header));
+	if(r != sizeof(header))
 	{
 	fail_unlink:
-		tx_close(fd);
-		tx_unlink(dfd, file);
+		close(fd);
+		unlinkat(dfd, file, 0);
+		if(r >= 0)
+			r = -1;
 		goto out_strings;
 	}
-	out_off = sizeof(header);
 	if(string_array)
 	{
+		off_t out_off = sizeof(header);
 		r = st_create(fd, &out_off, string_array, string_count);
 		if(r < 0)
 			goto fail_unlink;
+		lseek(fd, 0, SEEK_END);
 	}
 	
 	/* now the key array */
@@ -373,13 +373,12 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 		}
 		layout_bytes(bytes, &i, meta.negative() ? 0 : (meta.size() + 1), header.length_size);
 		layout_bytes(bytes, &i, total_data_size, header.offset_size);
-		r = tx_write(fd, bytes, out_off, i);
-		if(r < 0)
+		r = write(fd, bytes, i);
+		if(r != i)
 		{
 			delete iter;
 			goto fail_unlink;
 		}
-		out_off += i;
 		total_data_size += meta.size();
 	}
 	delete iter;
@@ -390,17 +389,16 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 	{
 		blob value = iter->value();
 		iter->next();
-		r = tx_write(fd, &value[0], out_off, value.size());
-		if(r < 0)
+		r = write(fd, &value[0], value.size());
+		if(r != value.size())
 		{
 			delete iter;
 			goto fail_unlink;
 		}
-		out_off += value.size();
 	}
 	delete iter;
-	/* assume tx_close() works */
-	tx_close(fd);
+	/* assume close() works */
+	close(fd);
 	r = 0;
 	
 out_strings:

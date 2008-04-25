@@ -38,10 +38,10 @@ int sys_journal::append(journal_listener * listener, void * entry, size_t length
 	header.id = listener->id();
 	assert(lookup_listener(header.id) == listener);
 	header.length = length;
-	if(tx_write(fd, &header, offset, sizeof(header)) < 0)
+	if(tx_write(fd, &header, sizeof(header), offset) < 0)
 		return -1;
 	offset += sizeof(header);
-	if(tx_write(fd, entry, offset, length) < 0)
+	if(tx_write(fd, entry, length, offset) < 0)
 	{
 		/* need to unwrite the header */
 		assert(0);
@@ -76,7 +76,7 @@ int sys_journal::init(int dfd, const char * file, bool create)
 				return (int) fd;
 			header.magic = SYSJ_MAGIC;
 			header.version = SYSJ_VERSION;
-			r = tx_write(fd, &header, 0, sizeof(header));
+			r = tx_write(fd, &header, sizeof(header), 0);
 			if(r < 0)
 			{
 				tx_close(fd);
@@ -127,7 +127,10 @@ int sys_journal::playback(journal_listener * target)
 			listener = target;
 			/* skip other entries */
 			if(listener->id() != entry.id)
+			{
+				lseek(ufd, entry.length, SEEK_CUR);
 				continue;
+			}
 		}
 		else
 		{
@@ -201,7 +204,7 @@ int sys_journal::set_unique_id_file(int dfd, const char * file, bool create)
 		id.fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
 		if(id.fd < 0)
 			return (int) id.fd;
-		r = tx_write(id.fd, &id.next, 0, sizeof(id.next));
+		r = tx_write(id.fd, &id.next, sizeof(id.next), 0);
 		if(r < 0)
 		{
 			tx_close(id.fd);
@@ -230,7 +233,7 @@ sys_journal::listener_id sys_journal::get_unique_id()
 	if(id.fd < 0)
 		return NO_ID;
 	next = id.next++;
-	r = tx_write(id.fd, &id.next, 0, sizeof(id.next));
+	r = tx_write(id.fd, &id.next, sizeof(id.next), 0);
 	if(r < 0)
 	{
 		id.next = next;
