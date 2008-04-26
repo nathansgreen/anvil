@@ -81,7 +81,8 @@ private:
 				*prev = next;
 			free((void *) name);
 		}
-	} * overrides;
+	};
+	mutable override * overrides;
 	
 	class iter : public sub_blob_iter
 	{

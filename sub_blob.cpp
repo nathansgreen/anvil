@@ -80,8 +80,7 @@ blob sub_blob::get(const char * column) const
 	blob value = extract(column);
 	/* don't add negative entries to the override list */
 	if(!value.negative())
-		/* the override list is just a cache for the purposes of get(), so we can cast it */
-		new override(column, extract(column), const_cast<override **>(&overrides));
+		new override(column, extract(column), &overrides);
 	return value;
 }
 
@@ -181,8 +180,7 @@ void sub_blob::populate() const
 		ovr = find(name);
 		if(!ovr)
 			/* it hasn't been populated yet, so do it now */
-			/* see earlier note about the override list and constness */
-			new override(name, blob(length, &base[offset]), const_cast<override **>(&overrides));
+			new override(name, blob(length, &base[offset]), &overrides);
 		
 		offset += length;
 		free(name);
