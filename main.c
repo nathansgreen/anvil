@@ -709,6 +709,7 @@ static int command_tx(int argc, const char * argv[])
 }
 
 int command_dtable(int argc, const char * argv[]);
+int command_ctable(int argc, const char * argv[]);
 
 static int command_script(int argc, const char * argv[]);
 static int command_help(int argc, const char * argv[]);
@@ -730,9 +731,10 @@ struct {
 	{"quit", "Quits the program.", command_quit},
 	{"script", "Run a toilet script.", command_script},
 	{"journal", "Test journal functionality: create, append, commit, playback, erase.", command_journal},
-	{"dtable", "Test dtable functionality.", command_dtable},
+	{"tx", "Test transaction functionality.", command_tx},
 	{"stable", "Test stable functionality.", command_stable},
-	{"tx", "Test transaction functionality.", command_tx}
+	{"dtable", "Test dtable functionality.", command_dtable},
+	{"ctable", "Test ctable functionality.", command_ctable}
 };
 #define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))
 

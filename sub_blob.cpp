@@ -52,6 +52,9 @@ blob sub_blob::iter::value() const
 
 blob sub_blob::extract(const char * column) const
 {
+	if(base.size() < 1)
+		/* no columns */
+		return blob();
 	size_t offset = 1, size = strlen(column);
 	uint8_t length_size = base[0];
 	while(offset + length_size + 1 < base.size())
@@ -158,6 +161,9 @@ sub_blob_iter * sub_blob::iterator() const
 
 void sub_blob::populate() const
 {
+	if(base.size() < 1)
+		/* no columns */
+		return;
 	size_t offset = 1;
 	uint8_t length_size = base[0];
 	while(offset + length_size + 1 < base.size())

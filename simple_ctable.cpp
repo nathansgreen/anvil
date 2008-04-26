@@ -55,9 +55,3 @@ blob simple_ctable::find(dtype key, const char * column) const
 	sub_blob columns(row);
 	return columns.get(column);
 }
-
-int simple_ctable::init(dtable * source)
-{
-	dt_source = source;
-	return 0;
-}

@@ -16,9 +16,11 @@
 #include "overlay_dtable.h"
 #include "journal_dtable.h"
 #include "managed_dtable.h"
+#include "writable_ctable.h"
 
 extern "C" {
 int command_dtable(int argc, const char * argv[]);
+int command_ctable(int argc, const char * argv[]);
 };
 
 static void print(dtype x)
@@ -166,5 +168,22 @@ int command_dtable(int argc, const char * argv[])
 	run_iterator(mdt);
 	delete mdt;
 	
+	return 0;
+}
+
+int command_ctable(int argc, const char * argv[])
+{
+	return 0;
+	/* this stuff just makes sure we compile correctly */
+	writable_ctable<journal_dtable> x;
+	writable_ctable<managed_simple_dtable> y;
+	x.init(NULL);
+	y.init(NULL);
+	x.append((uint32_t) 8, "hello", blob(5, (const uint8_t *) "world"));
+	y.append((uint32_t) 8, "hello", blob(5, (const uint8_t *) "world"));
+	x.remove((uint32_t) 8, "hello");
+	y.remove((uint32_t) 8, "hello");
+	x.remove((uint32_t) 8);
+	y.remove((uint32_t) 8);
 	return 0;
 }
