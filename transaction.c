@@ -521,7 +521,7 @@ int tx_read_fd(tx_fd fd)
 }
 
 /* note that tx_write(), unlike write(), does not report the number of bytes written */
-int tx_write(tx_fd fd, const void * buf, size_t length, off_t offset)
+ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset)
 {
 	struct tx_full_write full;
 	struct tx_write * header = &full.write;

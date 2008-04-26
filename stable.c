@@ -179,7 +179,7 @@ static int st_strcmp(const void * a, const void * b)
 	return strcmp(*(const char **) a, *(const char **) b);
 }
 
-static int _st_create(int fd, off_t * start, const char ** strings, ssize_t count, int (*do_write)(int, const void *, size_t, off_t))
+static int _st_create(int fd, off_t * start, const char ** strings, ssize_t count, ssize_t (*do_write)(int, const void *, size_t, off_t))
 {
 	struct st_header header = {count, {4, 1}};
 	size_t size = 0, max = 0;

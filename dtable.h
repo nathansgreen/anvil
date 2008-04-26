@@ -5,10 +5,6 @@
 #ifndef __DTABLE_H
 #define __DTABLE_H
 
-#include <stdint.h>
-#include <inttypes.h>
-#include <sys/types.h>
-
 #ifndef __cplusplus
 #error dtable.h is a C++ header file
 #endif

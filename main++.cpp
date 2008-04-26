@@ -116,6 +116,7 @@ int command_dtable(int argc, const char * argv[])
 	delete mdt;
 	
 	mdt = new managed_simple_dtable;
+	/* pass true to recover journal in this case */
 	r = mdt->init(AT_FDCWD, "managed_dtable", true, journal);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);

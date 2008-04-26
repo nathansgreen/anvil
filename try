@@ -39,6 +39,7 @@ echo "script run" | (cd /mnt/test; ulimit -c unlimited; exec "$WD/toilet")
 
 ls -lR /mnt/test
 true | hexdump -C /mnt/test/teststrings
+true | hexdump -C /mnt/test/sys_journal
 true | hexdump -C /mnt/test/managed_dtable/md_meta
 true | hexdump -C /mnt/test/managed_dtable/md_data.2
 

@@ -33,8 +33,8 @@ int tx_forget(tx_id id);
 
 tx_fd tx_open(int dfd, const char * name, int flags, ...);
 int tx_read_fd(tx_fd fd);
-/* note the same signature as pwrite() */
-int tx_write(tx_fd fd, const void * buf, size_t length, off_t offset);
+/* note the same signature as pwrite(), but only returns 0 vs. < 0 (not #bytes written) */
+ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset);
 int tx_vnprintf(tx_fd fd, off_t offset, size_t max, const char * format, va_list ap);
 int tx_nprintf(tx_fd fd, off_t offset, size_t max, const char * format, ...);
 int tx_close(tx_fd fd);
