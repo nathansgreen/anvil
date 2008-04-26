@@ -28,7 +28,29 @@
  * bytes n+2-m: column name
  * bytes m+1-o: blob data */
 
-blob sub_blob::extract(const char * column)
+bool sub_blob::iter::valid() const
+{
+	return current != NULL;
+}
+
+bool sub_blob::iter::next()
+{
+	if(current)
+		current = current->next;
+	return current != NULL;
+}
+
+const char * sub_blob::iter::column() const
+{
+	return current->name;
+}
+
+blob sub_blob::iter::value() const
+{
+	return current->value;
+}
+
+blob sub_blob::extract(const char * column) const
 {
 	size_t offset = 1, size = strlen(column);
 	uint8_t length_size = base[0];
@@ -47,7 +69,7 @@ blob sub_blob::extract(const char * column)
 	return blob();
 }
 
-blob sub_blob::get(const char * column)
+blob sub_blob::get(const char * column) const
 {
 	override * ovr = find(column);
 	if(ovr)
@@ -55,7 +77,8 @@ blob sub_blob::get(const char * column)
 	blob value = extract(column);
 	/* don't add negative entries to the override list */
 	if(!value.negative())
-		new override(column, extract(column), &overrides);
+		/* the override list is just a cache for the purposes of get(), so we can cast it */
+		new override(column, extract(column), const_cast<override **>(&overrides));
 	return value;
 }
 
@@ -127,7 +150,13 @@ blob sub_blob::flatten(bool internalize)
 	return flat;
 }
 
-void sub_blob::populate()
+sub_blob_iter * sub_blob::iterator() const
+{
+	populate();
+	return new iter(overrides);
+}
+
+void sub_blob::populate() const
 {
 	size_t offset = 1;
 	uint8_t length_size = base[0];
@@ -146,14 +175,15 @@ void sub_blob::populate()
 		ovr = find(name);
 		if(!ovr)
 			/* it hasn't been populated yet, so do it now */
-			new override(name, blob(length, &base[offset]), &overrides);
+			/* see earlier note about the override list and constness */
+			new override(name, blob(length, &base[offset]), const_cast<override **>(&overrides));
 		
 		offset += length;
 		free(name);
 	}
 }
 
-sub_blob::override * sub_blob::find(const char * column)
+sub_blob::override * sub_blob::find(const char * column) const
 {
 	for(override * scan = overrides; scan; scan = scan->next)
 		if(!strcmp(scan->name, column))

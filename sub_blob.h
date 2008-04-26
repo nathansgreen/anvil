@@ -13,16 +13,34 @@
 
 #include "blob.h"
 
+/* sub_blob isn't really meant to be an abstract base class (and it isn't), so
+ * its iterator doesn't have to be all virtual like this... but the other
+ * iterators are all done this way, so we'll be consistent here */
+class sub_blob_iter
+{
+public:
+	virtual bool valid() const = 0;
+	/* see the note about dtable_iter in dtable.h */
+	virtual bool next() = 0;
+	/* returned string is good at least until the next call to next() */
+	virtual const char * column() const = 0;
+	virtual blob value() const = 0;
+	virtual ~sub_blob_iter() {}
+};
+
 class sub_blob
 {
 public:
 	inline sub_blob() : modified(false), overrides(NULL) {}
 	inline sub_blob(const blob & x) : base(x), modified(false), overrides(NULL) {}
 	
-	blob get(const char * column);
+	blob get(const char * column) const;
 	int set(const char * column, const blob & value);
 	int remove(const char * column);
 	blob flatten(bool internalize = true);
+	/* it is undefined what happens if you call flatten() while
+	 * iterating, but get(), set(), and remove() should all work */
+	sub_blob_iter * iterator() const;
 	
 	inline ~sub_blob()
 	{
@@ -65,10 +83,24 @@ private:
 		}
 	} * overrides;
 	
-	override * find(const char * column);
-	blob extract(const char * column);
+	class iter : public sub_blob_iter
+	{
+	public:
+		virtual bool valid() const;
+		virtual bool next();
+		virtual const char * column() const;
+		virtual blob value() const;
+		inline iter(override * first) : current(first) {}
+		virtual ~iter() {}
+		
+	private:
+		const override * current;
+	};
+	
+	override * find(const char * column) const;
+	blob extract(const char * column) const;
 	/* populate the override list with the current values */
-	void populate();
+	void populate() const;
 };
 
 #endif /* __SUB_BLOB_H */
