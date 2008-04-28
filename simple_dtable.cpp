@@ -368,6 +368,8 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 				i += sizeof(double);
 				break;
 			case dtype::STRING:
+				/* err... I forgot to finish this part I guess */
+				abort();
 				break;
 		}
 		layout_bytes(bytes, &i, meta.negative() ? 0 : (meta.size() + 1), header.length_size);

@@ -74,9 +74,9 @@ int managed_dtable::init(int dfd, const char * name, bool query_journal, sys_jou
 	{
 		size_t count = header.ddt_count;
 		const dtable * array[count + 1];
-		array[count] = journal;
 		for(size_t i = 0; i < count; i++)
-			array[i] = disks[i].first;
+			array[count - i] = disks[i].first;
+		array[0] = journal;
 		overlay = new overlay_dtable;
 		overlay->init(array, count + 1);
 	}
@@ -126,7 +126,7 @@ int managed_dtable::combine(size_t first, size_t last)
 	{
 		const dtable * array[first];
 		for(size_t i = 0; i < first; i++)
-			array[i] = disks[i].first;
+			array[first - i - 1] = disks[i].first;
 		shadow = new overlay_dtable;
 		shadow->init(array, first);
 	}
@@ -136,13 +136,13 @@ int managed_dtable::combine(size_t first, size_t last)
 		const dtable * array[count];
 		if(last == disks.size())
 		{
-			array[count - 1] = journal;
+			array[0] = journal;
 			reset_journal = true;
 			last--;
 		}
 		if(last != (size_t) -1)
 			for(size_t i = first; i <= last; i++)
-				array[i - first] = disks[i].first;
+				array[first + last - i + reset_journal] = disks[i].first;
 		source = new overlay_dtable;
 		source->init(array, count);
 	}
@@ -238,6 +238,14 @@ int managed_dtable::combine(size_t first, size_t last)
 			sprintf(name, "md_data.%u", copy[i].second);
 			tx_unlink(md_dfd, name);
 		}
+	/* force array scope to end */
+	{
+		const dtable * array[header.ddt_count + 1];
+		for(uint32_t i = 0; i < header.ddt_count; i++)
+			array[header.ddt_count - i] = disks[i].first;
+		array[0] = journal;
+		overlay->init(array, header.ddt_count + 1);
+	}
 	if(reset_journal)
 		journal->reinit(header.journal_id);
 	return 0;

@@ -78,6 +78,7 @@ static void run_iterator(dtable * table)
 {
 	bool more = true;
 	dtable_iter * iter = table->iterator();
+	printf("dtable contents:\n");
 	while(iter->valid())
 	{
 		if(!more)
@@ -98,6 +99,7 @@ static void run_iterator(ctable * table)
 	dtype old_key((uint32_t) 0);
 	bool more = true, first = true;
 	ctable_iter * iter = table->iterator();
+	printf("ctable contents:\n");
 	while(iter->valid())
 	{
 		dtype key = iter->key();
@@ -230,23 +232,23 @@ int command_ctable(int argc, const char * argv[])
 	r = tx_start();
 	printf("tx_start = %d\n", r);
 	r = wct->append((uint32_t) 8, "hello", blob(7, (const uint8_t *) "icanhas"));
-	printf("wct->append = %d\n", r);
+	printf("wct->append(8, hello) = %d\n", r);
 	run_iterator(mdt);
 	run_iterator(wct);
 	r = wct->append((uint32_t) 8, "world", blob(11, (const uint8_t *) "cheezburger"));
-	printf("wct->append = %d\n", r);
+	printf("wct->append(8, world) = %d\n", r);
 	run_iterator(mdt);
 	run_iterator(wct);
 	r = mdt->combine();
 	printf("mdt->combine() = %d\n", r);
 	run_iterator(mdt);
 	run_iterator(wct);
-	r = wct->remove((uint32_t) 10, "hello");
-	printf("wct->remove() = %d\n", r);
+	r = wct->remove((uint32_t) 8, "hello");
+	printf("wct->remove(8, hello) = %d\n", r);
 	run_iterator(mdt);
 	run_iterator(wct);
-	r = wct->remove((uint32_t) 10);
-	printf("wct->remove() = %d\n", r);
+	r = wct->remove((uint32_t) 8);
+	printf("wct->remove(8) = %d\n", r);
 	run_iterator(mdt);
 	run_iterator(wct);
 	r = mdt->combine();

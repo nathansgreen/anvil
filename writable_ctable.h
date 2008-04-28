@@ -32,14 +32,15 @@ public:
 	/* if we implemented our own find(), this could avoid flattening every time */
 	int append(dtype key, const char * column, const blob & value)
 	{
+		int r = 0;
 		blob row = wdt_source->find(key);
 		if(!row.negative() || !value.negative())
 		{
 			sub_blob columns(row);
 			columns.set(column, value);
-			wdt_source->append(key, columns.flatten());
+			r = wdt_source->append(key, columns.flatten());
 		}
-		return 0;
+		return r;
 	}
 	
 	/* remove just a column */
