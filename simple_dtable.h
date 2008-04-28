@@ -83,6 +83,9 @@ private:
 	blob get_value(size_t index, size_t data_length, off_t data_offset) const;
 	blob get_value(size_t index) const;
 	
+	/* helper for create() above */
+	static ssize_t locate_string(const char ** array, ssize_t size, const char * string);
+	
 	int fd;
 	size_t key_count;
 	struct stable st;
