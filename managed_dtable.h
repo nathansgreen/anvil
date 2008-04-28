@@ -45,10 +45,14 @@ public:
 	/* send to journal_dtable */
 	inline int append(dtype key, const blob & blob)
 	{
+		if(blob.negative() && find(key).negative())
+			return 0;
 		return journal->append(key, blob);
 	}
 	inline int remove(dtype key)
 	{
+		if(find(key).negative())
+			return 0;
 		return journal->remove(key);
 	}
 	

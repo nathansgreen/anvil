@@ -58,7 +58,7 @@ metablob simple_dtable::iter::meta() const
 {
 	size_t data_length;
 	sdt_source->get_key(index, &data_length);
-	return data_length ? metablob(data_length - 1) : metablob();
+	return data_length ? metablob(data_length) : metablob();
 }
 
 blob simple_dtable::iter::value() const
@@ -388,6 +388,8 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 	{
 		blob value = iter->value();
 		iter->next();
+		if(value.negative())
+			continue;
 		r = write(fd, &value[0], value.size());
 		if(r != (int) value.size())
 		{

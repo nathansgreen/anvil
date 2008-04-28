@@ -23,6 +23,7 @@ journal erase
 tx
 stable
 dtable
+ctable
 EOF
 mkdir /mnt/test/journals
 sudo umount /mnt/test

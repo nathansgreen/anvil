@@ -118,9 +118,16 @@ int journal_dtable::add_string(const char * string, uint32_t * index)
 template<class T> inline int journal_dtable::log(T * entry, const blob & blob)
 {
 	int r;
-	entry->size = blob.negative() ? -1 : blob.size();
-	memcpy(entry->data, &blob[0], entry->size);
-	r = journal_append(entry, sizeof(*entry) + entry->size);
+	size_t size = sizeof(*entry);
+	if(blob.negative())
+		entry->size = -1;
+	else
+	{
+		entry->size = blob.size();
+		memcpy(entry->data, &blob[0], entry->size);
+		size += entry->size;
+	}
+	r = journal_append(entry, size);
 	free((void *) entry);
 	return r;
 }

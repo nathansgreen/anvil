@@ -5,6 +5,16 @@
 #include "sub_blob.h"
 #include "simple_ctable.h"
 
+simple_ctable::iter::iter(dtable_iter * src)
+	: source(src), columns(NULL)
+{
+	if(source->valid())
+	{
+		row = sub_blob(source->value());
+		columns = row.iterator();
+	}
+}
+
 bool simple_ctable::iter::valid() const
 {
 	return columns ? columns->valid() : false;
@@ -14,6 +24,8 @@ bool simple_ctable::iter::next()
 {
 	if(columns)
 	{
+		if(columns->next())
+			return true;
 		delete columns;
 		columns = NULL;
 	}

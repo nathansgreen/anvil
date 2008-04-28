@@ -34,7 +34,7 @@ private:
 		virtual dtype key() const;
 		virtual const char * column() const;
 		virtual blob value() const;
-		inline iter(dtable_iter * src) : source(src), columns(NULL) {}
+		inline iter(dtable_iter * src);
 		virtual ~iter()
 		{
 			if(columns)

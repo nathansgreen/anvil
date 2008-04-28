@@ -41,6 +41,13 @@ static void print(dtype x)
 
 static void print(blob x, const char * prefix = NULL)
 {
+	if(x.negative())
+	{
+		if(prefix)
+			printf("%s", prefix);
+		printf("(negative)\n");
+		return;
+	}
 	for(size_t i = 0; i < x.size(); i += 16)
 	{
 		size_t m = i + 16;
@@ -80,6 +87,34 @@ static void run_iterator(dtable * table)
 		}
 		print(iter->key());
 		printf(":");
+		print(iter->value(), "\t");
+		more = iter->next();
+	}
+	delete iter;
+}
+
+static void run_iterator(ctable * table)
+{
+	dtype old_key((uint32_t) 0);
+	bool more = true, first = true;
+	ctable_iter * iter = table->iterator();
+	while(iter->valid())
+	{
+		dtype key = iter->key();
+		if(!more)
+		{
+			printf("iter->next() returned false, but iter->valid() says there is more!\n");
+			break;
+		}
+		if(first || key != old_key)
+		{
+			printf("==> ");
+			print(key);
+			printf("\n");
+			old_key = key;
+			first = false;
+		}
+		printf("%s:", iter->column());
 		print(iter->value(), "\t");
 		more = iter->next();
 	}
@@ -173,17 +208,55 @@ int command_dtable(int argc, const char * argv[])
 
 int command_ctable(int argc, const char * argv[])
 {
-	return 0;
-	/* this stuff just makes sure we compile correctly */
-	writable_ctable<journal_dtable> x;
-	writable_ctable<managed_simple_dtable> y;
-	x.init(NULL);
-	y.init(NULL);
-	x.append((uint32_t) 8, "hello", blob(5, (const uint8_t *) "world"));
-	y.append((uint32_t) 8, "hello", blob(5, (const uint8_t *) "world"));
-	x.remove((uint32_t) 8, "hello");
-	y.remove((uint32_t) 8, "hello");
-	x.remove((uint32_t) 8);
-	y.remove((uint32_t) 8);
+	int r;
+	managed_simple_dtable * mdt;
+	writable_simple2_ctable * wct;
+	sys_journal * journal = sys_journal::get_global_journal();
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	/* assume command_dtable() already ran; don't reinitialize global state */
+	r = managed_dtable::create(AT_FDCWD, "managed_ctable", dtype::UINT32);
+	printf("dtable::create = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	mdt = new managed_simple_dtable;
+	wct = new writable_simple2_ctable;
+	r = mdt->init(AT_FDCWD, "managed_ctable", journal);
+	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
+	r = wct->init(mdt);
+	printf("wct->init = %d\n", r);
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = wct->append((uint32_t) 8, "hello", blob(7, (const uint8_t *) "icanhas"));
+	printf("wct->append = %d\n", r);
+	run_iterator(mdt);
+	run_iterator(wct);
+	r = wct->append((uint32_t) 8, "world", blob(11, (const uint8_t *) "cheezburger"));
+	printf("wct->append = %d\n", r);
+	run_iterator(mdt);
+	run_iterator(wct);
+	r = mdt->combine();
+	printf("mdt->combine() = %d\n", r);
+	run_iterator(mdt);
+	run_iterator(wct);
+	r = wct->remove((uint32_t) 10, "hello");
+	printf("wct->remove() = %d\n", r);
+	run_iterator(mdt);
+	run_iterator(wct);
+	r = wct->remove((uint32_t) 10);
+	printf("wct->remove() = %d\n", r);
+	run_iterator(mdt);
+	run_iterator(wct);
+	r = mdt->combine();
+	printf("mdt->combine() = %d\n", r);
+	run_iterator(mdt);
+	run_iterator(wct);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	delete wct;
+	delete mdt;
+	
 	return 0;
 }

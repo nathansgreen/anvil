@@ -12,13 +12,16 @@
 #include "ctable.h"
 #include "sub_blob.h"
 #include "simple_ctable.h"
+#include "managed_dtable.h"
 
-/* T is some kind of writable dtable (e.g. journal_dtable),
+/* T is some kind of writable dtable (e.g. journal_dtable, managed_dtable),
  * U is some kind of base ctable (simple_ctable by default) */
 template<class T, class U = simple_ctable>
 class writable_ctable : public U
 {
 public:
+	/* notice that this is not virtual; care should be taken
+	 * not to call the base ctable's version of init() */
 	inline int init(T * source)
 	{
 		this->dt_source = source;
@@ -30,9 +33,12 @@ public:
 	int append(dtype key, const char * column, const blob & value)
 	{
 		blob row = wdt_source->find(key);
-		sub_blob columns(row);
-		columns.set(column, value);
-		wdt_source->append(key, columns.flatten());
+		if(!row.negative() || !value.negative())
+		{
+			sub_blob columns(row);
+			columns.set(column, value);
+			wdt_source->append(key, columns.flatten());
+		}
 		return 0;
 	}
 	
@@ -65,5 +71,8 @@ private:
 	/* we could also just always cast dt_source... */
 	T * wdt_source;
 };
+
+/* this is actually simple in two dimensions: the dtable is simple, and the ctable is simple */
+typedef writable_ctable<managed_simple_dtable> writable_simple2_ctable;
 
 #endif /* __WRITABLE_CTABLE_H */
