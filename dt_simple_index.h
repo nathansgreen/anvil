@@ -10,7 +10,7 @@
 #endif
 
 #include "dt_index.h"
-#include "dtable.h"
+#include "writable_dtable.h"
 #include "journal_dtable.h"
 
 class dt_simple_index : public dt_index
@@ -32,14 +32,17 @@ public:
 	int update(dtype key, dtype old_pri, dtype new_pri);
 	int remove(dtype key, dtype pri);
 	
-	inline dt_simple_index() {}
-	int init(const dtable * store, journal_dtable * append, bool unique);
+	inline dt_simple_index() : ro_store(NULL), rw_store(NULL) {}
+	/* read only version */
+	int init(const dtable * store, bool unique);
+	/* if you want this index to be writable */
+	int init(writable_dtable * store, bool unique);
 	inline virtual ~dt_simple_index() {}
 	
 private:
 	bool unique;
-	const dtable * store;
-	const journal_dtable * append;
+	const dtable * ro_store;
+	writable_dtable * rw_store;
 };
 
 #endif /* __DT_SIMPLE_INDEX_H */

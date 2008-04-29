@@ -17,6 +17,7 @@
 
 #include <vector>
 
+#include "writable_dtable.h"
 #include "simple_dtable.h"
 #include "overlay_dtable.h"
 #include "journal_dtable.h"
@@ -29,7 +30,7 @@
 #define MDTABLE_MAGIC 0x784D3DB7
 #define MDTABLE_VERSION 0
 
-class managed_dtable : public dtable
+class managed_dtable : public writable_dtable
 {
 public:
 	/* send to overlay_dtable */
@@ -43,13 +44,13 @@ public:
 	}
 	
 	/* send to journal_dtable */
-	inline int append(dtype key, const blob & blob)
+	inline virtual int append(dtype key, const blob & blob)
 	{
 		if(blob.negative() && find(key).negative())
 			return 0;
 		return journal->append(key, blob);
 	}
-	inline int remove(dtype key)
+	inline virtual int remove(dtype key)
 	{
 		if(find(key).negative())
 			return 0;

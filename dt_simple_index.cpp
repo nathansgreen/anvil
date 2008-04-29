@@ -44,11 +44,20 @@ int dt_simple_index::remove(dtype key, dtype pri)
 	/* for !unique: remove this pri from this key */
 }
 
-int dt_simple_index::init(const dtable * store, journal_dtable * append, bool unique)
+int dt_simple_index::init(const dtable * store, bool unique)
 {
 	/* any further checking here? */
 	this->unique = unique;
-	this->store = store;
-	this->append = append;
+	this->ro_store = store;
+	this->rw_store = NULL;
+	return 0;
+}
+
+int dt_simple_index::init(writable_dtable * store, bool unique)
+{
+	/* any further checking here? */
+	this->unique = unique;
+	this->ro_store = NULL;
+	this->rw_store = store;
 	return 0;
 }

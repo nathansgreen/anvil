@@ -16,20 +16,20 @@
 #include "blob.h"
 #include "stringset.h"
 #include "sys_journal.h"
-#include "dtable.h"
+#include "writable_dtable.h"
 
 /* The journal dtable doesn't have an associated file: all its data is stored in
  * a sys_journal. The only identifying part of journal dtables is their listener
  * ID, which must be chosen to be unique for each new journal dtable. */
 
-class journal_dtable : public dtable, public sys_journal::journal_listener
+class journal_dtable : public writable_dtable, public sys_journal::journal_listener
 {
 public:
 	virtual dtable_iter * iterator() const;
 	virtual blob lookup(dtype key, const dtable ** source) const;
 	
-	int append(dtype key, const blob & blob);
-	int remove(dtype key);
+	virtual int append(dtype key, const blob & blob);
+	virtual int remove(dtype key);
 	
 	inline journal_dtable() : root(NULL), string_index(0) {}
 	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL);
