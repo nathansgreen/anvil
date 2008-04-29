@@ -78,8 +78,8 @@ blob sub_blob::get(const char * column) const
 	if(ovr)
 		return ovr->value;
 	blob value = extract(column);
-	/* don't add negative entries to the override list */
-	if(!value.negative())
+	/* don't add non-existent blobs to the override list */
+	if(value.exists())
 		new override(column, extract(column), &overrides);
 	return value;
 }
@@ -116,7 +116,7 @@ blob sub_blob::flatten(bool internalize)
 	populate();
 	for(override * scan = overrides; scan; scan = scan->next)
 	{
-		if(scan->value.negative())
+		if(!scan->value.exists())
 			continue;
 		count++;
 		total_size += strlen(scan->name);
@@ -134,7 +134,7 @@ blob sub_blob::flatten(bool internalize)
 	for(override * scan = overrides; scan; scan = scan->next)
 	{
 		uint8_t name = strlen(scan->name);
-		if(scan->value.negative())
+		if(!scan->value.exists())
 			continue;
 		layout_bytes(memory, &total_size, scan->value.size(), length_size);
 		memory[total_size++] = name;

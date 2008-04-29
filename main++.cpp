@@ -41,11 +41,11 @@ static void print(dtype x)
 
 static void print(blob x, const char * prefix = NULL)
 {
-	if(x.negative())
+	if(!x.exists())
 	{
 		if(prefix)
 			printf("%s", prefix);
-		printf("(negative)\n");
+		printf("(non-existent)\n");
 		return;
 	}
 	for(size_t i = 0; i < x.size(); i += 16)

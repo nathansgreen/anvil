@@ -25,7 +25,7 @@ bool overlay_dtable::iter::valid() const
 	return next_index < ovr_source->table_count;
 }
 
-/* this will let negative entry blobs shadow positive ones just like we want
+/* this will let non-existent blobs shadow positive ones just like we want
  * without any special handling, since next() and valid() still return true */
 bool overlay_dtable::iter::next()
 {

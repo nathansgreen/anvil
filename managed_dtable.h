@@ -46,13 +46,13 @@ public:
 	/* send to journal_dtable */
 	inline virtual int append(dtype key, const blob & blob)
 	{
-		if(blob.negative() && find(key).negative())
+		if(!blob.exists() && !find(key).exists())
 			return 0;
 		return journal->append(key, blob);
 	}
 	inline virtual int remove(dtype key)
 	{
-		if(find(key).negative())
+		if(!find(key).exists())
 			return 0;
 		return journal->remove(key);
 	}

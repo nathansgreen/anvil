@@ -11,7 +11,7 @@ simple_ctable::iter::iter(dtable_iter * src)
 	while(source->valid())
 	{
 		blob value = source->value();
-		if(!value.negative())
+		if(value.exists())
 		{
 			row = sub_blob(value);
 			columns = row.iterator();
@@ -43,7 +43,7 @@ bool simple_ctable::iter::next()
 		if(!source->next())
 			return false;
 		blob value = source->value();
-		if(value.negative())
+		if(!value.exists())
 			continue;
 		row = sub_blob(value);
 		columns = row.iterator();
@@ -77,7 +77,7 @@ ctable_iter * simple_ctable::iterator() const
 blob simple_ctable::find(dtype key, const char * column) const
 {
 	blob row = dt_source->find(key);
-	if(row.negative())
+	if(!row.exists())
 		return row;
 	/* not super efficient, but we can fix it later */
 	sub_blob columns(row);

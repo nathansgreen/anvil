@@ -119,14 +119,14 @@ template<class T> inline int journal_dtable::log(T * entry, const blob & blob)
 {
 	int r;
 	size_t size = sizeof(*entry);
-	if(blob.negative())
-		entry->size = -1;
-	else
+	if(blob.exists())
 	{
 		entry->size = blob.size();
 		memcpy(entry->data, &blob[0], entry->size);
 		size += entry->size;
 	}
+	else
+		entry->size = -1;
 	r = journal_append(entry, size);
 	free((void *) entry);
 	return r;

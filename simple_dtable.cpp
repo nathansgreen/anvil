@@ -89,7 +89,7 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 	assert(r == size);
 	
 	if(data_length)
-		/* all data lengths are stored incremented by 1, to free up 0 for negative entries */
+		/* all data lengths are stored incremented by 1, to free up 0 for non-existent entries */
 		*data_length = read_bytes(bytes, key_size, length_size) - 1;
 	if(data_offset)
 		*data_offset = read_bytes(bytes, key_size + length_size, offset_size);
@@ -285,9 +285,9 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 		dtype key = iter->key();
 		metablob meta = iter->meta();
 		iter->next();
-		if(meta.negative())
-			/* omit negative entries no longer needed */
-			if(!shadow || shadow->find(key).negative())
+		if(!meta.exists())
+			/* omit non-existent entries no longer needed */
+			if(!shadow || !shadow->find(key).exists())
 				continue;
 		key_count++;
 		assert(key.type == key_type);
@@ -339,7 +339,7 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 			r = -EINVAL;
 			goto out_strings;
 	}
-	/* we reserve size 0 for negative entries, so add 1 */
+	/* we reserve size 0 for non-existent entries, so add 1 */
 	header.length_size = byte_size(max_data_size + 1);
 	header.offset_size = byte_size(total_data_size);
 	size = header.key_size + header.length_size + header.offset_size;
@@ -378,9 +378,9 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 		dtype key = iter->key();
 		metablob meta = iter->meta();
 		iter->next();
-		if(meta.negative())
-			/* omit negative entries no longer needed */
-			if(!shadow || shadow->find(key).negative())
+		if(!meta.exists())
+			/* omit non-existent entries no longer needed */
+			if(!shadow || !shadow->find(key).exists())
 				continue;
 		i = 0;
 		switch(key.type)
@@ -397,7 +397,7 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 				layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 		}
-		layout_bytes(bytes, &i, meta.negative() ? 0 : (meta.size() + 1), header.length_size);
+		layout_bytes(bytes, &i, meta.exists() ? meta.size() + 1 : 0, header.length_size);
 		layout_bytes(bytes, &i, total_data_size, header.offset_size);
 		r = write(fd, bytes, i);
 		if(r != i)
@@ -415,7 +415,7 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 	{
 		blob value = iter->value();
 		iter->next();
-		if(value.negative())
+		if(!value.exists())
 			continue;
 		r = write(fd, &value[0], value.size());
 		if(r != (int) value.size())

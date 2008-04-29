@@ -20,7 +20,7 @@
 class blob
 {
 public:
-	/* negative entry blob constructor */
+	/* non-existent blob constructor */
 	inline blob() : internal(NULL) {}
 	/* other constructors */
 	blob(size_t size);
@@ -51,10 +51,10 @@ public:
 		return internal ? internal->shares : 0;
 	}
 	
-	/* is this blob a negative entry? */
-	inline bool negative() const
+	/* does this blob exist? */
+	inline bool exists() const
 	{
-		return !internal;
+		return internal != NULL;
 	}
 	
 	inline uint8_t * memory()
@@ -82,19 +82,19 @@ private:
 };
 
 /* a metablob does not have any actual data, but knows how long the data would
- * be and whether or not it's even present (i.e. a negative entry) */
+ * be and whether or not it's even present (i.e. a non-existent blob) */
 class metablob
 {
 public:
-	inline metablob() : data_size(0), is_negative(true) {}
-	inline metablob(size_t size) : data_size(size), is_negative(false) {}
-	inline metablob(const metablob & x) : data_size(x.data_size), is_negative(x.is_negative) {}
-	inline metablob(const blob & x) : data_size(x.size()), is_negative(x.negative()) {}
+	inline metablob() : data_size(0), data_exists(false) {}
+	inline metablob(size_t size) : data_size(size), data_exists(true) {}
+	inline metablob(const metablob & x) : data_size(x.data_size), data_exists(x.data_exists) {}
+	inline metablob(const blob & x) : data_size(x.size()), data_exists(x.exists()) {}
 	inline size_t size() const { return data_size; }
-	inline bool negative() const { return is_negative; }
+	inline bool exists() const { return data_exists; }
 private:
 	size_t data_size;
-	bool is_negative;
+	bool data_exists;
 };
 
 /* some useful marshalling functions */

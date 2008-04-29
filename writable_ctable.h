@@ -33,7 +33,7 @@ public:
 	{
 		int r = 0;
 		blob row = wdt_source->find(key);
-		if(!row.negative() || !value.negative())
+		if(row.exists() || value.exists())
 		{
 			sub_blob columns(row);
 			columns.set(column, value);
