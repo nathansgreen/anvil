@@ -12,7 +12,6 @@
 #include "multimap.h"
 #include "diskhash.h"
 #include "disktree.h"
-#include "memcache.h"
 
 struct t_index {
 	/* note that I_BOTH == I_HASH | I_TREE */
@@ -20,11 +19,9 @@ struct t_index {
 	t_type data_type;
 	/* value -> blob of row IDs */
 	struct {
-		memcache * cache;
 		diskhash * disk;
 	} hash;
 	struct {
-		memcache * cache;
 		disktree * disk;
 	} tree;
 };

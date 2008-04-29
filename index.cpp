@@ -114,19 +114,13 @@ t_index * toilet_open_index(uint8_t * id, int dfd, const char * path, const char
 		index->type |= t_index::I_HASH;
 		if(index->hash.disk->get_val_type() != MM_U32)
 			goto fail_hash;
-		index->hash.cache = new memcache(id, index->hash.disk);
-		if(!index->hash.cache)
-			goto fail_hash;
 	}
 	index->tree.disk = disktree::open(id, dir_fd, "dt");
 	if(index->tree.disk)
 	{
 		index->type |= t_index::I_TREE;
 		if(index->tree.disk->get_val_type() != MM_U32)
-			goto fail_hash;
-		index->tree.cache = new memcache(id, index->tree.disk);
-		if(!index->tree.cache)
-			goto fail_tree;
+			goto fail_both;
 	}
 	
 	if(index->type == t_index::I_NONE)
@@ -137,17 +131,10 @@ t_index * toilet_open_index(uint8_t * id, int dfd, const char * path, const char
 	
 fail_both:
 	if(index->tree.disk)
-	{
-		delete index->tree.cache;
-fail_tree:
 		delete index->tree.disk;
-	}
-	if(index->hash.disk)
-	{
-		delete index->hash.cache;
 fail_hash:
+	if(index->hash.disk)
 		delete index->hash.disk;
-	}
 fail_key:
 	free(index);
 fail_malloc:
@@ -163,15 +150,9 @@ t_type toilet_index_type(t_index * index)
 void toilet_close_index(t_index * index)
 {
 	if(index->type & t_index::I_HASH)
-	{
-		delete index->hash.cache;
 		delete index->hash.disk;
-	}
 	if(index->type & t_index::I_TREE)
-	{
-		delete index->tree.cache;
 		delete index->tree.disk;
-	}
 	free(index);
 }
 
@@ -201,13 +182,13 @@ int toilet_index_add(t_index * index, t_row_id id, t_type type, t_value * value)
 		return -EINVAL;
 	if(index->type & t_index::I_HASH)
 	{
-		int r = index->hash.cache->append_value(mm_pvalue, &mm_id);
+		int r = index->hash.disk->append_value(mm_pvalue, &mm_id);
 		if(r < 0)
 			return r;
 	}
 	if(index->type & t_index::I_TREE)
 	{
-		int r = index->tree.cache->append_value(mm_pvalue, &mm_id);
+		int r = index->tree.disk->append_value(mm_pvalue, &mm_id);
 		if(r < 0)
 		{
 			/* XXX: reset the hash somehow? */
@@ -232,13 +213,13 @@ int toilet_index_remove(t_index * index, t_row_id id, t_type type, t_value * val
 		return -EINVAL;
 	if(index->type & t_index::I_HASH)
 	{
-		int r = index->hash.cache->remove_value(mm_pvalue, &mm_id);
+		int r = index->hash.disk->remove_value(mm_pvalue, &mm_id);
 		if(r < 0)
 			return r;
 	}
 	if(index->type & t_index::I_TREE)
 	{
-		int r = index->tree.cache->remove_value(mm_pvalue, &mm_id);
+		int r = index->tree.disk->remove_value(mm_pvalue, &mm_id);
 		if(r < 0)
 		{
 			/* XXX: restore the hash somehow? */
@@ -291,9 +272,9 @@ fail_rowset:
 ssize_t toilet_index_size(t_index * index)
 {
 	if(index->type & t_index::I_HASH)
-		return index->hash.cache->values();
+		return index->hash.disk->values();
 	if(index->type & t_index::I_TREE)
-		return index->tree.cache->values();
+		return index->tree.disk->values();
 	return -1;
 }
 
@@ -303,9 +284,9 @@ t_rowset * toilet_index_list(t_index * index, t_type type)
 	if(type != index->data_type)
 		return NULL;
 	if(index->type & t_index::I_HASH)
-		it = index->hash.cache->iterator();
+		it = index->hash.disk->iterator();
 	else if(index->type & t_index::I_TREE)
-		it = index->tree.cache->iterator();
+		it = index->tree.disk->iterator();
 	if(!it)
 		return NULL;
 	return multimap_it_to_rowset(it);
@@ -318,9 +299,9 @@ ssize_t toilet_index_count(t_index * index, t_type type, t_value * value)
 	if(type != index->data_type)
 		return -EINVAL;
 	if(index->type & t_index::I_HASH)
-		return index->hash.cache->count_values(mm_pvalue);
+		return index->hash.disk->count_values(mm_pvalue);
 	if(index->type & t_index::I_TREE)
-		return index->tree.cache->count_values(mm_pvalue);
+		return index->tree.disk->count_values(mm_pvalue);
 	return -1;
 }
 
@@ -332,9 +313,9 @@ t_rowset * toilet_index_find(t_index * index, t_type type, t_value * value)
 	if(type != index->data_type)
 		return NULL;
 	if(index->type & t_index::I_HASH)
-		it = index->hash.cache->get_values(mm_pvalue);
+		it = index->hash.disk->get_values(mm_pvalue);
 	else if(index->type & t_index::I_TREE)
-		it = index->tree.cache->get_values(mm_pvalue);
+		it = index->tree.disk->get_values(mm_pvalue);
 	if(!it)
 		return NULL;
 	return multimap_it_to_rowset(it);
@@ -348,9 +329,9 @@ ssize_t toilet_index_count_range(t_index * index, t_type type, t_value * low_val
 	if(type != index->data_type)
 		return -EINVAL;
 	if(index->type & t_index::I_HASH)
-		return index->hash.cache->count_range(low_pvalue, high_pvalue);
+		return index->hash.disk->count_range(low_pvalue, high_pvalue);
 	if(index->type & t_index::I_TREE)
-		return index->tree.cache->count_range(low_pvalue, high_pvalue);
+		return index->tree.disk->count_range(low_pvalue, high_pvalue);
 	return -1;
 }
 
@@ -364,9 +345,9 @@ t_rowset * toilet_index_find_range(t_index * index, t_type type, t_value * low_v
 		return NULL;
 	/* prefer the tree for this type of query */
 	if(index->type & t_index::I_TREE)
-		it = index->tree.cache->get_range(low_pvalue, high_pvalue);
+		it = index->tree.disk->get_range(low_pvalue, high_pvalue);
 	else if(index->type & t_index::I_HASH)
-		it = index->hash.cache->get_range(low_pvalue, high_pvalue);
+		it = index->hash.disk->get_range(low_pvalue, high_pvalue);
 	if(!it)
 		return NULL;
 	return multimap_it_to_rowset(it);

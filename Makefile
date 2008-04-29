@@ -2,7 +2,7 @@ CSOURCES=blowfish.c hash_map.c hash_set.c journal.c md5.c openat.c stable.c toil
 CPPSOURCES=blob.cpp stringset.cpp sub_blob.cpp sys_journal.cpp tempfile.cpp
 CPPSOURCES+=journal_dtable.cpp overlay_dtable.cpp simple_dtable.cpp
 CPPSOURCES+=dt_simple_index.cpp managed_dtable.cpp simple_ctable.cpp
-CPPSOURCES+=diskhash.cpp disktree.cpp index.cpp memcache.cpp multimap.cpp
+CPPSOURCES+=diskhash.cpp disktree.cpp index.cpp multimap.cpp
 SOURCES=$(CSOURCES) $(CPPSOURCES)
 
 HEADERS=$(wildcard *.h)
