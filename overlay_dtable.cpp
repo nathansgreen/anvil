@@ -133,13 +133,12 @@ int overlay_dtable::init(const dtable * dt1, ...)
 
 int overlay_dtable::init(const dtable ** dts, size_t count)
 {
-	size_t i;
 	if(count < 1)
 		return -EINVAL;
 	if(tables)
 		deinit();
 	ktype = dts[0]->key_type();
-	for(i = 1; i < count; i++)
+	for(size_t i = 1; i < count; i++)
 		if(dts[i]->key_type() != ktype)
 			return -EINVAL;
 	

@@ -8,10 +8,19 @@
 simple_ctable::iter::iter(dtable_iter * src)
 	: source(src), columns(NULL)
 {
-	if(source->valid())
+	while(source->valid())
 	{
-		row = sub_blob(source->value());
-		columns = row.iterator();
+		blob value = source->value();
+		if(!value.negative())
+		{
+			row = sub_blob(value);
+			columns = row.iterator();
+			if(columns->valid())
+				break;
+			delete columns;
+			columns = NULL;
+		}
+		source->next();
 	}
 }
 
@@ -29,13 +38,20 @@ bool simple_ctable::iter::next()
 		delete columns;
 		columns = NULL;
 	}
-	do {
+	for(;;)
+	{
 		if(!source->next())
 			return false;
-	} while(source->value().negative());
-	row = sub_blob(source->value());
-	columns = row.iterator();
-	return columns->valid();
+		blob value = source->value();
+		if(value.negative())
+			continue;
+		row = sub_blob(value);
+		columns = row.iterator();
+		if(columns->valid())
+			return true;
+		delete columns;
+		columns = NULL;
+	}
 }
 
 dtype simple_ctable::iter::key() const

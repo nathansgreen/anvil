@@ -43,6 +43,7 @@ true | hexdump -C /mnt/test/teststrings
 true | hexdump -C /mnt/test/sys_journal
 true | hexdump -C /mnt/test/managed_dtable/md_meta
 true | hexdump -C /mnt/test/managed_dtable/md_data.2
+true | hexdump -C /mnt/test/managed_ctable/md_data.1
 
 echo "Unloading Featherstitch... "
 sudo umount /mnt/test

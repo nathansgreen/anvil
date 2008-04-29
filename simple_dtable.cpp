@@ -150,7 +150,7 @@ blob simple_dtable::get_value(size_t index) const
 	size_t data_length;
 	off_t data_offset;
 	dtype key = get_key(index, &data_length, &data_offset);
-	return get_value(index, data_length, data_offset);
+	return (data_length != (size_t) -1) ? get_value(index, data_length, data_offset) : blob();
 }
 
 blob simple_dtable::lookup(dtype key, const dtable ** source) const
@@ -378,6 +378,10 @@ int simple_dtable::create(int dfd, const char * file, const dtable * source, con
 		dtype key = iter->key();
 		metablob meta = iter->meta();
 		iter->next();
+		if(meta.negative())
+			/* omit negative entries no longer needed */
+			if(!shadow || shadow->find(key).negative())
+				continue;
 		i = 0;
 		switch(key.type)
 		{
