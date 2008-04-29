@@ -12,17 +12,16 @@
 #include "ctable.h"
 #include "sub_blob.h"
 #include "simple_ctable.h"
+#include "writable_dtable.h"
 #include "managed_dtable.h"
 
-/* T is some kind of writable dtable (e.g. journal_dtable, managed_dtable),
- * U is some kind of base ctable (simple_ctable by default) */
-template<class T, class U = simple_ctable>
-class writable_ctable : public U
+template<class T>
+class writable_ctable : public T
 {
 public:
 	/* notice that this is not virtual; care should be taken
 	 * not to call the base ctable's version of init() */
-	inline int init(T * source)
+	inline int init(writable_dtable * source)
 	{
 		this->dt_source = source;
 		wdt_source = source;
@@ -70,10 +69,9 @@ public:
 	
 private:
 	/* we could also just always cast dt_source... */
-	T * wdt_source;
+	writable_dtable * wdt_source;
 };
 
-/* this is actually simple in two dimensions: the dtable is simple, and the ctable is simple */
-typedef writable_ctable<managed_simple_dtable> writable_simple2_ctable;
+typedef writable_ctable<simple_ctable> writable_simple_ctable;
 
 #endif /* __WRITABLE_CTABLE_H */

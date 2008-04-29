@@ -212,7 +212,7 @@ int command_ctable(int argc, const char * argv[])
 {
 	int r;
 	managed_simple_dtable * mdt;
-	writable_simple2_ctable * wct;
+	writable_simple_ctable * wct;
 	sys_journal * journal = sys_journal::get_global_journal();
 	
 	r = tx_start();
@@ -224,7 +224,7 @@ int command_ctable(int argc, const char * argv[])
 	printf("tx_end = %d\n", r);
 	
 	mdt = new managed_simple_dtable;
-	wct = new writable_simple2_ctable;
+	wct = new writable_simple_ctable;
 	r = mdt->init(AT_FDCWD, "managed_ctable", journal);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	r = wct->init(mdt);
