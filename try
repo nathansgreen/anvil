@@ -35,8 +35,7 @@ sudo insmod fstitch/kfstitchd.ko device=/dev/sdb
 sudo mount /mnt/test
 echo "done."
 
-WD="`pwd`"
-echo "script run" | (cd /mnt/test; ulimit -c unlimited; exec "$WD/toilet")
+echo "script run" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec "$WD/toilet")
 
 ls -lR /mnt/test
 true | hexdump -C /mnt/test/teststrings
