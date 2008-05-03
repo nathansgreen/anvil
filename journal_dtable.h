@@ -33,7 +33,8 @@ public:
 	
 	inline journal_dtable() : root(NULL), string_index(0) {}
 	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL);
-	int reinit(sys_journal::listener_id lid);
+	/* reinitialize, optionally discarding the old entries from the journal */
+	int reinit(sys_journal::listener_id lid, bool discard = false);
 	void deinit();
 	inline virtual ~journal_dtable()
 	{

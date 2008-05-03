@@ -37,6 +37,8 @@ int sys_journal::append(journal_listener * listener, void * entry, size_t length
 	entry_header header;
 	header.id = listener->id();
 	assert(lookup_listener(header.id) == listener);
+	if(length == (size_t) -1)
+		return -EINVAL;
 	header.length = length;
 	if(tx_write(fd, &header, sizeof(header), offset) < 0)
 		return -1;
@@ -51,9 +53,80 @@ int sys_journal::append(journal_listener * listener, void * entry, size_t length
 	return 0;
 }
 
+int sys_journal::discard(journal_listener * listener)
+{
+	entry_header header;
+	header.id = listener->id();
+	assert(lookup_listener(header.id) == listener);
+	header.length = (size_t) -1;
+	if(tx_write(fd, &header, sizeof(header), offset) < 0)
+		return -1;
+	offset += sizeof(header);
+	discarded.insert(header.id);
+	return 0;
+}
+
 int sys_journal::get_entries(journal_listener * listener)
 {
 	return playback(listener);
+}
+
+int sys_journal::digest(int dfd, const char * file)
+{
+	entry_header entry;
+	int r, out, ufd = tx_read_fd(fd);
+	assert(ufd >= 0);
+	out = openat(dfd, file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+	if(out < 0)
+		return out;
+	r = lseek(ufd, sizeof(file_header), SEEK_SET);
+	if(r < 0)
+		goto fail;
+	while((r = read(ufd, &entry, sizeof(entry))) == sizeof(entry))
+	{
+		void * data;
+		if(entry.length == (size_t) -1)
+			continue;
+		if(discarded.count(entry.id))
+		{
+			/* skip this entry, it's been discarded */
+			lseek(ufd, entry.length, SEEK_CUR);
+			continue;
+		}
+		data = malloc(entry.length);
+		if(!data)
+		{
+			r = -ENOMEM;
+			goto fail;
+		}
+		if(read(ufd, data, entry.length) != (ssize_t) entry.length)
+		{
+			free(data);
+			r = -EIO;
+			goto fail;
+		}
+		r = write(out, &entry, sizeof(entry));
+		if(r != sizeof(entry))
+		{
+			free(data);
+			goto fail;
+		}
+		r = write(out, data, entry.length);
+		free(data);
+		if(r != (int) entry.length)
+			goto fail;
+	}
+	if(r)
+		goto fail;
+	close(out);
+	lseek(ufd, 0, SEEK_END);
+	return 0;
+	
+fail:
+	close(out);
+	unlinkat(dfd, file, 0);
+	lseek(ufd, 0, SEEK_END);
+	return (r < 0) ? r : -1;
 }
 
 int sys_journal::init(int dfd, const char * file, bool create)
@@ -109,6 +182,7 @@ int sys_journal::playback(journal_listener * target)
 	/* playback */
 	file_header header;
 	entry_header entry;
+	std::set<listener_id> missing;
 	int r, ufd = tx_read_fd(fd);
 	assert(ufd >= 0);
 	r = lseek(ufd, 0, SEEK_SET);
@@ -122,6 +196,16 @@ int sys_journal::playback(journal_listener * target)
 	{
 		void * data;
 		journal_listener * listener;
+		if(entry.length == (size_t) -1)
+		{
+			/* warn if entry.id == target->id() ? */
+			if(!target)
+			{
+				missing.erase(entry.id);
+				discarded.insert(entry.id);
+			}
+			continue;
+		}
 		if(target)
 		{
 			listener = target;
@@ -136,7 +220,11 @@ int sys_journal::playback(journal_listener * target)
 		{
 			listener = lookup_listener(entry.id);
 			if(!listener)
-				return -ENOENT;
+			{
+				missing.insert(entry.id);
+				lseek(ufd, entry.length, SEEK_CUR);
+				continue;
+			}
 		}
 		data = malloc(entry.length);
 		if(!data)
@@ -153,8 +241,12 @@ int sys_journal::playback(journal_listener * target)
 		if(r < 0)
 			return r;
 	}
-	assert(r <= 0);
+	if(r > 0)
+		return -EIO;
 	offset = lseek(ufd, 0, SEEK_END);
+	if(!missing.empty())
+		/* print warning message? */
+		return -ENOENT;
 	return r;
 }
 
@@ -162,6 +254,7 @@ void sys_journal::deinit()
 {
 	if(fd >= 0)
 	{
+		discarded.clear();
 		tx_close(fd);
 		fd = -1;
 	}

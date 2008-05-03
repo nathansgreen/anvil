@@ -247,7 +247,7 @@ int managed_dtable::combine(size_t first, size_t last)
 		overlay->init(array, header.ddt_count + 1);
 	}
 	if(reset_journal)
-		journal->reinit(header.journal_id);
+		journal->reinit(header.journal_id, true);
 	return 0;
 }
 

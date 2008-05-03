@@ -212,11 +212,15 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sy
 	return 0;
 }
 
-int journal_dtable::reinit(sys_journal::listener_id lid)
+int journal_dtable::reinit(sys_journal::listener_id lid, bool discard)
 {
 	int r;
 	if(id() == sys_journal::NO_ID)
 		return -EBUSY;
+	if(lid == sys_journal::NO_ID)
+		return -EINVAL;
+	if(discard)
+		journal_discard();
 	deinit();
 	r = strings.init(true);
 	if(r < 0)

@@ -17,6 +17,7 @@
 #endif
 
 #include <map>
+#include <set>
 
 class sys_journal
 {
@@ -69,14 +70,24 @@ public:
 			return j->append(this, entry, length);
 		}
 		
+		inline int journal_discard()
+		{
+			sys_journal * j = journal ? journal : sys_journal::get_global_journal();
+			return j->discard(this);
+		}
+		
 	private:
 		listener_id local_id;
 		sys_journal * journal;
 	};
 	
 	int append(journal_listener * listener, void * entry, size_t length);
+	/* make a note that this listener's entries are no longer needed */
+	int discard(journal_listener * listener);
 	/* gets only those entries that have been committed */
 	int get_entries(journal_listener * listener);
+	/* copy the the (committed) entries in this journal to a new one, omitting the discarded entries */
+	int digest(int dfd, const char * file);
 	
 	inline sys_journal() : fd(-1) {}
 	int init(int dfd, const char * file, bool create = false);
@@ -100,6 +111,7 @@ public:
 private:
 	tx_fd fd;
 	off_t offset;
+	std::set<listener_id> discarded;
 	static sys_journal global_journal;
 	static std::map<listener_id, journal_listener *> listener_map;
 	
