@@ -12,6 +12,8 @@
 #include "blob.h"
 #include "dtype.h"
 
+/* data tables */
+
 class dtable;
 
 class dtable_iter
@@ -32,7 +34,39 @@ public:
 	virtual ~dtable_iter() {}
 };
 
-/* data tables */
+class dtable_factory
+{
+public:
+	virtual dtable * open(int dfd, const char * name) const = 0;
+	/* non-existent entries in the source which are present in the shadow
+	 * (as existent entries) will be kept as non-existent entries in the
+	 * result, otherwise they will be omitted since they are not needed */
+	/* shadow may also be NULL in which case it is treated as empty */
+	virtual int create(int dfd, const char * name, const dtable * source, const dtable * shadow) const = 0;
+	virtual ~dtable_factory() {}
+};
+
+template<class T>
+class dtable_static_factory : public dtable_factory
+{
+public:
+	virtual dtable * open(int dfd, const char * name) const
+	{
+		T * disk = new T;
+		int r = disk->init(dfd, name);
+		if(r < 0)
+		{
+			delete disk;
+			disk = NULL;
+		}
+		return disk;
+	}
+	
+	virtual int create(int dfd, const char * name, const dtable * source, const dtable * shadow) const
+	{
+		return T::create(dfd, name, source, shadow);
+	}
+};
 
 class dtable
 {

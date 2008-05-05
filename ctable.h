@@ -36,7 +36,7 @@ public:
 	inline virtual ~ctable() {}
 	
 protected:
-	dtable * dt_source;
+	const dtable * dt_source;
 };
 
 #endif /* __CTABLE_H */

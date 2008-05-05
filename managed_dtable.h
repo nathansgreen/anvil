@@ -88,14 +88,10 @@ public:
 		return combine(journal, journal);
 	}
 	
-	/* these are expected to be implemented by templatized subclasses */
-	virtual dtable * disk_open(int dfd, const char * file) = 0;
-	virtual int disk_create(int dfd, const char * file, const dtable * source, const dtable * shadow) = 0;
-	
 	static int create(int dfd, const char * name, dtype::ctype key_type);
 	
 	inline managed_dtable() : md_dfd(-1) {}
-	int init(int dfd, const char * name, bool query_journal = false, sys_journal * sys_journal = NULL);
+	int init(int dfd, const char * name, const dtable_factory * factory, bool query_journal = false, sys_journal * sys_journal = NULL);
 	void deinit();
 	inline virtual ~managed_dtable()
 	{
@@ -123,29 +119,7 @@ private:
 	dtable_list disks;
 	overlay_dtable * overlay;
 	journal_dtable * journal;
+	const dtable_factory * factory;
 };
-
-template<class T>
-class managed_disk_dtable : public managed_dtable
-{
-public:
-	virtual dtable * disk_open(int dfd, const char * file)
-	{
-		T * disk = new T;
-		int r = disk->init(dfd, file);
-		if(r < 0)
-		{
-			delete disk;
-			disk = NULL;
-		}
-		return disk;
-	}
-	virtual int disk_create(int dfd, const char * file, const dtable * source, const dtable * shadow)
-	{
-		return T::create(dfd, file, source, shadow);
-	}
-};
-
-typedef managed_disk_dtable<simple_dtable> managed_simple_dtable;
 
 #endif /* __MANAGED_DTABLE_H */

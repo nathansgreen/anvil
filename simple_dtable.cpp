@@ -434,3 +434,5 @@ out_strings:
 		st_array_free(string_array, string_count);
 	return r;
 }
+
+const dtable_static_factory<simple_dtable> simple_dtable::factory;

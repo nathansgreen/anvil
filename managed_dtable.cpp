@@ -13,11 +13,12 @@
 
 #include "managed_dtable.h"
 
-int managed_dtable::init(int dfd, const char * name, bool query_journal, sys_journal * sys_journal)
+int managed_dtable::init(int dfd, const char * name, const dtable_factory * factory, bool query_journal, sys_journal * sys_journal)
 {
 	int r = -1, meta;
 	if(md_dfd >= 0)
 		deinit();
+	this->factory = factory;
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
 		return md_dfd;
@@ -54,7 +55,7 @@ int managed_dtable::init(int dfd, const char * name, bool query_journal, sys_jou
 		if(r != sizeof(ddt_value))
 			goto fail_disks;
 		sprintf(name, "md_data.%u", ddt_value);
-		source = disk_open(md_dfd, name);
+		source = factory->open(md_dfd, name);
 		if(!source)
 			goto fail_disks;
 		disks.push_back(dtable_list_entry(source, ddt_value));
@@ -155,7 +156,7 @@ int managed_dtable::combine(size_t first, size_t last)
 	r = patchgroup_engage(pid);
 	assert(r >= 0);
 	sprintf(name, "md_data.%u", header.ddt_next);
-	r = disk_create(md_dfd, name, source, shadow);
+	r = factory->create(md_dfd, name, source, shadow);
 	{
 		int r2 = patchgroup_disengage(pid);
 		assert(r2 >= 0);
@@ -176,7 +177,7 @@ int managed_dtable::combine(size_t first, size_t last)
 	
 	/* now we've created the file, but we can still delete it easily if something fails */
 	
-	result = disk_open(md_dfd, name);
+	result = factory->open(md_dfd, name);
 	if(!result)
 	{
 		unlinkat(md_dfd, name, 0);

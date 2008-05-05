@@ -18,7 +18,7 @@ public:
 	virtual blob find(dtype key, const char * column) const;
 	
 	inline simple_ctable() {}
-	inline int init(dtable * source)
+	inline int init(const dtable * source)
 	{
 		dt_source = source;
 		return 0;

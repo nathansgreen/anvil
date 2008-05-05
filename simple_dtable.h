@@ -45,10 +45,8 @@ public:
 			deinit();
 	}
 	
-	/* non-existent entries in the source which are present in the shadow
-	 * (as existent entries) will be kept as non-existent entries in the
-	 * result, otherwise they will be omitted since they are not needed */
 	static int create(int dfd, const char * file, const dtable * source, const dtable * shadow = NULL);
+	static const dtable_static_factory<simple_dtable> factory;
 	
 private:
 	struct dtable_header {

@@ -126,7 +126,7 @@ static void run_iterator(ctable * table)
 int command_dtable(int argc, const char * argv[])
 {
 	int r;
-	managed_simple_dtable * mdt;
+	managed_dtable * mdt;
 	sys_journal * journal = sys_journal::get_global_journal();
 	
 	r = tx_start();
@@ -140,8 +140,8 @@ int command_dtable(int argc, const char * argv[])
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
-	mdt = new managed_simple_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", journal);
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "managed_dtable", &simple_dtable::factory, journal);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -154,9 +154,9 @@ int command_dtable(int argc, const char * argv[])
 	printf("tx_end = %d\n", r);
 	delete mdt;
 	
-	mdt = new managed_simple_dtable;
+	mdt = new managed_dtable;
 	/* pass true to recover journal in this case */
-	r = mdt->init(AT_FDCWD, "managed_dtable", true, journal);
+	r = mdt->init(AT_FDCWD, "managed_dtable", &simple_dtable::factory, true, journal);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
@@ -168,8 +168,8 @@ int command_dtable(int argc, const char * argv[])
 	printf("tx_end = %d\n", r);
 	delete mdt;
 	
-	mdt = new managed_simple_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", journal);
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "managed_dtable", &simple_dtable::factory, journal);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
@@ -186,8 +186,8 @@ int command_dtable(int argc, const char * argv[])
 	printf("tx_end = %d\n", r);
 	delete mdt;
 	
-	mdt = new managed_simple_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", journal);
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "managed_dtable", &simple_dtable::factory, journal);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
@@ -199,8 +199,8 @@ int command_dtable(int argc, const char * argv[])
 	printf("tx_end = %d\n", r);
 	delete mdt;
 	
-	mdt = new managed_simple_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", journal);
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "managed_dtable", &simple_dtable::factory, journal);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	delete mdt;
@@ -211,7 +211,7 @@ int command_dtable(int argc, const char * argv[])
 int command_ctable(int argc, const char * argv[])
 {
 	int r;
-	managed_simple_dtable * mdt;
+	managed_dtable * mdt;
 	writable_simple_ctable * wct;
 	sys_journal * journal = sys_journal::get_global_journal();
 	
@@ -223,9 +223,9 @@ int command_ctable(int argc, const char * argv[])
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
-	mdt = new managed_simple_dtable;
+	mdt = new managed_dtable;
 	wct = new writable_simple_ctable;
-	r = mdt->init(AT_FDCWD, "managed_ctable", journal);
+	r = mdt->init(AT_FDCWD, "managed_ctable", &simple_dtable::factory, journal);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	r = wct->init(mdt);
 	printf("wct->init = %d\n", r);
