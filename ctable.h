@@ -39,4 +39,20 @@ protected:
 	const dtable * dt_source;
 };
 
+class writable_ctable : virtual public ctable
+{
+public:
+	virtual int append(dtype key, const char * column, const blob & value) = 0;
+	/* remove just a column */
+	/* if gc_row is set, then remove the row if this was the only column left */
+	virtual int remove(dtype key, const char * column, bool gc_row = false) = 0;
+	/* remove the whole row */
+	virtual int remove(dtype key) = 0;
+	inline writable_ctable() : wdt_source(NULL) {}
+	inline virtual ~writable_ctable() {}
+
+protected:
+	writable_dtable * wdt_source;
+};
+
 #endif /* __CTABLE_H */

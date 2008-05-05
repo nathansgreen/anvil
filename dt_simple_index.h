@@ -9,8 +9,8 @@
 #error dt_simple_index.h is a C++ header file
 #endif
 
+#include "dtable.h"
 #include "dt_index.h"
-#include "writable_dtable.h"
 #include "journal_dtable.h"
 
 class dt_simple_index : public dt_index

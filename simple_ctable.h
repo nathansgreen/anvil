@@ -10,8 +10,9 @@
 #endif
 
 #include "ctable.h"
+#include "sub_blob.h"
 
-class simple_ctable : public ctable
+class simple_ctable : virtual public ctable
 {
 public:
 	virtual ctable_iter * iterator() const;
@@ -48,6 +49,26 @@ private:
 		sub_blob row;
 		sub_blob_iter * columns;
 	};
+};
+
+class writable_simple_ctable : virtual public simple_ctable, virtual public writable_ctable
+{
+public:
+	virtual int append(dtype key, const char * column, const blob & value);
+	virtual int remove(dtype key, const char * column, bool gc_row = false);
+	inline virtual int remove(dtype key)
+	{
+		return wdt_source->remove(key);
+	}
+	
+	/* notice that this is not virtual; care should be taken
+	 * not to call the base ctable's version of init() */
+	inline int init(writable_dtable * source)
+	{
+		dt_source = source;
+		wdt_source = source;
+		return 0;
+	}
 };
 
 #endif /* __SIMPLE_CTABLE_H */

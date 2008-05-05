@@ -11,12 +11,13 @@
 #include "transaction.h"
 
 #include "dtable.h"
+#include "ctable.h"
 #include "sys_journal.h"
 #include "simple_dtable.h"
 #include "overlay_dtable.h"
 #include "journal_dtable.h"
 #include "managed_dtable.h"
-#include "writable_ctable.h"
+#include "simple_ctable.h"
 
 extern "C" {
 int command_dtable(int argc, const char * argv[]);

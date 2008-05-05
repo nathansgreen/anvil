@@ -14,15 +14,15 @@
 #endif
 
 #include "blob.h"
+#include "dtable.h"
 #include "stringset.h"
 #include "sys_journal.h"
-#include "writable_dtable.h"
 
 /* The journal dtable doesn't have an associated file: all its data is stored in
  * a sys_journal. The only identifying part of journal dtables is their listener
  * ID, which must be chosen to be unique for each new journal dtable. */
 
-class journal_dtable : public writable_dtable, public sys_journal::journal_listener
+class journal_dtable : virtual public writable_dtable, public sys_journal::journal_listener
 {
 public:
 	virtual dtable_iter * iterator() const;

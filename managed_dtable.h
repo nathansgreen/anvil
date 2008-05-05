@@ -17,7 +17,7 @@
 
 #include <vector>
 
-#include "writable_dtable.h"
+#include "dtable.h"
 #include "simple_dtable.h"
 #include "overlay_dtable.h"
 #include "journal_dtable.h"
@@ -30,7 +30,7 @@
 #define MDTABLE_MAGIC 0x784D3DB7
 #define MDTABLE_VERSION 0
 
-class managed_dtable : public writable_dtable
+class managed_dtable : virtual public writable_dtable
 {
 public:
 	/* send to overlay_dtable */

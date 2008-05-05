@@ -81,4 +81,12 @@ protected:
 	dtype::ctype ktype;
 };
 
+class writable_dtable : virtual public dtable
+{
+public:
+	virtual int append(dtype key, const blob & blob) = 0;
+	virtual int remove(dtype key) = 0;
+	inline virtual ~writable_dtable() {}
+};
+
 #endif /* __DTABLE_H */
