@@ -18,7 +18,7 @@
 
 /* The overlay dtable just combines underlying dtables in the order specified. */
 
-class overlay_dtable : virtual public dtable
+class overlay_dtable : public dtable
 {
 public:
 	virtual dtable_iter * iterator() const;

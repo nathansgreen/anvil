@@ -29,11 +29,24 @@ public:
 class dt_index
 {
 public:
-	virtual bool is_unique() const = 0;
-	/* only usable if is_unique() returns true */
+	virtual bool unique() const = 0;
+	virtual bool writable() const = 0;
+	
+	/* only usable if unique() returns true */
 	virtual dtype map(dtype key) const = 0;
+	
 	virtual dt_index_iter * iterator(dtype key) const = 0;
 	virtual dt_index_iter * iterator() const = 0;
+	
+	/* only usable if writable() returns true */
+	virtual int set(dtype key, dtype pri) = 0;
+	virtual int remove(dtype key) = 0;
+	
+	/* only usable if unique() returns false and writable() returns true */
+	virtual int add(dtype key, dtype pri) = 0;
+	virtual int update(dtype key, dtype old_pri, dtype new_pri) = 0;
+	virtual int remove(dtype key, dtype pri) = 0;
+	
 	virtual ~dt_index() {};
 };
 

@@ -84,8 +84,8 @@ blob simple_ctable::find(dtype key, const char * column) const
 	return columns.get(column);
 }
 
-/* if we implemented our own find(), this could avoid flattening every time */
-int writable_simple_ctable::append(dtype key, const char * column, const blob & value)
+/* if we made a better find(), this could avoid flattening every time */
+int simple_ctable::append(dtype key, const char * column, const blob & value)
 {
 	int r = 0;
 	blob row = wdt_source->find(key);
@@ -98,7 +98,7 @@ int writable_simple_ctable::append(dtype key, const char * column, const blob & 
 	return r;
 }
 
-int writable_simple_ctable::remove(dtype key, const char * column, bool gc_row)
+int simple_ctable::remove(dtype key, const char * column, bool gc_row)
 {
 	int r = append(key, column, blob());
 	if(r >= 0 && gc_row)

@@ -47,17 +47,17 @@ int dt_simple_index::remove(dtype key, dtype pri)
 int dt_simple_index::init(const dtable * store, bool unique)
 {
 	/* any further checking here? */
-	this->unique = unique;
+	is_unique = unique;
 	this->ro_store = store;
 	this->rw_store = NULL;
 	return 0;
 }
 
-int dt_simple_index::init(writable_dtable * store, bool unique)
+int dt_simple_index::init(dtable * store, bool unique)
 {
 	/* any further checking here? */
-	this->unique = unique;
-	this->ro_store = NULL;
+	is_unique = unique;
+	this->ro_store = store;
 	this->rw_store = store;
 	return 0;
 }

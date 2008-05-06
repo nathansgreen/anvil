@@ -28,7 +28,7 @@
 #define MDTABLE_MAGIC 0x784D3DB7
 #define MDTABLE_VERSION 0
 
-class managed_dtable : virtual public writable_dtable
+class managed_dtable : public dtable
 {
 public:
 	/* send to overlay_dtable */
@@ -40,6 +40,8 @@ public:
 	{
 		return overlay->lookup(key, source);
 	}
+	
+	inline virtual bool writable() const { return true; }
 	
 	/* send to journal_dtable */
 	inline virtual int append(dtype key, const blob & blob)

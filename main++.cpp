@@ -213,7 +213,7 @@ int command_ctable(int argc, const char * argv[])
 {
 	int r;
 	managed_dtable * mdt;
-	writable_simple_ctable * wct;
+	simple_ctable * sct;
 	sys_journal * journal = sys_journal::get_global_journal();
 	
 	r = tx_start();
@@ -225,37 +225,37 @@ int command_ctable(int argc, const char * argv[])
 	printf("tx_end = %d\n", r);
 	
 	mdt = new managed_dtable;
-	wct = new writable_simple_ctable;
+	sct = new simple_ctable;
 	r = mdt->init(AT_FDCWD, "managed_ctable", &simple_dtable::factory, journal);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
-	r = wct->init(mdt);
-	printf("wct->init = %d\n", r);
+	r = sct->init(mdt);
+	printf("sct->init = %d\n", r);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = wct->append((uint32_t) 8, "hello", blob(7, (const uint8_t *) "icanhas"));
-	printf("wct->append(8, hello) = %d\n", r);
-	run_iterator(wct);
-	r = wct->append((uint32_t) 8, "world", blob(11, (const uint8_t *) "cheezburger"));
-	printf("wct->append(8, world) = %d\n", r);
-	run_iterator(wct);
+	r = sct->append((uint32_t) 8, "hello", blob(7, (const uint8_t *) "icanhas"));
+	printf("sct->append(8, hello) = %d\n", r);
+	run_iterator(sct);
+	r = sct->append((uint32_t) 8, "world", blob(11, (const uint8_t *) "cheezburger"));
+	printf("sct->append(8, world) = %d\n", r);
+	run_iterator(sct);
 	r = mdt->combine();
 	printf("mdt->combine() = %d\n", r);
-	run_iterator(wct);
-	r = wct->remove((uint32_t) 8, "hello");
-	printf("wct->remove(8, hello) = %d\n", r);
-	run_iterator(wct);
-	r = wct->append((uint32_t) 10, "foo", blob(3, (const uint8_t *) "bar"));
-	printf("wct->append(10, foo) = %d\n", r);
-	run_iterator(wct);
-	r = wct->remove((uint32_t) 8);
-	printf("wct->remove(8) = %d\n", r);
-	run_iterator(wct);
+	run_iterator(sct);
+	r = sct->remove((uint32_t) 8, "hello");
+	printf("sct->remove(8, hello) = %d\n", r);
+	run_iterator(sct);
+	r = sct->append((uint32_t) 10, "foo", blob(3, (const uint8_t *) "bar"));
+	printf("sct->append(10, foo) = %d\n", r);
+	run_iterator(sct);
+	r = sct->remove((uint32_t) 8);
+	printf("sct->remove(8) = %d\n", r);
+	run_iterator(sct);
 	r = mdt->combine();
 	printf("mdt->combine() = %d\n", r);
-	run_iterator(wct);
+	run_iterator(sct);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-	delete wct;
+	delete sct;
 	delete mdt;
 	
 	return 0;

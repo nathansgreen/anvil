@@ -22,12 +22,13 @@
  * a sys_journal. The only identifying part of journal dtables is their listener
  * ID, which must be chosen to be unique for each new journal dtable. */
 
-class journal_dtable : virtual public writable_dtable, public sys_journal::journal_listener
+class journal_dtable : public dtable, public sys_journal::journal_listener
 {
 public:
 	virtual dtable_iter * iterator() const;
 	virtual blob lookup(dtype key, const dtable ** source) const;
 	
+	inline virtual bool writable() const { return true; }
 	virtual int append(dtype key, const blob & blob);
 	virtual int remove(dtype key);
 	

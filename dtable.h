@@ -94,6 +94,9 @@ public:
 	virtual dtable_iter * iterator() const = 0;
 	virtual blob lookup(dtype key, const dtable ** source) const = 0;
 	inline blob find(dtype key) const { const dtable * source; return lookup(key, &source); }
+	inline virtual bool writable() const { return false; }
+	inline virtual int append(dtype key, const blob & blob) { return -ENOSYS; }
+	inline virtual int remove(dtype key) { return -ENOSYS; }
 	inline dtype::ctype key_type() const { return ktype; }
 	inline virtual ~dtable() {}
 	
@@ -101,16 +104,8 @@ protected:
 	dtype::ctype ktype;
 };
 
-class writable_dtable : virtual public dtable
-{
-public:
-	virtual int append(dtype key, const blob & blob) = 0;
-	virtual int remove(dtype key) = 0;
-	inline virtual ~writable_dtable() {}
-};
-
 /* the empty dtable is very simple, and is used for dtable_factory's default create() method */
-class empty_dtable : virtual public dtable
+class empty_dtable : public dtable
 {
 public:
 	virtual dtable_iter * iterator() const { return new iter(); }

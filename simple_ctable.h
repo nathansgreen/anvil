@@ -12,18 +12,38 @@
 #include "ctable.h"
 #include "sub_blob.h"
 
-class simple_ctable : virtual public ctable
+class simple_ctable : public ctable
 {
 public:
 	virtual ctable_iter * iterator() const;
 	virtual blob find(dtype key, const char * column) const;
 	
-	inline simple_ctable() {}
+	inline virtual bool writable() const
+	{
+		return wdt_source ? wdt_source->writable() : false;
+	}
+	
+	virtual int append(dtype key, const char * column, const blob & value);
+	virtual int remove(dtype key, const char * column, bool gc_row = false);
+	inline virtual int remove(dtype key)
+	{
+		return wdt_source->remove(key);
+	}
+	
 	inline int init(const dtable * source)
 	{
 		dt_source = source;
+		wdt_source = NULL;
 		return 0;
 	}
+	inline int init(dtable * source)
+	{
+		dt_source = source;
+		wdt_source = source;
+		return 0;
+	}
+	
+	inline simple_ctable() : wdt_source(NULL) {}
 	inline virtual ~simple_ctable() {}
 	
 private:
@@ -49,26 +69,8 @@ private:
 		sub_blob row;
 		sub_blob_iter * columns;
 	};
-};
-
-class writable_simple_ctable : virtual public simple_ctable, virtual public writable_ctable
-{
-public:
-	virtual int append(dtype key, const char * column, const blob & value);
-	virtual int remove(dtype key, const char * column, bool gc_row = false);
-	inline virtual int remove(dtype key)
-	{
-		return wdt_source->remove(key);
-	}
 	
-	/* notice that this is not virtual; care should be taken
-	 * not to call simple_ctable's version of init() */
-	inline int init(writable_dtable * source)
-	{
-		dt_source = source;
-		wdt_source = source;
-		return 0;
-	}
+	dtable * wdt_source;
 };
 
 #endif /* __SIMPLE_CTABLE_H */

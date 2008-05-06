@@ -31,28 +31,19 @@ class ctable
 public:
 	virtual ctable_iter * iterator() const = 0;
 	virtual blob find(dtype key, const char * column) const = 0;
-	inline dtype::ctype key_type() const { return dt_source->key_type(); }
-	inline ctable() : dt_source(NULL) {}
-	inline virtual ~ctable() {}
-	
-protected:
-	const dtable * dt_source;
-};
-
-class writable_ctable : virtual public ctable
-{
-public:
+	inline virtual bool writable() const = 0;
 	virtual int append(dtype key, const char * column, const blob & value) = 0;
 	/* remove just a column */
 	/* if gc_row is set, then remove the row if this was the only column left */
 	virtual int remove(dtype key, const char * column, bool gc_row = false) = 0;
 	/* remove the whole row */
 	virtual int remove(dtype key) = 0;
-	inline writable_ctable() : wdt_source(NULL) {}
-	inline virtual ~writable_ctable() {}
-
+	inline dtype::ctype key_type() const { return dt_source->key_type(); }
+	inline ctable() : dt_source(NULL) {}
+	inline virtual ~ctable() {}
+	
 protected:
-	writable_dtable * wdt_source;
+	const dtable * dt_source;
 };
 
 #endif /* __CTABLE_H */

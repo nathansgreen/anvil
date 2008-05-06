@@ -16,33 +16,39 @@
 class dt_simple_index : public dt_index
 {
 public:
-	inline virtual bool is_unique() const
+	inline virtual bool unique() const
 	{
-		return unique;
+		return is_unique;
 	}
-	/* only usable if is_unique() returns true */
+	
+	inline virtual bool writable() const
+	{
+		return rw_store ? rw_store->writable() : false;
+	}
+	
 	virtual dtype map(dtype key) const;
+	
 	virtual dt_index_iter * iterator(dtype key) const;
 	virtual dt_index_iter * iterator() const;
 	
-	int set(dtype key, dtype pri);
-	int remove(dtype key);
+	virtual int set(dtype key, dtype pri);
+	virtual int remove(dtype key);
 	
-	int add(dtype key, dtype pri);
-	int update(dtype key, dtype old_pri, dtype new_pri);
-	int remove(dtype key, dtype pri);
+	virtual int add(dtype key, dtype pri);
+	virtual int update(dtype key, dtype old_pri, dtype new_pri);
+	virtual int remove(dtype key, dtype pri);
 	
 	inline dt_simple_index() : ro_store(NULL), rw_store(NULL) {}
 	/* read only version */
 	int init(const dtable * store, bool unique);
 	/* if you want this index to be writable */
-	int init(writable_dtable * store, bool unique);
+	int init(dtable * store, bool unique);
 	inline virtual ~dt_simple_index() {}
 	
 private:
-	bool unique;
+	bool is_unique;
 	const dtable * ro_store;
-	writable_dtable * rw_store;
+	dtable * rw_store;
 };
 
 #endif /* __DT_SIMPLE_INDEX_H */
