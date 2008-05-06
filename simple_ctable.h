@@ -62,7 +62,7 @@ public:
 	}
 	
 	/* notice that this is not virtual; care should be taken
-	 * not to call the base ctable's version of init() */
+	 * not to call simple_ctable's version of init() */
 	inline int init(writable_dtable * source)
 	{
 		dt_source = source;

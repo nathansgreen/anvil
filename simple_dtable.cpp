@@ -435,4 +435,4 @@ out_strings:
 	return r;
 }
 
-const dtable_static_factory<simple_dtable> simple_dtable::factory;
+dtable_static_factory<simple_dtable> simple_dtable::factory;

@@ -46,7 +46,7 @@ public:
 	}
 	
 	static int create(int dfd, const char * file, const dtable * source, const dtable * shadow = NULL);
-	static const dtable_static_factory<simple_dtable> factory;
+	static dtable_static_factory<simple_dtable> factory;
 	
 private:
 	struct dtable_header {

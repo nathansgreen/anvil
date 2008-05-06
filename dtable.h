@@ -5,6 +5,8 @@
 #ifndef __DTABLE_H
 #define __DTABLE_H
 
+#include <errno.h>
+
 #ifndef __cplusplus
 #error dtable.h is a C++ header file
 #endif
@@ -34,15 +36,28 @@ public:
 	virtual ~dtable_iter() {}
 };
 
+/* override one or both create() methods in subclasses */
 class dtable_factory
 {
 public:
 	virtual dtable * open(int dfd, const char * name) const = 0;
+	
+	inline virtual int create(int dfd, const char * name, dtype::ctype key_type);
+	
 	/* non-existent entries in the source which are present in the shadow
 	 * (as existent entries) will be kept as non-existent entries in the
 	 * result, otherwise they will be omitted since they are not needed */
 	/* shadow may also be NULL in which case it is treated as empty */
-	virtual int create(int dfd, const char * name, const dtable * source, const dtable * shadow) const = 0;
+	inline virtual int create(int dfd, const char * name, const dtable * source, const dtable * shadow) const
+	{
+		return -ENOSYS;
+	}
+	
+	inline virtual void release()
+	{
+		delete this;
+	}
+	
 	virtual ~dtable_factory() {}
 };
 
@@ -66,6 +81,11 @@ public:
 	{
 		return T::create(dfd, name, source, shadow);
 	}
+	
+	/* these do not get freed; they are supposed to be statically allocated */
+	virtual void release()
+	{
+	}
 };
 
 class dtable
@@ -88,5 +108,35 @@ public:
 	virtual int remove(dtype key) = 0;
 	inline virtual ~writable_dtable() {}
 };
+
+/* the empty dtable is very simple, and is used for dtable_factory's default create() method */
+class empty_dtable : virtual public dtable
+{
+public:
+	virtual dtable_iter * iterator() const { return new iter(); }
+	inline virtual blob lookup(dtype key, const dtable ** source) const { return blob(); }
+	inline empty_dtable(dtype::ctype key_type) { ktype = key_type; }
+	inline virtual ~empty_dtable() {}
+private:
+	class iter : public dtable_iter
+	{
+	public:
+		virtual bool valid() const { return false; }
+		virtual bool next() { return false; }
+		/* well, really we have nothing to return */
+		virtual dtype key() const { return dtype(0u); }
+		virtual metablob meta() const { return metablob(); }
+		virtual blob value() const { return blob(); }
+		virtual const dtable * source() const { return NULL; }
+		virtual ~iter() {}
+	};
+};
+
+/* have to put this down here after empty_dtable */
+int dtable_factory::create(int dfd, const char * name, dtype::ctype key_type)
+{
+	empty_dtable empty(key_type);
+	return create(dfd, name, &empty, NULL);
+}
 
 #endif /* __DTABLE_H */

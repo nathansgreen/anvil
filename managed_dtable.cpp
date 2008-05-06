@@ -13,7 +13,7 @@
 
 #include "managed_dtable.h"
 
-int managed_dtable::init(int dfd, const char * name, const dtable_factory * factory, bool query_journal, sys_journal * sys_journal)
+int managed_dtable::init(int dfd, const char * name, dtable_factory * factory, bool query_journal, sys_journal * sys_journal)
 {
 	int r = -1, meta;
 	if(md_dfd >= 0)
@@ -21,7 +21,10 @@ int managed_dtable::init(int dfd, const char * name, const dtable_factory * fact
 	this->factory = factory;
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
-		return md_dfd;
+	{
+		r = md_dfd;
+		goto fail_open;
+	}
 	meta = openat(md_dfd, "md_meta", O_RDONLY);
 	if(meta < 0)
 	{
@@ -92,6 +95,8 @@ fail_header:
 fail_meta:
 	close(md_dfd);
 	md_dfd = -1;
+fail_open:
+	factory->release();
 	return r;
 }
 
@@ -104,6 +109,7 @@ void managed_dtable::deinit()
 	for(size_t i = 0; i < disks.size(); i++)
 		delete disks[i].first;
 	disks.clear();
+	factory->release();
 	close(md_dfd);
 	md_dfd = -1;
 }
