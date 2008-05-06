@@ -46,4 +46,54 @@ protected:
 	const dtable * dt_source;
 };
 
+/* although ctable itself does not suggest that it be implemented on top of dtables,
+ * ctable_factory basically does require that for any ctables built via factories */
+class ctable_factory
+{
+public:
+	virtual ctable * create(const dtable * dt_source) const = 0;
+	virtual ctable * create(dtable * dt_source) const = 0;
+	
+	inline virtual void release()
+	{
+		delete this;
+	}
+	
+	virtual ~ctable_factory() {}
+};
+
+template<class T>
+class ctable_static_factory : public ctable_factory
+{
+public:
+	virtual ctable * create(const dtable * dt_source) const
+	{
+		T * table = new T;
+		int r = table->init(dt_source);
+		if(r < 0)
+		{
+			delete table;
+			table = NULL;
+		}
+		return table;
+	}
+	
+	virtual ctable * create(dtable * dt_source) const
+	{
+		T * table = new T;
+		int r = table->init(dt_source);
+		if(r < 0)
+		{
+			delete table;
+			table = NULL;
+		}
+		return table;
+	}
+	
+	/* these do not get freed; they are supposed to be statically allocated */
+	virtual void release()
+	{
+	}
+};
+
 #endif /* __CTABLE_H */

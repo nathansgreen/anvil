@@ -36,13 +36,57 @@ public:
 	virtual ~dtable_iter() {}
 };
 
+class dtable
+{
+public:
+	virtual dtable_iter * iterator() const = 0;
+	virtual blob lookup(dtype key, const dtable ** source) const = 0;
+	inline blob find(dtype key) const { const dtable * source; return lookup(key, &source); }
+	inline virtual bool writable() const { return false; }
+	inline virtual int append(dtype key, const blob & blob) { return -ENOSYS; }
+	inline virtual int remove(dtype key) { return -ENOSYS; }
+	inline dtype::ctype key_type() const { return ktype; }
+	inline virtual ~dtable() {}
+	
+protected:
+	dtype::ctype ktype;
+};
+
+/* the empty dtable is very simple, and is used for dtable_factory's default create() method */
+class empty_dtable : public dtable
+{
+public:
+	virtual dtable_iter * iterator() const { return new iter(); }
+	inline virtual blob lookup(dtype key, const dtable ** source) const { return blob(); }
+	inline empty_dtable(dtype::ctype key_type) { ktype = key_type; }
+	inline virtual ~empty_dtable() {}
+	
+private:
+	class iter : public dtable_iter
+	{
+	public:
+		virtual bool valid() const { return false; }
+		virtual bool next() { return false; }
+		/* well, really we have nothing to return */
+		virtual dtype key() const { return dtype(0u); }
+		virtual metablob meta() const { return metablob(); }
+		virtual blob value() const { return blob(); }
+		virtual const dtable * source() const { return NULL; }
+		virtual ~iter() {}
+	};
+};
+
 /* override one or both create() methods in subclasses */
 class dtable_factory
 {
 public:
 	virtual dtable * open(int dfd, const char * name) const = 0;
 	
-	inline virtual int create(int dfd, const char * name, dtype::ctype key_type);
+	inline virtual int create(int dfd, const char * name, dtype::ctype key_type)
+	{
+		empty_dtable empty(key_type);
+		return create(dfd, name, &empty, NULL);
+	}
 	
 	/* non-existent entries in the source which are present in the shadow
 	 * (as existent entries) will be kept as non-existent entries in the
@@ -87,51 +131,5 @@ public:
 	{
 	}
 };
-
-class dtable
-{
-public:
-	virtual dtable_iter * iterator() const = 0;
-	virtual blob lookup(dtype key, const dtable ** source) const = 0;
-	inline blob find(dtype key) const { const dtable * source; return lookup(key, &source); }
-	inline virtual bool writable() const { return false; }
-	inline virtual int append(dtype key, const blob & blob) { return -ENOSYS; }
-	inline virtual int remove(dtype key) { return -ENOSYS; }
-	inline dtype::ctype key_type() const { return ktype; }
-	inline virtual ~dtable() {}
-	
-protected:
-	dtype::ctype ktype;
-};
-
-/* the empty dtable is very simple, and is used for dtable_factory's default create() method */
-class empty_dtable : public dtable
-{
-public:
-	virtual dtable_iter * iterator() const { return new iter(); }
-	inline virtual blob lookup(dtype key, const dtable ** source) const { return blob(); }
-	inline empty_dtable(dtype::ctype key_type) { ktype = key_type; }
-	inline virtual ~empty_dtable() {}
-private:
-	class iter : public dtable_iter
-	{
-	public:
-		virtual bool valid() const { return false; }
-		virtual bool next() { return false; }
-		/* well, really we have nothing to return */
-		virtual dtype key() const { return dtype(0u); }
-		virtual metablob meta() const { return metablob(); }
-		virtual blob value() const { return blob(); }
-		virtual const dtable * source() const { return NULL; }
-		virtual ~iter() {}
-	};
-};
-
-/* have to put this down here after empty_dtable */
-int dtable_factory::create(int dfd, const char * name, dtype::ctype key_type)
-{
-	empty_dtable empty(key_type);
-	return create(dfd, name, &empty, NULL);
-}
 
 #endif /* __DTABLE_H */

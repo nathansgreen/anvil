@@ -43,6 +43,8 @@ public:
 		return 0;
 	}
 	
+	static ctable_static_factory<simple_ctable> factory;
+	
 	inline simple_ctable() : wdt_source(NULL) {}
 	inline virtual ~simple_ctable() {}
 	
