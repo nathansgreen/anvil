@@ -25,7 +25,7 @@ public:
 	}
 	
 	virtual int append(dtype key, const char * column, const blob & value);
-	virtual int remove(dtype key, const char * column, bool gc_row = false);
+	virtual int remove(dtype key, const char * column);
 	inline virtual int remove(dtype key)
 	{
 		return wdt_source->remove(key);

@@ -115,10 +115,10 @@ int simple_ctable::append(dtype key, const char * column, const blob & value)
 	return r;
 }
 
-int simple_ctable::remove(dtype key, const char * column, bool gc_row)
+int simple_ctable::remove(dtype key, const char * column)
 {
 	int r = append(key, column, blob());
-	if(r >= 0 && gc_row)
+	if(r >= 0)
 	{
 		/* TODO: improve this... */
 		blob row = wdt_source->find(key);

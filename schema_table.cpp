@@ -124,19 +124,17 @@ int schema_table::append(dtype key, const char * column, const blob & value)
 	return r;
 }
 
-int schema_table::remove(dtype key, const char * column, bool gc_row)
+int schema_table::remove(dtype key, const char * column)
 {
 	int r;
-	bool decrement = ct_data->find(key, column).exists();
-	if(decrement)
-	{
-		r = adjust_column(column, -1);
-		if(r < 0)
-			return r;
-	}
-	/* in the !decrement case, this may still collect the row if gc_row is set */
-	r = ct_data->remove(key, column, gc_row);
-	if(r < 0 && decrement)
+	/* does it even exist to begin with? */
+	if(!ct_data->find(key, column).exists())
+		return 0;
+	r = adjust_column(column, -1);
+	if(r < 0)
+		return r;
+	r = ct_data->remove(key, column);
+	if(r < 0)
 		adjust_column(column, 1);
 	return r;
 }

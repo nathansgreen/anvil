@@ -36,8 +36,7 @@ public:
 	virtual bool writable() const = 0;
 	virtual int append(dtype key, const char * column, const blob & value) = 0;
 	/* remove just a column */
-	/* if gc_row is set, then remove the row if this was the only column left */
-	virtual int remove(dtype key, const char * column, bool gc_row = false) = 0;
+	virtual int remove(dtype key, const char * column) = 0;
 	/* remove the whole row */
 	virtual int remove(dtype key) = 0;
 	inline dtype::ctype key_type() const { return dt_source->key_type(); }

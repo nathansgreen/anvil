@@ -36,7 +36,7 @@ public:
 	virtual blob find(dtype key, const char * column) const;
 	virtual bool writable() const;
 	virtual int append(dtype key, const char * column, const blob & value);
-	virtual int remove(dtype key, const char * column, bool gc_row = false);
+	virtual int remove(dtype key, const char * column);
 	virtual int remove(dtype key);
 	column_iter * columns() const;
 	int init(int dfd, const char * name, dtable_factory * meta, dtable_factory * data, ctable_factory * columns);
