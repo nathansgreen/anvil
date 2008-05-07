@@ -146,9 +146,9 @@ int command_dtable(int argc, const char * argv[])
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = mdt->append((uint32_t) 4, blob(5, (const uint8_t *) "hello"));
+	r = mdt->append((uint32_t) 4, blob(5, "hello"));
 	printf("mdt->append = %d\n", r);
-	r = mdt->append((uint32_t) 2, blob(5, (const uint8_t *) "world"));
+	r = mdt->append((uint32_t) 2, blob(5, "world"));
 	printf("mdt->append = %d\n", r);
 	run_iterator(mdt);
 	r = tx_end(0);
@@ -175,9 +175,9 @@ int command_dtable(int argc, const char * argv[])
 	run_iterator(mdt);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = mdt->append((uint32_t) 6, blob(7, (const uint8_t *) "icanhas"));
+	r = mdt->append((uint32_t) 6, blob(7, "icanhas"));
 	printf("mdt->append = %d\n", r);
-	r = mdt->append((uint32_t) 0, blob(11, (const uint8_t *) "cheezburger"));
+	r = mdt->append((uint32_t) 0, blob(11, "cheezburger"));
 	printf("mdt->append = %d\n", r);
 	run_iterator(mdt);
 	r = mdt->digest();
@@ -232,10 +232,10 @@ int command_ctable(int argc, const char * argv[])
 	printf("sct->init = %d\n", r);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = sct->append((uint32_t) 8, "hello", blob(7, (const uint8_t *) "icanhas"));
+	r = sct->append((uint32_t) 8, "hello", blob(7, "icanhas"));
 	printf("sct->append(8, hello) = %d\n", r);
 	run_iterator(sct);
-	r = sct->append((uint32_t) 8, "world", blob(11, (const uint8_t *) "cheezburger"));
+	r = sct->append((uint32_t) 8, "world", blob(11, "cheezburger"));
 	printf("sct->append(8, world) = %d\n", r);
 	run_iterator(sct);
 	r = mdt->combine();
@@ -244,7 +244,7 @@ int command_ctable(int argc, const char * argv[])
 	r = sct->remove((uint32_t) 8, "hello");
 	printf("sct->remove(8, hello) = %d\n", r);
 	run_iterator(sct);
-	r = sct->append((uint32_t) 10, "foo", blob(3, (const uint8_t *) "bar"));
+	r = sct->append((uint32_t) 10, "foo", blob(3, "bar"));
 	printf("sct->append(10, foo) = %d\n", r);
 	run_iterator(sct);
 	r = sct->remove((uint32_t) 8);

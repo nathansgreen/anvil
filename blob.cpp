@@ -14,7 +14,7 @@ blob::blob(size_t size)
 	assert(internal);
 }
 
-blob::blob(size_t size, const uint8_t * data)
+blob::blob(size_t size, const void * data)
 	: internal(NULL)
 {
 	set_size(size);

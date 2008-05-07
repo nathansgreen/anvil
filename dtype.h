@@ -34,29 +34,45 @@ public:
 	inline dtype(uint32_t x) : type(UINT32), u32(x) {}
 	inline dtype(double x) : type(DOUBLE), dbl(x) {}
 	inline dtype(const char * x) : type(STRING), str(strdup(x)) {}
-	inline dtype(const blob & b, dtype::ctype t) : type(t)
+	inline dtype(const blob & b, ctype t)
+		: type(t)
 	{
 		assert(b.exists());
 		switch(t)
 		{
-			case dtype::UINT32:
+			case UINT32:
 				assert(b.size() == sizeof(uint32_t));
-				u32 = *(uint32_t *)&b[0];
-				break;
-			case dtype::DOUBLE:
+				u32 = b.index<uint32_t>(0);
+				return;
+			case DOUBLE:
 				assert(b.size() == sizeof(double));
-				dbl = *(double *)&b[0];
-				break;
-			case dtype::STRING:
+				dbl = b.index<double>(0);
+				return;
+			case STRING:
 				if(!b.size())
 					str = strdup("");
 				else
-					str = strndup((*(char**)&b[0]), b.size());
-				break;
+					str = strndup(&b.index<char>(0), b.size());
+				return;
 		}
+		abort();
 	}
 
 	inline ~dtype() { if(type == STRING && str) free((void *) str); }
+	
+	inline blob flatten() const
+	{
+		switch(type)
+		{
+			case UINT32:
+				return blob(sizeof(uint32_t), &u32);
+			case DOUBLE:
+				return blob(sizeof(double), &dbl);
+			case STRING:
+				return blob(strlen(str), str);
+		}
+		abort();
+	}
 	
 	inline dtype & operator=(const dtype & x)
 	{

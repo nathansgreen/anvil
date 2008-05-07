@@ -24,7 +24,7 @@ public:
 	inline blob() : internal(NULL) {}
 	/* other constructors */
 	blob(size_t size);
-	blob(size_t size, const uint8_t * data);
+	blob(size_t size, const void * data);
 	blob(const blob & x);
 	blob & operator=(const blob & x);
 	
@@ -39,6 +39,14 @@ public:
 		assert(internal);
 		assert(i < internal->size);
 		return internal->bytes[i];
+	}
+	
+	template <class T>
+	inline const T & index(size_t i) const
+	{
+		assert(internal);
+		assert((i + 1) * sizeof(T) <= internal->size);
+		return *(T *) &internal->bytes[i * sizeof(T)];
 	}
 	
 	inline size_t size() const
