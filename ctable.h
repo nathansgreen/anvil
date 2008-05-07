@@ -18,6 +18,7 @@ public:
 	virtual bool valid() const = 0;
 	/* see the note about dtable_iter in dtable.h */
 	virtual bool next() = 0;
+	/* can't call key() if you got this iterator via iterator(key) */
 	virtual dtype key() const = 0;
 	virtual const char * column() const = 0;
 	virtual blob value() const = 0;
@@ -30,8 +31,9 @@ class ctable
 {
 public:
 	virtual ctable_iter * iterator() const = 0;
+	virtual ctable_iter * iterator(dtype key) const = 0;
 	virtual blob find(dtype key, const char * column) const = 0;
-	inline virtual bool writable() const = 0;
+	virtual bool writable() const = 0;
 	virtual int append(dtype key, const char * column, const blob & value) = 0;
 	/* remove just a column */
 	/* if gc_row is set, then remove the row if this was the only column left */
@@ -51,22 +53,33 @@ protected:
 class ctable_factory
 {
 public:
-	virtual ctable * create(const dtable * dt_source) const = 0;
-	virtual ctable * create(dtable * dt_source) const = 0;
+	//virtual ctable * open(int dfd, const char * name) const = 0;
+	virtual ctable * open(const dtable * dt_source) const = 0;
+	virtual ctable * open(dtable * dt_source) const = 0;
+	
+	inline virtual void retain()
+	{
+		ref_count++;
+	}
 	
 	inline virtual void release()
 	{
-		delete this;
+		if(--ref_count <= 0)
+			delete this;
 	}
 	
+	ctable_factory() : ref_count(1) {}
 	virtual ~ctable_factory() {}
+	
+private:
+	int ref_count;
 };
 
 template<class T>
 class ctable_static_factory : public ctable_factory
 {
 public:
-	virtual ctable * create(const dtable * dt_source) const
+	virtual ctable * open(const dtable * dt_source) const
 	{
 		T * table = new T;
 		int r = table->init(dt_source);
@@ -78,7 +91,7 @@ public:
 		return table;
 	}
 	
-	virtual ctable * create(dtable * dt_source) const
+	virtual ctable * open(dtable * dt_source) const
 	{
 		T * table = new T;
 		int r = table->init(dt_source);
@@ -91,6 +104,9 @@ public:
 	}
 	
 	/* these do not get freed; they are supposed to be statically allocated */
+	virtual void retain()
+	{
+	}
 	virtual void release()
 	{
 	}

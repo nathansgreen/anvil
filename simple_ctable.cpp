@@ -24,6 +24,16 @@ simple_ctable::iter::iter(dtable_iter * src)
 	}
 }
 
+simple_ctable::iter::iter(const blob & value)
+	: source(NULL), columns(NULL)
+{
+	if(value.exists())
+	{
+		row = sub_blob(value);
+		columns = row.iterator();
+	}
+}
+
 bool simple_ctable::iter::valid() const
 {
 	return columns ? columns->valid() : false;
@@ -38,6 +48,8 @@ bool simple_ctable::iter::next()
 		delete columns;
 		columns = NULL;
 	}
+	if(!source)
+		return false;
 	for(;;)
 	{
 		if(!source->next())
@@ -72,6 +84,11 @@ blob simple_ctable::iter::value() const
 ctable_iter * simple_ctable::iterator() const
 {
 	return new iter(dt_source->iterator());
+}
+
+ctable_iter * simple_ctable::iterator(dtype key) const
+{
+	return new iter(dt_source->find(key));
 }
 
 blob simple_ctable::find(dtype key, const char * column) const

@@ -16,6 +16,7 @@ class simple_ctable : public ctable
 {
 public:
 	virtual ctable_iter * iterator() const;
+	virtual ctable_iter * iterator(dtype key) const;
 	virtual blob find(dtype key, const char * column) const;
 	
 	inline virtual bool writable() const
@@ -58,11 +59,13 @@ private:
 		virtual const char * column() const;
 		virtual blob value() const;
 		inline iter(dtable_iter * src);
+		inline iter(const blob & value);
 		virtual ~iter()
 		{
 			if(columns)
 				delete columns;
-			delete source;
+			if(source)
+				delete source;
 		}
 		
 	private:

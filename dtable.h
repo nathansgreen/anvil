@@ -97,12 +97,22 @@ public:
 		return -ENOSYS;
 	}
 	
-	inline virtual void release()
+	inline virtual void retain()
 	{
-		delete this;
+		ref_count++;
 	}
 	
+	inline virtual void release()
+	{
+		if(--ref_count <= 0)
+			delete this;
+	}
+	
+	dtable_factory() : ref_count(1) {}
 	virtual ~dtable_factory() {}
+	
+private:
+	int ref_count;
 };
 
 template<class T>
@@ -127,6 +137,9 @@ public:
 	}
 	
 	/* these do not get freed; they are supposed to be statically allocated */
+	virtual void retain()
+	{
+	}
 	virtual void release()
 	{
 	}
