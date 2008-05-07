@@ -1,4 +1,4 @@
-CSOURCES=blowfish.c hash_map.c hash_set.c journal.c md5.c openat.c stable.c toilet.c transaction.c vector.c
+CSOURCES=blowfish.c hash_map.c hash_set.c journal.c md5.c openat.c str_tbl.c toilet.c transaction.c vector.c
 CPPSOURCES=blob.cpp stringset.cpp sub_blob.cpp sys_journal.cpp tempfile.cpp
 CPPSOURCES+=journal_dtable.cpp overlay_dtable.cpp simple_dtable.cpp
 CPPSOURCES+=dt_simple_index.cpp managed_dtable.cpp schema_table.cpp simple_ctable.cpp

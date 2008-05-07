@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "stable.h"
+#include "str_tbl.h"
 #include "transaction.h"
 
 /* TODO: use some sort of buffering here to avoid lots of small read()/write() calls */
@@ -19,7 +19,7 @@ struct st_header {
 	uint8_t bytes[2];
 } __attribute__((packed));
 
-int st_init(struct stable * st, int fd, off_t start)
+int st_init(struct str_tbl * st, int fd, off_t start)
 {
 	struct st_header header;
 	ssize_t i;
@@ -58,7 +58,7 @@ int st_init(struct stable * st, int fd, off_t start)
 	return 0;
 }
 
-int st_kill(struct stable * st)
+int st_kill(struct str_tbl * st)
 {
 	ssize_t i;
 	for(i = 0; i < ST_LRU; i++)
@@ -67,7 +67,7 @@ int st_kill(struct stable * st)
 	return 0;
 }
 
-const char * st_get(const struct stable * st, ssize_t index)
+const char * st_get(const struct str_tbl * st, ssize_t index)
 {
 	int i, bc = 0;
 	off_t offset;
@@ -110,14 +110,14 @@ const char * st_get(const struct stable * st, ssize_t index)
 	string[length] = 0;
 	i = st->lru_next;
 	/* the LRU entries don't count as const */
-	((struct stable *) st)->lru[i].index = index;
+	((struct str_tbl *) st)->lru[i].index = index;
 	if(st->lru[i].string)
 		free((void *) st->lru[i].string);
-	((struct stable *) st)->lru[i].string = string;
+	((struct str_tbl *) st)->lru[i].string = string;
 	return string;
 }
 
-ssize_t st_locate(const struct stable * st, const char * string)
+ssize_t st_locate(const struct str_tbl * st, const char * string)
 {
 	/* binary search */
 	ssize_t min = 0, max = st->count - 1;
@@ -140,7 +140,7 @@ ssize_t st_locate(const struct stable * st, const char * string)
 	return -1;
 }
 
-const char ** st_read(struct stable * st)
+const char ** st_read(struct str_tbl * st)
 {
 	ssize_t i;
 	const char ** u = malloc(sizeof(*u) * st->count);
@@ -271,7 +271,7 @@ int st_create_tx(tx_fd fd, off_t * start, const char ** strings, ssize_t count)
 	return _st_create(fd, start, strings, count, tx_write);
 }
 
-static int _st_combine(int fd, off_t * start, struct stable * st1, struct stable * st2, int (*do_create)(int, off_t *, const char **, ssize_t))
+static int _st_combine(int fd, off_t * start, struct str_tbl * st1, struct str_tbl * st2, int (*do_create)(int, off_t *, const char **, ssize_t))
 {
 	ssize_t i1 = 0, i2 = 0;
 	ssize_t total = 0;
@@ -333,12 +333,12 @@ static int _st_combine(int fd, off_t * start, struct stable * st1, struct stable
 	return r;
 }
 
-int st_combine(int fd, off_t * start, struct stable * st1, struct stable * st2)
+int st_combine(int fd, off_t * start, struct str_tbl * st1, struct str_tbl * st2)
 {
 	return _st_combine(fd, start, st1, st2, st_create);
 }
 
-int st_combine_tx(tx_fd fd, off_t * start, struct stable * st1, struct stable * st2)
+int st_combine_tx(tx_fd fd, off_t * start, struct str_tbl * st1, struct str_tbl * st2)
 {
 	return _st_combine(fd, start, st1, st2, st_create_tx);
 }

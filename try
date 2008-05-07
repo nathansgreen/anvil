@@ -21,7 +21,7 @@ journal commit
 journal playback
 journal erase
 tx
-stable
+str_tbl
 dtable
 ctable
 EOF

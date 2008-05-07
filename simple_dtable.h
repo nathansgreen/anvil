@@ -9,7 +9,7 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
-#include "stable.h"
+#include "str_tbl.h"
 
 #ifndef __cplusplus
 #error simple_dtable.h is a C++ header file
@@ -86,7 +86,7 @@ private:
 	
 	int fd;
 	size_t key_count;
-	struct stable st;
+	struct str_tbl st;
 	uint8_t key_size, length_size, offset_size;
 	off_t key_start_off, data_start_off;
 };

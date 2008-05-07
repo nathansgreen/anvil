@@ -17,7 +17,7 @@
 #include "hash_map.h"
 #include "journal.h"
 #include "transaction.h"
-#include "stable.h"
+#include "str_tbl.h"
 #include "toilet.h"
 
 static t_toilet * open_toilet = NULL;
@@ -646,11 +646,11 @@ static int command_journal(int argc, const char * argv[])
 	return r;
 }
 
-static int command_stable(int argc, const char * argv[])
+static int command_str_tbl(int argc, const char * argv[])
 {
 	const char * string_list[] = {"foo", "bar", "zot", "arg"};
 	const char * string;
-	struct stable st;
+	struct str_tbl st;
 	off_t start = 0;
 	int r, fd;
 	tx_fd tfd;
@@ -732,7 +732,7 @@ struct {
 	{"script", "Run a toilet script.", command_script},
 	{"journal", "Test journal functionality: create, append, commit, playback, erase.", command_journal},
 	{"tx", "Test transaction functionality.", command_tx},
-	{"stable", "Test stable functionality.", command_stable},
+	{"str_tbl", "Test str_tbl functionality.", command_str_tbl},
 	{"dtable", "Test dtable functionality.", command_dtable},
 	{"ctable", "Test ctable functionality.", command_ctable}
 };
