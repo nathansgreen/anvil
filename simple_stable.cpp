@@ -11,120 +11,74 @@
 
 #include "simple_stable.h"
 
-inline simple_stable::citer::citer(dtable::iter * source)
-	: key(0u), meta(source)
-{
-	while(meta->valid())
-	{
-		key = meta->key();
-		assert(key.type == dtype::STRING);
-		/* skip internal entries */
-		if(key.str[0] == '_')
-		{
-			meta->next();
-			continue;
-		}
-		value = meta->value();
-		break;
-	}
-}
-
 bool simple_stable::citer::valid() const
 {
-	return meta->valid();
+	return meta != end;
 }
 
 bool simple_stable::citer::next()
 {
-	meta->next();
-	while(meta->valid())
-	{
-		key = meta->key();
-		assert(key.type == dtype::STRING);
-		/* skip internal entries */
-		if(key.str[0] == '_')
-		{
-			meta->next();
-			continue;
-		}
-		value = meta->value();
-		/* row count + type + column name*/
-		assert(value.size() >= sizeof(size_t) + 2);
-		break;
-	}
-	return meta->valid();
+	if(meta != end)
+		meta++;
+	return meta != end;
 }
 
 const char * simple_stable::citer::name() const
 {
-	return key.str;
+	return meta->first;
 }
 
 size_t simple_stable::citer::row_count() const
 {
-	return *(size_t *) &value[0];
+	return meta->second.row_count;
 }
 
 dtype::ctype simple_stable::citer::type() const
 {
-	switch(value[4])
-	{
-		case 1:
-			return dtype::UINT32;
-		case 2:
-			return dtype::DOUBLE;
-		case 3:
-			return dtype::STRING;
-	}
-	abort();
-}
-
-inline simple_stable::siter::siter(ctable::iter * source)
-	: data(source)
-{
-	/* XXX */
+	return meta->second.type;
 }
 
 bool simple_stable::siter::valid() const
 {
-	/* XXX */
-	return false;
+	return data->valid();
 }
 
 bool simple_stable::siter::next()
 {
-	/* XXX */
-	return false;
+	return data->next();
 }
 
 dtype simple_stable::siter::key() const
 {
-	/* XXX */
-	return dtype(0u);
+	return data->key();
 }
 
 const char * simple_stable::siter::column() const
 {
-	/* XXX */
-	return NULL;
+	return data->column();
 }
 
 dtype simple_stable::siter::value() const
 {
-	/* XXX */
-	return dtype(0u);
+	return dtype(data->value(), meta->col_type(data->column()));
 }
 
 stable::column_iter * simple_stable::columns() const
 {
-	stable::column_iter * columns;
-	dtable::iter * source = dt_meta->iterator();
-	if(!source)
-		return NULL;
-	columns = new citer(source);
-	if(!columns)
-		delete source;
-	return columns;
+	return new citer(column_map.begin(), column_map.end());
+}
+
+size_t simple_stable::row_count(const char * column) const
+{
+	const column_info * c = get_column(column);
+	return c ? c->row_count : 0;
+}
+
+dtype::ctype simple_stable::col_type(const char * column) const
+{
+	const column_info * c = get_column(column);
+	assert(c);
+	return c->type;
 }
 
 stable::iter * simple_stable::iterator() const
@@ -133,7 +87,7 @@ stable::iter * simple_stable::iterator() const
 	ctable::iter * source = ct_data->iterator();
 	if(!source)
 		return NULL;
-	wrapper = new siter(source);
+	wrapper = new siter(source, this);
 	if(!wrapper)
 		delete source;
 	return wrapper;
@@ -145,7 +99,7 @@ stable::iter * simple_stable::iterator(dtype key) const
 	ctable::iter * source = ct_data->iterator(key);
 	if(!source)
 		return NULL;
-	wrapper = new siter(source);
+	wrapper = new siter(source, this);
 	if(!wrapper)
 		delete source;
 	return wrapper;
@@ -153,7 +107,7 @@ stable::iter * simple_stable::iterator(dtype key) const
 
 bool simple_stable::find(dtype key, const char * column, dtype * value) const
 {
-	const struct column * c = get_column(column);
+	const column_info * c = get_column(column);
 	if(!c)
 		return false;
 	blob v = ct_data->find(key, column);
@@ -168,19 +122,137 @@ bool simple_stable::writable() const
 	return dt_meta->writable() && ct_data->writable();
 }
 
-const simple_stable::column * simple_stable::get_column(const char * column) const
+int simple_stable::load_columns()
 {
-	/* XXX */
-	return NULL;
+	dtable::iter * source = dt_meta->iterator();
+	assert(column_map.empty());
+	if(!source)
+		return -ENOMEM;
+	while(source->valid())
+	{
+		dtype key = source->key();
+		assert(key.type == dtype::STRING);
+		/* skip internal entries */
+		if(key.str[0] == '_')
+		{
+			source->next();
+			continue;
+		}
+		
+		blob value = source->value();
+		const char * column = strdup(key.str);
+		if(!column)
+			break;
+		column_info * c = &column_map[column];
+		c->row_count = value.index<size_t>(0);
+		switch(value[sizeof(size_t)])
+		{
+			case 1:
+				c->type = dtype::UINT32;
+				break;
+			case 2:
+				c->type = dtype::DOUBLE;
+				break;
+			case 3:
+				c->type = dtype::STRING;
+				break;
+		}
+		source->next();
+	}
+	if(source->valid())
+		while(!column_map.empty())
+		{
+			column_map_full_iter it = column_map.begin();
+			const char * column = it->first;
+			column_map.erase(column);
+			free((void *) column);
+		}
+	delete source;
+	return 0;
+}
+
+const simple_stable::column_info * simple_stable::get_column(const char * column) const
+{
+	column_map_iter it = column_map.find(column);
+	if(it == column_map.end())
+		return NULL;
+	return &it->second;
 }
 
 int simple_stable::adjust_column(const char * column, ssize_t delta, dtype::ctype type)
 {
+	int r;
+	bool created = false, destroyed = false;
+	column_map_full_iter it = column_map.find(column);
+	column_info * c = (it == column_map.end()) ? NULL : &it->second;
 	/* refuse internal entries */
 	if(column[0] == '_')
 		return -EINVAL;
-	/* XXX not finished yet */
-	return -ENOSYS;
+	if(!delta)
+		/* do we care about this type-checking side effect? */
+		return c ? ((type == c->type) ? 0 : -EINVAL) : 0;
+	if(!c)
+	{
+		/* decrement a nonexistent column? */
+		if(delta < 0)
+			return -EINVAL;
+		column = strdup(column);
+		if(!column)
+			return -ENOMEM;
+		c = &column_map[column];
+		c->row_count = delta;
+		c->type = type;
+		created = true;
+	}
+	else
+	{
+		/* type mismatch */
+		if(type != c->type)
+			return -EINVAL;
+		/* decrement more than possible? */
+		if(delta < 0 && c->row_count < (size_t) -delta)
+			return -EINVAL;
+		c->row_count += delta;
+		if(!c->row_count)
+		{
+			column = it->first;
+			column_map.erase(column);
+			destroyed = true;
+		}
+	}
+	/* create the column meta blob */
+	blob meta(sizeof(size_t) + 1);
+	*(size_t *) meta.memory() = c->row_count;
+	switch(type)
+	{
+		case dtype::UINT32:
+			meta.memory()[sizeof(size_t)] = 1;
+			break;
+		case dtype::DOUBLE:
+			meta.memory()[sizeof(size_t)] = 2;
+			break;
+		case dtype::STRING:
+			meta.memory()[sizeof(size_t)] = 3;
+			break;
+	}
+	/* and write it */
+	r = dt_meta->append(column, meta);
+	if(r < 0)
+	{
+		/* clean up in case of error */
+		if(created)
+		{
+			column_map.erase(column);
+			free((void *) column);
+		}
+		else if(destroyed)
+		{
+			c = &column_map[column];
+			c->row_count = -delta;
+			c->type = type;
+		}
+	}
+	return r;
 }
 
 int simple_stable::append(dtype key, const char * column, const dtype & value)
@@ -203,7 +275,7 @@ int simple_stable::remove(dtype key, const char * column)
 {
 	int r;
 	dtype::ctype type;
-	const struct column * c = get_column(column);
+	const column_info * c = get_column(column);
 	/* does it even exist to begin with? */
 	if(!c || !ct_data->find(key, column).exists())
 		return 0;
@@ -225,7 +297,7 @@ int simple_stable::remove(dtype key)
 		return 0;
 	while(columns->valid())
 	{
-		const column * c = get_column(columns->column());
+		const column_info * c = get_column(columns->column());
 		r = adjust_column(columns->column(), -1, c->type);
 		/* XXX improve this */
 		assert(r >= 0);
@@ -238,10 +310,17 @@ int simple_stable::remove(dtype key)
 	return r;
 }
 
+dtype::ctype simple_stable::key_type() const
+{
+	return ct_data->key_type();
+}
+
 int simple_stable::init(int dfd, const char * name, dtable_factory * meta, dtable_factory * data, ctable_factory * columns)
 {
+	int r = -1;
 	if(md_dfd >= 0)
 		deinit();
+	assert(column_map.empty());
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
 		goto fail_open;
@@ -256,14 +335,17 @@ int simple_stable::init(int dfd, const char * name, dtable_factory * meta, dtabl
 		goto fail_columns;
 	
 	/* check sanity? */
+	r = load_columns();
+	if(r < 0)
+		goto fail_check;
 	
 	columns->release();
 	data->release();
 	meta->release();
 	return 0;
 	
-/*fail_check:
-	delete ct_data;*/
+fail_check:
+	delete ct_data;
 fail_columns:
 	delete _dt_data;
 fail_data:
@@ -275,13 +357,20 @@ fail_open:
 	columns->release();
 	data->release();
 	meta->release();
-	return -1;
+	return r;
 }
 
 void simple_stable::deinit()
 {
 	if(md_dfd < 0)
 		return;
+	while(!column_map.empty())
+	{
+		column_map_full_iter it = column_map.begin();
+		const char * column = it->first;
+		column_map.erase(column);
+		free((void *) column);
+	}
 	delete ct_data;
 	delete _dt_data;
 	delete dt_meta;

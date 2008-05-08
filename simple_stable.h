@@ -9,6 +9,8 @@
 #error simple_stable.h is a C++ header file
 #endif
 
+#include <map>
+
 #include "dtable.h"
 #include "ctable.h"
 #include "stable.h"
@@ -17,13 +19,22 @@ class simple_stable : public stable
 {
 public:
 	virtual column_iter * columns() const;
+	virtual size_t row_count(const char * column) const;
+	virtual dtype::ctype col_type(const char * column) const;
+	
 	virtual iter * iterator() const;
 	virtual iter * iterator(dtype key) const;
+	
 	virtual bool find(dtype key, const char * column, dtype * value) const;
+	
 	virtual bool writable() const;
+	
 	virtual int append(dtype key, const char * column, const dtype & value);
 	virtual int remove(dtype key, const char * column);
 	virtual int remove(dtype key);
+	
+	virtual dtype::ctype key_type() const;
+	
 	int init(int dfd, const char * name, dtable_factory * meta, dtable_factory * data, ctable_factory * columns);
 	void deinit();
 	inline simple_stable() : md_dfd(-1), dt_meta(NULL), _dt_data(NULL), ct_data(NULL) {}
@@ -36,14 +47,25 @@ public:
 	static int create(int dfd, const char * name, dtable_factory * meta_factory, dtable_factory * data_factory, dtype::ctype key_type);
 	
 private:
-	struct column
+	struct column_info
 	{
-		const char * name;
 		size_t row_count;
 		dtype::ctype type;
+		
+		inline bool operator()(const char * a, const char * b) const
+		{
+			return strcmp(a, b) < 0;
+		}
 	};
 	
-	const column * get_column(const char * column) const;
+	/* /me dislikes std::map immensely */
+	typedef std::map<const char *, column_info, column_info> std_column_map;
+	typedef std_column_map::const_iterator column_map_iter;
+	typedef std_column_map::iterator column_map_full_iter;
+	std_column_map column_map;
+	
+	int load_columns();
+	const column_info * get_column(const char * column) const;
 	int adjust_column(const char * column, ssize_t delta, dtype::ctype type);
 	
 	class citer : public column_iter
@@ -54,12 +76,11 @@ private:
 		virtual const char * name() const;
 		virtual size_t row_count() const;
 		virtual dtype::ctype type() const;
-		inline citer(dtable::iter * source);
+		inline citer(column_map_iter source, column_map_iter last) : meta(source), end(last) {}
 		virtual ~citer() {}
 	private:
-		dtype key;
-		blob value;
-		dtable::iter * meta;
+		column_map_iter meta;
+		column_map_iter end;
 	};
 	
 	class siter : public stable::iter
@@ -70,10 +91,11 @@ private:
 		virtual dtype key() const;
 		virtual const char * column() const;
 		virtual dtype value() const;
-		inline siter(ctable::iter * source);
+		inline siter(ctable::iter * source, const stable * types) : data(source), meta(types) {}
 		virtual ~siter() {}
 	private:
 		ctable::iter * data;
+		const stable * meta;
 	};
 	
 	int md_dfd;

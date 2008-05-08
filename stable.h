@@ -44,16 +44,23 @@ public:
 	};
 	
 	virtual column_iter * columns() const = 0;
+	virtual size_t row_count(const char * column) const = 0;
+	virtual dtype::ctype col_type(const char * column) const = 0;
+	
 	virtual iter * iterator() const = 0;
 	virtual iter * iterator(dtype key) const = 0;
+	
 	/* returns true if found, otherwise does not change *value */
 	virtual bool find(dtype key, const char * column, dtype * value) const = 0;
+	
 	virtual bool writable() const = 0;
+	
 	virtual int append(dtype key, const char * column, const dtype & value) = 0;
 	/* remove just a column */
 	virtual int remove(dtype key, const char * column) = 0;
 	/* remove the whole row */
 	virtual int remove(dtype key) = 0;
+	
 	virtual dtype::ctype key_type() const = 0;
 	inline virtual ~stable() {}
 };
