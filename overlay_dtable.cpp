@@ -79,7 +79,7 @@ const dtable * overlay_dtable::iter::source() const
 	return subs[next_index].iter->source();
 }
 
-dtable_iter * overlay_dtable::iterator() const
+dtable::iter * overlay_dtable::iterator() const
 {
 	return new iter(this);
 }

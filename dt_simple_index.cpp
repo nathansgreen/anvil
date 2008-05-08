@@ -9,14 +9,14 @@ dtype dt_simple_index::map(dtype key) const
 	/* give the unique pri for this key; only makes sense if unique is true */
 }
 
-dt_index_iter * dt_simple_index::iterator(dtype key) const
-{
-	/* iterate over only this one key */
-}
-
-dt_index_iter * dt_simple_index::iterator() const
+dt_index::iter * dt_simple_index::iterator() const
 {
 	/* iterate over all keys */
+}
+
+dt_index::iter * dt_simple_index::iterator(dtype key) const
+{
+	/* iterate over only this one key */
 }
 
 int dt_simple_index::set(dtype key, dtype pri)

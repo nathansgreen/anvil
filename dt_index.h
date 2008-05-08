@@ -11,32 +11,30 @@
 
 #include "dtable.h"
 
-class dt_index;
-
-class dt_index_iter
-{
-public:
-	virtual bool valid() const = 0;
-	/* see the note about dtable_iter in dtable.h */
-	virtual bool next() = 0;
-	virtual dtype key() const = 0;
-	virtual dtype pri() const = 0;
-	virtual ~dt_index_iter() {}
-};
-
 /* secondary indices */
 
 class dt_index
 {
 public:
+	class iter
+	{
+	public:
+		virtual bool valid() const = 0;
+		/* see the note about dtable::iter in dtable.h */
+		virtual bool next() = 0;
+		virtual dtype key() const = 0;
+		virtual dtype pri() const = 0;
+		virtual ~iter() {}
+	};
+	
 	virtual bool unique() const = 0;
 	virtual bool writable() const = 0;
 	
 	/* only usable if unique() returns true */
 	virtual dtype map(dtype key) const = 0;
 	
-	virtual dt_index_iter * iterator(dtype key) const = 0;
-	virtual dt_index_iter * iterator() const = 0;
+	virtual iter * iterator() const = 0;
+	virtual iter * iterator(dtype key) const = 0;
 	
 	/* only usable if writable() returns true */
 	virtual int set(dtype key, dtype pri) = 0;

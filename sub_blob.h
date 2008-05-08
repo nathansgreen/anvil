@@ -13,24 +13,25 @@
 
 #include "blob.h"
 
-/* sub_blob isn't really meant to be an abstract base class (and it isn't), so
- * its iterator doesn't have to be all virtual like this... but the other
- * iterators are all done this way, so we'll be consistent here */
-class sub_blob_iter
-{
-public:
-	virtual bool valid() const = 0;
-	/* see the note about dtable_iter in dtable.h */
-	virtual bool next() = 0;
-	/* returned string is good at least until the next call to next() */
-	virtual const char * column() const = 0;
-	virtual blob value() const = 0;
-	virtual ~sub_blob_iter() {}
-};
 
 class sub_blob
 {
 public:
+	/* sub_blob isn't really meant to be an abstract base class (and it isn't), so
+	 * its iterator doesn't have to be all virtual like this... but the other
+	 * iterators are all done this way, so we'll be consistent here */
+	class iter
+	{
+	public:
+		virtual bool valid() const = 0;
+		/* see the note about dtable::iter in dtable.h */
+		virtual bool next() = 0;
+		/* returned string is good at least until the next call to next() */
+		virtual const char * column() const = 0;
+		virtual blob value() const = 0;
+		virtual ~iter() {}
+	};
+	
 	inline sub_blob() : modified(false), overrides(NULL) {}
 	inline sub_blob(const blob & x) : base(x), modified(false), overrides(NULL) {}
 	
@@ -40,7 +41,7 @@ public:
 	blob flatten(bool internalize = true);
 	/* it is undefined what happens if you call flatten() while
 	 * iterating, but get(), set(), and remove() should all work */
-	sub_blob_iter * iterator() const;
+	iter * iterator() const;
 	
 	inline ~sub_blob()
 	{
@@ -84,15 +85,15 @@ private:
 	};
 	mutable override * overrides;
 	
-	class iter : public sub_blob_iter
+	class named_iter : public iter
 	{
 	public:
 		virtual bool valid() const;
 		virtual bool next();
 		virtual const char * column() const;
 		virtual blob value() const;
-		inline iter(override * first) : current(first) {}
-		virtual ~iter() {}
+		inline named_iter(override * first) : current(first) {}
+		virtual ~named_iter() {}
 		
 	private:
 		const override * current;

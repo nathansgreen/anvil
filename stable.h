@@ -13,39 +13,39 @@
 
 /* schema tables, like typed ctables (similar to old gtable) */
 
-/* iterate through the columns of an stable */
-class column_iter
-{
-public:
-	virtual bool valid() const = 0;
-	/* see the note about dtable_iter in dtable.h */
-	virtual bool next() = 0;
-	virtual const char * name() const = 0;
-	virtual size_t row_count() const = 0;
-	virtual dtype::ctype type() const = 0;
-	virtual ~column_iter() {}
-};
-
-/* iterate through the actual data */
-class stable_iter
-{
-public:
-	virtual bool valid() const = 0;
-	/* see the note about dtable_iter in dtable.h */
-	virtual bool next() = 0;
-	/* can't call key() if you got this iterator via iterator(key) */
-	virtual dtype key() const = 0;
-	virtual const char * column() const = 0;
-	virtual dtype value() const = 0;
-	virtual ~stable_iter() {}
-};
-
 class stable
 {
 public:
+	/* iterate through the columns of an stable */
+	class column_iter
+	{
+	public:
+		virtual bool valid() const = 0;
+		/* see the note about dtable::iter in dtable.h */
+		virtual bool next() = 0;
+		virtual const char * name() const = 0;
+		virtual size_t row_count() const = 0;
+		virtual dtype::ctype type() const = 0;
+		virtual ~column_iter() {}
+	};
+	
+	/* iterate through the actual data */
+	class iter
+	{
+	public:
+		virtual bool valid() const = 0;
+		/* see the note about dtable::iter in dtable.h */
+		virtual bool next() = 0;
+		/* can't call key() if you got this iterator via iterator(key) */
+		virtual dtype key() const = 0;
+		virtual const char * column() const = 0;
+		virtual dtype value() const = 0;
+		virtual ~iter() {}
+	};
+	
 	virtual column_iter * columns() const = 0;
-	virtual stable_iter * iterator() const = 0;
-	virtual stable_iter * iterator(dtype key) const = 0;
+	virtual iter * iterator() const = 0;
+	virtual iter * iterator(dtype key) const = 0;
 	/* returns true if found, otherwise does not change *value */
 	virtual bool find(dtype key, const char * column, dtype * value) const = 0;
 	virtual bool writable() const = 0;

@@ -32,7 +32,7 @@ class managed_dtable : public dtable
 {
 public:
 	/* send to overlay_dtable */
-	inline virtual dtable_iter * iterator() const
+	inline virtual iter * iterator() const
 	{
 		return overlay->iterator();
 	}

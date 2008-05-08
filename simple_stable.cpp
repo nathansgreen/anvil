@@ -11,7 +11,7 @@
 
 #include "simple_stable.h"
 
-inline simple_stable::citer::citer(dtable_iter * source)
+inline simple_stable::citer::citer(dtable::iter * source)
 	: key(0u), meta(source)
 {
 	while(meta->valid())
@@ -79,7 +79,7 @@ dtype::ctype simple_stable::citer::type() const
 	abort();
 }
 
-inline simple_stable::siter::siter(ctable_iter * source)
+inline simple_stable::siter::siter(ctable::iter * source)
 	: data(source)
 {
 	/* XXX */
@@ -115,10 +115,10 @@ dtype simple_stable::siter::value() const
 	return dtype(0u);
 }
 
-column_iter * simple_stable::columns() const
+stable::column_iter * simple_stable::columns() const
 {
-	column_iter * columns;
-	dtable_iter * source = dt_meta->iterator();
+	stable::column_iter * columns;
+	dtable::iter * source = dt_meta->iterator();
 	if(!source)
 		return NULL;
 	columns = new citer(source);
@@ -127,10 +127,10 @@ column_iter * simple_stable::columns() const
 	return columns;
 }
 
-stable_iter * simple_stable::iterator() const
+stable::iter * simple_stable::iterator() const
 {
-	stable_iter * wrapper;
-	ctable_iter * source = ct_data->iterator();
+	stable::iter * wrapper;
+	ctable::iter * source = ct_data->iterator();
 	if(!source)
 		return NULL;
 	wrapper = new siter(source);
@@ -139,10 +139,10 @@ stable_iter * simple_stable::iterator() const
 	return wrapper;
 }
 
-stable_iter * simple_stable::iterator(dtype key) const
+stable::iter * simple_stable::iterator(dtype key) const
 {
-	stable_iter * wrapper;
-	ctable_iter * source = ct_data->iterator(key);
+	stable::iter * wrapper;
+	ctable::iter * source = ct_data->iterator(key);
 	if(!source)
 		return NULL;
 	wrapper = new siter(source);
@@ -220,7 +220,7 @@ int simple_stable::remove(dtype key, const char * column)
 int simple_stable::remove(dtype key)
 {
 	int r;
-	ctable_iter * columns = ct_data->iterator(key);
+	ctable::iter * columns = ct_data->iterator(key);
 	if(!columns)
 		return 0;
 	while(columns->valid())

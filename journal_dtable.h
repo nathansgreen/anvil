@@ -25,7 +25,7 @@
 class journal_dtable : public dtable, public sys_journal::journal_listener
 {
 public:
-	virtual dtable_iter * iterator() const;
+	virtual iter * iterator() const;
 	virtual blob lookup(dtype key, const dtable ** source) const;
 	
 	inline virtual bool writable() const { return true; }
@@ -62,7 +62,7 @@ private:
 	static void next_node(node ** n);
 	static void kill_nodes(node * n);
 	
-	class iter : public dtable_iter
+	class iter : public dtable::iter
 	{
 	public:
 		virtual bool valid() const;

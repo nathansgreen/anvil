@@ -17,8 +17,8 @@ class simple_stable : public stable
 {
 public:
 	virtual column_iter * columns() const;
-	virtual stable_iter * iterator() const;
-	virtual stable_iter * iterator(dtype key) const;
+	virtual iter * iterator() const;
+	virtual iter * iterator(dtype key) const;
 	virtual bool find(dtype key, const char * column, dtype * value) const;
 	virtual bool writable() const;
 	virtual int append(dtype key, const char * column, const dtype & value);
@@ -54,15 +54,15 @@ private:
 		virtual const char * name() const;
 		virtual size_t row_count() const;
 		virtual dtype::ctype type() const;
-		inline citer(dtable_iter * source);
+		inline citer(dtable::iter * source);
 		virtual ~citer() {}
 	private:
 		dtype key;
 		blob value;
-		dtable_iter * meta;
+		dtable::iter * meta;
 	};
 	
-	class siter : public stable_iter
+	class siter : public stable::iter
 	{
 	public:
 		virtual bool valid() const;
@@ -70,10 +70,10 @@ private:
 		virtual dtype key() const;
 		virtual const char * column() const;
 		virtual dtype value() const;
-		inline siter(ctable_iter * source);
+		inline siter(ctable::iter * source);
 		virtual ~siter() {}
 	private:
-		ctable_iter * data;
+		ctable::iter * data;
 	};
 	
 	int md_dfd;

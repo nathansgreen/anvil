@@ -72,7 +72,7 @@ const dtable * simple_dtable::iter::source() const
 	return sdt_source;
 }
 
-dtable_iter * simple_dtable::iterator() const
+dtable::iter * simple_dtable::iterator() const
 {
 	return new iter(this);
 }
@@ -263,7 +263,7 @@ ssize_t simple_dtable::locate_string(const char ** array, ssize_t size, const ch
 int simple_dtable::create(int dfd, const char * file, const dtable * source, const dtable * shadow)
 {
 	stringset strings;
-	dtable_iter * iter;
+	dtable::iter * iter;
 	dtype::ctype key_type = source->key_type();
 	const char ** string_array = NULL;
 	size_t string_count = 0, key_count = 0;

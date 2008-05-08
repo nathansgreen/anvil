@@ -78,7 +78,7 @@ static void print(blob x, const char * prefix = NULL)
 static void run_iterator(dtable * table)
 {
 	bool more = true;
-	dtable_iter * iter = table->iterator();
+	dtable::iter * iter = table->iterator();
 	printf("dtable contents:\n");
 	while(iter->valid())
 	{
@@ -99,7 +99,7 @@ static void run_iterator(ctable * table)
 {
 	dtype old_key((uint32_t) 0);
 	bool more = true, first = true;
-	ctable_iter * iter = table->iterator();
+	ctable::iter * iter = table->iterator();
 	printf("ctable contents:\n");
 	while(iter->valid())
 	{

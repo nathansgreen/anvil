@@ -16,30 +16,28 @@
 
 /* data tables */
 
-class dtable;
-
-class dtable_iter
-{
-public:
-	virtual bool valid() const = 0;
-	/* Since these iterators are virtual, we will have a pointer to them
-	 * rather than an actual instance when we're using them. As a result, it
-	 * is not as useful to override operators, because we'd have to
-	 * dereference the local variable in order to use the overloaded
-	 * operators. In particular we'd need ++*it instead of just ++it, yet
-	 * both would compile without error. So, we use next() here. */
-	virtual bool next() = 0;
-	virtual dtype key() const = 0;
-	virtual metablob meta() const = 0;
-	virtual blob value() const = 0;
-	virtual const dtable * source() const = 0;
-	virtual ~dtable_iter() {}
-};
-
 class dtable
 {
 public:
-	virtual dtable_iter * iterator() const = 0;
+	class iter
+	{
+	public:
+		virtual bool valid() const = 0;
+		/* Since these iterators are virtual, we will have a pointer to them
+		 * rather than an actual instance when we're using them. As a result, it
+		 * is not as useful to override operators, because we'd have to
+		 * dereference the local variable in order to use the overloaded
+		 * operators. In particular we'd need ++*it instead of just ++it, yet
+		 * both would compile without error. So, we use next() here. */
+		virtual bool next() = 0;
+		virtual dtype key() const = 0;
+		virtual metablob meta() const = 0;
+		virtual blob value() const = 0;
+		virtual const dtable * source() const = 0;
+		virtual ~iter() {}
+	};
+	
+	virtual iter * iterator() const = 0;
 	virtual blob lookup(dtype key, const dtable ** source) const = 0;
 	inline blob find(dtype key) const { const dtable * source; return lookup(key, &source); }
 	inline virtual bool writable() const { return false; }
@@ -56,13 +54,13 @@ protected:
 class empty_dtable : public dtable
 {
 public:
-	virtual dtable_iter * iterator() const { return new iter(); }
+	virtual iter * iterator() const { return new iter(); }
 	inline virtual blob lookup(dtype key, const dtable ** source) const { return blob(); }
 	inline empty_dtable(dtype::ctype key_type) { ktype = key_type; }
 	inline virtual ~empty_dtable() {}
 	
 private:
-	class iter : public dtable_iter
+	class iter : public dtable::iter
 	{
 	public:
 		virtual bool valid() const { return false; }

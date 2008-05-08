@@ -28,24 +28,24 @@
  * bytes n+2-m: column name
  * bytes m+1-o: blob data */
 
-bool sub_blob::iter::valid() const
+bool sub_blob::named_iter::valid() const
 {
 	return current != NULL;
 }
 
-bool sub_blob::iter::next()
+bool sub_blob::named_iter::next()
 {
 	if(current)
 		current = current->next;
 	return current != NULL;
 }
 
-const char * sub_blob::iter::column() const
+const char * sub_blob::named_iter::column() const
 {
 	return current->name;
 }
 
-blob sub_blob::iter::value() const
+blob sub_blob::named_iter::value() const
 {
 	return current->value;
 }
@@ -152,10 +152,10 @@ blob sub_blob::flatten(bool internalize)
 	return flat;
 }
 
-sub_blob_iter * sub_blob::iterator() const
+sub_blob::iter * sub_blob::iterator() const
 {
 	populate();
-	return new iter(overrides);
+	return new named_iter(overrides);
 }
 
 void sub_blob::populate() const

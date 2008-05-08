@@ -28,8 +28,8 @@ public:
 	
 	virtual dtype map(dtype key) const;
 	
-	virtual dt_index_iter * iterator(dtype key) const;
-	virtual dt_index_iter * iterator() const;
+	virtual iter * iterator() const;
+	virtual iter * iterator(dtype key) const;
 	
 	virtual int set(dtype key, dtype pri);
 	virtual int remove(dtype key);

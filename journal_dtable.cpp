@@ -37,7 +37,7 @@ const dtable * journal_dtable::iter::source() const
 	return jdt_source;
 }
 
-dtable_iter * journal_dtable::iterator() const
+dtable::iter * journal_dtable::iterator() const
 {
 	node * node;
 	/* find first node */

@@ -15,8 +15,8 @@
 class simple_ctable : public ctable
 {
 public:
-	virtual ctable_iter * iterator() const;
-	virtual ctable_iter * iterator(dtype key) const;
+	virtual iter * iterator() const;
+	virtual iter * iterator(dtype key) const;
 	virtual blob find(dtype key, const char * column) const;
 	
 	inline virtual bool writable() const
@@ -50,7 +50,7 @@ public:
 	inline virtual ~simple_ctable() {}
 	
 private:
-	class iter : public ctable_iter
+	class iter : public ctable::iter
 	{
 	public:
 		virtual bool valid() const;
@@ -58,7 +58,7 @@ private:
 		virtual dtype key() const;
 		virtual const char * column() const;
 		virtual blob value() const;
-		inline iter(dtable_iter * src);
+		inline iter(dtable::iter * src);
 		inline iter(const blob & value);
 		virtual ~iter()
 		{
@@ -69,10 +69,10 @@ private:
 		}
 		
 	private:
-		dtable_iter * source;
+		dtable::iter * source;
 		/* need to keep the row around so its iterator will work */
 		sub_blob row;
-		sub_blob_iter * columns;
+		sub_blob::iter * columns;
 	};
 	
 	dtable * wdt_source;

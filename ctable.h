@@ -12,26 +12,26 @@
 #include "blob.h"
 #include "dtable.h"
 
-class ctable_iter
-{
-public:
-	virtual bool valid() const = 0;
-	/* see the note about dtable_iter in dtable.h */
-	virtual bool next() = 0;
-	/* can't call key() if you got this iterator via iterator(key) */
-	virtual dtype key() const = 0;
-	virtual const char * column() const = 0;
-	virtual blob value() const = 0;
-	virtual ~ctable_iter() {}
-};
-
 /* column tables */
 
 class ctable
 {
 public:
-	virtual ctable_iter * iterator() const = 0;
-	virtual ctable_iter * iterator(dtype key) const = 0;
+	class iter
+	{
+	public:
+		virtual bool valid() const = 0;
+		/* see the note about dtable::iter in dtable.h */
+		virtual bool next() = 0;
+		/* can't call key() if you got this iterator via iterator(key) */
+		virtual dtype key() const = 0;
+		virtual const char * column() const = 0;
+		virtual blob value() const = 0;
+		virtual ~iter() {}
+	};
+	
+	virtual iter * iterator() const = 0;
+	virtual iter * iterator(dtype key) const = 0;
 	virtual blob find(dtype key, const char * column) const = 0;
 	virtual bool writable() const = 0;
 	virtual int append(dtype key, const char * column, const blob & value) = 0;

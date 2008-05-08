@@ -33,7 +33,7 @@
 class simple_dtable : public dtable
 {
 public:
-	virtual dtable_iter * iterator() const;
+	virtual iter * iterator() const;
 	virtual blob lookup(dtype key, const dtable ** source) const;
 	
 	inline simple_dtable() : fd(-1) {}
@@ -59,7 +59,7 @@ private:
 		uint8_t offset_size;
 	} __attribute__((packed));
 	
-	class iter : public dtable_iter
+	class iter : public dtable::iter
 	{
 	public:
 		virtual bool valid() const;

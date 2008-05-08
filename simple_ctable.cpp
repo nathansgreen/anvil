@@ -5,7 +5,7 @@
 #include "sub_blob.h"
 #include "simple_ctable.h"
 
-simple_ctable::iter::iter(dtable_iter * src)
+simple_ctable::iter::iter(dtable::iter * src)
 	: source(src), columns(NULL)
 {
 	while(source->valid())
@@ -81,12 +81,12 @@ blob simple_ctable::iter::value() const
 	return columns->value();
 }
 
-ctable_iter * simple_ctable::iterator() const
+ctable::iter * simple_ctable::iterator() const
 {
 	return new iter(dt_source->iterator());
 }
 
-ctable_iter * simple_ctable::iterator(dtype key) const
+ctable::iter * simple_ctable::iterator(dtype key) const
 {
 	return new iter(dt_source->find(key));
 }
@@ -123,7 +123,7 @@ int simple_ctable::remove(dtype key, const char * column)
 		/* TODO: improve this... */
 		blob row = wdt_source->find(key);
 		sub_blob columns(row);
-		sub_blob_iter * iter = columns.iterator();
+		sub_blob::iter * iter = columns.iterator();
 		bool last = !iter->valid();
 		delete iter;
 		if(last)

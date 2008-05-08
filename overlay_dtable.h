@@ -21,7 +21,7 @@
 class overlay_dtable : public dtable
 {
 public:
-	virtual dtable_iter * iterator() const;
+	virtual iter * iterator() const;
 	virtual blob lookup(dtype key, const dtable ** source) const;
 	
 	inline overlay_dtable() : tables(NULL), table_count(0) {}
@@ -35,7 +35,7 @@ public:
 	}
 	
 private:
-	class iter : public dtable_iter
+	class iter : public dtable::iter
 	{
 	public:
 		virtual bool valid() const;
@@ -50,7 +50,7 @@ private:
 	private:
 		struct sub
 		{
-			dtable_iter * iter;
+			dtable::iter * iter;
 			bool empty, valid;
 		};
 		
