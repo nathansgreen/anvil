@@ -261,10 +261,13 @@ int simple_stable::append(dtype key, const char * column, const dtype & value)
 	bool increment = !ct_data->find(key, column).exists();
 	if(increment)
 	{
+		/* this will check that the type matches */
 		r = adjust_column(column, 1, value.type);
 		if(r < 0)
 			return r;
 	}
+	else if(col_type(column) != value.type)
+		return -EINVAL;
 	r = ct_data->append(key, column, value.flatten());
 	if(r < 0 && increment)
 		adjust_column(column, -1, value.type);
