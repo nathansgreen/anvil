@@ -710,6 +710,7 @@ static int command_tx(int argc, const char * argv[])
 
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
+int command_stable(int argc, const char * argv[]);
 
 static int command_script(int argc, const char * argv[]);
 static int command_help(int argc, const char * argv[]);
@@ -734,7 +735,8 @@ struct {
 	{"tx", "Test transaction functionality.", command_tx},
 	{"str_tbl", "Test str_tbl functionality.", command_str_tbl},
 	{"dtable", "Test dtable functionality.", command_dtable},
-	{"ctable", "Test ctable functionality.", command_ctable}
+	{"ctable", "Test ctable functionality.", command_ctable},
+	{"stable", "Test stable functionality.", command_stable}
 };
 #define COMMAND_COUNT (sizeof(commands) / sizeof(commands[0]))
 

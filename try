@@ -24,6 +24,7 @@ tx
 str_tbl
 dtable
 ctable
+stable
 EOF
 mkdir /mnt/test/journals
 sudo umount /mnt/test
@@ -35,7 +36,8 @@ sudo insmod fstitch/kfstitchd.ko device=/dev/sdb
 sudo mount /mnt/test
 echo "done."
 
-echo "script run" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec "$WD/toilet")
+#export VALGRIND="valgrind --trace-children=yes"
+echo "script run" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
 
 ls -lR /mnt/test
 true | hexdump -C /mnt/test/teststrings

@@ -95,9 +95,10 @@ public:
 		return -ENOSYS;
 	}
 	
-	inline virtual void retain()
+	inline virtual void retain(int count = 1)
 	{
-		ref_count++;
+		assert(count > 0);
+		ref_count += count;
 	}
 	
 	inline virtual void release()
@@ -135,7 +136,7 @@ public:
 	}
 	
 	/* these do not get freed; they are supposed to be statically allocated */
-	virtual void retain()
+	virtual void retain(int count = 1)
 	{
 	}
 	virtual void release()

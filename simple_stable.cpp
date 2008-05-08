@@ -215,6 +215,7 @@ int simple_stable::adjust_column(const char * column, ssize_t delta, dtype::ctyp
 		c->row_count += delta;
 		if(!c->row_count)
 		{
+			assert(delta < 0);
 			column = it->first;
 			column_map.erase(column);
 			destroyed = true;

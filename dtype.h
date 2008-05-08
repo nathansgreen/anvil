@@ -24,16 +24,34 @@ public:
 	enum ctype {UINT32, DOUBLE, STRING};
 	ctype type;
 	
+	struct dt_string
+	{
+		size_t shares;
+		char string[0];
+	};
+	
 	union
 	{
 		uint32_t u32;
 		double dbl;
-		const char * str;
+		struct {
+			const char * str;
+			dt_string * _str;
+		};
 	};
 	
 	inline dtype(uint32_t x) : type(UINT32), u32(x) {}
 	inline dtype(double x) : type(DOUBLE), dbl(x) {}
-	inline dtype(const char * x) : type(STRING), str(strdup(x)) {}
+	inline dtype(const char * x)
+		: type(STRING)
+	{
+		_str = (dt_string *) malloc(sizeof(dt_string) + strlen(x) + 1);
+		_str->shares = 1;
+		strcpy(_str->string, x);
+		str = _str->string;
+	}
+	/* simple copy constructor that just uses operator= */
+	inline dtype(const dtype & x) : type(UINT32) { *this = x; }
 	inline dtype(const blob & b, ctype t)
 		: type(t)
 	{
@@ -49,16 +67,19 @@ public:
 				dbl = b.index<double>(0);
 				return;
 			case STRING:
+				_str = (dt_string *) malloc(sizeof(dt_string) + b.size() + 1);
+				_str->shares = 1;
 				if(!b.size())
-					str = strdup("");
+					_str->string[0] = 0;
 				else
-					str = strndup(&b.index<char>(0), b.size());
+					strcpy(_str->string, &b.index<char>(0));
+				str = _str->string;
 				return;
 		}
 		abort();
 	}
 
-	inline ~dtype() { if(type == STRING && str) free((void *) str); }
+	inline ~dtype() { if(type == STRING && --_str->shares <= 0) free(_str); }
 	
 	inline blob flatten() const
 	{
@@ -78,8 +99,8 @@ public:
 	{
 		if(this == &x)
 			return *this;
-		if(type == STRING)
-			free((void *) str);
+		if(type == STRING && --_str->shares <= 0)
+			free(_str);
 		switch(type = x.type)
 		{
 			case UINT32:
@@ -89,8 +110,9 @@ public:
 				dbl = x.dbl;
 				return *this;
 			case STRING:
-				str = strdup(x.str);
-				assert(str);
+				_str = x._str;
+				_str->shares++;
+				str = _str->string;
 				return *this;
 		}
 		abort();

@@ -144,7 +144,10 @@ public:
 		: data_factory(factory), query(query_journal), journal(sys_journal)
 	{
 	}
-	virtual ~managed_dtable_factory() {}
+	virtual ~managed_dtable_factory()
+	{
+		data_factory->release();
+	}
 	
 private:
 	dtable_factory * data_factory;
