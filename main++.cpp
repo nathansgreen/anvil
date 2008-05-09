@@ -131,7 +131,23 @@ static void run_iterator(stable * table)
 {
 	dtype old_key(0u);
 	bool more = true, first = true;
+	stable::column_iter * columns = table->columns();
 	stable::iter * iter = table->iterator();
+	printf("stable columns:\n");
+	while(columns->valid())
+	{
+		size_t rows = columns->row_count();
+		const char * type = dtype::name(columns->type());
+		if(!more)
+		{
+			printf("columns->next() returned false, but columns->valid() says there is more!\n");
+			break;
+		}
+		printf("%s:\t%s (%d row%s)\n", columns->name(), type, rows, (rows == 1) ? "" : "s");
+		more = columns->next();
+	}
+	delete columns;
+	more = true;
 	printf("stable contents:\n");
 	while(iter->valid())
 	{
@@ -321,6 +337,32 @@ int command_stable(int argc, const char * argv[])
 	run_iterator(sst);
 	r = sst->append(5u, "twice", 10u);
 	printf("sst->append(5, twice) = %d\n", r);
+	run_iterator(sst);
+	r = sst->append(6u, "funky", "face");
+	printf("sst->append(6, funky) = %d\n", r);
+	run_iterator(sst);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	delete sst;
+	
+	/* query the journal this time */
+	mdtf = new managed_dtable_factory(&simple_dtable::factory, true);
+	mdtf->retain();
+	
+	sst = new simple_stable;
+	r = sst->init(AT_FDCWD, "simple_stable", mdtf, mdtf, &simple_ctable::factory);
+	printf("sst->init = %d\n", r);
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	run_iterator(sst);
+	r = sst->append(6u, "twice", 12u);
+	printf("sst->append(5, twice) = %d\n", r);
+	run_iterator(sst);
+	r = sst->append(5u, "zapf", "dingbats");
+	printf("sst->append(6, zapf) = %d\n", r);
+	run_iterator(sst);
+	r = sst->remove(6u);
+	printf("sst->remove(6) = %d\n", r);
 	run_iterator(sst);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);

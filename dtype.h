@@ -69,10 +69,9 @@ public:
 			case STRING:
 				_str = (dt_string *) malloc(sizeof(dt_string) + b.size() + 1);
 				_str->shares = 1;
-				if(!b.size())
-					_str->string[0] = 0;
-				else
-					strcpy(_str->string, &b.index<char>(0));
+				if(b.size())
+					strncpy(_str->string, &b.index<char>(0), b.size());
+				_str->string[b.size()] = 0;
 				str = _str->string;
 				return;
 		}
@@ -93,6 +92,24 @@ public:
 				return blob(strlen(str), str);
 		}
 		abort();
+	}
+	
+	static inline const char * name(ctype type)
+	{
+		switch(type)
+		{
+			case UINT32:
+				return "uint32";
+			case DOUBLE:
+				return "double";
+			case STRING:
+				return "string";
+		}
+		return "unknown";
+	}
+	static inline const char * name(const dtype & value)
+	{
+		return name(value.type);
 	}
 	
 	inline dtype & operator=(const dtype & x)

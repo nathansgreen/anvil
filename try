@@ -39,12 +39,12 @@ echo "done."
 #export VALGRIND="valgrind --trace-children=yes"
 echo "script run" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
 
-ls -lR /mnt/test
-true | hexdump -C /mnt/test/teststrings
-true | hexdump -C /mnt/test/sys_journal
-true | hexdump -C /mnt/test/managed_dtable/md_meta
-true | hexdump -C /mnt/test/managed_dtable/md_data.2
-true | hexdump -C /mnt/test/managed_ctable/md_data.1
+#ls -lR /mnt/test
+#true | hexdump -C /mnt/test/teststrings
+#true | hexdump -C /mnt/test/sys_journal
+#true | hexdump -C /mnt/test/managed_dtable/md_meta
+#true | hexdump -C /mnt/test/managed_dtable/md_data.2
+#true | hexdump -C /mnt/test/managed_ctable/md_data.1
 
 echo "Unloading Featherstitch... "
 sudo umount /mnt/test
