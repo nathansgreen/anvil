@@ -19,6 +19,7 @@ class simple_stable : public stable
 {
 public:
 	virtual column_iter * columns() const;
+	virtual size_t column_count() const;
 	virtual size_t row_count(const char * column) const;
 	virtual dtype::ctype col_type(const char * column) const;
 	

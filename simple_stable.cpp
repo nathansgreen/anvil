@@ -68,6 +68,11 @@ stable::column_iter * simple_stable::columns() const
 	return new citer(column_map.begin(), column_map.end());
 }
 
+size_t simple_stable::column_count() const
+{
+	return column_map.size();
+}
+
 size_t simple_stable::row_count(const char * column) const
 {
 	const column_info * c = get_column(column);

@@ -44,6 +44,7 @@ public:
 	};
 	
 	virtual column_iter * columns() const = 0;
+	virtual size_t column_count() const = 0;
 	virtual size_t row_count(const char * column) const = 0;
 	virtual dtype::ctype col_type(const char * column) const = 0;
 	

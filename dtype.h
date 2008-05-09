@@ -16,6 +16,8 @@
 #error dtype.h is a C++ header file
 #endif
 
+#include "blob.h"
+
 /* all data stored in toilet is wrapped by this type */
 
 class dtype
