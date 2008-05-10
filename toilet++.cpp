@@ -5,6 +5,8 @@
 #define _ATFILE_SOURCE
 
 #include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "openat.h"
 #include "blowfish.h"
