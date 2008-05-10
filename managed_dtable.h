@@ -16,7 +16,6 @@
 #include <vector>
 
 #include "dtable.h"
-#include "simple_dtable.h"
 #include "overlay_dtable.h"
 #include "journal_dtable.h"
 

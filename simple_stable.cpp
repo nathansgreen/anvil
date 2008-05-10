@@ -60,7 +60,7 @@ const char * simple_stable::siter::column() const
 
 dtype simple_stable::siter::value() const
 {
-	return dtype(data->value(), meta->col_type(data->column()));
+	return dtype(data->value(), meta->column_type(data->column()));
 }
 
 stable::column_iter * simple_stable::columns() const
@@ -79,7 +79,7 @@ size_t simple_stable::row_count(const char * column) const
 	return c ? c->row_count : 0;
 }
 
-dtype::ctype simple_stable::col_type(const char * column) const
+dtype::ctype simple_stable::column_type(const char * column) const
 {
 	const column_info * c = get_column(column);
 	assert(c);
@@ -272,7 +272,7 @@ int simple_stable::append(dtype key, const char * column, const dtype & value)
 		if(r < 0)
 			return r;
 	}
-	else if(col_type(column) != value.type)
+	else if(column_type(column) != value.type)
 		return -EINVAL;
 	r = ct_data->append(key, column, value.flatten());
 	if(r < 0 && increment)

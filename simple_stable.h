@@ -21,7 +21,7 @@ public:
 	virtual column_iter * columns() const;
 	virtual size_t column_count() const;
 	virtual size_t row_count(const char * column) const;
-	virtual dtype::ctype col_type(const char * column) const;
+	virtual dtype::ctype column_type(const char * column) const;
 	
 	virtual iter * iterator() const;
 	virtual iter * iterator(dtype key) const;
@@ -48,19 +48,22 @@ public:
 	static int create(int dfd, const char * name, dtable_factory * meta_factory, dtable_factory * data_factory, dtype::ctype key_type);
 	
 private:
-	struct column_info
+	struct strcmp_less
 	{
-		size_t row_count;
-		dtype::ctype type;
-		
 		inline bool operator()(const char * a, const char * b) const
 		{
 			return strcmp(a, b) < 0;
 		}
 	};
 	
+	struct column_info
+	{
+		size_t row_count;
+		dtype::ctype type;
+	};
+	
 	/* /me dislikes std::map immensely */
-	typedef std::map<const char *, column_info, column_info> std_column_map;
+	typedef std::map<const char *, column_info, strcmp_less> std_column_map;
 	typedef std_column_map::const_iterator column_map_iter;
 	typedef std_column_map::iterator column_map_full_iter;
 	std_column_map column_map;
