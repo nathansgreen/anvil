@@ -17,7 +17,7 @@
 #include "simple_ctable.h"
 #include "simple_stable.h"
 
-int toiletpp_new(const char * path)
+int toilet_new(const char * path)
 {
 	int r, dir_fd, fd;
 	FILE * version;
@@ -81,7 +81,7 @@ fail_open:
 	return (r < 0) ? r : -1;
 }
 
-t_toilet * toiletpp_open(const char * path, FILE * errors)
+t_toilet * toilet_open(const char * path, FILE * errors)
 {
 	DIR * gtable_list;
 	struct dirent * ent;
@@ -183,7 +183,7 @@ fail_new:
 	return NULL;
 }
 
-int toiletpp_close(t_toilet * toilet)
+int toilet_close(t_toilet * toilet)
 {
 	/* should be more stuff here, e.g. check not in use */
 	while(!toilet->gtable_names.empty())
@@ -199,17 +199,17 @@ int toiletpp_close(t_toilet * toilet)
 	return 0;
 }
 
-size_t toiletpp_gtable_count(t_toilet * toilet)
+size_t toilet_gtable_count(t_toilet * toilet)
 {
 	return toilet->gtable_names.size();
 }
 
-const char * toiletpp_gtable_name(t_toilet * toilet, size_t index)
+const char * toilet_gtable_name(t_toilet * toilet, size_t index)
 {
 	return toilet->gtable_names[index];
 }
 
-int toiletpp_new_gtable(t_toilet * toilet, const char * name)
+int toilet_new_gtable(t_toilet * toilet, const char * name)
 {
 	int r;
 	char * name_copy;
@@ -240,12 +240,12 @@ int toiletpp_new_gtable(t_toilet * toilet, const char * name)
 	return 0;
 }
 
-int toiletpp_drop_gtable(t_gtable * gtable)
+int toilet_drop_gtable(t_gtable * gtable)
 {
 	return -ENOSYS;
 }
 
-t_gtable * toiletpp_get_gtable(t_toilet * toilet, const char * name)
+t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 {
 	t_gtable * gtable;
 	simple_stable * sst;
@@ -288,7 +288,7 @@ fail_name:
 	return NULL;
 }
 
-void toiletpp_put_gtable(t_gtable * gtable)
+void toilet_put_gtable(t_gtable * gtable)
 {
 	if(--gtable->out_count <= 0)
 	{
@@ -299,12 +299,65 @@ void toiletpp_put_gtable(t_gtable * gtable)
 	}
 }
 
-size_t toiletpp_gtable_column_count(t_gtable * gtable)
+t_columns * toilet_gtable_columns(t_gtable * gtable)
 {
-	return gtable->table->column_count();
+	t_columns_union safer;
+	safer.iter = gtable->table->columns();
+	return safer.columns;
 }
 
-t_type toiletpp_gtable_column_type(t_gtable * gtable, const char * name)
+bool toilet_columns_valid(t_columns * columns)
+{
+	t_columns_union safer;
+	safer.columns = columns;
+	return safer.iter->valid();
+}
+
+const char * toilet_columns_name(t_columns * columns)
+{
+	t_columns_union safer;
+	safer.columns = columns;
+	return safer.iter->name();
+}
+
+t_type toilet_columns_type(t_columns * columns)
+{
+	t_columns_union safer;
+	safer.columns = columns;
+	switch(safer.iter->type())
+	{
+		case dtype::UINT32:
+			return T_INT;
+		case dtype::DOUBLE:
+			return T_FLOAT;
+		case dtype::STRING:
+			return T_STRING;
+	}
+	abort();
+}
+
+size_t toilet_columns_row_count(t_columns * columns)
+{
+	t_columns_union safer;
+	safer.columns = columns;
+	return safer.iter->row_count();
+}
+
+void toilet_columns_next(t_columns * columns)
+{
+	t_columns_union safer;
+	safer.columns = columns;
+	safer.iter->next();
+}
+
+void toilet_put_columns(t_columns * columns)
+{
+	t_columns_union safer;
+	safer.columns = columns;
+	delete safer.iter;
+}
+
+t_type toilet_gtable_column_type(t_gtable * gtable, const char * name)
 {
 	dtype::ctype type = gtable->table->column_type(name);
 	switch(type)
@@ -319,12 +372,12 @@ t_type toiletpp_gtable_column_type(t_gtable * gtable, const char * name)
 	abort();
 }
 
-size_t toiletpp_gtable_column_rows(t_gtable * gtable, const char * name)
+size_t toilet_gtable_column_row_count(t_gtable * gtable, const char * name)
 {
 	return gtable->table->row_count(name);
 }
 
-static int toiletpp_new_row_id(t_toilet * toilet, t_row_id * row)
+static int toilet_new_row_id(t_toilet * toilet, t_row_id * row)
 {
 	bf_ctx bfc;
 	t_row_id next = toilet->next_row + 1;
@@ -337,22 +390,22 @@ static int toiletpp_new_row_id(t_toilet * toilet, t_row_id * row)
 	return 0;
 }
 
-int toiletpp_new_row(t_gtable * gtable, t_row_id * new_id)
+int toilet_new_row(t_gtable * gtable, t_row_id * new_id)
 {
 	/* doesn't actually do anything other than reserve a row ID! */
 	/* technically this row ID can therefore be used in several gtables... */
-	return toiletpp_new_row_id(gtable->toilet, new_id);
+	return toilet_new_row_id(gtable->toilet, new_id);
 }
 
-int toiletpp_drop_row(t_row * row)
+int toilet_drop_row(t_row * row)
 {
 	int r = row->gtable->table->remove(row->id);
 	if(r >= 0)
-		toiletpp_put_row(row);
+		toilet_put_row(row);
 	return r;
 }
 
-t_row * toiletpp_get_row(t_gtable * gtable, t_row_id row_id)
+t_row * toilet_get_row(t_gtable * gtable, t_row_id row_id)
 {
 	t_row * row = new t_row;
 	row->id = row_id;
@@ -362,7 +415,7 @@ t_row * toiletpp_get_row(t_gtable * gtable, t_row_id row_id)
 	return row;
 }
 
-void toiletpp_put_row(t_row * row)
+void toilet_put_row(t_row * row)
 {
 	if(--row->out_count <= 0)
 	{
@@ -375,17 +428,22 @@ void toiletpp_put_row(t_row * row)
 			delete column;
 			delete value;
 		}
-		toiletpp_put_gtable(row->gtable);
+		toilet_put_gtable(row->gtable);
 		delete row;
 	}
 }
 
-t_row_id toiletpp_row_id(t_row * row)
+t_row_id toilet_row_id(t_row * row)
 {
 	return row->id;
 }
 
-const t_value * toiletpp_row_value(t_row * row, const char * key, t_type type)
+t_gtable * toilet_row_gtable(t_row * row)
+{
+	return row->gtable;
+}
+
+const t_value * toilet_row_value(t_row * row, const char * key, t_type type)
 {
 	/* check the cache first */
 	if(row->values.count(key))
@@ -424,13 +482,13 @@ const t_value * toiletpp_row_value(t_row * row, const char * key, t_type type)
 	abort();
 }
 
-const t_value * toiletpp_row_value_type(t_row * row, const char * key, t_type * type)
+const t_value * toilet_row_value_type(t_row * row, const char * key, t_type * type)
 {
-	*type = toiletpp_gtable_column_type(row->gtable, key);
-	return toiletpp_row_value(row, key, *type);
+	*type = toilet_gtable_column_type(row->gtable, key);
+	return toilet_row_value(row, key, *type);
 }
 
-int toiletpp_row_set_value(t_row * row, const char * key, t_type type, t_value * value)
+int toilet_row_set_value(t_row * row, const char * key, t_type type, const t_value * value)
 {
 	switch(type)
 	{
@@ -446,34 +504,34 @@ int toiletpp_row_set_value(t_row * row, const char * key, t_type type, t_value *
 	abort();
 }
 
-int toiletpp_row_remove_key(t_row * row, const char * key)
+int toilet_row_remove_key(t_row * row, const char * key)
 {
 	return row->gtable->table->remove(row->id, key);
 }
 
-t_rowset * toiletpp_query(t_gtable * gtable, t_query * query)
+t_rowset * toilet_simple_query(t_gtable * gtable, t_simple_query * query)
 {
 	/* XXX */
 	return NULL;
 }
 
-ssize_t toiletpp_count_query(t_gtable * gtable, t_query * query)
+ssize_t toilet_count_simple_query(t_gtable * gtable, t_simple_query * query)
 {
 	/* XXX */
 	return -1;
 }
 
-size_t toiletpp_rowset_size(t_rowset * rowset)
+size_t toilet_rowset_size(t_rowset * rowset)
 {
 	return rowset->rows.size();
 }
 
-t_row_id toiletpp_rowset_row(t_rowset * rowset, size_t index)
+t_row_id toilet_rowset_row(t_rowset * rowset, size_t index)
 {
 	return rowset->rows[index];
 }
 
-void toiletpp_put_rowset(t_rowset * rowset)
+void toilet_put_rowset(t_rowset * rowset)
 {
 	if(!--rowset->out_count)
 		/* just IDs in rowsets, nothing to put() */
