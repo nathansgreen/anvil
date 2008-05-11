@@ -5,20 +5,18 @@
 #ifndef PHP_TOILET_H
 #define PHP_TOILET_H 1
 
-#include <toilet.h>
+#include <toilet++.h>
 
-#define PHP_TOILET_VERSION "0.1"
+#define PHP_TOILET_VERSION "0.2"
 #define PHP_TOILET_EXTNAME "toilet"
 
 #define PHP_TOILET_RES_NAME "toilet database"
 
 #define PHP_GTABLE_RES_NAME "toilet gtable"
 
-#define PHP_COLUMN_RES_NAME "toilet column header"
-
 typedef struct php_rowid {
 	t_row_id rowid;
-	t_toilet * toilet;
+	t_gtable * gtable;
 } php_rowid;
 #define PHP_ROWID_RES_NAME "toilet row ID"
 
@@ -42,8 +40,10 @@ PHP_FUNCTION(gtable_name);
 PHP_FUNCTION(gtable_close);
 /* takes a gtable, returns an associative array of string => type (as string) */
 PHP_FUNCTION(gtable_columns);
-/* takes a gtable and a string, returns a column */
-PHP_FUNCTION(gtable_column);
+/* takes a gtable and a string, returns a type (as string) */
+PHP_FUNCTION(gtable_column_type);
+/* takes a gtable and a string, returns a long */
+PHP_FUNCTION(gtable_column_row_count);
 /* takes a gtable, a string, and up to two values, returns an array of ids */
 PHP_FUNCTION(gtable_query);
 /* takes a gtable, a string, and up to two values, returns an int */
@@ -53,22 +53,13 @@ PHP_FUNCTION(gtable_rows);
 /* takes a gtable, returns a rowid */
 PHP_FUNCTION(gtable_new_row);
 
-/* takes a column, returns a string */
-PHP_FUNCTION(column_name);
-/* takes a column, returns a type (as string) */
-PHP_FUNCTION(column_type);
-/* takes a column, returns a long */
-PHP_FUNCTION(column_count);
-/* takes a column, returns a boolean */
-PHP_FUNCTION(column_is_multi);
-
 /* takes two rowids, returns a boolean */
 PHP_FUNCTION(rowid_equal);
 /* takes a rowid and an optional array of strings, returns an associative array of values */
 PHP_FUNCTION(rowid_get_row);
 /* takes a rowid, returns a string */
 PHP_FUNCTION(rowid_format);
-/* takes a toilet and a string, returns a rowid */
+/* takes a gtable and a string, returns a rowid */
 PHP_FUNCTION(rowid_parse);
 /* takes a rowid, an associative array of values, and optionally an associative array of type names, returns a boolean */
 PHP_FUNCTION(rowid_set_values);
