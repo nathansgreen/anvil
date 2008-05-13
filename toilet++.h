@@ -23,6 +23,7 @@
 #define toilet_get_gtable toiletpp_get_gtable
 #define toilet_put_gtable toiletpp_put_gtable
 #define toilet_gtable_columns toiletpp_gtable_columns
+#define toilet_columns_valid toiletpp_columns_valid
 #define toilet_columns_name toiletpp_columns_name
 #define toilet_columns_type toiletpp_columns_type
 #define toilet_columns_row_count toiletpp_columns_row_count
@@ -35,6 +36,7 @@
 #define toilet_get_row toiletpp_get_row
 #define toilet_put_row toiletpp_put_row
 #define toilet_row_id toiletpp_row_id
+#define toilet_row_gtable toiletpp_row_gtable
 #define toilet_row_value toiletpp_row_value
 #define toilet_row_value_type toiletpp_row_value_type
 #define toilet_row_set_value toiletpp_row_set_value

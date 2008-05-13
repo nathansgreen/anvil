@@ -15,6 +15,46 @@
 #include "hash_map.h"
 #include "hash_set.h"
 
+/* rename all the symbols for the time being */
+#define toilet_name_type ctoilet_name_type
+#define toilet_new ctoilet_new
+#define toilet_open ctoilet_open
+#define toilet_close ctoilet_close
+#define toilet_new_gtable ctoilet_new_gtable
+#define toilet_drop_gtable ctoilet_drop_gtable
+#define toilet_get_gtable ctoilet_get_gtable
+#define toilet_put_gtable ctoilet_put_gtable
+#define toilet_gtable_get_column ctoilet_gtable_get_column
+#define toilet_column_is_multi ctoilet_column_is_multi
+#define toilet_column_set_multi ctoilet_column_set_multi
+#define toilet_new_row ctoilet_new_row
+#define toilet_drop_row ctoilet_drop_row
+#define toilet_get_row ctoilet_get_row
+#define toilet_put_row ctoilet_put_row
+#define toilet_row_value ctoilet_row_value
+#define toilet_row_values ctoilet_row_values
+#define toilet_row_set_value ctoilet_row_set_value
+#define toilet_row_remove_key ctoilet_row_remove_key
+#define toilet_row_append_value ctoilet_row_append_value
+#define toilet_row_replace_values ctoilet_row_replace_values
+#define toilet_row_remove_values ctoilet_row_remove_values
+#define toilet_row_remove_value ctoilet_row_remove_value
+#define toilet_row_update_value ctoilet_row_update_value
+#define toilet_squery ctoilet_squery
+#define toilet_count_squery ctoilet_count_squery
+#define toilet_query ctoilet_query
+#define toilet_count_query ctoilet_count_query
+#define toilet_aquery ctoilet_aquery
+#define toilet_count_aquery ctoilet_count_aquery
+#define toilet_vquery ctoilet_vquery
+#define toilet_count_vquery ctoilet_count_vquery
+#define toilet_put_rowset ctoilet_put_rowset
+#define toilet_close_column ctoilet_close_column
+#define toilet_column_update_count ctoilet_column_update_count
+#define toilet_depopulate_row ctoilet_depopulate_row
+#define toilet_free_values ctoilet_free_values
+#define toilet_open_column ctoilet_open_column
+
 #ifdef __cplusplus
 extern "C" {
 #endif

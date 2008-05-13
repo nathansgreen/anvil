@@ -7,6 +7,22 @@
 
 #include "toilet.h"
 
+/* rename all the symbols for the time being */
+#define toilet_index_init ctoilet_index_init
+#define toilet_index_drop ctoilet_index_drop
+#define toilet_open_index ctoilet_open_index
+#define toilet_close_index ctoilet_close_index
+#define toilet_index_type ctoilet_index_type
+#define toilet_index_add ctoilet_index_add
+#define toilet_index_change ctoilet_index_change
+#define toilet_index_remove ctoilet_index_remove
+#define toilet_index_size ctoilet_index_size
+#define toilet_index_list ctoilet_index_list
+#define toilet_index_count ctoilet_index_count
+#define toilet_index_find ctoilet_index_find
+#define toilet_index_count_range ctoilet_index_count_range
+#define toilet_index_find_range ctoilet_index_find_range
+
 #ifdef __cplusplus
 
 #include "multimap.h"
