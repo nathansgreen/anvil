@@ -11,45 +11,6 @@
 #include <stdint.h>
 #include <sys/types.h>
 
-/* rename all the symbols for the time being */
-#define toilet_name_type toiletpp_name_type
-#define toilet_new toiletpp_new
-#define toilet_open toiletpp_open
-#define toilet_close toiletpp_close
-#define toilet_gtable_count toiletpp_gtable_count
-#define toilet_gtable_name toiletpp_gtable_name
-#define toilet_new_gtable toiletpp_new_gtable
-#define toilet_drop_gtable toiletpp_drop_gtable
-#define toilet_get_gtable toiletpp_get_gtable
-#define toilet_put_gtable toiletpp_put_gtable
-#define toilet_gtable_columns toiletpp_gtable_columns
-#define toilet_columns_valid toiletpp_columns_valid
-#define toilet_columns_name toiletpp_columns_name
-#define toilet_columns_type toiletpp_columns_type
-#define toilet_columns_row_count toiletpp_columns_row_count
-#define toilet_columns_next toiletpp_columns_next
-#define toilet_put_columns toiletpp_put_columns
-#define toilet_gtable_column_type toiletpp_gtable_column_type
-#define toilet_gtable_column_row_count toiletpp_gtable_column_row_count
-#define toilet_new_row toiletpp_new_row
-#define toilet_drop_row toiletpp_drop_row
-#define toilet_get_row toiletpp_get_row
-#define toilet_put_row toiletpp_put_row
-#define toilet_row_id toiletpp_row_id
-#define toilet_row_gtable toiletpp_row_gtable
-#define toilet_row_value toiletpp_row_value
-#define toilet_row_value_type toiletpp_row_value_type
-#define toilet_row_set_value toiletpp_row_set_value
-#define toilet_row_remove_key toiletpp_row_remove_key
-#define toilet_row_matches toiletpp_row_matches
-#define toilet_simple_query toiletpp_simple_query
-#define toilet_count_simple_query toiletpp_count_simple_query
-#define toilet_rowset_size toiletpp_rowset_size
-#define toilet_rowset_row toiletpp_rowset_row
-#define toilet_rowset_contains toiletpp_rowset_contains
-#define toilet_put_rowset toiletpp_put_rowset
-#define toilet_new_row_id toiletpp_new_row_id
-
 #ifdef __cplusplus
 extern "C" {
 #else
