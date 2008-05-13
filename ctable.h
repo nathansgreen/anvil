@@ -30,6 +30,7 @@ public:
 		virtual ~iter() {}
 	};
 	
+	virtual dtable::key_iter * keys() const = 0;
 	virtual iter * iterator() const = 0;
 	virtual iter * iterator(dtype key) const = 0;
 	virtual blob find(dtype key, const char * column) const = 0;

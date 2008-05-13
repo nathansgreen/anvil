@@ -19,7 +19,7 @@
 class dtable
 {
 public:
-	class iter
+	class key_iter
 	{
 	public:
 		virtual bool valid() const = 0;
@@ -31,6 +31,11 @@ public:
 		 * both would compile without error. So, we use next() here. */
 		virtual bool next() = 0;
 		virtual dtype key() const = 0;
+		virtual ~key_iter() {}
+	};
+	class iter : public key_iter
+	{
+	public:
 		virtual metablob meta() const = 0;
 		virtual blob value() const = 0;
 		virtual const dtable * source() const = 0;

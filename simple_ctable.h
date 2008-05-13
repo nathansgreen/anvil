@@ -15,6 +15,7 @@
 class simple_ctable : public ctable
 {
 public:
+	virtual dtable::key_iter * keys() const;
 	virtual iter * iterator() const;
 	virtual iter * iterator(dtype key) const;
 	virtual blob find(dtype key, const char * column) const;

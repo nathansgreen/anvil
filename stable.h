@@ -10,6 +10,7 @@
 #endif
 
 #include "dtype.h"
+#include "dtable.h"
 
 /* schema tables, like typed ctables (similar to old gtable) */
 
@@ -48,6 +49,7 @@ public:
 	virtual size_t row_count(const char * column) const = 0;
 	virtual dtype::ctype column_type(const char * column) const = 0;
 	
+	virtual dtable::key_iter * keys() const = 0;
 	virtual iter * iterator() const = 0;
 	virtual iter * iterator(dtype key) const = 0;
 	

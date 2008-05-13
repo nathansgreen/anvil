@@ -39,10 +39,12 @@
 #define toilet_row_value_type toiletpp_row_value_type
 #define toilet_row_set_value toiletpp_row_set_value
 #define toilet_row_remove_key toiletpp_row_remove_key
+#define toilet_row_matches toiletpp_row_matches
 #define toilet_simple_query toiletpp_simple_query
 #define toilet_count_simple_query toiletpp_count_simple_query
 #define toilet_rowset_size toiletpp_rowset_size
 #define toilet_rowset_row toiletpp_rowset_row
+#define toilet_rowset_contains toiletpp_rowset_contains
 #define toilet_put_rowset toiletpp_put_rowset
 #define toilet_new_row_id toiletpp_new_row_id
 
@@ -183,6 +185,7 @@ ssize_t toilet_count_simple_query(t_gtable * gtable, t_simple_query * query);
 
 size_t toilet_rowset_size(t_rowset * rowset);
 t_row_id toilet_rowset_row(t_rowset * rowset, size_t index);
+bool toilet_rowset_contains(t_rowset * rowset, t_row_id id);
 void toilet_put_rowset(t_rowset * rowset);
 
 #ifdef __cplusplus
@@ -253,6 +256,7 @@ struct t_rowset
 	std::vector<t_row_id> rows;
 	std::set<t_row_id> ids;
 	int out_count;
+	t_rowset() : out_count(1) {}
 };
 
 #endif

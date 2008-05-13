@@ -509,16 +509,115 @@ int toilet_row_remove_key(t_row * row, const char * key)
 	return row->gtable->table->remove(row->id, key);
 }
 
+static bool toilet_row_matches(t_gtable * gtable, t_row_id id, t_simple_query * query)
+{
+	/* match all rows in the gtable */
+	if(!query->name)
+		return true;
+	dtype value(0u);
+	if(!gtable->table->find(dtype(id), query->name, &value))
+		return false;
+	/* match all rows with this column */
+	if(!query->values[0])
+		return true;
+	switch(query->type)
+	{
+		case T_ID:
+		case T_INT:
+			assert(value.type == dtype::UINT32);
+			if(!query->values[1])
+				return value == dtype(query->values[0]->v_int);
+			return dtype(query->values[0]->v_int) <= value && value <= dtype(query->values[1]->v_int);
+		case T_FLOAT:
+			assert(value.type == dtype::DOUBLE);
+			if(!query->values[1])
+				return value == dtype(query->values[0]->v_float);
+			return dtype(query->values[0]->v_float) <= value && value <= dtype(query->values[1]->v_float);
+		case T_STRING:
+			assert(value.type == dtype::STRING);
+			if(!query->values[1])
+				return value == dtype(query->values[0]->v_string);
+			return dtype(query->values[0]->v_string) <= value && value <= dtype(query->values[1]->v_string);
+	}
+	abort();
+}
+
 t_rowset * toilet_simple_query(t_gtable * gtable, t_simple_query * query)
 {
-	/* XXX */
-	return NULL;
+	/* no such column */
+	if(!gtable->table->row_count(query->name))
+		return new t_rowset;
+	if(query->name)
+		switch(gtable->table->column_type(query->name))
+		{
+			case dtype::UINT32:
+				if(query->type != T_ID && query->type != T_INT)
+					return NULL;
+				break;
+			case dtype::DOUBLE:
+				if(query->type != T_FLOAT)
+					return NULL;
+				break;
+			case dtype::STRING:
+				if(query->type != T_STRING)
+					return NULL;
+				break;
+			/* no default; want the compiler to warn of new cases */
+		}
+	t_rowset * result = new t_rowset;
+	/* we don't have indices yet, so just iterate and find the matches */
+	dtable::key_iter * iter = gtable->table->keys();
+	while(iter->valid())
+	{
+		dtype key = iter->key();
+		t_row_id id = key.u32;
+		assert(key.type == dtype::UINT32);
+		if(toilet_row_matches(gtable, id, query))
+		{
+			result->rows.push_back(id);
+			result->ids.insert(id);
+		}
+		iter->next();
+	}
+	delete iter;
+	return result;
 }
 
 ssize_t toilet_count_simple_query(t_gtable * gtable, t_simple_query * query)
 {
-	/* XXX */
-	return -1;
+	/* no such column */
+	if(!gtable->table->row_count(query->name))
+		return 0;
+	switch(gtable->table->column_type(query->name))
+	{
+		case dtype::UINT32:
+			if(query->type != T_ID && query->type != T_INT)
+				return -EINVAL;
+			break;
+		case dtype::DOUBLE:
+			if(query->type != T_FLOAT)
+				return -EINVAL;
+			break;
+		case dtype::STRING:
+			if(query->type != T_STRING)
+				return -EINVAL;
+			break;
+		/* no default; want the compiler to warn of new cases */
+	}
+	ssize_t result = 0;
+	/* we don't have indices yet, so just iterate and find the matches */
+	dtable::key_iter * iter = gtable->table->keys();
+	while(iter->valid())
+	{
+		dtype key = iter->key();
+		t_row_id id = key.u32;
+		assert(key.type == dtype::UINT32);
+		if(toilet_row_matches(gtable, id, query))
+			result++;
+		iter->next();
+	}
+	delete iter;
+	return result;
 }
 
 size_t toilet_rowset_size(t_rowset * rowset)
@@ -529,6 +628,11 @@ size_t toilet_rowset_size(t_rowset * rowset)
 t_row_id toilet_rowset_row(t_rowset * rowset, size_t index)
 {
 	return rowset->rows[index];
+}
+
+bool toilet_rowset_contains(t_rowset * rowset, t_row_id id)
+{
+	return rowset->ids.count(id) > 0;
 }
 
 void toilet_put_rowset(t_rowset * rowset)

@@ -23,6 +23,7 @@ public:
 	virtual size_t row_count(const char * column) const;
 	virtual dtype::ctype column_type(const char * column) const;
 	
+	virtual dtable::key_iter * keys() const;
 	virtual iter * iterator() const;
 	virtual iter * iterator(dtype key) const;
 	

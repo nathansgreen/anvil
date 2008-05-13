@@ -86,6 +86,11 @@ dtype::ctype simple_stable::column_type(const char * column) const
 	return c->type;
 }
 
+dtable::key_iter * simple_stable::keys() const
+{
+	return ct_data->keys();
+}
+
 stable::iter * simple_stable::iterator() const
 {
 	stable::iter * wrapper;

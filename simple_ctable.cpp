@@ -81,6 +81,11 @@ blob simple_ctable::iter::value() const
 	return columns->value();
 }
 
+dtable::key_iter * simple_ctable::keys() const
+{
+	return dt_source->iterator();
+}
+
 ctable::iter * simple_ctable::iterator() const
 {
 	return new iter(dt_source->iterator());
