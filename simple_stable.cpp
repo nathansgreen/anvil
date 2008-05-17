@@ -329,19 +329,28 @@ dtype::ctype simple_stable::key_type() const
 	return ct_data->key_type();
 }
 
-int simple_stable::init(int dfd, const char * name, dtable_factory * meta, dtable_factory * data, ctable_factory * columns)
+int simple_stable::init(int dfd, const char * name, const params & config, ctable_factory * columns)
 {
 	int r = -1;
+	params meta_config, data_config;
+	const dtable_factory * meta = dt_factory_registry::lookup(config, "meta");
+	const dtable_factory * data = dt_factory_registry::lookup(config, "data");
 	if(md_dfd >= 0)
 		deinit();
 	assert(column_map.empty());
+	if(!meta || !data)
+		return -EINVAL;
+	if(!config.get("meta_config", &meta_config, params()))
+		return -EINVAL;
+	if(!config.get("data_config", &data_config, params()))
+		return -EINVAL;
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
-		goto fail_open;
-	dt_meta = meta->open(md_dfd, "st_meta");
+		return md_dfd;
+	dt_meta = meta->open(md_dfd, "st_meta", meta_config);
 	if(!dt_meta)
 		goto fail_meta;
-	_dt_data = data->open(md_dfd, "st_data");
+	_dt_data = data->open(md_dfd, "st_data", data_config);
 	if(!_dt_data)
 		goto fail_data;
 	ct_data = columns->open(_dt_data);
@@ -353,9 +362,6 @@ int simple_stable::init(int dfd, const char * name, dtable_factory * meta, dtabl
 	if(r < 0)
 		goto fail_check;
 	
-	columns->release();
-	data->release();
-	meta->release();
 	return 0;
 	
 fail_check:
@@ -367,10 +373,6 @@ fail_data:
 fail_meta:
 	close(md_dfd);
 	md_dfd = -1;
-fail_open:
-	columns->release();
-	data->release();
-	meta->release();
 	return r;
 }
 
@@ -395,11 +397,21 @@ void simple_stable::deinit()
 	md_dfd = -1;
 }
 
-int simple_stable::create(int dfd, const char * name, dtable_factory * meta_factory, dtable_factory * data_factory, dtype::ctype key_type)
+int simple_stable::create(int dfd, const char * name, const params & config, dtype::ctype key_type)
 {
-	int md_dfd, r = mkdirat(dfd, name, 0755);
+	int md_dfd, r;
+	params meta_config, data_config;
+	const dtable_factory * meta = dt_factory_registry::lookup(config, "meta");
+	const dtable_factory * data = dt_factory_registry::lookup(config, "data");
+	if(!meta || !data)
+		return -EINVAL;
+	if(!config.get("meta_config", &meta_config, params()))
+		return -EINVAL;
+	if(!config.get("data_config", &data_config, params()))
+		return -EINVAL;
+	r = mkdirat(dfd, name, 0755);
 	if(r < 0)
-		goto fail_mkdir;
+		return r;
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
 	{
@@ -408,16 +420,14 @@ int simple_stable::create(int dfd, const char * name, dtable_factory * meta_fact
 	}
 	
 	/* the metadata is keyed by named properties (strings) */
-	r = meta_factory->create(md_dfd, "st_meta", dtype::STRING);
+	r = meta->create(md_dfd, "st_meta", meta_config, dtype::STRING);
 	if(r < 0)
 		goto fail_meta;
-	r = data_factory->create(md_dfd, "st_data", key_type);
+	r = data->create(md_dfd, "st_data", data_config, key_type);
 	if(r < 0)
 		goto fail_data;
 	
 	close(md_dfd);
-	data_factory->release();
-	meta_factory->release();
 	return 0;
 	
 fail_data:
@@ -427,8 +437,5 @@ fail_meta:
 	close(md_dfd);
 fail_open:
 	unlinkat(dfd, name, AT_REMOVEDIR);
-fail_mkdir:
-	data_factory->release();
-	meta_factory->release();
 	return r;
 }

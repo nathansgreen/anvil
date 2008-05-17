@@ -38,7 +38,7 @@ static void print(dtype x)
 			printf("%lg", x.dbl);
 			break;
 		case dtype::STRING:
-			printf("%s", x.str);
+			printf("%s", (const char *) x.str);
 			break;
 	}
 }
@@ -177,21 +177,25 @@ int command_dtable(int argc, const char * argv[])
 {
 	int r;
 	managed_dtable * mdt;
-	sys_journal * journal = sys_journal::get_global_journal();
+	
+	params config;
+	config.set_class("base", simple_dtable);
+	params query(config);
+	query.set("query_journal", true);
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
 	r = sys_journal::set_unique_id_file(AT_FDCWD, "sys_journal_id", true);
 	printf("set_unique_id_file = %d\n", r);
-	r = journal->init(AT_FDCWD, "sys_journal", true);
+	r = sys_journal::get_global_journal()->init(AT_FDCWD, "sys_journal", true);
 	printf("journal->init = %d\n", r);
-	r = managed_dtable::create(AT_FDCWD, "managed_dtable", dtype::UINT32);
+	r = managed_dtable::create(AT_FDCWD, "managed_dtable", params(), dtype::UINT32);
 	printf("dtable::create = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", &simple_dtable::factory, journal);
+	r = mdt->init(AT_FDCWD, "managed_dtable", config);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -206,7 +210,7 @@ int command_dtable(int argc, const char * argv[])
 	
 	mdt = new managed_dtable;
 	/* pass true to recover journal in this case */
-	r = mdt->init(AT_FDCWD, "managed_dtable", &simple_dtable::factory, true, journal);
+	r = mdt->init(AT_FDCWD, "managed_dtable", query);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
@@ -219,7 +223,7 @@ int command_dtable(int argc, const char * argv[])
 	delete mdt;
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", &simple_dtable::factory, journal);
+	r = mdt->init(AT_FDCWD, "managed_dtable", config);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
@@ -237,7 +241,7 @@ int command_dtable(int argc, const char * argv[])
 	delete mdt;
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", &simple_dtable::factory, journal);
+	r = mdt->init(AT_FDCWD, "managed_dtable", config);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
@@ -250,7 +254,7 @@ int command_dtable(int argc, const char * argv[])
 	delete mdt;
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", &simple_dtable::factory, journal);
+	r = mdt->init(AT_FDCWD, "managed_dtable", config);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	delete mdt;
@@ -263,19 +267,21 @@ int command_ctable(int argc, const char * argv[])
 	int r;
 	managed_dtable * mdt;
 	simple_ctable * sct;
-	sys_journal * journal = sys_journal::get_global_journal();
+	
+	params config;
+	config.set_class("base", simple_dtable);
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
 	/* assume command_dtable() already ran; don't reinitialize global state */
-	r = managed_dtable::create(AT_FDCWD, "managed_ctable", dtype::UINT32);
+	r = managed_dtable::create(AT_FDCWD, "managed_ctable", config, dtype::UINT32);
 	printf("dtable::create = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
 	mdt = new managed_dtable;
 	sct = new simple_ctable;
-	r = mdt->init(AT_FDCWD, "managed_ctable", &simple_dtable::factory, journal);
+	r = mdt->init(AT_FDCWD, "managed_ctable", config);
 	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
 	r = sct->init(mdt);
 	printf("sct->init = %d\n", r);
@@ -314,23 +320,24 @@ int command_stable(int argc, const char * argv[])
 {
 	int r;
 	simple_stable * sst;
-	dtable_factory * mdtf;
+	params config, base_config;
 	
-	/* won't need to free it since it will be passed and released there */
-	mdtf = new managed_dtable_factory(&simple_dtable::factory);
-	/* but retain it so it can be used four times */
-	mdtf->retain(3);
+	base_config.set_class("base", simple_dtable);
+	config.set("meta_config", base_config);
+	config.set("data_config", base_config);
+	config.set_class("meta", managed_dtable);
+	config.set_class("data", managed_dtable);
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
 	/* assume command_dtable() already ran; don't reinitialize global state */
-	r = simple_stable::create(AT_FDCWD, "simple_stable", mdtf, mdtf, dtype::UINT32);
+	r = simple_stable::create(AT_FDCWD, "simple_stable", config, dtype::UINT32);
 	printf("stable::create = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "simple_stable", mdtf, mdtf, &simple_ctable::factory);
+	r = sst->init(AT_FDCWD, "simple_stable", config, &simple_ctable::factory);
 	printf("sst->init = %d\n", r);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -346,11 +353,12 @@ int command_stable(int argc, const char * argv[])
 	delete sst;
 	
 	/* query the journal this time */
-	mdtf = new managed_dtable_factory(&simple_dtable::factory, true);
-	mdtf->retain();
+	base_config.set("query_journal", true);
+	config.set("meta_config", base_config);
+	config.set("data_config", base_config);
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "simple_stable", mdtf, mdtf, &simple_ctable::factory);
+	r = sst->init(AT_FDCWD, "simple_stable", config, &simple_ctable::factory);
 	printf("sst->init = %d\n", r);
 	r = tx_start();
 	printf("tx_start = %d\n", r);

@@ -22,8 +22,12 @@
 class stringset
 {
 public:
-	inline stringset();
-	inline ~stringset();
+	inline stringset() : next_index(0), string_map(NULL), index_map(NULL) {}
+	inline ~stringset()
+	{
+		if(string_map)
+			deinit();
+	}
 	
 	int init(bool reverse = false);
 	void deinit();
@@ -41,16 +45,5 @@ private:
 	hash_map_t * string_map;
 	hash_map_t * index_map;
 };
-
-inline stringset::stringset()
-	: next_index(0), string_map(NULL), index_map(NULL)
-{
-}
-
-inline stringset::~stringset()
-{
-	if(string_map)
-		deinit();
-}
 
 #endif /* __STRINGSET_H */

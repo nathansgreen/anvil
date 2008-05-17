@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "dtable.h"
+#include "dtable_factory.h"
 #include "overlay_dtable.h"
 #include "journal_dtable.h"
 
@@ -87,10 +88,11 @@ public:
 		return combine(journal, journal);
 	}
 	
-	static int create(int dfd, const char * name, dtype::ctype key_type);
+	static int create(int dfd, const char * name, const params & config, dtype::ctype key_type);
+	DECLARE_RW_FACTORY(managed_dtable);
 	
 	inline managed_dtable() : md_dfd(-1) {}
-	int init(int dfd, const char * name, dtable_factory * factory, bool query_journal = false, sys_journal * sys_journal = NULL);
+	int init(int dfd, const char * name, const params & config, sys_journal * sys_journal = NULL);
 	void deinit();
 	inline virtual ~managed_dtable()
 	{
@@ -118,40 +120,8 @@ private:
 	dtable_list disks;
 	overlay_dtable * overlay;
 	journal_dtable * journal;
-	dtable_factory * factory;
-};
-
-class managed_dtable_factory : public dtable_factory
-{
-public:
-	virtual dtable * open(int dfd, const char * name) const
-	{
-		managed_dtable * md = new managed_dtable;
-		int r = md->init(dfd, name, data_factory, query, journal);
-		if(r < 0)
-		{
-			delete md;
-			md = NULL;
-		}
-		return md;
-	}
-	virtual int create(int dfd, const char * name, dtype::ctype type)
-	{
-		return managed_dtable::create(dfd, name, type);
-	}
-	inline managed_dtable_factory(dtable_factory * factory, bool query_journal = false, sys_journal * sys_journal = NULL)
-		: data_factory(factory), query(query_journal), journal(sys_journal)
-	{
-	}
-	virtual ~managed_dtable_factory()
-	{
-		data_factory->release();
-	}
-	
-private:
-	dtable_factory * data_factory;
-	bool query;
-	sys_journal * journal;
+	const dtable_factory * base;
+	params base_config;
 };
 
 #endif /* __MANAGED_DTABLE_H */

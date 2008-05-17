@@ -17,6 +17,7 @@
 
 #include "blob.h"
 #include "dtable.h"
+#include "dtable_factory.h"
 
 /* The simple dtable does nothing fancy to store the blobs efficiently. It just
  * stores the key and the blob literally, including size information. These
@@ -37,7 +38,7 @@ public:
 	virtual blob lookup(dtype key, const dtable ** source) const;
 	
 	inline simple_dtable() : fd(-1) {}
-	int init(int dfd, const char * file);
+	int init(int dfd, const char * file, const params & config);
 	void deinit();
 	inline virtual ~simple_dtable()
 	{
@@ -45,8 +46,8 @@ public:
 			deinit();
 	}
 	
-	static int create(int dfd, const char * file, const dtable * source, const dtable * shadow = NULL);
-	static dtable_static_factory<simple_dtable> factory;
+	static int create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow = NULL);
+	DECLARE_RO_FACTORY(simple_dtable);
 	
 private:
 	struct dtable_header {

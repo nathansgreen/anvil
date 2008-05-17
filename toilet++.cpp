@@ -213,7 +213,7 @@ int toilet_new_gtable(t_toilet * toilet, const char * name)
 {
 	int r;
 	char * name_copy;
-	dtable_factory * mdtf;
+	params config, base_config;
 	
 	/* already exists and in hash? */
 	if(toilet->gtables.count(name))
@@ -223,10 +223,13 @@ int toilet_new_gtable(t_toilet * toilet, const char * name)
 	if(!*name || *name == '=')
 		return -EINVAL;
 	
-	mdtf = new managed_dtable_factory(&simple_dtable::factory);
-	mdtf->retain();
-	/* will fail if the gtable already exists, but will still release mdtf */
-	r = simple_stable::create(toilet->path_fd, name, mdtf, mdtf, dtype::UINT32);
+	base_config.set_class("base", simple_dtable);
+	config.set("meta_config", base_config);
+	config.set("data_config", base_config);
+	config.set_class("meta", managed_dtable);
+	config.set_class("data", managed_dtable);
+	/* will fail if the gtable already exists */
+	r = simple_stable::create(toilet->path_fd, name, config, dtype::UINT32);
 	if(r < 0)
 		return r;
 	name_copy = strdup(name);
@@ -249,7 +252,7 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 {
 	t_gtable * gtable;
 	simple_stable * sst;
-	dtable_factory * mdtf;
+	params config, base_config;
 	
 	if(toilet->gtables.count(name))
 	{
@@ -270,9 +273,12 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	gtable->toilet = toilet;
 	gtable->out_count = 1;
 	
-	mdtf = new managed_dtable_factory(&simple_dtable::factory);
-	mdtf->retain();
-	if(sst->init(toilet->path_fd, name, mdtf, mdtf, &simple_ctable::factory) < 0)
+	base_config.set_class("base", simple_dtable);
+	config.set("meta_config", base_config);
+	config.set("data_config", base_config);
+	config.set_class("meta", managed_dtable);
+	config.set_class("data", managed_dtable);
+	if(sst->init(toilet->path_fd, name, config, &simple_ctable::factory) < 0)
 		goto fail_open;
 	
 	toilet->gtables[gtable->name] = gtable;

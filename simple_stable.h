@@ -14,6 +14,7 @@
 #include "dtable.h"
 #include "ctable.h"
 #include "stable.h"
+#include "dtable_factory.h"
 
 class simple_stable : public stable
 {
@@ -37,7 +38,7 @@ public:
 	
 	virtual dtype::ctype key_type() const;
 	
-	int init(int dfd, const char * name, dtable_factory * meta, dtable_factory * data, ctable_factory * columns);
+	int init(int dfd, const char * name, const params & config, ctable_factory * columns);
 	void deinit();
 	inline simple_stable() : md_dfd(-1), dt_meta(NULL), _dt_data(NULL), ct_data(NULL) {}
 	inline virtual ~simple_stable()
@@ -46,7 +47,7 @@ public:
 			deinit();
 	}
 	
-	static int create(int dfd, const char * name, dtable_factory * meta_factory, dtable_factory * data_factory, dtype::ctype key_type);
+	static int create(int dfd, const char * name, const params & config, dtype::ctype key_type);
 	
 private:
 	struct strcmp_less

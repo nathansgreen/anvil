@@ -13,18 +13,22 @@
 
 #include "managed_dtable.h"
 
-int managed_dtable::init(int dfd, const char * name, dtable_factory * factory, bool query_journal, sys_journal * sys_journal)
+int managed_dtable::init(int dfd, const char * name, const params & config, sys_journal * sys_journal)
 {
 	int r = -1, meta;
+	bool query_journal;
 	if(md_dfd >= 0)
 		deinit();
-	this->factory = factory;
+	base = dt_factory_registry::lookup(config, "base");
+	if(!base)
+		return -EINVAL;
+	if(!config.get("query_journal", &query_journal, false))
+		return -EINVAL;
+	if(!config.get("base_config", &base_config, params()))
+		return -EINVAL;
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
-	{
-		r = md_dfd;
-		goto fail_open;
-	}
+		return md_dfd;
 	meta = openat(md_dfd, "md_meta", O_RDONLY);
 	if(meta < 0)
 	{
@@ -58,7 +62,7 @@ int managed_dtable::init(int dfd, const char * name, dtable_factory * factory, b
 		if(r != sizeof(ddt_value))
 			goto fail_disks;
 		sprintf(name, "md_data.%u", ddt_value);
-		source = factory->open(md_dfd, name);
+		source = base->open(md_dfd, name, base_config);
 		if(!source)
 			goto fail_disks;
 		disks.push_back(dtable_list_entry(source, ddt_value));
@@ -95,8 +99,6 @@ fail_header:
 fail_meta:
 	close(md_dfd);
 	md_dfd = -1;
-fail_open:
-	factory->release();
 	return r;
 }
 
@@ -109,7 +111,6 @@ void managed_dtable::deinit()
 	for(size_t i = 0; i < disks.size(); i++)
 		delete disks[i].first;
 	disks.clear();
-	factory->release();
 	close(md_dfd);
 	md_dfd = -1;
 }
@@ -162,7 +163,7 @@ int managed_dtable::combine(size_t first, size_t last)
 	r = patchgroup_engage(pid);
 	assert(r >= 0);
 	sprintf(name, "md_data.%u", header.ddt_next);
-	r = factory->create(md_dfd, name, source, shadow);
+	r = base->create(md_dfd, name, base_config, source, shadow);
 	{
 		int r2 = patchgroup_disengage(pid);
 		assert(r2 >= 0);
@@ -183,7 +184,7 @@ int managed_dtable::combine(size_t first, size_t last)
 	
 	/* now we've created the file, but we can still delete it easily if something fails */
 	
-	result = factory->open(md_dfd, name);
+	result = base->open(md_dfd, name, base_config);
 	if(!result)
 	{
 		unlinkat(md_dfd, name, 0);
@@ -258,7 +259,7 @@ int managed_dtable::combine(size_t first, size_t last)
 	return 0;
 }
 
-int managed_dtable::create(int dfd, const char * name, dtype::ctype key_type)
+int managed_dtable::create(int dfd, const char * name, const params & config, dtype::ctype key_type)
 {
 	int r, sdfd;
 	tx_fd fd;
@@ -311,3 +312,5 @@ int managed_dtable::create(int dfd, const char * name, dtype::ctype key_type)
 		unlinkat(dfd, name, AT_REMOVEDIR);
 	return r;
 }
+
+DEFINE_RW_FACTORY(managed_dtable);

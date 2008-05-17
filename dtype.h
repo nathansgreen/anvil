@@ -17,6 +17,7 @@
 #endif
 
 #include "blob.h"
+#include "istr.h"
 
 /* all data stored in toilet is wrapped by this type */
 
@@ -26,34 +27,17 @@ public:
 	enum ctype {UINT32, DOUBLE, STRING};
 	ctype type;
 	
-	struct dt_string
-	{
-		size_t shares;
-		char string[0];
-	};
-	
 	union
 	{
 		uint32_t u32;
 		double dbl;
-		struct {
-			const char * str;
-			dt_string * _str;
-		};
 	};
+	/* alas, we can't put this in the union */
+	istr str;
 	
 	inline dtype(uint32_t x) : type(UINT32), u32(x) {}
 	inline dtype(double x) : type(DOUBLE), dbl(x) {}
-	inline dtype(const char * x)
-		: type(STRING)
-	{
-		_str = (dt_string *) malloc(sizeof(dt_string) + strlen(x) + 1);
-		_str->shares = 1;
-		strcpy(_str->string, x);
-		str = _str->string;
-	}
-	/* simple copy constructor that just uses operator= */
-	inline dtype(const dtype & x) : type(UINT32) { *this = x; }
+	inline dtype(const char * x) : type(STRING), u32(0), str(x) {}
 	inline dtype(const blob & b, ctype t)
 		: type(t)
 	{
@@ -69,19 +53,12 @@ public:
 				dbl = b.index<double>(0);
 				return;
 			case STRING:
-				_str = (dt_string *) malloc(sizeof(dt_string) + b.size() + 1);
-				_str->shares = 1;
-				if(b.size())
-					strncpy(_str->string, &b.index<char>(0), b.size());
-				_str->string[b.size()] = 0;
-				str = _str->string;
+				str = b;
 				return;
 		}
 		abort();
 	}
 
-	inline ~dtype() { if(type == STRING && --_str->shares <= 0) free(_str); }
-	
 	inline blob flatten() const
 	{
 		switch(type)
@@ -112,29 +89,6 @@ public:
 	static inline const char * name(const dtype & value)
 	{
 		return name(value.type);
-	}
-	
-	inline dtype & operator=(const dtype & x)
-	{
-		if(this == &x)
-			return *this;
-		if(type == STRING && --_str->shares <= 0)
-			free(_str);
-		switch(type = x.type)
-		{
-			case UINT32:
-				u32 = x.u32;
-				return *this;
-			case DOUBLE:
-				dbl = x.dbl;
-				return *this;
-			case STRING:
-				_str = x._str;
-				_str->shares++;
-				str = _str->string;
-				return *this;
-		}
-		abort();
 	}
 	
 	inline bool operator==(const dtype & x) const

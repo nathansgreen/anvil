@@ -169,7 +169,7 @@ blob simple_dtable::lookup(dtype key, const dtable ** source) const
 	return get_value(index, data_length, data_offset);
 }
 
-int simple_dtable::init(int dfd, const char * file)
+int simple_dtable::init(int dfd, const char * file, const params & config)
 {
 	int r = -1;
 	struct dtable_header header;
@@ -260,7 +260,7 @@ ssize_t simple_dtable::locate_string(const char ** array, ssize_t size, const ch
 
 /* FIXME: by reserving space for the header, and storing the string table at the end of the file, we
  * can reduce the number of passes over the input keys to only 1 (but still that plus the data) */
-int simple_dtable::create(int dfd, const char * file, const dtable * source, const dtable * shadow)
+int simple_dtable::create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow)
 {
 	stringset strings;
 	dtable::iter * iter;
@@ -435,4 +435,4 @@ out_strings:
 	return r;
 }
 
-dtable_static_factory<simple_dtable> simple_dtable::factory;
+DEFINE_RO_FACTORY(simple_dtable);
