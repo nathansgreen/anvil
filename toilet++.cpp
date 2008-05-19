@@ -199,12 +199,12 @@ int toilet_close(t_toilet * toilet)
 	return 0;
 }
 
-size_t toilet_gtable_count(t_toilet * toilet)
+size_t toilet_gtables_count(t_toilet * toilet)
 {
 	return toilet->gtable_names.size();
 }
 
-const char * toilet_gtable_name(t_toilet * toilet, size_t index)
+const char * toilet_gtables_name(t_toilet * toilet, size_t index)
 {
 	return toilet->gtable_names[index];
 }
@@ -293,6 +293,11 @@ fail_table:
 fail_name:
 	delete gtable;
 	return NULL;
+}
+
+const char * toilet_gtable_name(t_gtable * gtable)
+{
+	return gtable->name;
 }
 
 void toilet_put_gtable(t_gtable * gtable)

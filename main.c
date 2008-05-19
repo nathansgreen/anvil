@@ -18,7 +18,7 @@
 #include "journal.h"
 #include "transaction.h"
 #include "str_tbl.h"
-#include "toilet.h"
+#include "toilet++.h"
 
 static t_toilet * open_toilet = NULL;
 static t_gtable * open_gtable = NULL;
@@ -59,7 +59,7 @@ static int command_create(int argc, const char * argv[])
 			{
 				printf("New row ID is 0x" ROW_FORMAT "\n", id);
 				assert(open_toilet);
-				open_row = toilet_get_row(open_toilet, id);
+				open_row = toilet_get_row(open_gtable, id);
 				if(!open_row)
 					r = errno ? -errno : -ENOENT;
 			}
@@ -107,7 +107,7 @@ static int command_drop(int argc, const char * argv[])
 		}
 		else if(open_toilet)
 		{
-			if(open_gtable && !strcmp(argv[2], NAME(open_gtable)))
+			if(open_gtable && !strcmp(argv[2], toilet_gtable_name(open_gtable)))
 				goto current_gtable;
 			else
 			{
@@ -141,18 +141,18 @@ static int command_drop(int argc, const char * argv[])
 					open_row = NULL;
 			}
 		}
-		else if(open_toilet)
+		else if(open_gtable)
 		{
 			t_row_id id;
 			if(parse_row_id(argv[2], &id) < 0)
 				r = -EINVAL;
 			else
 			{
-				if(open_row && id == ID(open_row))
+				if(open_row && id == toilet_row_id(open_row))
 					goto current_row;
 				else
 				{
-					t_row * row = toilet_get_row(open_toilet, id);
+					t_row * row = toilet_get_row(open_gtable, id);
 					if(!row)
 						r = errno ? -errno : -ENOENT;
 					else
@@ -165,7 +165,7 @@ static int command_drop(int argc, const char * argv[])
 			}
 		}
 		else
-			printf("You need to open a database first.\n");
+			printf("You need to open a gtable first.\n");
 	}
 	else if(!strcmp(argv[1], "value"))
 	{
@@ -177,18 +177,6 @@ static int command_drop(int argc, const char * argv[])
 				printf("OK, but which one should I drop?\n");
 			else
 				r = toilet_row_remove_key(open_row, argv[2]);
-		}
-	}
-	else if(!strcmp(argv[1], "values"))
-	{
-		if(!open_row)
-			printf("You need to open a row first.\n");
-		else
-		{
-			if(argc < 3)
-				printf("OK, but which ones should I drop?\n");
-			else
-				r = toilet_row_remove_values(open_row, argv[2]);
 		}
 	}
 	else
@@ -245,7 +233,7 @@ static int command_open(int argc, const char * argv[])
 			else
 			{
 				assert(open_toilet);
-				open_row = toilet_get_row(open_toilet, id);
+				open_row = toilet_get_row(open_gtable, id);
 				if(!open_row)
 					r = errno ? -errno : -ENOENT;
 			}
@@ -293,7 +281,7 @@ static int command_close(int argc, const char * argv[])
 	return 0;
 }
 
-static void print_value(t_type type, t_value * value)
+static void print_value(t_type type, const t_value * value)
 {
 	switch(type)
 	{
@@ -301,14 +289,13 @@ static void print_value(t_type type, t_value * value)
 			printf(ROW_FORMAT "\n", value->v_id);
 			break;
 		case T_INT:
-			printf("%lld\n", value->v_int);
+			printf("%u\n", value->v_int);
+			break;
+		case T_FLOAT:
+			printf("%lg\n", value->v_float);
 			break;
 		case T_STRING:
 			printf("%s\n", value->v_string);
-			break;
-		case T_BLOB:
-			/* TODO: improve? */
-			printf("(blob)\n");
 			break;
 	}
 }
@@ -324,9 +311,9 @@ static int command_list(int argc, const char * argv[])
 			printf("You need to open a database first.\n");
 		else
 		{
-			int i;
-			for(i = 0; i < GTABLES(open_toilet); i++)
-				printf("%s\n", GTABLE_NAME(open_toilet, i));
+			size_t i, max = toilet_gtables_count(open_toilet);
+			for(i = 0; i < max; i++)
+				printf("%s\n", toilet_gtables_name(open_toilet, i));
 		}
 	}
 	else if(!strcmp(argv[1], "columns"))
@@ -335,30 +322,33 @@ static int command_list(int argc, const char * argv[])
 			printf("You need to open a gtable first.\n");
 		else
 		{
-			int i;
+			t_columns * columns = toilet_gtable_columns(open_gtable);
 			printf("Name          Type       Rows\n");
 			printf("------------  ---------  -----------\n");
-			for(i = 0; i < COLUMNS(open_gtable); i++)
+			while(toilet_columns_valid(columns))
 			{
-				t_column * column = COLUMN(open_gtable, i);
-				const char * type = toilet_name_type(TYPE(column));
-				printf("%-12s  %-9s  %11u\n", NAME(column), type, COUNT(column));
+				const char * name = toilet_columns_name(columns);
+				const char * type = toilet_name_type(toilet_columns_type(columns));
+				size_t count = toilet_columns_row_count(columns);
+				printf("%-12s  %-9s  %11u\n", name, type, count);
+				toilet_columns_next(columns);
 			}
+			toilet_put_columns(columns);
 		}
 	}
 	else if(!strcmp(argv[1], "rows"))
 	{
-		t_query query = {.name = NULL};
-		t_rowset * rows = toilet_squery(open_gtable, &query);
+		t_simple_query query = {.name = NULL};
+		t_rowset * rows = toilet_simple_query(open_gtable, &query);
 		if(!rows)
 			r = -ENOENT;
 		else
 		{
-			int i;
-			for(i = 0; i < ROWS(rows); i++)
-				printf("0x" ROW_FORMAT "\n", ROW(rows, i));
+			size_t i, max = toilet_rowset_size(rows);
+			for(i = 0; i < max; i++)
+				printf("0x" ROW_FORMAT "\n", toilet_rowset_row(rows, i));
 			toilet_put_rowset(rows);
-			printf("gtable %s holds %d row%s\n", NAME(open_gtable), i, (i == 1) ? "" : "s");
+			printf("gtable %s holds %d row%s\n", toilet_gtable_name(open_gtable), i, (i == 1) ? "" : "s");
 		}
 	}
 	else if(!strcmp(argv[1], "keys"))
@@ -371,25 +361,22 @@ static int command_list(int argc, const char * argv[])
 			r = -ENOSYS;
 		}
 	}
-	else if(!strcmp(argv[1], "values"))
+	else if(!strcmp(argv[1], "value"))
 	{
 		if(!open_row)
 			printf("You need to open a row first.\n");
 		else
 		{
 			if(argc < 3)
-				printf("OK, but which ones should I list?\n");
+				printf("OK, but which one should I list?\n");
 			else
 			{
-				t_values * values = toilet_row_values(open_row, argv[2]);
-				if(!values)
+				t_type type;
+				const t_value * value = toilet_row_value_type(open_row, argv[2], &type);
+				if(!value)
 					r = errno ? -errno : -ENOENT;
 				else
-				{
-					int i;
-					for(i = 0; i < VALUES(values); i++)
-						print_value(TYPE(values), VALUE(values, i));
-				}
+					print_value(type, value);
 			}
 		}
 	}
@@ -412,28 +399,15 @@ static t_value * parse_value(t_type type, const char * string, t_value * value)
 			if(end && *end)
 				return NULL;
 			return value;
+		case T_FLOAT:
+			value->v_float = strtod(string, &end);
+			if(end && *end)
+				return NULL;
+			return value;
 		case T_STRING:
 			return (t_value *) string;
-		case T_BLOB:
-			/* TODO: implement this */
-			return NULL;
 	}
 	return NULL;
-}
-
-static void free_value(t_type type, t_value * value)
-{
-	switch(type)
-	{
-		case T_ID:
-		case T_INT:
-		case T_STRING:
-			/* string was already allocated; see above in parse_value() */
-			break;
-		case T_BLOB:
-			free(value->v_blob.data);
-			break;
-	}
 }
 
 static int parse_type(const char * string, t_type * type)
@@ -442,10 +416,10 @@ static int parse_type(const char * string, t_type * type)
 		*type = T_ID;
 	else if(!strcmp(string, "int"))
 		*type = T_INT;
+	else if(!strcmp(string, "float"))
+		*type = T_FLOAT;
 	else if(!strcmp(string, "string"))
 		*type = T_STRING;
-	else if(!strcmp(string, "blob"))
-		*type = T_BLOB;
 	else
 		return -EINVAL;
 	return 0;
@@ -476,11 +450,10 @@ static int command_set(int argc, const char * argv[])
 				printf("OK, but which value should I set?\n");
 			else
 			{
-				t_column * column = toilet_gtable_get_column(open_gtable, argv[2]);
 				t_value local_value;
 				t_value * value;
 				t_type type;
-				if(!column)
+				if(!toilet_gtable_column_row_count(open_gtable, argv[2]))
 				{
 					if(argc < 4)
 						printf("You need to specify the type for a new column.\n");
@@ -505,7 +478,7 @@ static int command_set(int argc, const char * argv[])
 						printf("OK, but what value should I set it to?\n");
 					else if(argc < 5)
 					{
-						type = column->type;
+						type = toilet_gtable_column_type(open_gtable, argv[2]);
 						value = parse_value(type, argv[3], &local_value);
 					have_type:
 						r = toilet_row_set_value(open_row, argv[2], type, value);
@@ -533,8 +506,7 @@ static int command_query(int argc, const char * argv[])
 			printf("OK, but which column should I query?\n");
 		else
 		{
-			t_column * column = toilet_gtable_get_column(open_gtable, argv[1]);
-			if(!column)
+			if(!toilet_gtable_column_row_count(open_gtable, argv[1]))
 				printf("Unknown column: %s\n", argv[1]);
 			else
 			{
@@ -543,28 +515,27 @@ static int command_query(int argc, const char * argv[])
 				else
 				{
 					t_value value;
-					t_query query;
+					t_simple_query query;
 					query.name = argv[1];
-					query.type = column->type;
+					query.type = toilet_gtable_column_type(open_gtable, argv[1]);
 					query.values[0] = parse_value(query.type, argv[2], &value);
 					query.values[1] = NULL;
 					if(!query.values[0])
 						r = -EINVAL;
 					else
 					{
-						t_rowset * rows = toilet_squery(open_gtable, &query);
+						t_rowset * rows = toilet_simple_query(open_gtable, &query);
 						if(!rows)
 							r = -ENOENT;
 						else
 						{
-							int i;
+							size_t i, max = toilet_rowset_size(rows);
 							printf("Matching rows:\n");
-							for(i = 0; i < ROWS(rows); i++)
-								printf("0x" ROW_FORMAT "\n", ROW(rows, i));
+							for(i = 0; i < max; i++)
+								printf("0x" ROW_FORMAT "\n", toilet_rowset_row(rows, i));
 							toilet_put_rowset(rows);
 							printf("%d row%s matched\n", i, (i == 1) ? "" : "s");
 						}
-						free_value(query.type, query.values[0]);
 					}
 				}
 			}

@@ -95,8 +95,8 @@ int toilet_new(const char * path);
 t_toilet * toilet_open(const char * path, FILE * errors);
 int toilet_close(t_toilet * toilet);
 
-size_t toilet_gtable_count(t_toilet * toilet);
-const char * toilet_gtable_name(t_toilet * toilet, size_t index);
+size_t toilet_gtables_count(t_toilet * toilet);
+const char * toilet_gtables_name(t_toilet * toilet, size_t index);
 
 /* gtables */
 
@@ -104,6 +104,7 @@ int toilet_new_gtable(t_toilet * toilet, const char * name);
 int toilet_drop_gtable(t_gtable * gtable);
 
 t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name);
+const char * toilet_gtable_name(t_gtable * gtable);
 void toilet_put_gtable(t_gtable * gtable);
 
 /* columns */

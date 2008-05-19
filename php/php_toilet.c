@@ -125,9 +125,9 @@ PHP_FUNCTION(toilet_gtables)
 		RETURN_FALSE;
 	ZEND_FETCH_RESOURCE(toilet, t_toilet *, &ztoilet, -1, PHP_TOILET_RES_NAME, le_toilet);
 	array_init(return_value);
-	max = toilet_gtable_count(toilet);
+	max = toilet_gtables_count(toilet);
 	for(i = 0; i < max; i++)
-		add_next_index_string(return_value, (char *) toilet_gtable_name(toilet, i), 1);
+		add_next_index_string(return_value, (char *) toilet_gtables_name(toilet, i), 1);
 }
 
 /* takes a toilet and a string, returns a gtable */
