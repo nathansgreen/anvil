@@ -11,6 +11,7 @@
 
 #include "ctable.h"
 #include "sub_blob.h"
+#include "ctable_factory.h"
 
 class simple_ctable : public ctable
 {
@@ -32,20 +33,20 @@ public:
 		return wdt_source->remove(key);
 	}
 	
-	inline int init(const dtable * source)
+	inline int init(const dtable * source, const params & config = params())
 	{
 		dt_source = source;
 		wdt_source = NULL;
 		return 0;
 	}
-	inline int init(dtable * source)
+	inline int init(dtable * source, const params & config = params())
 	{
 		dt_source = source;
 		wdt_source = source;
 		return 0;
 	}
 	
-	static ctable_static_factory<simple_ctable> factory;
+	DECLARE_CT_FACTORY(simple_ctable);
 	
 	inline simple_ctable() : wdt_source(NULL) {}
 	inline virtual ~simple_ctable() {}

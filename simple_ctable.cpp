@@ -137,4 +137,4 @@ int simple_ctable::remove(dtype key, const char * column)
 	return r;
 }
 
-ctable_static_factory<simple_ctable> simple_ctable::factory;
+DEFINE_CT_FACTORY(simple_ctable);

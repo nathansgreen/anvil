@@ -278,7 +278,8 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	config.set("data_config", base_config);
 	config.set_class("meta", managed_dtable);
 	config.set_class("data", managed_dtable);
-	if(sst->init(toilet->path_fd, name, config, &simple_ctable::factory) < 0)
+	config.set_class("columns", simple_ctable);
+	if(sst->init(toilet->path_fd, name, config) < 0)
 		goto fail_open;
 	
 	toilet->gtables[gtable->name] = gtable;

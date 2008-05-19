@@ -329,20 +329,23 @@ dtype::ctype simple_stable::key_type() const
 	return ct_data->key_type();
 }
 
-int simple_stable::init(int dfd, const char * name, const params & config, ctable_factory * columns)
+int simple_stable::init(int dfd, const char * name, const params & config)
 {
 	int r = -1;
-	params meta_config, data_config;
+	params meta_config, data_config, columns_config;
 	const dtable_factory * meta = dt_factory_registry::lookup(config, "meta");
 	const dtable_factory * data = dt_factory_registry::lookup(config, "data");
+	const ctable_factory * columns = ct_factory_registry::lookup(config, "columns");
 	if(md_dfd >= 0)
 		deinit();
 	assert(column_map.empty());
-	if(!meta || !data)
+	if(!meta || !data || !columns)
 		return -EINVAL;
 	if(!config.get("meta_config", &meta_config, params()))
 		return -EINVAL;
 	if(!config.get("data_config", &data_config, params()))
+		return -EINVAL;
+	if(!config.get("columns_config", &columns_config, params()))
 		return -EINVAL;
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
@@ -353,7 +356,7 @@ int simple_stable::init(int dfd, const char * name, const params & config, ctabl
 	_dt_data = data->open(md_dfd, "st_data", data_config);
 	if(!_dt_data)
 		goto fail_data;
-	ct_data = columns->open(_dt_data);
+	ct_data = columns->open(_dt_data, columns_config);
 	if(!ct_data)
 		goto fail_columns;
 	

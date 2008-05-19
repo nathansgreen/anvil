@@ -327,6 +327,7 @@ int command_stable(int argc, const char * argv[])
 	config.set("data_config", base_config);
 	config.set_class("meta", managed_dtable);
 	config.set_class("data", managed_dtable);
+	config.set_class("columns", simple_ctable);
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -337,7 +338,7 @@ int command_stable(int argc, const char * argv[])
 	printf("tx_end = %d\n", r);
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "simple_stable", config, &simple_ctable::factory);
+	r = sst->init(AT_FDCWD, "simple_stable", config);
 	printf("sst->init = %d\n", r);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -358,7 +359,7 @@ int command_stable(int argc, const char * argv[])
 	config.set("data_config", base_config);
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "simple_stable", config, &simple_ctable::factory);
+	r = sst->init(AT_FDCWD, "simple_stable", config);
 	printf("sst->init = %d\n", r);
 	r = tx_start();
 	printf("tx_start = %d\n", r);

@@ -15,6 +15,7 @@
 #include "ctable.h"
 #include "stable.h"
 #include "dtable_factory.h"
+#include "ctable_factory.h"
 
 class simple_stable : public stable
 {
@@ -38,7 +39,7 @@ public:
 	
 	virtual dtype::ctype key_type() const;
 	
-	int init(int dfd, const char * name, const params & config, ctable_factory * columns);
+	int init(int dfd, const char * name, const params & config);
 	void deinit();
 	inline simple_stable() : md_dfd(-1), dt_meta(NULL), _dt_data(NULL), ct_data(NULL) {}
 	inline virtual ~simple_stable()
