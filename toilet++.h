@@ -105,6 +105,7 @@ int toilet_drop_gtable(t_gtable * gtable);
 
 t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name);
 const char * toilet_gtable_name(t_gtable * gtable);
+int toilet_gtable_maintain(t_gtable * gtable);
 void toilet_put_gtable(t_gtable * gtable);
 
 /* columns */

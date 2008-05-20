@@ -259,6 +259,49 @@ int managed_dtable::combine(size_t first, size_t last)
 	return 0;
 }
 
+int managed_dtable::maintain()
+{
+	time_t now = time(NULL);
+	/* well, the journal probably doesn't really need maintenance, but just in case */
+	int r = journal->maintain();
+	for(size_t i = 0; i < disks.size(); i++)
+		/* ditto on these theoretically read-only dtables */
+		r |= disks[i].first->maintain();
+	if(r < 0)
+		return -1;
+	if(header.digested + header.digest_interval <= now)
+	{
+		time_t old = header.digested;
+		header.digested += header.digest_interval;
+		/* if we'd still just do another digest, then reset the timestamp */
+		if(header.digested + header.digest_interval <= now)
+			header.digested = now;
+		/* will rewrite header for us! */
+		r = digest();
+		if(r < 0)
+		{
+			header.digested = old;
+			return r;
+		}
+	}
+	if(header.combined + header.combine_interval <= now)
+	{
+		time_t old = header.combined;
+		header.combined += header.combine_interval;
+		/* if we'd still just do another combine, then reset the timestamp */
+		if(header.combined + header.combine_interval <= now)
+			header.combined = now;
+		/* will rewrite header for us! */
+		r = combine(header.combine_count);
+		if(r < 0)
+		{
+			header.combined = old;
+			return r;
+		}
+	}
+	return 0;
+}
+
 int managed_dtable::create(int dfd, const char * name, const params & config, dtype::ctype key_type)
 {
 	int r, sdfd;
@@ -280,12 +323,25 @@ int managed_dtable::create(int dfd, const char * name, const params & config, dt
 		default:
 			return -EINVAL;
 	}
-	header.reserved = 0;
+	/* default count: combine 5 dtables */
+	if(!config.get("combine_count", &r, 5) || r < 2)
+		return -EINVAL;
+	header.combine_count = r;
 	header.journal_id = sys_journal::get_unique_id();
 	if(header.journal_id == sys_journal::NO_ID)
 		return -EBUSY;
 	header.ddt_count = 0;
 	header.ddt_next = 0;
+	/* default interval: 5 minutes (300 seconds) */
+	if(!config.get("digest_interval", &r, 300) || r < 1)
+		return -EINVAL;
+	header.digest_interval = r;
+	header.digested = time(NULL);
+	/* default interval: 20 minutes (1200 seconds) */
+	if(!config.get("combine_interval", &r, 1200) || r < 1)
+		return -EINVAL;
+	header.combine_interval = r;
+	header.combined = header.digested;
 	
 	r = mkdirat(dfd, name, 0755);
 	if(r < 0)

@@ -51,6 +51,9 @@ public:
 	inline dtype::ctype key_type() const { return ktype; }
 	inline virtual ~dtable() {}
 	
+	/* maintenance callback; does nothing by default */
+	inline virtual int maintain() { return 0; }
+	
 protected:
 	dtype::ctype ktype;
 };

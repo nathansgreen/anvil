@@ -5,6 +5,7 @@
 #ifndef __MANAGED_DTABLE_H
 #define __MANAGED_DTABLE_H
 
+#include <time.h>
 #include <stdint.h>
 #include <inttypes.h>
 #include <sys/types.h>
@@ -88,6 +89,9 @@ public:
 		return combine(journal, journal);
 	}
 	
+	/* do maintenance based on parameters */
+	virtual int maintain();
+	
 	static int create(int dfd, const char * name, const params & config, dtype::ctype key_type);
 	DECLARE_RW_FACTORY(managed_dtable);
 	
@@ -106,9 +110,12 @@ private:
 		uint32_t magic;
 		uint16_t version;
 		uint8_t key_type;
-		uint8_t reserved;
+		uint8_t combine_count;
 		sys_journal::listener_id journal_id;
 		uint32_t ddt_count, ddt_next;
+		time_t digest_interval, digested;
+		/* we will need something more advanced than this */
+		time_t combine_interval, combined;
 	} __attribute__((packed));
 	
 	typedef std::pair<dtable *, uint32_t> dtable_list_entry;

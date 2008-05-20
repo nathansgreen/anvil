@@ -46,12 +46,14 @@ PHP_FUNCTION(gtable_column_type);
 PHP_FUNCTION(gtable_column_row_count);
 /* takes a gtable, a string, and up to two values, returns an array of ids */
 PHP_FUNCTION(gtable_query);
-/* takes a gtable, a string, and up to two values, returns an int */
+/* takes a gtable, a string, and up to two values, returns a long */
 PHP_FUNCTION(gtable_count_query);
 /* takes a gtable, returns an array of ids */
 PHP_FUNCTION(gtable_rows);
 /* takes a gtable, returns a rowid */
 PHP_FUNCTION(gtable_new_row);
+/* takes a gtable, returns a long */
+PHP_FUNCTION(gtable_maintain);
 
 /* takes two rowids, returns a boolean */
 PHP_FUNCTION(rowid_equal);

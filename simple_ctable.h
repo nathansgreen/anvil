@@ -51,6 +51,11 @@ public:
 	inline simple_ctable() : wdt_source(NULL) {}
 	inline virtual ~simple_ctable() {}
 	
+	virtual int maintain()
+	{
+		return wdt_source ? wdt_source->maintain() : 0;
+	}
+	
 private:
 	class iter : public ctable::iter
 	{

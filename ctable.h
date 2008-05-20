@@ -44,6 +44,9 @@ public:
 	inline ctable() : dt_source(NULL) {}
 	inline virtual ~ctable() {}
 	
+	/* maintenance callback; does nothing by default */
+	inline virtual int maintain() { return 0; }
+	
 protected:
 	const dtable * dt_source;
 };

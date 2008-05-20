@@ -28,6 +28,7 @@ static function_entry toilet_functions[] = {
 	PHP_FE(gtable_count_query, NULL)
 	PHP_FE(gtable_rows, NULL)
 	PHP_FE(gtable_new_row, NULL)
+	PHP_FE(gtable_maintain, NULL)
 	PHP_FE(rowid_equal, NULL)
 	PHP_FE(rowid_get_row, NULL)
 	PHP_FE(rowid_format, NULL)
@@ -396,6 +397,17 @@ PHP_FUNCTION(gtable_new_row)
 	prowid->rowid = rowid;
 	prowid->gtable = gtable;
 	ZEND_REGISTER_RESOURCE(return_value, prowid, le_rowid);
+}
+
+/* takes a gtable, returns a long */
+PHP_FUNCTION(gtable_maintain)
+{
+	t_gtable * gtable;
+	zval * zgtable;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zgtable) == FAILURE)
+		RETURN_NULL();
+	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
+	RETURN_LONG(toilet_gtable_maintain(gtable));
 }
 
 static void row_hash_populate_column(zval * hash, t_row * row, const char * name, t_type type)

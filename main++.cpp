@@ -22,6 +22,7 @@
 #include "simple_stable.h"
 
 extern "C" {
+int cpp_init(void);
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
@@ -173,6 +174,27 @@ static void run_iterator(stable * table)
 	delete iter;
 }
 
+int cpp_init(void)
+{
+	int r = tx_start();
+	if(r < 0)
+		return r;
+	r = sys_journal::set_unique_id_file(AT_FDCWD, "sys_journal_id", true);
+	if(r < 0)
+	{
+		tx_end(0);
+		return r;
+	}
+	/* this will want to replay all the journal entries... hope there aren't any just yet */
+	r = sys_journal::get_global_journal()->init(AT_FDCWD, "sys_journal", true);
+	if(r < 0)
+	{
+		tx_end(0);
+		return r;
+	}
+	return tx_end(0);
+}
+
 int command_dtable(int argc, const char * argv[])
 {
 	int r;
@@ -185,10 +207,6 @@ int command_dtable(int argc, const char * argv[])
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = sys_journal::set_unique_id_file(AT_FDCWD, "sys_journal_id", true);
-	printf("set_unique_id_file = %d\n", r);
-	r = sys_journal::get_global_journal()->init(AT_FDCWD, "sys_journal", true);
-	printf("journal->init = %d\n", r);
 	r = managed_dtable::create(AT_FDCWD, "managed_dtable", params(), dtype::UINT32);
 	printf("dtable::create = %d\n", r);
 	r = tx_end(0);
@@ -273,7 +291,6 @@ int command_ctable(int argc, const char * argv[])
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	/* assume command_dtable() already ran; don't reinitialize global state */
 	r = managed_dtable::create(AT_FDCWD, "managed_ctable", config, dtype::UINT32);
 	printf("dtable::create = %d\n", r);
 	r = tx_end(0);
@@ -331,7 +348,6 @@ int command_stable(int argc, const char * argv[])
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	/* assume command_dtable() already ran; don't reinitialize global state */
 	r = simple_stable::create(AT_FDCWD, "simple_stable", config, dtype::UINT32);
 	printf("stable::create = %d\n", r);
 	r = tx_end(0);

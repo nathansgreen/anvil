@@ -64,6 +64,9 @@ public:
 	/* remove the whole row */
 	virtual int remove(dtype key) = 0;
 	
+	/* maintenance callback; does nothing by default */
+	inline virtual int maintain() { return 0; }
+	
 	virtual dtype::ctype key_type() const = 0;
 	inline virtual ~stable() {}
 };

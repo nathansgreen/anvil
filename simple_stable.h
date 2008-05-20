@@ -48,6 +48,13 @@ public:
 			deinit();
 	}
 	
+	virtual int maintain()
+	{
+		int r = dt_meta->maintain();
+		r |= ct_data->maintain();
+		return (r < 0) ? -1 : 0;
+	}
+	
 	static int create(int dfd, const char * name, const params & config, dtype::ctype key_type);
 	
 private:

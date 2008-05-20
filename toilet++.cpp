@@ -300,6 +300,11 @@ const char * toilet_gtable_name(t_gtable * gtable)
 	return gtable->name;
 }
 
+int toilet_gtable_maintain(t_gtable * gtable)
+{
+	return gtable->table->maintain();
+}
+
 void toilet_put_gtable(t_gtable * gtable)
 {
 	if(--gtable->out_count <= 0)

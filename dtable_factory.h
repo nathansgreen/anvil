@@ -89,6 +89,8 @@ public:
 			delete disk;
 			disk = NULL;
 		}
+		/* do we care about failure here? */
+		disk->maintain();
 		return disk;
 	}
 };

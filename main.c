@@ -495,6 +495,16 @@ static int command_set(int argc, const char * argv[])
 	return r;
 }
 
+static int command_maintain(int argc, const char * argv[])
+{
+	int r = 0;
+	if(!open_gtable)
+		printf("You need to open a gtable first.\n");
+	else
+		r = toilet_gtable_maintain(open_gtable);
+	return r;
+}
+
 static int command_query(int argc, const char * argv[])
 {
 	int r = 0;
@@ -698,6 +708,7 @@ struct {
 	{"close", "Close toilet objects: databases, gtables, and rows.", command_close},
 	{"list", "List toilet objects: gtables, columns, rows, keys, and values.", command_list},
 	{"set", "Modify toilet objects: gtables, rows, and values.", command_set},
+	{"maintain", "Run maintenance on the open gtable.", command_maintain},
 	{"query", "Query toilet!", command_query},
 	{"help", "Displays help.", command_help},
 	{"quit", "Quits the program.", command_quit},
@@ -811,6 +822,8 @@ static int command_script(int argc, const char * argv[])
 	return 0;
 }
 
+int cpp_init(void);
+
 int main(int argc, char * argv[])
 {
 	char * quit = "quit";
@@ -829,6 +842,12 @@ int main(int argc, char * argv[])
 			fprintf(stderr, "Error: tx_init() = %d (%s)\n", r, strerror(-r));
 		if(r == -ENOENT)
 			fprintf(stderr, "(Is there a journals directory?)\n");
+		return 1;
+	}
+	r = cpp_init();
+	if(r < 0)
+	{
+		fprintf(stderr, "Error: cpp_init() = %d (%s)\n", r, strerror(-r));
 		return 1;
 	}
 	snprintf(history, sizeof(history), "%s/.toilet_history", home ? home : ".");
