@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
@@ -160,13 +161,16 @@ void toilet_put_rowset(t_rowset * rowset);
 #include <map>
 #include <set>
 
+#include "transaction.h"
+
+#include "istr.h"
 #include "stable.h"
 
 #define GTABLE_NAME_LENGTH 63
 
 struct t_gtable
 {
-	const char * name;
+	istr name;
 	stable * table;
 	t_toilet * toilet;
 	int out_count;
@@ -188,7 +192,7 @@ struct strcmp_less
 };
 
 /* /me dislikes std::map immensely */
-typedef std::map<const char *, t_value *, strcmp_less> value_map;
+typedef std::map<istr, t_value *, strcmp_less> value_map;
 
 struct t_row
 {
@@ -196,6 +200,13 @@ struct t_row
 	t_gtable * gtable;
 	value_map values;
 	int out_count;
+	
+	inline ~t_row()
+	{
+		value_map::iterator it = values.begin();
+		for(; it != values.end(); ++it)
+			free(it->second);
+	}
 };
 
 #define T_ID_SIZE 16
@@ -204,14 +215,15 @@ struct t_toilet
 {
 	uint8_t id[T_ID_SIZE];
 	t_row_id next_row;
-	const char * path;
-	int path_fd, row_fd;
+	istr path;
+	tx_fd row_fd;
+	int path_fd;
 	/* error stream */
 	FILE * errors;
 	/* all gtable names */
-	std::vector<const char *> gtable_names;
+	std::vector<istr> gtable_names;
 	/* cache of gtables currently out */
-	std::map<const char *, t_gtable *, strcmp_less> gtables;
+	std::map<istr, t_gtable *, strcmp_less> gtables;
 	/* cache of rows currently out */
 	std::map<t_row_id, t_row *> rows;
 };

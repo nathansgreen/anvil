@@ -11,6 +11,7 @@
 #include "openat.h"
 #include "blowfish.h"
 #include "toilet++.h"
+#include "transaction.h"
 
 #include "simple_dtable.h"
 #include "managed_dtable.h"
@@ -60,10 +61,6 @@ int toilet_new(const char * path)
 	if(r != sizeof(next))
 		goto fail_next;
 	
-	r = mkdirat(dir_fd, "=rows", 0775);
-	if(r < 0)
-		goto fail_next;
-	
 	close(dir_fd);
 	return 0;
 	
@@ -100,9 +97,7 @@ t_toilet * toilet_open(const char * path, FILE * errors)
 		goto fail_new;
 	memset(&toilet->id, 0, sizeof(toilet->id));
 	toilet->next_row = 0;
-	toilet->path = strdup(path);
-	if(!toilet->path)
-		goto fail_strdup;
+	toilet->path = path;
 	toilet->path_fd = dir_fd;
 	toilet->errors = errors ? errors : stderr;
 	
@@ -124,10 +119,10 @@ t_toilet * toilet_open(const char * path, FILE * errors)
 		goto fail_read_1;
 	
 	/* get the next row ID source value */
-	toilet->row_fd = openat(dir_fd, "=next-row", O_RDWR);
+	toilet->row_fd = tx_open(dir_fd, "=next-row", O_RDWR);
 	if(toilet->row_fd < 0)
 		goto fail_read_1;
-	if(read(toilet->row_fd, &toilet->next_row, sizeof(toilet->next_row)) != sizeof(toilet->next_row))
+	if(read(tx_read_fd(toilet->row_fd), &toilet->next_row, sizeof(toilet->next_row)) != sizeof(toilet->next_row))
 		goto fail_read_2;
 	
 	/* get the list of gtable names */
@@ -142,15 +137,11 @@ t_toilet * toilet_open(const char * path, FILE * errors)
 	}
 	while((ent = readdir(gtable_list)))
 	{
-		char * name;
 		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
 			continue;
 		if(ent->d_name[0] == '=')
 			continue;
-		name = strdup(ent->d_name);
-		if(!name)
-			goto fail_loop;
-		toilet->gtable_names.push_back(name);
+		toilet->gtable_names.push_back(ent->d_name);
 	}
 	closedir(gtable_list);
 	
@@ -160,23 +151,13 @@ t_toilet * toilet_open(const char * path, FILE * errors)
 	return toilet;
 	
 	/* error handling */
-fail_loop:
-	while(!toilet->gtable_names.empty())
-	{
-		size_t last = toilet->gtable_names.size() - 1;
-		free((void *) toilet->gtable_names[last]);
-		toilet->gtable_names.pop_back();
-	}
-	closedir(gtable_list);
 fail_read_2:
-	close(toilet->row_fd);
+	tx_close(toilet->row_fd);
 fail_read_1:
 	close(id_fd);
 fail_fgets:
 	fclose(version_file);
 fail_fopen:
-	free((void *) toilet->path);
-fail_strdup:
 	delete toilet;
 fail_new:
 	close(dir_fd);
@@ -186,15 +167,8 @@ fail_new:
 int toilet_close(t_toilet * toilet)
 {
 	/* should be more stuff here, e.g. check not in use */
-	while(!toilet->gtable_names.empty())
-	{
-		size_t last = toilet->gtable_names.size() - 1;
-		free((void *) toilet->gtable_names[last]);
-		toilet->gtable_names.pop_back();
-	}
-	free((void *) toilet->path);
 	close(toilet->path_fd);
-	close(toilet->row_fd);
+	tx_close(toilet->row_fd);
 	delete toilet;
 	return 0;
 }
@@ -212,7 +186,6 @@ const char * toilet_gtables_name(t_toilet * toilet, size_t index)
 int toilet_new_gtable(t_toilet * toilet, const char * name)
 {
 	int r;
-	char * name_copy;
 	params config, base_config;
 	
 	/* already exists and in hash? */
@@ -228,17 +201,15 @@ int toilet_new_gtable(t_toilet * toilet, const char * name)
 	config.set("data_config", base_config);
 	config.set_class("meta", managed_dtable);
 	config.set_class("data", managed_dtable);
-	/* will fail if the gtable already exists */
-	r = simple_stable::create(toilet->path_fd, name, config, dtype::UINT32);
+	r = tx_start();
 	if(r < 0)
 		return r;
-	name_copy = strdup(name);
-	if(!name_copy)
-	{
-		/* XXX delete the stable on disk */
-		return -ENOMEM;
-	}
-	toilet->gtable_names.push_back(name_copy);
+	/* will fail if the gtable already exists */
+	r = simple_stable::create(toilet->path_fd, name, config, dtype::UINT32);
+	tx_end(0);
+	if(r < 0)
+		return r;
+	toilet->gtable_names.push_back(name);
 	
 	return 0;
 }
@@ -250,6 +221,7 @@ int toilet_drop_gtable(t_gtable * gtable)
 
 t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 {
+	int r;
 	t_gtable * gtable;
 	simple_stable * sst;
 	params config, base_config;
@@ -264,9 +236,7 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	gtable = new t_gtable;
 	if(!gtable)
 		return NULL;
-	gtable->name = strdup(name);
-	if(!gtable->name)
-		goto fail_name;
+	gtable->name = name;
 	gtable->table = sst = new simple_stable;
 	if(!gtable->table)
 		goto fail_table;
@@ -274,12 +244,18 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	gtable->out_count = 1;
 	
 	base_config.set_class("base", simple_dtable);
+	base_config.set("query_journal", true);
 	config.set("meta_config", base_config);
 	config.set("data_config", base_config);
 	config.set_class("meta", managed_dtable);
 	config.set_class("data", managed_dtable);
 	config.set_class("columns", simple_ctable);
-	if(sst->init(toilet->path_fd, name, config) < 0)
+	r = tx_start();
+	if(r < 0)
+		goto fail_open;
+	r = sst->init(toilet->path_fd, name, config);
+	tx_end(0);
+	if(r < 0)
 		goto fail_open;
 	
 	toilet->gtables[gtable->name] = gtable;
@@ -289,8 +265,6 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 fail_open:
 	delete gtable->table;
 fail_table:
-	free((void *) gtable->name);
-fail_name:
 	delete gtable;
 	return NULL;
 }
@@ -302,7 +276,12 @@ const char * toilet_gtable_name(t_gtable * gtable)
 
 int toilet_gtable_maintain(t_gtable * gtable)
 {
-	return gtable->table->maintain();
+	int r = tx_start();
+	if(r < 0)
+		return r;
+	r = gtable->table->maintain();
+	tx_end(0);
+	return r;
 }
 
 void toilet_put_gtable(t_gtable * gtable)
@@ -311,7 +290,6 @@ void toilet_put_gtable(t_gtable * gtable)
 	{
 		gtable->toilet->gtables.erase(gtable->name);
 		delete gtable->table;
-		free((void *) gtable->name);
 		delete gtable;
 	}
 }
@@ -396,11 +374,12 @@ size_t toilet_gtable_column_row_count(t_gtable * gtable, const char * name)
 
 static int toilet_new_row_id(t_toilet * toilet, t_row_id * row)
 {
+	int r;
 	bf_ctx bfc;
 	t_row_id next = toilet->next_row + 1;
-	lseek(toilet->row_fd, SEEK_SET, 0);
-	if(write(toilet->row_fd, &next, sizeof(next)) != sizeof(next))
-		return -1;
+	r = tx_write(toilet->row_fd, &next, sizeof(next), 0);
+	if(r < 0)
+		return r;
 	bf_setkey(&bfc, toilet->id, sizeof(toilet->id));
 	*row = bf32_encipher(&bfc, toilet->next_row);
 	toilet->next_row = next;
@@ -409,14 +388,23 @@ static int toilet_new_row_id(t_toilet * toilet, t_row_id * row)
 
 int toilet_new_row(t_gtable * gtable, t_row_id * new_id)
 {
+	int r = tx_start();
+	if(r < 0)
+		return r;
 	/* doesn't actually do anything other than reserve a row ID! */
 	/* technically this row ID can therefore be used in several gtables... */
-	return toilet_new_row_id(gtable->toilet, new_id);
+	r = toilet_new_row_id(gtable->toilet, new_id);
+	tx_end(0);
+	return r;
 }
 
 int toilet_drop_row(t_row * row)
 {
-	int r = row->gtable->table->remove(row->id);
+	int r = tx_start();
+	if(r < 0)
+		return r;
+	r = row->gtable->table->remove(row->id);
+	tx_end(0);
 	if(r >= 0)
 		toilet_put_row(row);
 	return r;
@@ -436,15 +424,6 @@ void toilet_put_row(t_row * row)
 {
 	if(--row->out_count <= 0)
 	{
-		while(!row->values.empty())
-		{
-			value_map::iterator it = row->values.begin();
-			const char * column = it->first;
-			t_value * value = it->second;
-			row->values.erase(column);
-			delete column;
-			delete value;
-		}
 		toilet_put_gtable(row->gtable);
 		delete row;
 	}
@@ -470,22 +449,19 @@ const t_value * toilet_row_value(t_row * row, const char * key, t_type type)
 	bool found = row->gtable->table->find(row->id, key, &value);
 	if(!found)
 		return NULL;
-	key = strdup(key);
-	if(!key)
-		return NULL;
 	switch(value.type)
 	{
 		case dtype::UINT32:
 			if(type != T_INT)
 				return NULL;
-			converted = new t_value;
+			converted = (t_value *) malloc(sizeof(*converted));
 			converted->v_int = value.u32;
 			row->values[key] = converted;
 			return converted;
 		case dtype::DOUBLE:
 			if(type != T_FLOAT)
 				return NULL;
-			converted = new t_value;
+			converted = (t_value *) malloc(sizeof(*converted));
 			converted->v_float = value.dbl;
 			row->values[key] = converted;
 			return converted;
@@ -507,23 +483,37 @@ const t_value * toilet_row_value_type(t_row * row, const char * key, t_type * ty
 
 int toilet_row_set_value(t_row * row, const char * key, t_type type, const t_value * value)
 {
+	int r = tx_start();
+	if(r < 0)
+		return r;
 	switch(type)
 	{
 		case T_ID:
 			/* ... hmm, maybe we want to do something special here? */
 		case T_INT:
-			return row->gtable->table->append(row->id, key, value->v_int);
+			r = row->gtable->table->append(row->id, key, value->v_int);
+			tx_end(0);
+			return r;
 		case T_FLOAT:
-			return row->gtable->table->append(row->id, key, value->v_float);
+			r = row->gtable->table->append(row->id, key, value->v_float);
+			tx_end(0);
+			return r;
 		case T_STRING:
-			return row->gtable->table->append(row->id, key, value->v_string);
+			r = row->gtable->table->append(row->id, key, value->v_string);
+			tx_end(0);
+			return r;
 	}
 	abort();
 }
 
 int toilet_row_remove_key(t_row * row, const char * key)
 {
-	return row->gtable->table->remove(row->id, key);
+	int r = tx_start();
+	if(r < 0)
+		return r;
+	r = row->gtable->table->remove(row->id, key);
+	tx_end(0);
+	return r;
 }
 
 static bool toilet_row_matches(t_gtable * gtable, t_row_id id, t_simple_query * query)
@@ -561,10 +551,11 @@ static bool toilet_row_matches(t_gtable * gtable, t_row_id id, t_simple_query * 
 
 t_rowset * toilet_simple_query(t_gtable * gtable, t_simple_query * query)
 {
-	/* no such column */
-	if(!gtable->table->row_count(query->name))
-		return new t_rowset;
 	if(query->name)
+	{
+		/* no such column */
+		if(!gtable->table->row_count(query->name))
+			return new t_rowset;
 		switch(gtable->table->column_type(query->name))
 		{
 			case dtype::UINT32:
@@ -581,6 +572,7 @@ t_rowset * toilet_simple_query(t_gtable * gtable, t_simple_query * query)
 				break;
 			/* no default; want the compiler to warn of new cases */
 		}
+	}
 	t_rowset * result = new t_rowset;
 	/* we don't have indices yet, so just iterate and find the matches */
 	dtable::key_iter * iter = gtable->table->keys();

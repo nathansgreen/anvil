@@ -13,6 +13,7 @@ echo -n "Creating file system... "
 sudo mke2fs -m 0 -b 4096 /dev/sdb1 &> /dev/null
 sudo mount /dev/sdb1 /mnt/test -t ext2
 sudo chown `whoami` /mnt/test
+cp demo /mnt/test
 cat > /mnt/test/run << EOF
 journal create tj
 journal append record1
@@ -37,7 +38,8 @@ sudo mount /mnt/test
 echo "done."
 
 #export VALGRIND="valgrind --trace-children=yes"
-echo "script run" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+#echo "script run" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
 
 #ls -lR /mnt/test
 #true | hexdump -C /mnt/test/teststrings
