@@ -47,7 +47,7 @@ function email_invite_url($event, $email, $url, $guest, $host, $from, $comments)
 
 function count_replies($guests, $event, $reply)
 {
-	$rows = gtable_squery($guests, "event", $event);
+	$rows = gtable_query($guests, "event", $event);
 	$rows = rowids_get_rows($rows, array("id", "reply", "heads", "emails"));
 	$result = 0;
 	if($reply == "Y" || $reply == "M")
@@ -69,7 +69,7 @@ function count_replies($guests, $event, $reply)
 
 function show_replies($guests, $event, $reply, $org)
 {
-	$rows = gtable_squery($guests, "event", $event);
+	$rows = gtable_query($guests, "event", $event);
 	$rows = rowids_get_sorted_rows($rows, "name", false, array("id", "name", "hash", "email", "emails", "reply", "heads", "comments"));
 	foreach($rows as $row)
 	{
@@ -113,7 +113,7 @@ if(isset($_REQUEST["event"]))
 {
 	$event = $_REQUEST["event"];
 	
-	$rows = gtable_squery($events, "hash", $event);
+	$rows = gtable_query($events, "hash", $event);
 	if($rows[0])
 	{
 		$id = $rows[0];
@@ -124,7 +124,7 @@ if(isset($_REQUEST["event"]))
 		$org_id = $row["organizer"];
 		$time = $row["time"];
 		$comments = $row["comments"];
-		$rows = gtable_squery($guests, "id", $org_id);
+		$rows = gtable_query($guests, "id", $org_id);
 		if($rows[0])
 		{
 			$row = rowid_get_row($rows[0], array("name", "email"));
@@ -165,7 +165,7 @@ if(isset($_REQUEST["event"]))
 			$s_title = stripslashes($title);
 			$server = $HTTP_SERVER_VARS["SERVER_NAME"];
 			$n_comments = stripslashes($_REQUEST["comments"]);
-			$rows = gtable_squery($guests, "event", $id);
+			$rows = gtable_query($guests, "event", $id);
 			foreach($rows as $guest_id)
 			{
 				$row = rowid_get_row($guest_id, array("name", "hash", "email", "emails", "reply"));
@@ -198,7 +198,7 @@ if(isset($_REQUEST["event"]))
 		}
 		else if($action == "Remove checked guests" && isset($_REQUEST["confirm"]))
 		{
-			$rows = gtable_squery($guests, "event", $id);
+			$rows = gtable_query($guests, "event", $id);
 			foreach($rows as $guest)
 			{
 				if(rowid_equal($guest, $org_id))
@@ -241,7 +241,7 @@ if(isset($_REQUEST["event"]))
 			
 			if(!$error)
 			{
-				$rows = gtable_squery($guests, "event", $id);
+				$rows = gtable_query($guests, "event", $id);
 				foreach($rows as $guest)
 				{
 					$format = rowid_format($guest);

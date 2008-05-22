@@ -7,7 +7,7 @@ include "util.php";
 
 function count_replies($guests, $event, $reply, $org = null)
 {
-	$rows = gtable_squery($guests, "event", $event);
+	$rows = gtable_query($guests, "event", $event);
 	$rows = rowids_get_rows($rows, array("id", "reply", "heads", "emails"));
 	$result = 0;
 	if($reply == "Y" || $reply == "M")
@@ -31,7 +31,7 @@ function count_replies($guests, $event, $reply, $org = null)
 
 function show_replies($guests, $event, $reply, $org)
 {
-	$rows = gtable_squery($guests, "event", $event);
+	$rows = gtable_query($guests, "event", $event);
 	$rows = rowids_get_sorted_rows($rows, "name", false, array("id", "name", "email", "emails", "reply", "heads", "comments"));
 	foreach($rows as $row)
 	{
@@ -99,7 +99,7 @@ if(isset($_REQUEST["invite"]))
 {
 	$invite = rtrim($_REQUEST["invite"], ".");
 	
-	$rows = gtable_squery($guests, "hash", $invite);
+	$rows = gtable_query($guests, "hash", $invite);
 	if($rows[0])
 	{
 		$guest = $rows[0];

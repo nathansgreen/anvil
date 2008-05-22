@@ -182,7 +182,7 @@ PHP_FUNCTION(gtable_name)
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zgtable) == FAILURE)
 		RETURN_FALSE;
 	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
-	RETURN_STRING((char *) NAME(gtable), 1);
+	RETURN_STRING((char *) toilet_gtable_name(gtable), 1);
 }
 
 /* takes a gtable, returns a boolean */
@@ -226,6 +226,8 @@ PHP_FUNCTION(gtable_column_type)
 	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &zgtable, &name, &name_len) == FAILURE)
 		RETURN_FALSE;
 	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
+	if(!toilet_gtable_column_row_count(gtable, name))
+		RETURN_NULL();
 	RETURN_STRING((char *) toilet_name_type(toilet_gtable_column_type(gtable, name)), 1);
 }
 
@@ -244,12 +246,12 @@ PHP_FUNCTION(gtable_column_row_count)
 
 static void rowset_to_array(t_gtable * gtable, t_rowset * rowset, zval * array)
 {
-	int i;
-	for(i = 0; i < ROWS(rowset); i++)
+	size_t i, max = toilet_rowset_size(rowset);
+	for(i = 0; i < max; i++)
 	{
 		zval * zrowid;
 		php_rowid * rowid = emalloc(sizeof(*rowid));
-		rowid->rowid = ROW(rowset, i);
+		rowid->rowid = toilet_rowset_row(rowset, i);
 		rowid->gtable = gtable;
 		ALLOC_INIT_ZVAL(zrowid);
 		ZEND_REGISTER_RESOURCE(zrowid, rowid, le_rowid);
@@ -319,6 +321,11 @@ PHP_FUNCTION(gtable_query)
 		RETURN_FALSE;
 	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
 	query.name = name;
+	if(!toilet_gtable_column_row_count(gtable, name))
+	{
+		array_init(return_value);
+		return;
+	}
 	query.type = toilet_gtable_column_type(gtable, name);
 	if(zlow)
 	{
@@ -357,6 +364,11 @@ PHP_FUNCTION(gtable_count_query)
 		RETURN_FALSE;
 	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
 	query.name = name;
+	if(!toilet_gtable_column_row_count(gtable, name))
+	{
+		array_init(return_value);
+		return;
+	}
 	query.type = toilet_gtable_column_type(gtable, name);
 	if(zlow)
 	{
@@ -505,6 +517,8 @@ PHP_FUNCTION(rowid_get_row)
 			if(Z_TYPE_PP(zname) != IS_STRING)
 				continue;
 			name = Z_STRVAL_PP(zname);
+			if(!toilet_gtable_column_row_count(toilet_row_gtable(row), name))
+				continue;
 			type = toilet_gtable_column_type(toilet_row_gtable(row), name);
 			row_hash_populate_column(return_value, row, name, type);
 		}
