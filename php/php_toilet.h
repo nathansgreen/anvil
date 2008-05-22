@@ -23,6 +23,8 @@ typedef struct php_rowid {
 PHP_MINIT_FUNCTION(toilet);
 PHP_MSHUTDOWN_FUNCTION(toilet);
 
+/* takes a string, returns a long */
+PHP_FUNCTION(toilet_init);
 /* takes a string, returns a toilet */
 PHP_FUNCTION(toilet_open);
 /* takes a toilet, returns a boolean */

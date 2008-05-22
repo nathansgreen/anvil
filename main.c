@@ -822,8 +822,6 @@ static int command_script(int argc, const char * argv[])
 	return 0;
 }
 
-int cpp_init(void);
-
 int main(int argc, char * argv[])
 {
 	char * quit = "quit";
@@ -831,23 +829,18 @@ int main(int argc, char * argv[])
 	char history[PATH_MAX];
 	int r;
 	hash_map_init();
-	if((r = tx_init(AT_FDCWD)) < 0)
+	/* toilet_init() calls tx_init() for us */
+	if((r = toilet_init(".")) < 0)
 	{
 		if(r == -1 && errno > 0)
 		{
-			fprintf(stderr, "Error: tx_init() = -1 (%s)\n", strerror(errno));
+			fprintf(stderr, "Error: toilet_init() = -1 (%s)\n", strerror(errno));
 			r = -errno;
 		}
 		else
-			fprintf(stderr, "Error: tx_init() = %d (%s)\n", r, strerror(-r));
+			fprintf(stderr, "Error: toilet_init() = %d (%s)\n", r, strerror(-r));
 		if(r == -ENOENT)
 			fprintf(stderr, "(Is there a journals directory?)\n");
-		return 1;
-	}
-	r = cpp_init();
-	if(r < 0)
-	{
-		fprintf(stderr, "Error: cpp_init() = %d (%s)\n", r, strerror(-r));
 		return 1;
 	}
 	snprintf(history, sizeof(history), "%s/.toilet_history", home ? home : ".");

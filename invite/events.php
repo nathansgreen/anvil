@@ -5,7 +5,8 @@
 
 include "util.php";
 
-$db = toilet_open($toilet_path);
+toilet_init($toilet_init_path);
+$db = toilet_open($toilet_db_path);
 $events = toilet_gtable($db, "events");
 $guests = toilet_gtable($db, "guests");
 

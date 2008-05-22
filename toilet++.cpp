@@ -18,6 +18,30 @@
 #include "simple_ctable.h"
 #include "simple_stable.h"
 
+int toilet_init(const char * path)
+{
+	int r, fd = open(path, 0);
+	if(fd < 0)
+		return fd;
+	r = tx_init(fd);
+	if(r >= 0)
+	{
+		r = tx_start();
+		if(r >= 0)
+		{
+			r = sys_journal::set_unique_id_file(fd, "sys_journal_id", true);
+			if(r >= 0)
+				r = sys_journal::get_global_journal()->init(fd, "sys_journal", true);
+			if(r >= 0)
+				r = tx_end(0);
+			else
+				tx_end(0);
+		}
+	}
+	close(fd);
+	return r;
+}
+
 int toilet_new(const char * path)
 {
 	int r, dir_fd, fd;

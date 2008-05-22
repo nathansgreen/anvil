@@ -22,7 +22,6 @@
 #include "simple_stable.h"
 
 extern "C" {
-int cpp_init(void);
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
@@ -172,26 +171,6 @@ static void run_iterator(stable * table)
 		more = iter->next();
 	}
 	delete iter;
-}
-
-int cpp_init(void)
-{
-	int r = tx_start();
-	if(r < 0)
-		return r;
-	r = sys_journal::set_unique_id_file(AT_FDCWD, "sys_journal_id", true);
-	if(r < 0)
-	{
-		tx_end(0);
-		return r;
-	}
-	r = sys_journal::get_global_journal()->init(AT_FDCWD, "sys_journal", true);
-	if(r < 0)
-	{
-		tx_end(0);
-		return r;
-	}
-	return tx_end(0);
 }
 
 int command_dtable(int argc, const char * argv[])

@@ -88,6 +88,9 @@ struct t_simple_query
 };
 typedef struct t_simple_query t_simple_query;
 
+/* use toilet runtime environment (journals, etc.) at this path */
+int toilet_init(const char * path);
+
 /* databases */
 
 int toilet_new(const char * path);

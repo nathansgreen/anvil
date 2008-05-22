@@ -14,6 +14,7 @@ static int le_gtable;
 static int le_rowid;
 
 static function_entry toilet_functions[] = {
+	PHP_FE(toilet_init, NULL)
 	PHP_FE(toilet_open, NULL)
 	PHP_FE(toilet_close, NULL)
 	PHP_FE(toilet_gtables, NULL)
@@ -88,6 +89,16 @@ PHP_MINIT_FUNCTION(toilet)
 PHP_MSHUTDOWN_FUNCTION(toilet)
 {
 	return SUCCESS;
+}
+
+/* takes a string, returns a long */
+PHP_FUNCTION(toilet_init)
+{
+	char * path = NULL;
+	int path_len;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &path, &path_len) == FAILURE)
+		RETURN_NULL();
+	RETURN_LONG(toilet_init(path));
 }
 
 /* takes a string, returns a toilet */

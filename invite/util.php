@@ -1,6 +1,7 @@
 <?php
 
-$toilet_path = "/home/mdm2000/public_html/invite-o-toilet/toilet";
+$toilet_init_path = "/mnt/test";
+$toilet_db_path = "/mnt/test/invite";
 
 /* takes an array of rows, each of which is an associative array of key => value */
 function sort_rows_by($rows, $column, $desc = false)

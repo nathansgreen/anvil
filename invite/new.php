@@ -44,7 +44,8 @@ if(isset($_REQUEST["name"]))
 			$hour += 12;
 		$event_time = mktime($hour, $min, 0, $month, $day, $year);
 		
-		$db = toilet_open($toilet_path);
+		toilet_init($toilet_init_path);
+		$db = toilet_open($toilet_db_path);
 		$events = toilet_gtable($db, "events");
 		$guests = toilet_gtable($db, "guests");
 		
