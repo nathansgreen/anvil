@@ -90,7 +90,7 @@ public:
 	int digest(int dfd, const char * file);
 	
 	inline sys_journal() : fd(-1) {}
-	int init(int dfd, const char * file, bool create = false);
+	int init(int dfd, const char * file, bool create = false, bool fail_missing = false);
 	void deinit();
 	inline ~sys_journal()
 	{
@@ -131,7 +131,7 @@ private:
 	static unique_id id;
 	
 	/* if no listener provided, all listeners, via global registry */
-	int playback(journal_listener * target = NULL);
+	int playback(journal_listener * target = NULL, bool fail_missing = false);
 };
 
 #endif /* __SYS_JOURNAL_H */

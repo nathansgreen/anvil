@@ -22,7 +22,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	base = dt_factory_registry::lookup(config, "base");
 	if(!base)
 		return -EINVAL;
-	if(!config.get("query_journal", &query_journal, false))
+	if(!config.get("query_journal", &query_journal, true))
 		return -EINVAL;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;

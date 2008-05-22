@@ -244,7 +244,6 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	gtable->out_count = 1;
 	
 	base_config.set_class("base", simple_dtable);
-	base_config.set("query_journal", true);
 	config.set("meta_config", base_config);
 	config.set("data_config", base_config);
 	config.set_class("meta", managed_dtable);

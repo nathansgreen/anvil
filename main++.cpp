@@ -185,7 +185,6 @@ int cpp_init(void)
 		tx_end(0);
 		return r;
 	}
-	/* this will want to replay all the journal entries... hope there aren't any just yet */
 	r = sys_journal::get_global_journal()->init(AT_FDCWD, "sys_journal", true);
 	if(r < 0)
 	{
@@ -203,7 +202,6 @@ int command_dtable(int argc, const char * argv[])
 	params config;
 	config.set_class("base", simple_dtable);
 	params query(config);
-	query.set("query_journal", true);
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -340,6 +338,7 @@ int command_stable(int argc, const char * argv[])
 	params config, base_config;
 	
 	base_config.set_class("base", simple_dtable);
+	base_config.set("digest_interval", 2);
 	config.set("meta_config", base_config);
 	config.set("data_config", base_config);
 	config.set_class("meta", managed_dtable);
@@ -369,11 +368,6 @@ int command_stable(int argc, const char * argv[])
 	printf("tx_end = %d\n", r);
 	delete sst;
 	
-	/* query the journal this time */
-	base_config.set("query_journal", true);
-	config.set("meta_config", base_config);
-	config.set("data_config", base_config);
-	
 	sst = new simple_stable;
 	r = sst->init(AT_FDCWD, "simple_stable", config);
 	printf("sst->init = %d\n", r);
@@ -389,6 +383,20 @@ int command_stable(int argc, const char * argv[])
 	r = sst->remove(6u);
 	printf("sst->remove(6) = %d\n", r);
 	run_iterator(sst);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	delete sst;
+	
+	printf("Waiting 3 seconds for digest interval...\n");
+	sleep(3);
+	sst = new simple_stable;
+	/* must start the transaction first since it will do maintenance */
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = sst->init(AT_FDCWD, "simple_stable", config);
+	printf("sst->init = %d\n", r);
+	r = sst->maintain();
+	printf("sst->maintain() = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	delete sst;

@@ -5,14 +5,12 @@
 #ifndef __SUB_BLOB_H
 #define __SUB_BLOB_H
 
-#include <string.h>
-
 #ifndef __cplusplus
 #error sub_blob.h is a C++ header file
 #endif
 
 #include "blob.h"
-
+#include "istr.h"
 
 class sub_blob
 {
@@ -26,8 +24,7 @@ public:
 		virtual bool valid() const = 0;
 		/* see the note about dtable::iter in dtable.h */
 		virtual bool next() = 0;
-		/* returned string is good at least until the next call to next() */
-		virtual const char * column() const = 0;
+		virtual const istr & column() const = 0;
 		virtual blob value() const = 0;
 		virtual ~iter() {}
 	};
@@ -35,9 +32,9 @@ public:
 	inline sub_blob() : modified(false), overrides(NULL) {}
 	inline sub_blob(const blob & x) : base(x), modified(false), overrides(NULL) {}
 	
-	blob get(const char * column) const;
-	int set(const char * column, const blob & value);
-	int remove(const char * column);
+	blob get(const istr & column) const;
+	int set(const istr & column, const blob & value);
+	int remove(const istr & column);
 	blob flatten(bool internalize = true);
 	/* it is undefined what happens if you call flatten() while
 	 * iterating, but get(), set(), and remove() should all work */
@@ -55,13 +52,13 @@ private:
 	
 	struct override
 	{
-		const char * name;
+		istr name;
 		blob value;
 		override ** prev;
 		override * next;
 		
-		inline override(const char * column, const blob & x, override ** first = NULL)
-			: name(strdup(column)), value(x)
+		inline override(const istr & column, const blob & x, override ** first = NULL)
+			: name(column), value(x)
 		{
 			if(first)
 			{
@@ -80,7 +77,6 @@ private:
 		{
 			if(prev)
 				*prev = next;
-			free((void *) name);
 		}
 	};
 	mutable override * overrides;
@@ -90,7 +86,7 @@ private:
 	public:
 		virtual bool valid() const;
 		virtual bool next();
-		virtual const char * column() const;
+		virtual const istr & column() const;
 		virtual blob value() const;
 		inline named_iter(override * first) : current(first) {}
 		virtual ~named_iter() {}
@@ -99,8 +95,8 @@ private:
 		const override * current;
 	};
 	
-	override * find(const char * column) const;
-	blob extract(const char * column) const;
+	override * find(const istr & column) const;
+	blob extract(const istr & column) const;
 	/* populate the override list with the current values */
 	void populate() const;
 };

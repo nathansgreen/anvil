@@ -37,6 +37,7 @@ int sys_journal::append(journal_listener * listener, void * entry, size_t length
 	entry_header header;
 	header.id = listener->id();
 	assert(lookup_listener(header.id) == listener);
+	assert(!discarded.count(header.id));
 	if(length == (size_t) -1)
 		return -EINVAL;
 	header.length = length;
@@ -129,11 +130,12 @@ fail:
 	return (r < 0) ? r : -1;
 }
 
-int sys_journal::init(int dfd, const char * file, bool create)
+int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing)
 {
 	bool do_playback = false;
 	if(fd >= 0)
 		deinit();
+	offset = 0;
 	fd = tx_open(dfd, file, O_RDWR);
 	if(fd < 0)
 	{
@@ -167,7 +169,7 @@ int sys_journal::init(int dfd, const char * file, bool create)
 	/* any other initialization here */
 	if(do_playback)
 	{
-		int r = playback();
+		int r = playback(NULL, fail_missing);
 		if(r < 0)
 		{
 			deinit();
@@ -177,7 +179,7 @@ int sys_journal::init(int dfd, const char * file, bool create)
 	return 0;
 }
 
-int sys_journal::playback(journal_listener * target)
+int sys_journal::playback(journal_listener * target, bool fail_missing)
 {
 	/* playback */
 	file_header header;
@@ -243,8 +245,9 @@ int sys_journal::playback(journal_listener * target)
 	}
 	if(r > 0)
 		return -EIO;
-	offset = lseek(ufd, 0, SEEK_END);
-	if(!missing.empty())
+	if(!offset)
+		offset = lseek(ufd, 0, SEEK_END);
+	if(fail_missing && !missing.empty())
 		/* print warning message? */
 		return -ENOENT;
 	return r;

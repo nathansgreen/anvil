@@ -40,7 +40,7 @@ bool sub_blob::named_iter::next()
 	return current != NULL;
 }
 
-const char * sub_blob::named_iter::column() const
+const istr & sub_blob::named_iter::column() const
 {
 	return current->name;
 }
@@ -50,7 +50,7 @@ blob sub_blob::named_iter::value() const
 	return current->value;
 }
 
-blob sub_blob::extract(const char * column) const
+blob sub_blob::extract(const istr & column) const
 {
 	if(base.size() < 1)
 		/* no columns */
@@ -72,7 +72,7 @@ blob sub_blob::extract(const char * column) const
 	return blob();
 }
 
-blob sub_blob::get(const char * column) const
+blob sub_blob::get(const istr & column) const
 {
 	override * ovr = find(column);
 	if(ovr)
@@ -84,7 +84,7 @@ blob sub_blob::get(const char * column) const
 	return value;
 }
 
-int sub_blob::set(const char * column, const blob & value)
+int sub_blob::set(const istr & column, const blob & value)
 {
 	override * ovr = find(column);
 	if(ovr)
@@ -101,7 +101,7 @@ int sub_blob::set(const char * column, const blob & value)
 	return 0;
 }
 
-int sub_blob::remove(const char * column)
+int sub_blob::remove(const istr & column)
 {
 	return set(column, blob());
 }
@@ -187,7 +187,7 @@ void sub_blob::populate() const
 	}
 }
 
-sub_blob::override * sub_blob::find(const char * column) const
+sub_blob::override * sub_blob::find(const istr & column) const
 {
 	for(override * scan = overrides; scan; scan = scan->next)
 		if(!strcmp(scan->name, column))
