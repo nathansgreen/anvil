@@ -127,6 +127,11 @@ bool simple_stable::find(dtype key, const char * column, dtype * value) const
 	return true;
 }
 
+bool simple_stable::contains(dtype key) const
+{
+	return ct_data->contains(key);
+}
+
 bool simple_stable::writable() const
 {
 	return dt_meta->writable() && ct_data->writable();

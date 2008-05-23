@@ -55,6 +55,7 @@ public:
 	
 	/* returns true if found, otherwise does not change *value */
 	virtual bool find(dtype key, const char * column, dtype * value) const = 0;
+	virtual bool contains(dtype key) const = 0;
 	
 	virtual bool writable() const = 0;
 	

@@ -106,6 +106,11 @@ blob simple_ctable::find(dtype key, const char * column) const
 	return columns.get(column);
 }
 
+bool simple_ctable::contains(dtype key) const
+{
+	return dt_source->find(key).exists();
+}
+
 /* if we made a better find(), this could avoid flattening every time */
 int simple_ctable::append(dtype key, const char * column, const blob & value)
 {

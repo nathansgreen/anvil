@@ -578,7 +578,30 @@ t_rowset * toilet_simple_query(t_gtable * gtable, t_simple_query * query)
 	{
 		/* no such column */
 		if(!gtable->table->row_count(query->name))
-			return new t_rowset;
+		{
+			t_rowset * result = new t_rowset;
+			if(!strcmp(query->name, "id"))
+			{
+				if(!query->values[0])
+				{
+					delete result;
+					query->name = NULL;
+					goto no_name;
+				}
+				if(query->values[1])
+				{
+					delete result;
+					return NULL;
+				}
+				if(gtable->table->contains(query->values[0]->v_int))
+				{
+					t_row_id id = query->values[0]->v_int;
+					result->rows.push_back(id);
+					result->ids.insert(id);
+				}
+			}
+			return result;
+		}
 		switch(gtable->table->column_type(query->name))
 		{
 			case dtype::UINT32:
@@ -596,6 +619,7 @@ t_rowset * toilet_simple_query(t_gtable * gtable, t_simple_query * query)
 			/* no default; want the compiler to warn of new cases */
 		}
 	}
+no_name:
 	t_rowset * result = new t_rowset;
 	/* we don't have indices yet, so just iterate and find the matches */
 	dtable::key_iter * iter = gtable->table->keys();

@@ -20,6 +20,7 @@ public:
 	virtual iter * iterator() const;
 	virtual iter * iterator(dtype key) const;
 	virtual blob find(dtype key, const char * column) const;
+	virtual bool contains(dtype key) const;
 	
 	inline virtual bool writable() const
 	{

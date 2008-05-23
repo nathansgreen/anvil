@@ -34,6 +34,7 @@ public:
 	virtual iter * iterator() const = 0;
 	virtual iter * iterator(dtype key) const = 0;
 	virtual blob find(dtype key, const char * column) const = 0;
+	virtual bool contains(dtype key) const = 0;
 	virtual bool writable() const = 0;
 	virtual int append(dtype key, const char * column, const blob & value) = 0;
 	/* remove just a column */

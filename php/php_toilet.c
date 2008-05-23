@@ -276,6 +276,12 @@ static int verify_zval_convert(zval * zvalue, t_type type, const t_value ** valu
 					r = 0;
 				}
 			}
+			else if(Z_TYPE_P(zvalue) == IS_LONG)
+			{
+				space->v_id = Z_LVAL_P(zvalue);
+				*value = space;
+				r = 0;
+			}
 			break;
 		case T_INT:
 			if(Z_TYPE_P(zvalue) == IS_LONG)
@@ -283,6 +289,16 @@ static int verify_zval_convert(zval * zvalue, t_type type, const t_value ** valu
 				space->v_int = Z_LVAL_P(zvalue);
 				*value = space;
 				r = 0;
+			}
+			else if(Z_TYPE_P(zvalue) == IS_RESOURCE)
+			{
+				php_rowid * rowid = (php_rowid *) zend_fetch_resource(&zvalue TSRMLS_CC, -1, PHP_ROWID_RES_NAME, NULL, 1, le_rowid);
+				if(rowid)
+				{
+					space->v_int = rowid->rowid;
+					*value = space;
+					r = 0;
+				}
 			}
 			break;
 		case T_STRING:
@@ -323,10 +339,15 @@ PHP_FUNCTION(gtable_query)
 	query.name = name;
 	if(!toilet_gtable_column_row_count(gtable, name))
 	{
-		array_init(return_value);
-		return;
+		if(strcmp(name, "id"))
+		{
+			array_init(return_value);
+			return;
+		}
+		query.type = T_ID;
 	}
-	query.type = toilet_gtable_column_type(gtable, name);
+	else
+		query.type = toilet_gtable_column_type(gtable, name);
 	if(zlow)
 	{
 		if(verify_zval_convert(zlow, query.type, &query.values[0], &values[0]) < 0)
@@ -518,8 +539,13 @@ PHP_FUNCTION(rowid_get_row)
 				continue;
 			name = Z_STRVAL_PP(zname);
 			if(!toilet_gtable_column_row_count(toilet_row_gtable(row), name))
-				continue;
-			type = toilet_gtable_column_type(toilet_row_gtable(row), name);
+			{
+				if(strcmp(name, "id"))
+					continue;
+				type = T_ID;
+			}
+			else
+				type = toilet_gtable_column_type(toilet_row_gtable(row), name);
 			row_hash_populate_column(return_value, row, name, type);
 		}
 	}
@@ -534,6 +560,7 @@ PHP_FUNCTION(rowid_get_row)
 			t_type type = toilet_columns_type(columns);
 			row_hash_populate_column(return_value, row, name, type);
 		}
+		row_hash_populate_column(return_value, row, "id", T_ID);
 	}
 	toilet_put_row(row);
 }

@@ -30,6 +30,7 @@ public:
 	virtual iter * iterator(dtype key) const;
 	
 	virtual bool find(dtype key, const char * column, dtype * value) const;
+	virtual bool contains(dtype key) const;
 	
 	virtual bool writable() const;
 	
