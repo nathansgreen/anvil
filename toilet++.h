@@ -20,7 +20,6 @@ extern "C" {
 
 enum t_type
 {
-	T_ID = 0,
 	T_INT = 1,
 	T_FLOAT = 2,
 	T_STRING = 3
@@ -32,8 +31,6 @@ static inline const char * toilet_name_type(t_type type)
 {
 	switch(type)
 	{
-		case T_ID:
-			return "id";
 		case T_INT:
 			return "int";
 		case T_FLOAT:
@@ -46,7 +43,7 @@ static inline const char * toilet_name_type(t_type type)
 
 /* this should be uint64_t later */
 typedef uint32_t t_row_id;
-#define ROW_FORMAT "%08x"
+#define ROW_FORMAT "%u"
 
 struct t_gtable;
 typedef struct t_gtable t_gtable;
@@ -66,7 +63,6 @@ typedef struct t_rowset t_rowset;
 /* NOTE: To use this union for strings, just cast the char * to a t_value *. */
 union t_value
 {
-	t_row_id v_id;
 	uint32_t v_int;
 	double v_float;
 	const char v_string[0];
@@ -177,6 +173,7 @@ struct t_gtable
 	stable * table;
 	t_toilet * toilet;
 	int out_count;
+	inline t_gtable() : out_count(1) {}
 };
 
 /* t_columns is really just stable::column_iter */
@@ -229,6 +226,8 @@ struct t_toilet
 	std::map<istr, t_gtable *, strcmp_less> gtables;
 	/* cache of rows currently out */
 	std::map<t_row_id, t_row *> rows;
+	int out_count;
+	inline t_toilet() : out_count(1) {}
 };
 
 struct t_rowset
@@ -236,7 +235,7 @@ struct t_rowset
 	std::vector<t_row_id> rows;
 	std::set<t_row_id> ids;
 	int out_count;
-	t_rowset() : out_count(1) {}
+	inline t_rowset() : out_count(1) {}
 };
 
 #endif

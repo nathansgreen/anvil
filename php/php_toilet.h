@@ -14,12 +14,6 @@
 
 #define PHP_GTABLE_RES_NAME "toilet gtable"
 
-typedef struct php_rowid {
-	t_row_id rowid;
-	t_gtable * gtable;
-} php_rowid;
-#define PHP_ROWID_RES_NAME "toilet row ID"
-
 PHP_MINIT_FUNCTION(toilet);
 PHP_MSHUTDOWN_FUNCTION(toilet);
 
@@ -46,28 +40,22 @@ PHP_FUNCTION(gtable_columns);
 PHP_FUNCTION(gtable_column_type);
 /* takes a gtable and a string, returns a long */
 PHP_FUNCTION(gtable_column_row_count);
-/* takes a gtable, a string, and up to two values, returns an array of ids */
+/* takes a gtable, a string, and up to two values, returns an array of rowids */
 PHP_FUNCTION(gtable_query);
 /* takes a gtable, a string, and up to two values, returns a long */
 PHP_FUNCTION(gtable_count_query);
-/* takes a gtable, returns an array of ids */
+/* takes a gtable, returns an array of rowids */
 PHP_FUNCTION(gtable_rows);
 /* takes a gtable, returns a rowid */
 PHP_FUNCTION(gtable_new_row);
 /* takes a gtable, returns a long */
 PHP_FUNCTION(gtable_maintain);
 
-/* takes two rowids, returns a boolean */
-PHP_FUNCTION(rowid_equal);
-/* takes a rowid and an optional array of strings, returns an associative array of values */
+/* takes a gtable, a rowid, and an optional array of strings, returns an associative array of values */
 PHP_FUNCTION(rowid_get_row);
-/* takes a rowid, returns a string */
-PHP_FUNCTION(rowid_format);
-/* takes a gtable and a string, returns a rowid */
-PHP_FUNCTION(rowid_parse);
-/* takes a rowid, an associative array of values, and optionally an associative array of type names, returns a boolean */
+/* takes a gtable, a rowid, an associative array of values, and optionally an associative array of type names, returns a boolean */
 PHP_FUNCTION(rowid_set_values);
-/* takes a rowid, returns a boolean */
+/* takes a gtable and a rowid, returns a boolean */
 PHP_FUNCTION(rowid_drop);
 
 extern zend_module_entry toilet_module_entry;

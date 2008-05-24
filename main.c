@@ -70,13 +70,6 @@ static int command_create(int argc, const char * argv[])
 	return r;
 }
 
-static int parse_row_id(const char * string, t_row_id * id)
-{
-	if(!strncmp(string, "0x", 2))
-		string = &string[2];
-	return (sscanf(string, ROW_FORMAT, id) == 1) ? 0 : -EINVAL;
-}
-
 static int command_drop(int argc, const char * argv[])
 {
 	int r = 0;
@@ -144,7 +137,7 @@ static int command_drop(int argc, const char * argv[])
 		else if(open_gtable)
 		{
 			t_row_id id;
-			if(parse_row_id(argv[2], &id) < 0)
+			if(sscanf(argv[2], ROW_FORMAT, &id) != 1)
 				r = -EINVAL;
 			else
 			{
@@ -228,7 +221,7 @@ static int command_open(int argc, const char * argv[])
 		else
 		{
 			t_row_id id;
-			if(parse_row_id(argv[2], &id) < 0)
+			if(sscanf(argv[2], ROW_FORMAT, &id) != 1)
 				r = -EINVAL;
 			else
 			{
@@ -285,9 +278,6 @@ static void print_value(t_type type, const t_value * value)
 {
 	switch(type)
 	{
-		case T_ID:
-			printf(ROW_FORMAT "\n", value->v_id);
-			break;
 		case T_INT:
 			printf("%u\n", value->v_int);
 			break;
@@ -390,10 +380,6 @@ static t_value * parse_value(t_type type, const char * string, t_value * value)
 	char * end = NULL;
 	switch(type)
 	{
-		case T_ID:
-			if(parse_row_id(string, &value->v_id) < 0)
-				return NULL;
-			return value;
 		case T_INT:
 			value->v_int = strtoll(string, &end, 0);
 			if(end && *end)
@@ -412,9 +398,7 @@ static t_value * parse_value(t_type type, const char * string, t_value * value)
 
 static int parse_type(const char * string, t_type * type)
 {
-	if(!strcmp(string, "id"))
-		*type = T_ID;
-	else if(!strcmp(string, "int"))
+	if(!strcmp(string, "int"))
 		*type = T_INT;
 	else if(!strcmp(string, "float"))
 		*type = T_FLOAT;

@@ -11,7 +11,6 @@
 
 static int le_toilet;
 static int le_gtable;
-static int le_rowid;
 
 static function_entry toilet_functions[] = {
 	PHP_FE(toilet_init, NULL)
@@ -30,10 +29,7 @@ static function_entry toilet_functions[] = {
 	PHP_FE(gtable_rows, NULL)
 	PHP_FE(gtable_new_row, NULL)
 	PHP_FE(gtable_maintain, NULL)
-	PHP_FE(rowid_equal, NULL)
 	PHP_FE(rowid_get_row, NULL)
-	PHP_FE(rowid_format, NULL)
-	PHP_FE(rowid_parse, NULL)
 	PHP_FE(rowid_set_values, NULL)
 	PHP_FE(rowid_drop, NULL)
 	{ NULL, NULL, NULL}
@@ -72,17 +68,10 @@ static void php_gtable_dtor(zend_rsrc_list_entry * rsrc TSRMLS_DC)
 	toilet_put_gtable(gtable);
 }
 
-static void php_rowid_dtor(zend_rsrc_list_entry * rsrc TSRMLS_DC)
-{
-	php_rowid * rowid = (php_rowid *) rsrc->ptr;
-	efree(rowid);
-}
-
 PHP_MINIT_FUNCTION(toilet)
 {
 	le_toilet = zend_register_list_destructors_ex(php_toilet_dtor, NULL, PHP_TOILET_RES_NAME, module_number);
 	le_gtable = zend_register_list_destructors_ex(php_gtable_dtor, NULL, PHP_GTABLE_RES_NAME, module_number);
-	le_rowid = zend_register_list_destructors_ex(php_rowid_dtor, NULL, PHP_ROWID_RES_NAME, module_number);
 	return SUCCESS;
 }
 
@@ -244,19 +233,11 @@ PHP_FUNCTION(gtable_column_row_count)
 	RETURN_LONG(toilet_gtable_column_row_count(gtable, name));
 }
 
-static void rowset_to_array(t_gtable * gtable, t_rowset * rowset, zval * array)
+static void rowset_to_array(t_rowset * rowset, zval * array)
 {
 	size_t i, max = toilet_rowset_size(rowset);
 	for(i = 0; i < max; i++)
-	{
-		zval * zrowid;
-		php_rowid * rowid = emalloc(sizeof(*rowid));
-		rowid->rowid = toilet_rowset_row(rowset, i);
-		rowid->gtable = gtable;
-		ALLOC_INIT_ZVAL(zrowid);
-		ZEND_REGISTER_RESOURCE(zrowid, rowid, le_rowid);
-		add_next_index_zval(array, zrowid);
-	}
+		add_next_index_long(array, toilet_rowset_row(rowset, i));
 	toilet_put_rowset(rowset);
 }
 
@@ -265,24 +246,6 @@ static int verify_zval_convert(zval * zvalue, t_type type, const t_value ** valu
 	int r = -EINVAL;
 	switch(type)
 	{
-		case T_ID:
-			if(Z_TYPE_P(zvalue) == IS_RESOURCE)
-			{
-				php_rowid * rowid = (php_rowid *) zend_fetch_resource(&zvalue TSRMLS_CC, -1, PHP_ROWID_RES_NAME, NULL, 1, le_rowid);
-				if(rowid)
-				{
-					space->v_id = rowid->rowid;
-					*value = space;
-					r = 0;
-				}
-			}
-			else if(Z_TYPE_P(zvalue) == IS_LONG)
-			{
-				space->v_id = Z_LVAL_P(zvalue);
-				*value = space;
-				r = 0;
-			}
-			break;
 		case T_INT:
 			if(Z_TYPE_P(zvalue) == IS_LONG)
 			{
@@ -290,15 +253,13 @@ static int verify_zval_convert(zval * zvalue, t_type type, const t_value ** valu
 				*value = space;
 				r = 0;
 			}
-			else if(Z_TYPE_P(zvalue) == IS_RESOURCE)
+			break;
+		case T_FLOAT:
+			if(Z_TYPE_P(zvalue) == IS_DOUBLE)
 			{
-				php_rowid * rowid = (php_rowid *) zend_fetch_resource(&zvalue TSRMLS_CC, -1, PHP_ROWID_RES_NAME, NULL, 1, le_rowid);
-				if(rowid)
-				{
-					space->v_int = rowid->rowid;
-					*value = space;
-					r = 0;
-				}
+				space->v_float = Z_DVAL_P(zvalue);
+				*value = space;
+				r = 0;
 			}
 			break;
 		case T_STRING:
@@ -321,7 +282,7 @@ static int verify_zval_convert(zval * zvalue, t_type type, const t_value ** valu
 	return r;
 }
 
-/* takes a gtable, a string, and up to two values, returns an array of ids */
+/* takes a gtable, a string, and up to two values, returns an array of rowids */
 PHP_FUNCTION(gtable_query)
 {
 	t_simple_query query;
@@ -344,7 +305,7 @@ PHP_FUNCTION(gtable_query)
 			array_init(return_value);
 			return;
 		}
-		query.type = T_ID;
+		query.type = T_INT;
 	}
 	else
 		query.type = toilet_gtable_column_type(gtable, name);
@@ -366,7 +327,7 @@ PHP_FUNCTION(gtable_query)
 	if(!rows)
 		RETURN_NULL();
 	array_init(return_value);
-	rowset_to_array(gtable, rows, return_value);
+	rowset_to_array(rows, return_value);
 }
 
 /* takes a gtable, a string, and up to two values, returns a long */
@@ -387,10 +348,15 @@ PHP_FUNCTION(gtable_count_query)
 	query.name = name;
 	if(!toilet_gtable_column_row_count(gtable, name))
 	{
-		array_init(return_value);
-		return;
+		if(strcmp(name, "id"))
+		{
+			array_init(return_value);
+			return;
+		}
+		query.type = T_INT;
 	}
-	query.type = toilet_gtable_column_type(gtable, name);
+	else
+		query.type = toilet_gtable_column_type(gtable, name);
 	if(zlow)
 	{
 		if(verify_zval_convert(zlow, query.type, &query.values[0], &values[0]) < 0)
@@ -408,7 +374,7 @@ PHP_FUNCTION(gtable_count_query)
 	RETURN_LONG(toilet_count_simple_query(gtable, &query));
 }
 
-/* takes a gtable, returns an array of ids */
+/* takes a gtable, returns an array of rowids */
 PHP_FUNCTION(gtable_rows)
 {
 	t_simple_query query = {.name = NULL};
@@ -422,13 +388,12 @@ PHP_FUNCTION(gtable_rows)
 	if(!rows)
 		RETURN_NULL();
 	array_init(return_value);
-	rowset_to_array(gtable, rows, return_value);
+	rowset_to_array(rows, return_value);
 }
 
 /* takes a gtable, returns a rowid */
 PHP_FUNCTION(gtable_new_row)
 {
-	php_rowid * prowid;
 	t_row_id rowid;
 	t_gtable * gtable;
 	zval * zgtable;
@@ -437,10 +402,7 @@ PHP_FUNCTION(gtable_new_row)
 	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
 	if(toilet_new_row(gtable, &rowid) < 0)
 		RETURN_NULL();
-	prowid = emalloc(sizeof(*prowid));
-	prowid->rowid = rowid;
-	prowid->gtable = gtable;
-	ZEND_REGISTER_RESOURCE(return_value, prowid, le_rowid);
+	RETURN_LONG(rowid);
 }
 
 /* takes a gtable, returns a long */
@@ -460,7 +422,7 @@ static void row_hash_populate_column(zval * hash, t_row * row, const char * name
 	const t_value * value;
 	if(!strcmp(name, "id"))
 	{
-		id_value.v_id = toilet_row_id(row);
+		id_value.v_int = toilet_row_id(row);
 		value = &id_value;
 	}
 	else
@@ -471,19 +433,11 @@ static void row_hash_populate_column(zval * hash, t_row * row, const char * name
 	}
 	switch(type)
 	{
-		case T_ID:
-		{
-			zval * zrowid;
-			php_rowid * rowid = emalloc(sizeof(*rowid));
-			rowid->rowid = value->v_id;
-			rowid->gtable = toilet_row_gtable(row);
-			ALLOC_INIT_ZVAL(zrowid);
-			ZEND_REGISTER_RESOURCE(zrowid, rowid, le_rowid);
-			add_assoc_zval(hash, (char *) name, zrowid);
-			break;
-		}
 		case T_INT:
 			add_assoc_long(hash, (char *) name, value->v_int);
+			break;
+		case T_FLOAT:
+			add_assoc_float(hash, (char *) name, value->v_float);
 			break;
 		case T_STRING:
 			add_assoc_string(hash, (char *) name, (char *) value->v_string, 1);
@@ -494,31 +448,18 @@ static void row_hash_populate_column(zval * hash, t_row * row, const char * name
 	}
 }
 
-/* takes two rowids, returns a boolean */
-PHP_FUNCTION(rowid_equal)
-{
-	php_rowid * rowids[2];
-	zval * zrowids[2];
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rr", &zrowids[0], &zrowids[1]) == FAILURE)
-		RETURN_NULL();
-	ZEND_FETCH_RESOURCE(rowids[0], php_rowid *, &zrowids[0], -1, PHP_ROWID_RES_NAME, le_rowid);
-	ZEND_FETCH_RESOURCE(rowids[1], php_rowid *, &zrowids[1], -1, PHP_ROWID_RES_NAME, le_rowid);
-	if(rowids[0]->rowid == rowids[1]->rowid && rowids[0]->gtable == rowids[1]->gtable)
-		RETURN_TRUE;
-	RETURN_FALSE;
-}
-
-/* takes a rowid and an optional array of strings, returns an associative array of values */
+/* takes a gtable, a rowid, and an optional array of strings, returns an associative array of values */
 PHP_FUNCTION(rowid_get_row)
 {
 	t_row * row;
-	php_rowid * rowid;
-	zval * zrowid;
+	t_gtable * gtable;
+	zval * zgtable;
+	long rowid;
 	zval * zcolnames = NULL;
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r|a", &zrowid, &zcolnames) == FAILURE)
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rl|a", &zgtable, &rowid, &zcolnames) == FAILURE)
 		RETURN_FALSE;
-	ZEND_FETCH_RESOURCE(rowid, php_rowid *, &zrowid, -1, PHP_ROWID_RES_NAME, le_rowid);
-	row = toilet_get_row(rowid->gtable, rowid->rowid);
+	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
+	row = toilet_get_row(gtable, rowid);
 	if(!row)
 		RETURN_NULL();
 	array_init(return_value);
@@ -542,7 +483,7 @@ PHP_FUNCTION(rowid_get_row)
 			{
 				if(strcmp(name, "id"))
 					continue;
-				type = T_ID;
+				type = T_INT;
 			}
 			else
 				type = toilet_gtable_column_type(toilet_row_gtable(row), name);
@@ -560,52 +501,17 @@ PHP_FUNCTION(rowid_get_row)
 			t_type type = toilet_columns_type(columns);
 			row_hash_populate_column(return_value, row, name, type);
 		}
-		row_hash_populate_column(return_value, row, "id", T_ID);
+		row_hash_populate_column(return_value, row, "id", T_INT);
 	}
 	toilet_put_row(row);
 }
 
-/* takes a rowid, returns a string */
-PHP_FUNCTION(rowid_format)
-{
-	char name[9];
-	php_rowid * rowid;
-	zval * zrowid;
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zrowid) == FAILURE)
-		RETURN_FALSE;
-	ZEND_FETCH_RESOURCE(rowid, php_rowid *, &zrowid, -1, PHP_ROWID_RES_NAME, le_rowid);
-	snprintf(name, sizeof(name), ROW_FORMAT, rowid->rowid);
-	RETURN_STRING(name, 1);
-}
-
-/* takes a gtable and a string, returns a rowid */
-PHP_FUNCTION(rowid_parse)
-{
-	t_row_id rowid;
-	php_rowid * prowid;
-	t_gtable * gtable;
-	zval * zgtable;
-	char * name = NULL;
-	int name_len, chars;
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rs", &zgtable, &name, &name_len) == FAILURE)
-		RETURN_NULL();
-	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
-	if(sscanf(name, ROW_FORMAT "%n", &rowid, &chars) != 1)
-		RETURN_NULL();
-	if(chars != name_len)
-		RETURN_NULL();
-	prowid = emalloc(sizeof(*prowid));
-	prowid->rowid = rowid;
-	prowid->gtable = gtable;
-	ZEND_REGISTER_RESOURCE(return_value, prowid, le_rowid);
-}
-
 static int parse_type(const char * string, t_type * type)
 {
-	if(!strcmp(string, "id"))
-		*type = T_ID;
-	else if(!strcmp(string, "int"))
+	if(!strcmp(string, "int"))
 		*type = T_INT;
+	else if(!strcmp(string, "float"))
+		*type = T_FLOAT;
 	else if(!strcmp(string, "string"))
 		*type = T_STRING;
 	/*else if(!strcmp(string, "blob"))
@@ -618,22 +524,17 @@ static int parse_type(const char * string, t_type * type)
 static int guess_zval_convert(zval * zvalue, t_type * type, const t_value ** value, t_value * space)
 {
 	int r = -EINVAL;
-	php_rowid * rowid;
 	switch(Z_TYPE_P(zvalue))
 	{
-		case IS_RESOURCE:
-			rowid = (php_rowid *) zend_fetch_resource(&zvalue TSRMLS_CC, -1, PHP_ROWID_RES_NAME, NULL, 1, le_rowid);
-			if(rowid)
-			{
-				*type = T_ID;
-				space->v_id = rowid->rowid;
-				*value = space;
-				r = 0;
-			}
-			break;
 		case IS_LONG:
 			*type = T_INT;
 			space->v_int = Z_LVAL_P(zvalue);
+			*value = space;
+			r = 0;
+			break;
+		case IS_DOUBLE:
+			*type = T_FLOAT;
+			space->v_float = Z_DVAL_P(zvalue);
 			*value = space;
 			r = 0;
 			break;
@@ -649,12 +550,13 @@ static int guess_zval_convert(zval * zvalue, t_type * type, const t_value ** val
 	return r;
 }
 
-/* takes a rowid, an associative array of values, and optionally an associative array of type names, returns a boolean */
+/* takes a gtable, a rowid, an associative array of values, and optionally an associative array of type names, returns a boolean */
 PHP_FUNCTION(rowid_set_values)
 {
 	t_row * row;
-	php_rowid * rowid;
-	zval * zrowid;
+	t_gtable * gtable;
+	zval * zgtable;
+	long rowid;
 	zval * zvalues;
 	zval * ztypes = NULL;
 	char * name;
@@ -663,10 +565,10 @@ PHP_FUNCTION(rowid_set_values)
 	zval ** zvalue;
 	HashPosition pointer;
 	HashTable * values;
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "ra|a", &zrowid, &zvalues, &ztypes) == FAILURE)
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rla|a", &zgtable, &rowid, &zvalues, &ztypes) == FAILURE)
 		RETURN_FALSE;
-	ZEND_FETCH_RESOURCE(rowid, php_rowid *, &zrowid, -1, PHP_ROWID_RES_NAME, le_rowid);
-	row = toilet_get_row(rowid->gtable, rowid->rowid);
+	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
+	row = toilet_get_row(gtable, rowid);
 	if(!row)
 		RETURN_FALSE;
 	values = Z_ARRVAL_P(zvalues);
@@ -690,7 +592,7 @@ PHP_FUNCTION(rowid_set_values)
 			const t_value * value;
 			zval ** ztype;
 			char * type_name = NULL;
-			t_type type = T_ID; /* to avoid warnings */
+			t_type type = T_INT; /* to avoid warnings */
 			if(ztypes && zend_hash_find(Z_ARRVAL_P(ztypes), name, name_len, (void **) &ztype) == SUCCESS)
 				if(Z_TYPE_PP(ztype) == IS_STRING)
 				{
@@ -729,16 +631,17 @@ PHP_FUNCTION(rowid_set_values)
 	RETURN_TRUE;
 }
 
-/* takes a rowid, returns a boolean */
+/* takes a gtable and a rowid, returns a boolean */
 PHP_FUNCTION(rowid_drop)
 {
 	t_row * row;
-	php_rowid * rowid;
-	zval * zrowid;
-	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "r", &zrowid) == FAILURE)
+	t_gtable * gtable;
+	zval * zgtable;
+	long rowid;
+	if(zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "rl", &zgtable, &rowid) == FAILURE)
 		RETURN_FALSE;
-	ZEND_FETCH_RESOURCE(rowid, php_rowid *, &zrowid, -1, PHP_ROWID_RES_NAME, le_rowid);
-	row = toilet_get_row(rowid->gtable, rowid->rowid);
+	ZEND_FETCH_RESOURCE(gtable, t_gtable *, &zgtable, -1, PHP_GTABLE_RES_NAME, le_gtable);
+	row = toilet_get_row(gtable, rowid);
 	if(!row)
 		RETURN_FALSE;
 	if(toilet_drop_row(row) < 0)
@@ -746,6 +649,5 @@ PHP_FUNCTION(rowid_drop)
 		toilet_put_row(row);
 		RETURN_FALSE;
 	}
-	zend_list_delete(Z_LVAL_P(zrowid));
 	RETURN_TRUE;
 }

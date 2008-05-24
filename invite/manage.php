@@ -48,7 +48,7 @@ function email_invite_url($event, $email, $url, $guest, $host, $from, $comments)
 function count_replies($guests, $event, $reply)
 {
 	$rows = gtable_query($guests, "event", $event);
-	$rows = rowids_get_rows($rows, array("id", "reply", "heads", "emails"));
+	$rows = rowids_get_rows($guests, $rows, array("id", "reply", "heads", "emails"));
 	$result = 0;
 	if($reply == "Y" || $reply == "M")
 		foreach($rows as $row)
@@ -70,23 +70,21 @@ function count_replies($guests, $event, $reply)
 function show_replies($guests, $event, $reply, $org)
 {
 	$rows = gtable_query($guests, "event", $event);
-	$rows = rowids_get_sorted_rows($rows, "name", false, array("id", "name", "hash", "email", "emails", "reply", "heads", "comments"));
+	$rows = rowids_get_sorted_rows($guests, $rows, "name", false, array("id", "name", "hash", "email", "emails", "reply", "heads", "comments"));
 	foreach($rows as $row)
 	{
 		if($row["reply"] != $reply)
 			continue;
 		$id = $row["id"];
-		$id_s = rowid_format($id);
-		$is_org = rowid_equal($id, $org);
 		$name = $row["name"];
 		$hash = $row["hash"];
 		$email = htmlspecialchars($row["email"]);
 		$emails = $row["emails"];
 		$heads = $row["heads"];
 		$comments = htmlspecialchars($row["comments"]);
-		echo "<DIV STYLE=\"float: right;\"><INPUT TYPE=\"CHECKBOX\" NAME=\"check_$id_s\"></DIV>\n";
-		echo "<B><INPUT TYPE=\"TEXT\" SIZE=20 NAME=\"name_$id_s\" VALUE=\"$name\" onChange='notifyChange()'>";
-		if($is_org)
+		echo "<DIV STYLE=\"float: right;\"><INPUT TYPE=\"CHECKBOX\" NAME=\"check_$id\"></DIV>\n";
+		echo "<B><INPUT TYPE=\"TEXT\" SIZE=20 NAME=\"name_$id\" VALUE=\"$name\" onChange='notifyChange()'>";
+		if($id == $org)
 			echo " (the organizer)";
 		if($heads > 1)
 			echo " + " . ($heads - 1) . (($heads > 2) ? " people" : " person");
@@ -95,10 +93,10 @@ function show_replies($guests, $event, $reply, $org)
 			echo "<DIV CLASS=\"comments\">$comments</DIV>\n";
 		$s = ($emails == 1) ? "" : "s";
 		echo "<DIV CLASS=\"info\">[ $emails email$s to ";
-		if($is_org)
+		if($id == $org)
 			echo "$email";
 		else
-			echo "<INPUT TYPE=\"TEXT\" SIZE=30 NAME=\"email_$id_s\" VALUE=\"$email\" onChange='notifyChange()'>";
+			echo "<INPUT TYPE=\"TEXT\" SIZE=30 NAME=\"email_$id\" VALUE=\"$email\" onChange='notifyChange()'>";
 		echo " | <A HREF=\"index.php?invite=$hash\" TARGET=\"_new\">edit reply</A>]</DIV>\n";
 	}
 }
@@ -114,10 +112,10 @@ if(isset($_REQUEST["event"]))
 	$event = $_REQUEST["event"];
 	
 	$rows = gtable_query($events, "hash", $event);
-	if($rows[0])
+	if(count($rows))
 	{
 		$id = $rows[0];
-		$row = rowid_get_row($id, array("name", "description", "location", "organizer", "time", "comments"));
+		$row = rowid_get_row($events, $id, array("name", "description", "location", "organizer", "time", "comments"));
 		$title = htmlspecialchars($row["name"]);
 		$desc = htmlspecialchars($row["description"]);
 		$where = htmlspecialchars($row["location"]);
@@ -125,9 +123,9 @@ if(isset($_REQUEST["event"]))
 		$time = $row["time"];
 		$comments = $row["comments"];
 		$rows = gtable_query($guests, "id", $org_id);
-		if($rows[0])
+		if(count($rows))
 		{
-			$row = rowid_get_row($rows[0], array("name", "email"));
+			$row = rowid_get_row($guests, $rows[0], array("name", "email"));
 			$org = $row["name"];
 			$org_email = $row["email"];
 		}
@@ -141,19 +139,19 @@ if(isset($_REQUEST["event"]))
 			if($guest && $email)
 			{
 				$guest_id = gtable_new_row($guests);
-				rowid_set_values($guest_id, array("event" => $id, "name" => $guest, "email" => $email, "emails" => 0));
-				$hash = hash_id("guest", rowid_format($guest_id));
-				rowid_set_values($guest_id, array("hash" => $hash));
+				rowid_set_values($guests, $guest_id, array("event" => $id, "name" => $guest, "email" => $email, "emails" => 0));
+				$hash = hash_id("guest", "$guest_id");
+				rowid_set_values($guests, $guest_id, array("hash" => $hash));
 				if($action != "Invite")
 				{
 					$email = stripslashes($email);
 					$server = $HTTP_SERVER_VARS["SERVER_NAME"];
 					$n_comments = stripslashes($_REQUEST["comments"]);
 					email_invite_url(stripslashes($title), $email, "http://$server/?invite=$hash", $guest, $org, $org_email, $n_comments);
-					rowid_set_values($guest_id, array("emails" => 1));
+					rowid_set_values($guests, $guest_id, array("emails" => 1));
 					if(isset($_REQUEST["save"]))
 					{
-						rowid_set_values($id, array("comments" => $n_comments));
+						rowid_set_values($events, $id, array("comments" => $n_comments));
 						$comments = stripslashes($n_comments);
 					}
 				}
@@ -168,7 +166,7 @@ if(isset($_REQUEST["event"]))
 			$rows = gtable_query($guests, "event", $id);
 			foreach($rows as $guest_id)
 			{
-				$row = rowid_get_row($guest_id, array("name", "hash", "email", "emails", "reply"));
+				$row = rowid_get_row($guests, $guest_id, array("name", "hash", "email", "emails", "reply"));
 				if($recipients == "check" && !isset($_REQUEST["check_" . rowid_format($guest_id)]))
 					continue;
 				$reply = $row["reply"];
@@ -187,12 +185,12 @@ if(isset($_REQUEST["event"]))
 				$hash = $row["hash"];
 				$email = $row["email"];
 				email_invite_url($s_title, $email, "http://$server/?invite=$hash", $guest, $org, $org_email, $n_comments);
-				rowid_set_values($guest_id, array("emails" => ($emails + 1)));
+				rowid_set_values($guests, $guest_id, array("emails" => ($emails + 1)));
 			}
 			if(isset($_REQUEST["save"]))
 			{
 				$n_comments = addslashes($n_comments);
-				rowid_set_values($id, array("comments" => $n_comments));
+				rowid_set_values($events, $id, array("comments" => $n_comments));
 				$comments = stripslashes($n_comments);
 			}
 		}
@@ -201,11 +199,10 @@ if(isset($_REQUEST["event"]))
 			$rows = gtable_query($guests, "event", $id);
 			foreach($rows as $guest)
 			{
-				if(rowid_equal($guest, $org_id))
+				if($guest == $org_id)
 					continue;
-				$format = rowid_format($guest);
-				if(isset($_REQUEST["check_$format"]))
-					rowid_drop($guest);
+				if(isset($_REQUEST["check_$guest"]))
+					rowid_drop($guests, $guest);
 			}
 		}
 		else if($action == "Update event/guest info")
@@ -225,9 +222,9 @@ if(isset($_REQUEST["event"]))
 					$hour += 12;
 				$event_time = mktime($hour, $min, 0, $month, $day, $year);
 				
-				rowid_set_values($id, array("name" => $name, "description" => $n_desc, "location" => $n_where, "time" => $event_time));
+				rowid_set_values($events, $id, array("name" => $name, "description" => $n_desc, "location" => $n_where, "time" => $event_time));
 				
-				$row = rowid_get_row($id, array("name", "description", "location", "time"));
+				$row = rowid_get_row($events, $id, array("name", "description", "location", "time"));
 				if($row)
 				{
 					$title = htmlspecialchars($row["name"]);
@@ -244,18 +241,17 @@ if(isset($_REQUEST["event"]))
 				$rows = gtable_query($guests, "event", $id);
 				foreach($rows as $guest)
 				{
-					$format = rowid_format($guest);
-					$name = $_REQUEST["name_$format"];
-					$email = $_REQUEST["email_$format"];
+					$name = $_REQUEST["name_$guest"];
+					$email = $_REQUEST["email_$guest"];
 					$row = rowid_get_row($guest, array("name", "email"));
 					if($row["name"] != $name)
-						rowid_set_values($guest, array("name" => $name));
+						rowid_set_values($guests, $guest, array("name" => $name));
 					/* can't change the organizer email address */
-					if(!rowid_equal($guest, $org_id))
+					if($guest != $org_id)
 						if($row["email"] != $email)
-							rowid_set_values($guest, array("email" => $email, "emails" => 0));
+							rowid_set_values($guests, $guest, array("email" => $email, "emails" => 0));
 				}
-				$row = rowid_get_row($org_id, array("name", "email"));
+				$row = rowid_get_row($guests, $org_id, array("name", "email"));
 				if($row)
 				{
 					$org = $row["name"];

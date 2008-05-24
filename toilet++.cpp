@@ -190,10 +190,12 @@ fail_new:
 
 int toilet_close(t_toilet * toilet)
 {
-	/* should be more stuff here, e.g. check not in use */
-	close(toilet->path_fd);
-	tx_close(toilet->row_fd);
-	delete toilet;
+	if(--toilet->out_count <= 0)
+	{
+		close(toilet->path_fd);
+		tx_close(toilet->row_fd);
+		delete toilet;
+	}
 	return 0;
 }
 
@@ -265,7 +267,6 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	if(!gtable->table)
 		goto fail_table;
 	gtable->toilet = toilet;
-	gtable->out_count = 1;
 	
 	base_config.set_class("base", simple_dtable);
 	config.set("meta_config", base_config);
@@ -282,6 +283,7 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 		goto fail_open;
 	
 	toilet->gtables[gtable->name] = gtable;
+	toilet->out_count++;
 	
 	return gtable;
 	
@@ -313,6 +315,7 @@ void toilet_put_gtable(t_gtable * gtable)
 	{
 		gtable->toilet->gtables.erase(gtable->name);
 		delete gtable->table;
+		toilet_close(gtable->toilet);
 		delete gtable;
 	}
 }
@@ -511,8 +514,6 @@ int toilet_row_set_value(t_row * row, const char * key, t_type type, const t_val
 		return r;
 	switch(type)
 	{
-		case T_ID:
-			/* ... hmm, maybe we want to do something special here? */
 		case T_INT:
 			r = row->gtable->table->append(row->id, key, value->v_int);
 			tx_end(0);
@@ -552,7 +553,6 @@ static bool toilet_row_matches(t_gtable * gtable, t_row_id id, t_simple_query * 
 		return true;
 	switch(query->type)
 	{
-		case T_ID:
 		case T_INT:
 			assert(value.type == dtype::UINT32);
 			if(!query->values[1])
@@ -605,7 +605,7 @@ t_rowset * toilet_simple_query(t_gtable * gtable, t_simple_query * query)
 		switch(gtable->table->column_type(query->name))
 		{
 			case dtype::UINT32:
-				if(query->type != T_ID && query->type != T_INT)
+				if(query->type != T_INT)
 					return NULL;
 				break;
 			case dtype::DOUBLE:
@@ -647,7 +647,7 @@ ssize_t toilet_count_simple_query(t_gtable * gtable, t_simple_query * query)
 	switch(gtable->table->column_type(query->name))
 	{
 		case dtype::UINT32:
-			if(query->type != T_ID && query->type != T_INT)
+			if(query->type != T_INT)
 				return -EINVAL;
 			break;
 		case dtype::DOUBLE:

@@ -52,24 +52,24 @@ if(isset($_REQUEST["name"]))
 		$event = gtable_new_row($events);
 		if($event)
 		{
-			rowid_set_values($event, array("name" => $name, "description" => $desc, "location" => $where));
-			$hash = hash_id("event", rowid_format($event));
-			rowid_set_values($event, array("hash" => $hash));
+			rowid_set_values($events, $event, array("name" => $name, "description" => $desc, "location" => $where));
+			$hash = hash_id("event", "$event");
+			rowid_set_values($events, $event, array("hash" => $hash));
 			$redirect = "manage.php?event=$hash";
 			$guest = gtable_new_row($guests);
-			if($guest > 0)
+			if($guest)
 			{
-				rowid_set_values($guest, array("event" => $event, "name" => $org, "email" => $email));
-				rowid_set_values($event, array("organizer" => $guest, "time" => $event_time));
-				$hash = hash_id("guest", rowid_format($guest));
-				rowid_set_values($guest, array("hash" => $hash));
+				rowid_set_values($guests, $guest, array("event" => $event, "name" => $org, "email" => $email));
+				rowid_set_values($events, $event, array("organizer" => $guest, "time" => $event_time));
+				$hash = hash_id("guest", "$guest");
+				rowid_set_values($guests, $guest, array("hash" => $hash));
 				if($reply == "N")
 					$heads = 0;
 				else if($heads < 1)
 					$heads = 1;
 				else if($heads > 50)
 					$heads = 50;
-				rowid_set_values($guest, array("reply" => $reply, "heads" => $heads, "comments" => $comments));
+				rowid_set_values($guests, $guest, array("reply" => $reply, "heads" => $heads, "comments" => $comments));
 				$server = $HTTP_SERVER_VARS["SERVER_NAME"];
 				email_manage_url(stripslashes($name), stripslashes($email), $server, "http://$server$redirect");
 				$message = "Event created.<BR><SPAN STYLE=\"font-size: smaller;\">A message has been sent to your email address with a URL to manage your event.</SPAN>";

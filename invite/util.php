@@ -13,21 +13,22 @@ function sort_rows_by($rows, $column, $desc = false)
 }
 
 /* takes an array of rowids and optionally an array of column names, returns an array of associative row arrays */
-function rowids_get_rows($rowids, $columns = null)
+function rowids_get_rows($gtable, $rowids, $columns = null)
 {
+	$gtable = array_fill(0, count($rowids), $gtable);
 	if($columns)
 	{
 		$columns = array_fill(0, count($rowids), $columns);
-		return array_map("rowid_get_row", $rowids, $columns);
+		return array_map("rowid_get_row", $gtable, $rowids, $columns);
 	}
-	return array_map("rowid_get_row", $rowids);
+	return array_map("rowid_get_row", $gtable, $rowids);
 }
 
 /* takes an array of rowids, a column name to sort by, and optionally whether to sort descending
    and an array of column names, returns a sorted array of associative row arrays */
-function rowids_get_sorted_rows($rowids, $sort, $desc = false, $columns = null)
+function rowids_get_sorted_rows($gtable, $rowids, $sort, $desc = false, $columns = null)
 {
-	$rows = rowids_get_rows($rowids, $columns);
+	$rows = rowids_get_rows($gtable, $rowids, $columns);
 	sort_rows_by($rows, $sort, $desc);
 	return $rows;
 }
