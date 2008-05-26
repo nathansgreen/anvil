@@ -8,7 +8,7 @@ include "util.php";
 function count_replies($guests, $event, $reply, $org = null)
 {
 	$rows = gtable_query($guests, "event", $event);
-	$rows = rowids_get_rows($rows, array("id", "reply", "heads", "emails"));
+	$rows = rowids_get_rows($guests, $rows, array("id", "reply", "heads", "emails"));
 	$result = 0;
 	if($reply == "Y" || $reply == "M")
 		foreach($rows as $row)
@@ -22,7 +22,7 @@ function count_replies($guests, $event, $reply, $org = null)
 		{
 			if($row["reply"] != $reply)
 				continue;
-			if(!$reply && !$row["emails"] && !rowid_equal($row["id"], $org))
+			if(!$reply && !$row["emails"] && $row["id"] != $org)
 				continue;
 			$result++;
 		}
@@ -32,20 +32,19 @@ function count_replies($guests, $event, $reply, $org = null)
 function show_replies($guests, $event, $reply, $org)
 {
 	$rows = gtable_query($guests, "event", $event);
-	$rows = rowids_get_sorted_rows($rows, "name", false, array("id", "name", "email", "emails", "reply", "heads", "comments"));
+	$rows = rowids_get_sorted_rows($guests, $rows, "name", false, array("id", "name", "email", "emails", "reply", "heads", "comments"));
 	foreach($rows as $row)
 	{
 		if($row["reply"] != $reply)
 			continue;
-		$is_org = rowid_equal($row["id"], $org);
-		if(!$row["reply"] && !$row["emails"] && !$is_org)
+		if(!$row["reply"] && !$row["emails"] && $row["id"] != $org)
 			continue;
 		$name = $row["name"];
 		$email = htmlspecialchars($row["email"]);
 		$heads = $row["heads"];
 		$comments = htmlspecialchars($row["comments"]);
 		echo "<B><A HREF=\"mailto:$email\">$name</A>";
-		if($is_org)
+		if($row["id"] == $org)
 			echo " (the organizer)";
 		if($heads > 1)
 			echo " + " . ($heads - 1) . (($heads > 2) ? " people" : " person");
@@ -55,10 +54,10 @@ function show_replies($guests, $event, $reply, $org)
 	}
 }
 
-function get_reply($guest)
+function get_reply($guests, $guest)
 {
 	global $reply, $heads, $comments;
-	$row = rowid_get_row($guest, array("reply", "heads", "comments"));
+	$row = rowid_get_row($guests, $guest, array("reply", "heads", "comments"));
 	if($row && $row["reply"])
 	{
 		$reply = $row["reply"];
@@ -73,7 +72,7 @@ function get_reply($guest)
 	}
 }
 
-function process_reply($guest)
+function process_reply($guests, $guest)
 {
 	$reply = $_REQUEST["reply"];
 	$heads = $_REQUEST["heads"];
@@ -84,8 +83,8 @@ function process_reply($guest)
 		$heads = 1;
 	else if($heads > 50)
 		$heads = 50;
-	rowid_set_values($guest, array("reply" => $reply, "heads" => $heads, "comments" => $comments));
-	get_reply($guest);
+	rowid_set_values($guests, $guest, array("reply" => $reply, "heads" => $heads, "comments" => $comments));
+	get_reply($guests, $guest);
 	return 0;
 }
 
@@ -100,14 +99,14 @@ if(isset($_REQUEST["invite"]))
 	$invite = rtrim($_REQUEST["invite"], ".");
 	
 	$rows = gtable_query($guests, "hash", $invite);
-	if($rows[0])
+	if(count($rows))
 	{
 		$guest = $rows[0];
-		$row = rowid_get_row($guest, array("event", "name", "email"));
+		$row = rowid_get_row($guests, $guest, array("event", "name", "email"));
 		$event = $row["event"];
 		$name = htmlspecialchars($row["name"]);
 		$email = htmlspecialchars($row["email"]);
-		$row = rowid_get_row($event);
+		$row = rowid_get_row($events, $event);
 		if($row)
 		{
 			$hash = $row["hash"];
@@ -120,9 +119,9 @@ if(isset($_REQUEST["invite"]))
 			$time = date("g:i A", $row["time"]);
 			$day = date("l\, F jS Y", $row["time"]);
 			if(isset($_REQUEST["unreply"]))
-				rowid_set_values($guest, array("reply" => null, "heads" => null, "comments" => null));
-			get_reply($guest);
-			$row = rowid_get_row($org_id, array("name"));
+				rowid_set_values($guests, $guest, array("reply" => null, "heads" => null, "comments" => null));
+			get_reply($guests, $guest);
+			$row = rowid_get_row($guests, $org_id, array("name"));
 			if($row)
 				$org = $row["name"];
 			else
@@ -130,7 +129,7 @@ if(isset($_REQUEST["invite"]))
 			
 			if(isset($_REQUEST["reply"]) && !isset($_REQUEST["unreply"]))
 			{
-				if(process_reply($guest) < 0)
+				if(process_reply($guests, $guest) < 0)
 					$error = "Error processing reply.";
 				else
 					$message = "Your reply has been received.";
@@ -212,7 +211,7 @@ if(!$error)
 </TD></TR>
 </TABLE>
 <?php
-	if(rowid_equal($guest, $org_id))
+	if($guest == $org_id)
 	{
 ?>
 <DIV CLASS="comments"><A HREF="manage.php?event=<? echo $hash; ?>">Manage this event</A></DIV>

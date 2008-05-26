@@ -35,13 +35,13 @@ $guests = toilet_gtable($db, "guests");
 	$rows = gtable_rows($events);
 	foreach($rows as $event)
 	{
-		$row = rowid_get_row($event, array("hash", "name", "organizer", "time"));
+		$row = rowid_get_row($events, $event, array("hash", "name", "organizer", "time"));
 		$hash = $row["hash"];
 		$name = $row["name"];
 		$org = $row["organizer"];
 		$time = $row["time"];
 		echo "<TR><TD CLASS=\"normal\"><A HREF=\"manage.php?event=$hash\">$name</A></TD>\n";
-		$row = rowid_get_row($org, array("hash", "name", "email"));
+		$row = rowid_get_row($guests, $org, array("hash", "name", "email"));
 		$hash = $row["hash"];
 		$name = $row["name"];
 		$email = $row["email"];

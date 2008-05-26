@@ -202,7 +202,9 @@ PHP_FUNCTION(gtable_columns)
 		const char * name = toilet_columns_name(columns);
 		const char * type = toilet_name_type(toilet_columns_type(columns));
 		add_assoc_string(return_value, (char *) name, (char *) type, 1);
+		toilet_columns_next(columns);
 	}
+	toilet_put_columns(columns);
 }
 
 /* takes a gtable and a string, returns a type (as string) */
@@ -500,8 +502,10 @@ PHP_FUNCTION(rowid_get_row)
 			const char * name = toilet_columns_name(columns);
 			t_type type = toilet_columns_type(columns);
 			row_hash_populate_column(return_value, row, name, type);
+			toilet_columns_next(columns);
 		}
 		row_hash_populate_column(return_value, row, "id", T_INT);
+		toilet_put_columns(columns);
 	}
 	toilet_put_row(row);
 }
