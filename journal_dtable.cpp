@@ -233,7 +233,8 @@ int journal_dtable::reinit(sys_journal::listener_id lid, bool discard)
 void journal_dtable::deinit()
 {
 	set_id(sys_journal::NO_ID);
-	strings.deinit();
+	/* no explicit deinitialization, so reinitialize empty */
+	strings.init();
 	if(root)
 	{
 		kill_nodes(root);

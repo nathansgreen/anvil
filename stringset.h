@@ -5,45 +5,55 @@
 #ifndef __STRINGSET_H
 #define __STRINGSET_H
 
-#include <stdlib.h>
 #include <stdint.h>
-
-#include "hash_map.h"
+#include <string.h>
 
 #ifndef __cplusplus
 #error stringset.h is a C++ header file
 #endif
 
+#include <map>
+
+#include "istr.h"
+
 /* This class provides a simple wrapper around a string hash table to get unique
- * string instances. The add() and lookup() methods return a pointer to a copy
- * of the parameter string which is kept in an internal hash table; subsequent
- * calls with equivalent strings will return the same pointer. */
+ * string instances. The add() and lookup() methods return a reference to an
+ * internally maintained istr instance; subsequent calls with equivalent strings
+ * will return the same reference. */
 
 class stringset
 {
 public:
-	inline stringset() : next_index(0), string_map(NULL), index_map(NULL) {}
-	inline ~stringset()
-	{
-		if(string_map)
-			deinit();
-	}
+	inline stringset() : reverse(false), next_index(0) {}
 	
-	int init(bool reverse = false);
-	void deinit();
-	bool ready();
+	int init(bool keep_reverse = false);
 	
-	bool remove(const char * string);
-	const char * add(const char * string, uint32_t * index = NULL);
-	const char * lookup(const char * string, uint32_t * index = NULL);
-	const char * lookup(uint32_t index);
-	const char ** array(bool empty = true);
-	size_t size();
+	bool remove(const istr & string);
+	const istr & add(const istr & string, uint32_t * index = NULL);
+	const istr & lookup(const istr & string, uint32_t * index = NULL) const;
+	const istr & lookup(uint32_t index) const;
+	/* returns an array of the strings; the array must be free()d, but the
+	 * strings must be left alone */
+	const char ** array() const;
+	size_t size() const;
 	
 private:
+	struct strcmp_less
+	{
+		inline bool operator()(const istr & a, const istr & b) const
+		{
+			return strcmp(a, b) < 0;
+		}
+	};
+	
+	/* /me dislikes std::map immensely */
+	typedef std::map<istr, uint32_t, strcmp_less> istr_map;
+	typedef std::map<uint32_t, istr> idx_map;
+	
+	bool reverse;
 	uint32_t next_index;
-	hash_map_t * string_map;
-	hash_map_t * index_map;
+	istr_map string_map;
+	idx_map index_map;
 };
 
 #endif /* __STRINGSET_H */

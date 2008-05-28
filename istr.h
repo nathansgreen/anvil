@@ -25,6 +25,9 @@
 class istr
 {
 public:
+	/* the null istr, for returning as an error from methods that return istr & */
+	static const istr null;
+	
 	inline istr(const char * x = NULL)
 		: shared(NULL)
 	{
@@ -100,6 +103,8 @@ private:
 		char string[0];
 	};
 	
+	/* as this is the only state, istr instances will be equal if their strings are pointer
+	 * equivalent - which is what we want anyway, so no need to define operator== */
 	share * shared;
 };
 

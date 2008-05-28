@@ -2,142 +2,91 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <errno.h>
 
-#include "hash_map.h"
 #include "stringset.h"
 
-int stringset::init(bool reverse)
+int stringset::init(bool keep_reverse)
 {
-	if(string_map)
-		deinit();
+	string_map.clear();
+	index_map.clear();
+	reverse = keep_reverse;
 	next_index = 0;
-	string_map = hash_map_create_str();
-	if(!string_map)
-		return -ENOMEM;
-	if(reverse)
-	{
-		index_map = hash_map_create();
-		if(!index_map)
-		{
-			hash_map_destroy(string_map);
-			string_map = NULL;
-			return -ENOMEM;
-		}
-	}
 	return 0;
 }
 
-void stringset::deinit()
+bool stringset::remove(const istr & string)
 {
-	if(string_map)
-	{
-		hash_map_it2_t hm_it = hash_map_it2_create(string_map);
-		while(hash_map_it2_next(&hm_it))
-			free((void *) hm_it.key);
-		hash_map_destroy(string_map);
-		string_map = NULL;
-		if(index_map)
-		{
-			hash_map_destroy(index_map);
-			index_map = NULL;
-		}
-	}
-}
-
-bool stringset::ready()
-{
-	return string_map != NULL;
-}
-
-bool stringset::remove(const char * string)
-{
-	hash_map_elt_t elt = hash_map_find_elt(string_map, string);
-	if(!elt.key)
+	uint32_t index;
+	if(!string_map.count(string))
 		return false;
-	hash_map_erase(string_map, string);
-	if(index_map)
+	index = string_map[string];
+	string_map.erase(string);
+	if(reverse)
 	{
-		void * key = hash_map_erase(index_map, elt.val);
-		assert(key == elt.key);
+		index_map.erase(index);
 		/* rewind the index if we've removed the most recently added string */
-		if(next_index - 1 == (uint32_t) elt.val)
+		if(next_index - 1 == index)
 			next_index--;
 	}
-	free((void *) elt.key);
 	return true;
 }
 
-const char * stringset::add(const char * string, uint32_t * index)
+const istr & stringset::add(const istr & string, uint32_t * index)
 {
-	hash_map_elt_t elt = hash_map_find_elt(string_map, string);
-	char * copy = (char *) elt.key;
-	if(!copy)
+	istr_map::iterator iter = string_map.find(string);
+	if(iter == string_map.end())
 	{
-		copy = strdup(string);
-		if(!copy)
-			return NULL;
-		if(hash_map_insert(string_map, copy, (void *) next_index) < 0)
-		{
-			free(copy);
-			return NULL;
-		}
-		if(index_map)
-			if(hash_map_insert(index_map, (void *) next_index, copy) < 0)
-			{
-				hash_map_erase(string_map, copy);
-				free(copy);
-				return NULL;
-			}
-		if(index)
-			*index = next_index;
-		/* assume that this does not wrap */
-		next_index++;
+		string_map[string] = next_index++;
+		iter = string_map.find(string);
+		if(reverse)
+			index_map[(*iter).second] = (*iter).first;
 	}
-	else if(index)
-		*index = (uint32_t) elt.val;
-	return copy;
+	if(index)
+		*index = (*iter).second;
+	return (*iter).first;
 }
 
-const char * stringset::lookup(const char * string, uint32_t * index)
+const istr & stringset::lookup(const istr & string, uint32_t * index) const
 {
-	hash_map_elt_t elt = hash_map_find_elt(string_map, string);
-	if(elt.key && index)
-		*index = (uint32_t) elt.val;
-	return (char *) elt.key;
+	istr_map::const_iterator iter = string_map.find(string);
+	if(iter == string_map.end())
+		return istr::null;
+	if(index)
+		*index = (*iter).second;
+	return (*iter).first;
 }
 
-const char * stringset::lookup(uint32_t index)
+const istr & stringset::lookup(uint32_t index) const
 {
-	if(!index_map)
-		return NULL;
-	return (char *) hash_map_find_val(index_map, (void *) index);
+	if(!reverse)
+		return istr::null;
+	idx_map::const_iterator iter = index_map.find(index);
+	if(iter == index_map.end())
+		return istr::null;
+	return (*iter).second;
 }
 
-const char ** stringset::array(bool empty)
+const char ** stringset::array() const
 {
-	hash_map_it2_t hm_it;
-	size_t i = 0, count = hash_map_size(string_map);
+	istr_map::const_iterator iter, end;
+	size_t i = 0, count = string_map.size();
 	const char ** array = (const char **) malloc(sizeof(*array) * count);
 	if(!array)
 		return NULL;
-	hm_it = hash_map_it2_create(string_map);
-	while(hash_map_it2_next(&hm_it))
-		array[i++] = (const char *) hm_it.key;
-	assert(i == count);
-	if(empty)
+	iter = string_map.begin();
+	end = string_map.end();
+	while(iter != end)
 	{
-		hash_map_clear(string_map);
-		if(index_map)
-			hash_map_clear(index_map);
+		array[i++] = (const char *) (*iter).first;
+		++iter;
 	}
+	assert(i == count);
 	return array;
 }
 
-size_t stringset::size()
+size_t stringset::size() const
 {
-	return hash_map_size(string_map);
+	return string_map.size();
 }

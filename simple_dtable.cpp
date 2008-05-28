@@ -270,12 +270,12 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	size_t max_data_size = 0, total_data_size = 0;
 	uint32_t max_key = 0;
 	dtable_header header;
-	int r, i, fd, size;
+	int r, fd, size;
 	if(shadow && shadow->key_type() != key_type)
 		return -EINVAL;
 	if(key_type == dtype::STRING)
 	{
-		int r = strings.init();
+		r = strings.init();
 		if(r < 0)
 			return r;
 	}
@@ -309,7 +309,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 		total_data_size += meta.size();
 	}
 	delete iter;
-	if(strings.ready())
+	if(key_type == dtype::STRING)
 	{
 		string_count = strings.size();
 		string_array = strings.array();
@@ -374,6 +374,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	iter = source->iterator();
 	while(iter->valid())
 	{
+		int i = 0;
 		uint8_t bytes[size];
 		dtype key = iter->key();
 		metablob meta = iter->meta();
@@ -382,7 +383,6 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->find(key).exists())
 				continue;
-		i = 0;
 		switch(key.type)
 		{
 			case dtype::UINT32:
@@ -431,7 +431,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	
 out_strings:
 	if(string_array)
-		st_array_free(string_array, string_count);
+		free(string_array);
 	return r;
 }
 
