@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "blob_buffer.h"
 #include "sub_blob.h"
 
 /* sub_blob is one way you can nest blobs inside other blobs (e.g. to implement
@@ -127,20 +128,17 @@ blob sub_blob::flatten(bool internalize)
 	length_size = byte_size(max_length);
 	total_size += count * (length_size + 1);
 	
-	blob flat(total_size);
-	uint8_t * memory = flat.memory();
-	total_size = 1;
-	memory[0] = length_size;
+	blob_buffer flat(total_size);
+	flat << length_size;
 	for(override * scan = overrides; scan; scan = scan->next)
 	{
 		uint8_t name = strlen(scan->name);
 		if(!scan->value.exists())
 			continue;
-		layout_bytes(memory, &total_size, scan->value.size(), length_size);
-		memory[total_size++] = name;
-		memcpy(&memory[total_size], scan->name, name);
-		memcpy(&memory[total_size += name], &scan->value[0], scan->value.size());
-		total_size += scan->value.size();
+		flat.layout_append(scan->value.size(), length_size);
+		flat << name;
+		flat.append(scan->name, name);
+		flat.append(scan->value);
 	}
 	assert(total_size == flat.size());
 	if(internalize)

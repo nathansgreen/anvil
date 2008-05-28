@@ -23,7 +23,6 @@ public:
 	/* non-existent blob constructor */
 	inline blob() : internal(NULL) {}
 	/* other constructors */
-	blob(size_t size);
 	blob(size_t size, const void * data);
 	blob(const blob & x);
 	blob & operator=(const blob & x);
@@ -42,11 +41,11 @@ public:
 	}
 	
 	template <class T>
-	inline const T & index(size_t i) const
+	inline const T & index(size_t i, size_t off = 0) const
 	{
 		assert(internal);
-		assert((i + 1) * sizeof(T) <= internal->size);
-		return *(T *) &internal->bytes[i * sizeof(T)];
+		assert(off + (i + 1) * sizeof(T) <= internal->size);
+		return *(T *) &internal->bytes[off + i * sizeof(T)];
 	}
 	
 	inline size_t size() const
@@ -65,28 +64,15 @@ public:
 		return internal != NULL;
 	}
 	
-	inline uint8_t * memory()
-	{
-		if(!internal)
-			return NULL;
-		if(internal->shares > 1)
-			touch();
-		return &internal->bytes[0];
-	}
-	
-	/* change size */
-	int set_size(size_t size);
-	
 private:
-	/* break sharing */
-	int touch();
-	
 	struct blob_internal
 	{
 		size_t size;
 		size_t shares;
 		uint8_t bytes[0];
 	} * internal;
+	
+	friend class blob_buffer;
 };
 
 /* a metablob does not have any actual data, but knows how long the data would

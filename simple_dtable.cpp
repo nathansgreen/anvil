@@ -12,6 +12,7 @@
 #include "openat.h"
 
 #include "stringset.h"
+#include "blob_buffer.h"
 #include "simple_dtable.h"
 
 /* simple dtable file format:
@@ -137,10 +138,11 @@ int simple_dtable::find_key(dtype key, size_t * data_length, off_t * data_offset
 
 blob simple_dtable::get_value(size_t index, size_t data_length, off_t data_offset) const
 {
-	blob value(data_length);
+	blob_buffer value(data_length);
 	lseek(fd, data_start_off + data_offset, SEEK_SET);
-	data_length = read(fd, value.memory(), value.size());
+	value.set_size(data_length, false);
 	assert(data_length == value.size());
+	data_length = read(fd, &value[0], data_length);
 	return value;
 }
 

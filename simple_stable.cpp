@@ -9,6 +9,7 @@
 
 #include "openat.h"
 
+#include "blob_buffer.h"
 #include "simple_stable.h"
 
 bool simple_stable::citer::valid() const
@@ -237,18 +238,18 @@ int simple_stable::adjust_column(const char * column, ssize_t delta, dtype::ctyp
 		}
 	}
 	/* create the column meta blob */
-	blob meta(sizeof(size_t) + 1);
-	*(size_t *) meta.memory() = c->row_count;
+	blob_buffer meta(sizeof(size_t) + 1);
+	meta << c->row_count;
 	switch(type)
 	{
 		case dtype::UINT32:
-			meta.memory()[sizeof(size_t)] = 1;
+			meta << (uint8_t) 1;
 			break;
 		case dtype::DOUBLE:
-			meta.memory()[sizeof(size_t)] = 2;
+			meta << (uint8_t) 2;
 			break;
 		case dtype::STRING:
-			meta.memory()[sizeof(size_t)] = 3;
+			meta << (uint8_t) 3;
 			break;
 	}
 	/* and write it */
