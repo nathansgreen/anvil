@@ -46,14 +46,6 @@ public:
 	}
 	
 private:
-	struct strcmp_less
-	{
-		inline bool operator()(const istr & a, const istr & b) const
-		{
-			return strcmp(a, b) < 0;
-		}
-	};
-	
 	/* can't be defined until later */
 	struct param;
 	

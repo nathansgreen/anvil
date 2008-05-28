@@ -59,14 +59,6 @@ public:
 	static int create(int dfd, const char * name, const params & config, dtype::ctype key_type);
 	
 private:
-	struct strcmp_less
-	{
-		inline bool operator()(const char * a, const char * b) const
-		{
-			return strcmp(a, b) < 0;
-		}
-	};
-	
 	struct column_info
 	{
 		size_t row_count;

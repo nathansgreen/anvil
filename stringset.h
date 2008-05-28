@@ -38,14 +38,6 @@ public:
 	size_t size() const;
 	
 private:
-	struct strcmp_less
-	{
-		inline bool operator()(const istr & a, const istr & b) const
-		{
-			return strcmp(a, b) < 0;
-		}
-	};
-	
 	/* /me dislikes std::map immensely */
 	typedef std::map<istr, uint32_t, strcmp_less> istr_map;
 	typedef std::map<uint32_t, istr> idx_map;

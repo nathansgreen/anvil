@@ -183,14 +183,6 @@ union t_columns_union
 	stable::column_iter * iter;
 };
 
-struct strcmp_less
-{
-	inline bool operator()(const char * a, const char * b) const
-	{
-		return strcmp(a, b) < 0;
-	}
-};
-
 /* /me dislikes std::map immensely */
 typedef std::map<istr, t_value *, strcmp_less> value_map;
 
