@@ -57,7 +57,7 @@ static int command_create(int argc, const char * argv[])
 			r = toilet_new_row(open_gtable, &id);
 			if(r >= 0)
 			{
-				printf("New row ID is 0x" ROW_FORMAT "\n", id);
+				printf("New row ID is " ROW_FORMAT "\n", id);
 				assert(open_toilet);
 				open_row = toilet_get_row(open_gtable, id);
 				if(!open_row)
@@ -336,7 +336,7 @@ static int command_list(int argc, const char * argv[])
 		{
 			size_t i, max = toilet_rowset_size(rows);
 			for(i = 0; i < max; i++)
-				printf("0x" ROW_FORMAT "\n", toilet_rowset_row(rows, i));
+				printf(ROW_FORMAT "\n", toilet_rowset_row(rows, i));
 			toilet_put_rowset(rows);
 			printf("gtable %s holds %d row%s\n", toilet_gtable_name(open_gtable), i, (i == 1) ? "" : "s");
 		}
@@ -526,7 +526,7 @@ static int command_query(int argc, const char * argv[])
 							size_t i, max = toilet_rowset_size(rows);
 							printf("Matching rows:\n");
 							for(i = 0; i < max; i++)
-								printf("0x" ROW_FORMAT "\n", toilet_rowset_row(rows, i));
+								printf(ROW_FORMAT "\n", toilet_rowset_row(rows, i));
 							toilet_put_rowset(rows);
 							printf("%d row%s matched\n", i, (i == 1) ? "" : "s");
 						}
