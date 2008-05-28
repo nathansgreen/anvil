@@ -37,6 +37,8 @@ public:
 	
 	inline dtype(uint32_t x) : type(UINT32), u32(x) {}
 	inline dtype(double x) : type(DOUBLE), dbl(x) {}
+	inline dtype(const istr & x) : type(STRING), u32(0), str(x) {}
+	/* have to provide this even though usually istr is transparent */
 	inline dtype(const char * x) : type(STRING), u32(0), str(x) {}
 	inline dtype(const blob & b, ctype t)
 		: type(t)

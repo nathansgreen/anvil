@@ -16,10 +16,10 @@
 
 #include "istr.h"
 
-/* This class provides a simple wrapper around a string hash table to get unique
- * string instances. The add() and lookup() methods return a reference to an
- * internally maintained istr instance; subsequent calls with equivalent strings
- * will return the same reference. */
+/* This class provides a simple wrapper around an std::map to get unique string
+ * instances. The add() and lookup() methods return a reference to an internally
+ * maintained istr instance; subsequent calls with equivalent strings will
+ * return the same reference. */
 
 class stringset
 {

@@ -14,6 +14,7 @@
 #endif
 
 #include "blob.h"
+#include "istr.h"
 #include "dtable.h"
 #include "stringset.h"
 #include "sys_journal.h"
@@ -78,7 +79,7 @@ private:
 		const dtable * jdt_source;
 	};
 	
-	int add_string(const char * string, uint32_t * index);
+	int add_string(const istr & string, uint32_t * index);
 	template<class T> inline int log(T * entry, const blob & blob);
 	int log(dtype key, const blob & blob);
 	

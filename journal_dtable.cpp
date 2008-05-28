@@ -92,26 +92,24 @@ struct jdt_key_str
 	uint8_t data[0];
 } __attribute__((packed));
 
-int journal_dtable::add_string(const char * string, uint32_t * index)
+int journal_dtable::add_string(const istr & string, uint32_t * index)
 {
 	int r;
 	size_t length;
 	jdt_string * entry;
-	const char * copy = strings.lookup(string, index);
-	if(copy)
+	if(strings.lookup(string, index))
 		return 0;
-	copy = strings.add(string, index);
-	if(!copy)
+	if(!strings.add(string, index))
 		return -ENOMEM;
-	length = strlen(copy);
+	length = strlen(string);
 	entry = (jdt_string *) malloc(sizeof(*entry) + length);
 	if(!entry)
 		return -ENOMEM;
 	entry->type = JDT_STRING;
 	entry->length = length;
-	memcpy(entry->string, copy, length);
+	memcpy(entry->string, string, length);
 	r = journal_append(entry, sizeof(*entry) + length);
-	free((void *) entry);
+	free(entry);
 	return r;
 }
 
@@ -128,7 +126,7 @@ template<class T> inline int journal_dtable::log(T * entry, const blob & blob)
 	else
 		entry->size = -1;
 	r = journal_append(entry, size);
-	free((void *) entry);
+	free(entry);
 	return r;
 }
 
@@ -164,7 +162,7 @@ int journal_dtable::log(dtype key, const blob & blob)
 			r = add_string(key.str, &entry->index);
 			if(r < 0)
 			{
-				free((void *) entry);
+				free(entry);
 				return r;
 			}
 			return log(entry, blob);
@@ -349,7 +347,7 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 		case JDT_KEY_STR:
 		{
 			jdt_key_str * str = (jdt_key_str *) entry;
-			const char * string = strings.lookup(str->index);
+			istr string = strings.lookup(str->index);
 			if(!string || ktype != dtype::STRING)
 				return -EINVAL;
 			if(str->size == (size_t) -1)
