@@ -37,7 +37,7 @@ public:
 	virtual iter * iterator(dtype key) const = 0;
 	
 	/* only usable if writable() returns true */
-	virtual int set(dtype key, dtype pri) = 0;
+	virtual int set(const dtype & key, const dtype & pri) = 0;
 	virtual int remove(dtype key) = 0;
 	
 	/* only usable if unique() returns false and writable() returns true */
