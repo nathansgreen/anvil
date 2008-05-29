@@ -118,4 +118,17 @@ private:
 	share * shared;
 };
 
+/* useful for std::map, etc. */
+struct strcmp_less
+{
+	inline bool operator()(const istr & a, const istr & b) const
+	{
+		return strcmp(a, b) < 0;
+	}
+	inline bool operator()(const char * a, const char * b) const
+	{
+		return strcmp(a, b) < 0;
+	}
+};
+
 #endif /* __ISTR_H */

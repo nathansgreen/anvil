@@ -26,14 +26,6 @@ public:
 	static void remove(const istr & class_name, const ctable_factory * factory);
 	
 private:
-	struct strcmp_less
-	{
-		inline bool operator()(const istr & a, const istr & b) const
-		{
-			return strcmp(a, b) < 0;
-		}
-	};
-	
 	typedef std::map<istr, const ctable_factory *, strcmp_less> factory_map;
 	static factory_map factories;
 };
