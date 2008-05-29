@@ -38,12 +38,12 @@ public:
 	
 	/* only usable if writable() returns true */
 	virtual int set(const dtype & key, const dtype & pri) = 0;
-	virtual int remove(dtype key) = 0;
+	virtual int remove(const dtype & key) = 0;
 	
 	/* only usable if unique() returns false and writable() returns true */
-	virtual int add(dtype key, dtype pri) = 0;
-	virtual int update(dtype key, dtype old_pri, dtype new_pri) = 0;
-	virtual int remove(dtype key, dtype pri) = 0;
+	virtual int add(const dtype & key, const dtype & pri) = 0;
+	virtual int update(const dtype & key, const dtype & old_pri, const dtype & new_pri) = 0;
+	virtual int remove(const dtype & key, const dtype & pri) = 0;
 	
 	virtual ~dt_index() {};
 };
