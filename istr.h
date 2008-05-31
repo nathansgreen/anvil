@@ -61,16 +61,6 @@ public:
 		shared->string[x.size()] = 0;
 	}
 	
-	inline istr(const char * x, size_t len)
-	{
-		/* doing a little memory trick so can't just use new */
-		shared = (share *) malloc(sizeof(*shared) + len + 1);
-		shared->count = 1;
-		if(len)
-			strncpy(shared->string, x, len);
-		shared->string[len] = 0;
-	}
-
 	inline istr & operator=(const istr & x)
 	{
 		if(this == &x)
