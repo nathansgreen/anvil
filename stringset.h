@@ -35,7 +35,10 @@ public:
 	/* returns an array of the strings; the array must be free()d, but the
 	 * strings must be left alone */
 	const char ** array() const;
-	size_t size() const;
+	inline size_t size() const
+	{
+		return string_map.size();
+	}
 	
 private:
 	/* /me dislikes std::map immensely */

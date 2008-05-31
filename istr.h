@@ -34,6 +34,16 @@ public:
 		*this = x;
 	}
 	
+	inline istr(const char * x, size_t length)
+	{
+		/* doing a little memory trick so can't just use new */
+		shared = (share *) malloc(sizeof(*shared) + length + 1);
+		shared->count = 1;
+		if(length)
+			strncpy(shared->string, x, length);
+		shared->string[length] = 0;
+	}
+	
 	inline istr(const istr & x)
 	{
 		shared = x.shared;

@@ -41,6 +41,7 @@ const char * st_get(const struct str_tbl * st, ssize_t index);
 ssize_t st_locate(const struct str_tbl * st, const char * string);
 
 const char ** st_read(struct str_tbl * st);
+void st_array_sort(const char ** array, ssize_t count);
 void st_array_free(const char ** array, ssize_t count);
 
 /* leaves the input string array sorted */

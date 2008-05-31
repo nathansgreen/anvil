@@ -268,8 +268,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	dtable::iter * iter;
 	dtype::ctype key_type = source->key_type();
 	const char ** string_array = NULL;
-	size_t string_count = 0, key_count = 0;
-	size_t max_data_size = 0, total_data_size = 0;
+	size_t key_count = 0, max_data_size = 0, total_data_size = 0;
 	uint32_t max_key = 0;
 	dtable_header header;
 	int r, fd, size;
@@ -313,7 +312,6 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	delete iter;
 	if(key_type == dtype::STRING)
 	{
-		string_count = strings.size();
 		string_array = strings.array();
 		if(!string_array)
 			return -ENOMEM;
@@ -335,7 +333,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 			break;
 		case dtype::STRING:
 			header.key_type = 3;
-			header.key_size = byte_size(string_count - 1);
+			header.key_size = byte_size(strings.size() - 1);
 			break;
 		default:
 			r = -EINVAL;
@@ -365,7 +363,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	if(string_array)
 	{
 		off_t out_off = sizeof(header);
-		r = st_create(fd, &out_off, string_array, string_count);
+		r = st_create(fd, &out_off, string_array, strings.size());
 		if(r < 0)
 			goto fail_unlink;
 		lseek(fd, 0, SEEK_END);
@@ -395,7 +393,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 				i += sizeof(double);
 				break;
 			case dtype::STRING:
-				max_key = locate_string(string_array, string_count, key.str);
+				max_key = locate_string(string_array, strings.size(), key.str);
 				layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 		}
@@ -411,7 +409,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	}
 	delete iter;
 	
-	/* and the data itself*/
+	/* and the data itself */
 	iter = source->iterator();
 	while(iter->valid())
 	{

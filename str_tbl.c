@@ -166,17 +166,22 @@ const char ** st_read(struct str_tbl * st)
 	return u;
 }
 
+static int st_strcmp(const void * a, const void * b)
+{
+	return strcmp(*(const char **) a, *(const char **) b);
+}
+
+void st_array_sort(const char ** array, ssize_t count)
+{
+	qsort(array, count, sizeof(*array), st_strcmp);
+}
+
 void st_array_free(const char ** array, ssize_t count)
 {
 	ssize_t i;
 	for(i = 0; i < count; i++)
 		free((void *) array[i]);
 	free(array);
-}
-
-static int st_strcmp(const void * a, const void * b)
-{
-	return strcmp(*(const char **) a, *(const char **) b);
 }
 
 static int _st_create(int fd, off_t * start, const char ** strings, ssize_t count, ssize_t (*do_write)(int, const void *, size_t, off_t))
@@ -186,7 +191,7 @@ static int _st_create(int fd, off_t * start, const char ** strings, ssize_t coun
 	ssize_t i;
 	int r;
 	/* the strings must be sorted */
-	qsort(strings, count, sizeof(*strings), st_strcmp);
+	st_array_sort(strings, count);
 	for(i = 0; i < count; i++)
 	{
 		size_t length = strlen(strings[i]);

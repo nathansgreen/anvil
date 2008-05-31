@@ -85,8 +85,3 @@ const char ** stringset::array() const
 	assert(i == count);
 	return array;
 }
-
-size_t stringset::size() const
-{
-	return string_map.size();
-}
