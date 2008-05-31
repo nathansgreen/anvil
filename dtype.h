@@ -40,6 +40,7 @@ public:
 	inline dtype(const istr & x) : type(STRING), u32(0), str(x) {}
 	/* have to provide this even though usually istr is transparent */
 	inline dtype(const char * x) : type(STRING), u32(0), str(x) {}
+	inline dtype(const char * x, size_t len) : type(STRING), u32(0), str(x, len) {}
 	inline dtype(const blob & b, ctype t)
 		: type(t)
 	{

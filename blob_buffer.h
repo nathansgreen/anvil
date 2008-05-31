@@ -45,7 +45,7 @@ public:
 	
 	/* will *not* extend size or capacity */
 	template <class T>
-	inline T & index(size_t i, size_t off = 0)
+	inline const T & index(size_t i, size_t off = 0) const
 	{
 		assert(internal);
 		assert(off + (i + 1) * sizeof(T) <= internal->size);
