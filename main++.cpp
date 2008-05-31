@@ -18,6 +18,7 @@
 #include "overlay_dtable.h"
 #include "journal_dtable.h"
 #include "managed_dtable.h"
+#include "ustr_dtable.h"
 #include "simple_ctable.h"
 #include "simple_stable.h"
 
@@ -264,7 +265,7 @@ int command_ctable(int argc, const char * argv[])
 	simple_ctable * sct;
 	
 	params config;
-	config.set_class("base", simple_dtable);
+	config.set_class("base", ustr_dtable);
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -299,6 +300,9 @@ int command_ctable(int argc, const char * argv[])
 	r = sct->remove(8u);
 	printf("sct->remove(8) = %d\n", r);
 	run_iterator(sct);
+	r = sct->append(12u, "foo", blob(3, "zot"));
+	printf("sct->append(10, foo) = %d\n", r);
+	run_iterator(sct);
 	r = mdt->combine();
 	printf("mdt->combine() = %d\n", r);
 	run_iterator(sct);
@@ -316,7 +320,7 @@ int command_stable(int argc, const char * argv[])
 	simple_stable * sst;
 	params config, base_config;
 	
-	base_config.set_class("base", simple_dtable);
+	base_config.set_class("base", ustr_dtable);
 	base_config.set("digest_interval", 2);
 	config.set("meta_config", base_config);
 	config.set("data_config", base_config);
