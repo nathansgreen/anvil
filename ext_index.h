@@ -2,18 +2,18 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#ifndef __DT_INDEX_H
-#define __DT_INDEX_H
+#ifndef __EXT_INDEX_H
+#define __EXT_INDEX_H
 
 #ifndef __cplusplus
-#error dt_index.h is a C++ header file
+#error ext_index.h is a C++ header file
 #endif
 
 #include "dtable.h"
 
-/* secondary indices */
+/* external (secondary) indices */
 
-class dt_index
+class ext_index
 {
 public:
 	class iter
@@ -45,7 +45,7 @@ public:
 	virtual int update(const dtype & key, const dtype & old_pri, const dtype & new_pri) = 0;
 	virtual int remove(const dtype & key, const dtype & pri) = 0;
 	
-	virtual ~dt_index() {};
+	virtual ~ext_index() {};
 };
 
-#endif /* __DT_INDEX_H */
+#endif /* __EXT_INDEX_H */

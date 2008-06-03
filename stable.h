@@ -11,7 +11,7 @@
 
 #include "dtype.h"
 #include "dtable.h"
-#include "dt_index.h"
+#include "ext_index.h"
 
 /* schema tables, like typed ctables (similar to old gtable) */
 
@@ -28,7 +28,7 @@ public:
 		virtual const istr & name() const = 0;
 		virtual size_t row_count() const = 0;
 		virtual dtype::ctype type() const = 0;
-		virtual dt_index * index() const = 0;
+		virtual ext_index * index() const = 0;
 		virtual ~column_iter() {}
 	};
 	
@@ -50,7 +50,7 @@ public:
 	virtual size_t column_count() const = 0;
 	virtual size_t row_count(const istr & column) const = 0;
 	virtual dtype::ctype column_type(const istr & column) const = 0;
-	virtual dt_index * column_index(const istr & column) const = 0;
+	virtual ext_index * column_index(const istr & column) const = 0;
 	
 	virtual dtable::key_iter * keys() const = 0;
 	virtual iter * iterator() const = 0;

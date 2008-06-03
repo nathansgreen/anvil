@@ -39,7 +39,7 @@ dtype::ctype simple_stable::citer::type() const
 	return meta->second.type;
 }
 
-dt_index * simple_stable::citer::index() const
+ext_index * simple_stable::citer::index() const
 {
 	return meta->second.index;
 }
@@ -92,7 +92,7 @@ dtype::ctype simple_stable::column_type(const istr & column) const
 	return c->type;
 }
 
-dt_index * simple_stable::column_index(const istr & column) const
+ext_index * simple_stable::column_index(const istr & column) const
 {
 	const column_info * c = get_column(column);
 	return c ? c->index : NULL;
@@ -200,7 +200,7 @@ const simple_stable::column_info * simple_stable::get_column(const istr & column
 int simple_stable::adjust_column(const istr & column, ssize_t delta, dtype::ctype type)
 {
 	int r;
-	dt_index * old_index = NULL;
+	ext_index * old_index = NULL;
 	bool created = false, destroyed = false;
 	column_map_full_iter it = column_map.find(column);
 	column_info * c = (it == column_map.end()) ? NULL : &it->second;

@@ -2,20 +2,20 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#include "dt_simple_index.h"
 #include "blob_buffer.h"
+#include "simple_ext_index.h"
 
 /* multi value blob format:
  * 4 bytes: value length m
  * m bytes: value
  */
 
-dt_simple_index::iter::iter(const dt_simple_index * src, dtable::iter * iter, dtype::ctype type)
+simple_ext_index::iter::iter(const simple_ext_index * src, dtable::iter * iter, dtype::ctype type)
 	: seckey(0u), source(src), store(iter), pritype(type), offset(0), is_valid(true)
 {
 }
 
-dt_simple_index::iter::iter(const dt_simple_index * src, const dtype & key, dtype::ctype type)
+simple_ext_index::iter::iter(const simple_ext_index * src, const dtype & key, dtype::ctype type)
 	: seckey(key), source(src), store(NULL), pritype(type), offset(0)
 {
 	multi_value = src->ro_store->find(key);
@@ -24,12 +24,12 @@ dt_simple_index::iter::iter(const dt_simple_index * src, const dtype & key, dtyp
 	is_valid = true;
 }
 
-bool dt_simple_index::iter::valid() const
+bool simple_ext_index::iter::valid() const
 {
 	return store ? store->valid() : is_valid;
 }
 
-bool dt_simple_index::iter::next()
+bool simple_ext_index::iter::next()
 {
 	uint32_t next = 0;
 	if(store)
@@ -44,12 +44,12 @@ bool dt_simple_index::iter::next()
 	return false;
 }
 
-dtype dt_simple_index::iter::key() const
+dtype simple_ext_index::iter::key() const
 {
 	return store ? store->key() : seckey;
 }
 
-dtype dt_simple_index::iter::pri() const
+dtype simple_ext_index::iter::pri() const
 {
 	if(store)
 		return dtype(store->value(), pritype);
@@ -72,7 +72,7 @@ dtype dt_simple_index::iter::pri() const
 	abort();
 }
 
-int dt_simple_index::map(const dtype & key, dtype & value) const
+int simple_ext_index::map(const dtype & key, dtype & value) const
 {
 	/* give the unique pri for this key; only makes sense if unique is true */
 	assert(is_unique);
@@ -83,19 +83,19 @@ int dt_simple_index::map(const dtype & key, dtype & value) const
 	return 0;
 }
 
-dt_index::iter * dt_simple_index::iterator() const
+ext_index::iter * simple_ext_index::iterator() const
 {
 	/* iterate over all keys */
 	return new iter(this, ro_store->iterator(), ref_table->key_type());
 }
 
-dt_index::iter * dt_simple_index::iterator(dtype key) const
+ext_index::iter * simple_ext_index::iterator(dtype key) const
 {
 	/* iterate over only this one key */
 	return new iter(this, key, ref_table->key_type());
 }
 
-int dt_simple_index::set(const dtype & key, const dtype & pri)
+int simple_ext_index::set(const dtype & key, const dtype & pri)
 {
 	/* for unique: set the pri for this key, even if it does not yet exist */
 	assert(is_unique);
@@ -104,7 +104,7 @@ int dt_simple_index::set(const dtype & key, const dtype & pri)
 	return -1;
 }
 
-int dt_simple_index::remove(const dtype & key)
+int simple_ext_index::remove(const dtype & key)
 {
 	/* for unique: remove the pri for this key */
 	assert(is_unique);
@@ -113,7 +113,7 @@ int dt_simple_index::remove(const dtype & key)
 	return -1;
 }
 
-int dt_simple_index::add(const dtype & key, const dtype & pri)
+int simple_ext_index::add(const dtype & key, const dtype & pri)
 {
 	/* for !unique: add this pri to this key if it is not already there */
 	assert(!is_unique);
@@ -127,7 +127,7 @@ int dt_simple_index::add(const dtype & key, const dtype & pri)
 	return rw_store->append(key, old << pri);
 }
 
-int dt_simple_index::update(const dtype & key, const dtype & old_pri, const dtype & new_pri)
+int simple_ext_index::update(const dtype & key, const dtype & old_pri, const dtype & new_pri)
 {
 	int r;
 	/* for !unique: change this key's mapping to old_pri to new_pri */
@@ -148,7 +148,7 @@ int dt_simple_index::update(const dtype & key, const dtype & old_pri, const dtyp
 	return rw_store->append(key, data);
 }
 
-int dt_simple_index::remove(const dtype & key, const dtype & pri)
+int simple_ext_index::remove(const dtype & key, const dtype & pri)
 {
 	int r;
 	/* for !unique: remove this pri from this key */
@@ -179,7 +179,7 @@ int dt_simple_index::remove(const dtype & key, const dtype & pri)
 	return rw_store->append(key, data);
 }
 
-int dt_simple_index::init(const dtable * store, const dtable * table, bool unique)
+int simple_ext_index::init(const dtable * store, const dtable * table, bool unique)
 {
 	/* any further checking here? */
 	is_unique = unique;
@@ -189,7 +189,7 @@ int dt_simple_index::init(const dtable * store, const dtable * table, bool uniqu
 	return 0;
 }
 
-int dt_simple_index::init(dtable * store, const dtable * table, bool unique)
+int simple_ext_index::init(dtable * store, const dtable * table, bool unique)
 {
 	/* any further checking here? */
 	is_unique = unique;
@@ -203,7 +203,7 @@ int dt_simple_index::init(dtable * store, const dtable * table, bool unique)
  * offset; sets next to the byte offset of where the next item in the blob. If
  * set is non null then instead of finding something equal to pri it makes set
  * equal to the dtype at the idx byte offset. */
-int dt_simple_index::find(const blob & b, const dtype & pri, uint32_t * idx, uint32_t * next, dtype * set) const
+int simple_ext_index::find(const blob & b, const dtype & pri, uint32_t * idx, uint32_t * next, dtype * set) const
 {
 	assert(pri.type == ref_table->key_type());
 	switch(pri.type)

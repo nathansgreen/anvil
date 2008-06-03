@@ -3,7 +3,7 @@ CPPSOURCES=blob.cpp blob_buffer.cpp counted_stringset.cpp istr.cpp params.cpp st
 CPPSOURCES+=simple_dtable.cpp ustr_dtable.cpp simple_ctable.cpp simple_stable.cpp
 CPPSOURCES+=journal_dtable.cpp overlay_dtable.cpp managed_dtable.cpp
 CPPSOURCES+=dtable_factory.cpp ctable_factory.cpp sys_journal.cpp toilet++.cpp
-CPPSOURCES+=dt_simple_index.cpp
+CPPSOURCES+=simple_ext_index.cpp
 SOURCES=$(CSOURCES) $(CPPSOURCES)
 
 HEADERS=$(wildcard *.h)

@@ -24,7 +24,7 @@ public:
 	virtual size_t column_count() const;
 	virtual size_t row_count(const istr & column) const;
 	virtual dtype::ctype column_type(const istr & column) const;
-	virtual dt_index * column_index(const istr & column) const;
+	virtual ext_index * column_index(const istr & column) const;
 	
 	virtual dtable::key_iter * keys() const;
 	virtual iter * iterator() const;
@@ -64,7 +64,7 @@ private:
 	{
 		size_t row_count;
 		dtype::ctype type;
-		dt_index * index;
+		ext_index * index;
 	};
 	
 	/* /me dislikes std::map immensely */
@@ -85,7 +85,7 @@ private:
 		virtual const istr & name() const;
 		virtual size_t row_count() const;
 		virtual dtype::ctype type() const;
-		virtual dt_index * index() const;
+		virtual ext_index * index() const;
 		inline citer(column_map_iter source, column_map_iter last) : meta(source), end(last) {}
 		virtual ~citer() {}
 	private:
