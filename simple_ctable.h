@@ -19,7 +19,7 @@ public:
 	virtual dtable::key_iter * keys() const;
 	virtual iter * iterator() const;
 	virtual iter * iterator(dtype key) const;
-	virtual blob find(dtype key, const char * column) const;
+	virtual blob find(dtype key, const istr & column) const;
 	virtual bool contains(dtype key) const;
 	
 	inline virtual bool writable() const
@@ -27,8 +27,8 @@ public:
 		return wdt_source ? wdt_source->writable() : false;
 	}
 	
-	virtual int append(dtype key, const char * column, const blob & value);
-	virtual int remove(dtype key, const char * column);
+	virtual int append(dtype key, const istr & column, const blob & value);
+	virtual int remove(dtype key, const istr & column);
 	inline virtual int remove(dtype key)
 	{
 		return wdt_source->remove(key);
@@ -64,7 +64,7 @@ private:
 		virtual bool valid() const;
 		virtual bool next();
 		virtual dtype key() const;
-		virtual const char * column() const;
+		virtual const istr & column() const;
 		virtual blob value() const;
 		inline iter(dtable::iter * src);
 		inline iter(const blob & value);

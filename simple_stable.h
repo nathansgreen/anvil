@@ -22,20 +22,21 @@ class simple_stable : public stable
 public:
 	virtual column_iter * columns() const;
 	virtual size_t column_count() const;
-	virtual size_t row_count(const char * column) const;
-	virtual dtype::ctype column_type(const char * column) const;
+	virtual size_t row_count(const istr & column) const;
+	virtual dtype::ctype column_type(const istr & column) const;
+	virtual dt_index * column_index(const istr & column) const;
 	
 	virtual dtable::key_iter * keys() const;
 	virtual iter * iterator() const;
 	virtual iter * iterator(dtype key) const;
 	
-	virtual bool find(dtype key, const char * column, dtype * value) const;
+	virtual bool find(dtype key, const istr & column, dtype * value) const;
 	virtual bool contains(dtype key) const;
 	
 	virtual bool writable() const;
 	
-	virtual int append(dtype key, const char * column, const dtype & value);
-	virtual int remove(dtype key, const char * column);
+	virtual int append(dtype key, const istr & column, const dtype & value);
+	virtual int remove(dtype key, const istr & column);
 	virtual int remove(dtype key);
 	
 	virtual dtype::ctype key_type() const;
@@ -63,26 +64,28 @@ private:
 	{
 		size_t row_count;
 		dtype::ctype type;
+		dt_index * index;
 	};
 	
 	/* /me dislikes std::map immensely */
-	typedef std::map<const char *, column_info, strcmp_less> std_column_map;
+	typedef std::map<istr, column_info, strcmp_less> std_column_map;
 	typedef std_column_map::const_iterator column_map_iter;
 	typedef std_column_map::iterator column_map_full_iter;
 	std_column_map column_map;
 	
 	int load_columns();
-	const column_info * get_column(const char * column) const;
-	int adjust_column(const char * column, ssize_t delta, dtype::ctype type);
+	const column_info * get_column(const istr & column) const;
+	int adjust_column(const istr & column, ssize_t delta, dtype::ctype type);
 	
 	class citer : public column_iter
 	{
 	public:
 		virtual bool valid() const;
 		virtual bool next();
-		virtual const char * name() const;
+		virtual const istr & name() const;
 		virtual size_t row_count() const;
 		virtual dtype::ctype type() const;
+		virtual dt_index * index() const;
 		inline citer(column_map_iter source, column_map_iter last) : meta(source), end(last) {}
 		virtual ~citer() {}
 	private:
@@ -96,7 +99,7 @@ private:
 		virtual bool valid() const;
 		virtual bool next();
 		virtual dtype key() const;
-		virtual const char * column() const;
+		virtual const istr & column() const;
 		virtual dtype value() const;
 		inline siter(ctable::iter * source, const stable * types) : data(source), meta(types) {}
 		virtual ~siter() {}

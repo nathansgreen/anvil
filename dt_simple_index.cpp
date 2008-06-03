@@ -11,13 +11,15 @@
  */
 
 dt_simple_index::iter::iter(const dt_simple_index * src, dtable::iter * iter, dtype::ctype type)
-	: seckey(0U), source(src), store(iter), pritype(type), offset(0), is_valid(true){}
+	: seckey(0u), source(src), store(iter), pritype(type), offset(0), is_valid(true)
+{
+}
 
 dt_simple_index::iter::iter(const dt_simple_index * src, const dtype & key, dtype::ctype type)
 	: seckey(key), source(src), store(NULL), pritype(type), offset(0)
 {
 	multi_value = src->ro_store->find(key);
-	if (!multi_value.exists())
+	if(!multi_value.exists())
 		is_valid = false;
 	is_valid = true;
 }
@@ -29,20 +31,17 @@ bool dt_simple_index::iter::valid() const
 
 bool dt_simple_index::iter::next()
 {
+	uint32_t next = 0;
 	if(store)
 		return store->next();
-	else
+	source->find(multi_value, seckey, &offset, &next);
+	if(next < multi_value.size())
 	{
-		uint32_t next;
-		source->find(multi_value, seckey, offset, next);
-		if(next < multi_value.size())
-		{
-			offset = next;
-			return true;
-		}
-		is_valid = false;
-		return false;
+		offset = next;
+		return true;
 	}
+	is_valid = false;
+	return false;
 }
 
 dtype dt_simple_index::iter::key() const
@@ -54,7 +53,7 @@ dtype dt_simple_index::iter::pri() const
 {
 	if(store)
 		return dtype(store->value(), pritype);
-
+	
 	switch(pritype)
 	{
 		case dtype::STRING:
@@ -69,7 +68,8 @@ dtype dt_simple_index::iter::pri() const
 		case dtype::DOUBLE:
 			return dtype(multi_value.index<double>(0, offset));
 	}
-	assert(false); //TODO: better way of handling errors
+	/* TODO: better way of handling errors */
+	abort();
 }
 
 int dt_simple_index::map(const dtype & key, dtype & value) const
@@ -77,7 +77,7 @@ int dt_simple_index::map(const dtype & key, dtype & value) const
 	/* give the unique pri for this key; only makes sense if unique is true */
 	assert(is_unique);
 	blob pri = ro_store->find(key);
-	if (!pri.exists())
+	if(!pri.exists())
 		return -1;
 	value = dtype(pri, ref_table->key_type());
 	return 0;
@@ -120,7 +120,7 @@ int dt_simple_index::add(const dtype & key, const dtype & pri)
 	if(!rw_store || ro_store->key_type() != key.type || ref_table->key_type() != pri.type)
 		return -1;
 	blob_buffer old = ro_store->find(key);
-	if (!old.exists())
+	if(!old.exists())
 		return -1;
 	if(ref_table->key_type() == dtype::STRING)
 		old << strlen(pri.str);
@@ -129,17 +129,17 @@ int dt_simple_index::add(const dtype & key, const dtype & pri)
 
 int dt_simple_index::update(const dtype & key, const dtype & old_pri, const dtype & new_pri)
 {
+	int r;
 	/* for !unique: change this key's mapping to old_pri to new_pri */
 	assert(!is_unique && rw_store);
-	int r;
 	if(!rw_store || ro_store->key_type() != key.type || ref_table->key_type() != new_pri.type ||
 			ref_table->key_type() != old_pri.type)
 		return -1;
 	blob_buffer data = ro_store->find(key);
-	if (!data.exists())
+	if(!data.exists())
 		return -1;
 	uint32_t start = 0, end = 0;
-	r = find(data, old_pri, start, end);
+	r = find(data, old_pri, &start, &end);
 	if(r < 0)
 		return r;
 	r = data.overwrite(start, new_pri);
@@ -150,16 +150,16 @@ int dt_simple_index::update(const dtype & key, const dtype & old_pri, const dtyp
 
 int dt_simple_index::remove(const dtype & key, const dtype & pri)
 {
+	int r;
 	/* for !unique: remove this pri from this key */
 	assert(!is_unique);
 	if(!rw_store || ro_store->key_type() != key.type || ref_table->key_type() != pri.type)
 		return -1;
-	int r;
 	blob_buffer data = ro_store->find(key);
-	if (!data.exists())
+	if(!data.exists())
 		return -1;
 	uint32_t start = 0, end = 0;
-	r = find(data, pri, start, end);
+	r = find(data, pri, &start, &end);
 	if(r < 0)
 		return r;
 	if(end < data.size())
@@ -168,12 +168,12 @@ int dt_simple_index::remove(const dtype & key, const dtype & pri)
 		if(r < 0)
 			return r;
 	}
-
+	
 	if(end >= data.size())
 		r = data.set_size(start);
 	else
 		r = data.set_size(start + (data.size() - end));
-
+	
 	if(r < 0)
 		return r;
 	return rw_store->append(key, data);
@@ -183,9 +183,9 @@ int dt_simple_index::init(const dtable * store, const dtable * table, bool uniqu
 {
 	/* any further checking here? */
 	is_unique = unique;
-	this->ref_table = table;
-	this->ro_store = store;
-	this->rw_store = NULL;
+	ref_table = table;
+	ro_store = store;
+	rw_store = NULL;
 	return 0;
 }
 
@@ -193,24 +193,24 @@ int dt_simple_index::init(dtable * store, const dtable * table, bool unique)
 {
 	/* any further checking here? */
 	is_unique = unique;
-	this->ref_table = table;
-	this->ro_store = store;
-	this->rw_store = store->writable() ? store : NULL;
+	ref_table = table;
+	ro_store = store;
+	rw_store = store->writable() ? store : NULL;
 	return 0;
 }
 
-/* finds the region of blob that is equal to pri and sets idx to this byte offset, sets next to the
- * byte offset of where the next item in the blob. If set is non null then instead of finding something
- * equal to pri it make set equal to the dtype at the idx byte offset
- */
-int dt_simple_index::find(const blob & b, const dtype & pri, uint32_t & idx, uint32_t & next, dtype * set) const
+/* Finds the region of blob that is equal to pri and sets idx to this byte
+ * offset; sets next to the byte offset of where the next item in the blob. If
+ * set is non null then instead of finding something equal to pri it makes set
+ * equal to the dtype at the idx byte offset. */
+int dt_simple_index::find(const blob & b, const dtype & pri, uint32_t * idx, uint32_t * next, dtype * set) const
 {
 	assert(pri.type == ref_table->key_type());
 	switch(pri.type)
 	{
 		case dtype::STRING:
 		{
-			uint32_t len, i = idx;
+			uint32_t len, i = *idx;
 			while(i + sizeof(uint32_t) < b.size())
 			{
 				len = b.index<uint32_t>(0, i);
@@ -221,8 +221,8 @@ int dt_simple_index::find(const blob & b, const dtype & pri, uint32_t & idx, uin
 					*set = temp;
 				if(set || pri == temp)
 				{
-					idx = i;
-					next = i + sizeof(uint32_t) + len;
+					*idx = i;
+					*next = i + sizeof(uint32_t) + len;
 					return 0;
 				}
 				i += sizeof(uint32_t) + len;
@@ -231,14 +231,14 @@ int dt_simple_index::find(const blob & b, const dtype & pri, uint32_t & idx, uin
 		}
 		case dtype::UINT32:
 		{
-			for(uint32_t i = idx; i < b.size(); i += sizeof(uint32_t))
+			for(uint32_t i = *idx; i < b.size(); i += sizeof(uint32_t))
 			{
 				if(set)
 					*set = b.index<uint32_t>(0, i);
 				if(set || b.index<uint32_t>(0, i) == pri.u32)
 				{
-					idx = i;
-					next = idx + sizeof(uint32_t);
+					*idx = i;
+					*next = *idx + sizeof(uint32_t);
 					return 0;
 				}
 			}
@@ -246,24 +246,21 @@ int dt_simple_index::find(const blob & b, const dtype & pri, uint32_t & idx, uin
 		}
 		case dtype::DOUBLE:
 		{
-			for(uint32_t i = idx; i < b.size(); i += sizeof(double))
+			for(uint32_t i = *idx; i < b.size(); i += sizeof(double))
 			{
 				if(set)
 					*set = b.index<uint32_t>(0, i);
 				if(set || b.index<double>(0, i) == pri.dbl)
 				{
-					idx = i;
-					next = idx + sizeof(double);
+					*idx = i;
+					*next = *idx + sizeof(double);
 					return 0;
 				}
 			}
 			break;
 		}
 		default:
-		{
 			return -1;
-
-		}
 	}
 	return -1;
 }

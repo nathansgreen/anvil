@@ -52,8 +52,9 @@ private:
 	const dtable * ref_table;
 	const dtable * ro_store;
 	dtable * rw_store;
-	int find(const blob & b, const dtype & pri, uint32_t & idx, uint32_t & next, dtype * set = NULL) const;
-
+	
+	int find(const blob & b, const dtype & pri, uint32_t * idx, uint32_t * next, dtype * set = NULL) const;
+	
 	class iter : public dt_index::iter
 	{
 	public:
@@ -64,7 +65,7 @@ private:
 		inline iter(const dt_simple_index * src, dtable::iter * iter, dtype::ctype type);
 		inline iter(const dt_simple_index * src, const dtype & key, dtype::ctype type);
 		virtual ~iter() {}
-
+		
 	private:
 		dtype seckey;
 		blob multi_value;

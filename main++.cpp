@@ -121,7 +121,7 @@ static void run_iterator(ctable * table)
 			old_key = key;
 			first = false;
 		}
-		printf("%s:", iter->column());
+		printf("%s:", (const char *) iter->column());
 		print(iter->value(), "\t");
 		more = iter->next();
 	}
@@ -144,7 +144,7 @@ static void run_iterator(stable * table)
 			printf("columns->next() returned false, but columns->valid() says there is more!\n");
 			break;
 		}
-		printf("%s:\t%s (%d row%s)\n", columns->name(), type, rows, (rows == 1) ? "" : "s");
+		printf("%s:\t%s (%d row%s)\n", (const char *) columns->name(), type, rows, (rows == 1) ? "" : "s");
 		more = columns->next();
 	}
 	delete columns;
@@ -166,7 +166,7 @@ static void run_iterator(stable * table)
 			old_key = key;
 			first = false;
 		}
-		printf("%s:\t", iter->column());
+		printf("%s:\t", (const char *) iter->column());
 		print(iter->value());
 		printf("\n");
 		more = iter->next();

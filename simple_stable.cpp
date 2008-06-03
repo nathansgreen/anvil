@@ -24,7 +24,7 @@ bool simple_stable::citer::next()
 	return meta != end;
 }
 
-const char * simple_stable::citer::name() const
+const istr & simple_stable::citer::name() const
 {
 	return meta->first;
 }
@@ -37,6 +37,11 @@ size_t simple_stable::citer::row_count() const
 dtype::ctype simple_stable::citer::type() const
 {
 	return meta->second.type;
+}
+
+dt_index * simple_stable::citer::index() const
+{
+	return meta->second.index;
 }
 
 bool simple_stable::siter::valid() const
@@ -54,7 +59,7 @@ dtype simple_stable::siter::key() const
 	return data->key();
 }
 
-const char * simple_stable::siter::column() const
+const istr & simple_stable::siter::column() const
 {
 	return data->column();
 }
@@ -74,17 +79,23 @@ size_t simple_stable::column_count() const
 	return column_map.size();
 }
 
-size_t simple_stable::row_count(const char * column) const
+size_t simple_stable::row_count(const istr & column) const
 {
 	const column_info * c = get_column(column);
 	return c ? c->row_count : 0;
 }
 
-dtype::ctype simple_stable::column_type(const char * column) const
+dtype::ctype simple_stable::column_type(const istr & column) const
 {
 	const column_info * c = get_column(column);
 	assert(c);
 	return c->type;
+}
+
+dt_index * simple_stable::column_index(const istr & column) const
+{
+	const column_info * c = get_column(column);
+	return c ? c->index : NULL;
 }
 
 dtable::key_iter * simple_stable::keys() const
@@ -116,7 +127,7 @@ stable::iter * simple_stable::iterator(dtype key) const
 	return wrapper;
 }
 
-bool simple_stable::find(dtype key, const char * column, dtype * value) const
+bool simple_stable::find(dtype key, const istr & column, dtype * value) const
 {
 	const column_info * c = get_column(column);
 	if(!c)
@@ -156,10 +167,7 @@ int simple_stable::load_columns()
 		}
 		
 		blob value = source->value();
-		const char * column = strdup(key.str);
-		if(!column)
-			break;
-		column_info * c = &column_map[column];
+		column_info * c = &column_map[key.str];
 		c->row_count = value.index<size_t>(0);
 		switch(value[sizeof(size_t)])
 		{
@@ -176,18 +184,12 @@ int simple_stable::load_columns()
 		source->next();
 	}
 	if(source->valid())
-		while(!column_map.empty())
-		{
-			column_map_full_iter it = column_map.begin();
-			const char * column = it->first;
-			column_map.erase(column);
-			free((void *) column);
-		}
+		column_map.clear();
 	delete source;
 	return 0;
 }
 
-const simple_stable::column_info * simple_stable::get_column(const char * column) const
+const simple_stable::column_info * simple_stable::get_column(const istr & column) const
 {
 	column_map_iter it = column_map.find(column);
 	if(it == column_map.end())
@@ -195,9 +197,10 @@ const simple_stable::column_info * simple_stable::get_column(const char * column
 	return &it->second;
 }
 
-int simple_stable::adjust_column(const char * column, ssize_t delta, dtype::ctype type)
+int simple_stable::adjust_column(const istr & column, ssize_t delta, dtype::ctype type)
 {
 	int r;
+	dt_index * old_index = NULL;
 	bool created = false, destroyed = false;
 	column_map_full_iter it = column_map.find(column);
 	column_info * c = (it == column_map.end()) ? NULL : &it->second;
@@ -212,12 +215,10 @@ int simple_stable::adjust_column(const char * column, ssize_t delta, dtype::ctyp
 		/* decrement a nonexistent column? */
 		if(delta < 0)
 			return -EINVAL;
-		column = strdup(column);
-		if(!column)
-			return -ENOMEM;
 		c = &column_map[column];
 		c->row_count = delta;
 		c->type = type;
+		c->index = NULL;
 		created = true;
 	}
 	else
@@ -232,7 +233,7 @@ int simple_stable::adjust_column(const char * column, ssize_t delta, dtype::ctyp
 		if(!c->row_count)
 		{
 			assert(delta < 0);
-			column = it->first;
+			old_index = c->index;
 			column_map.erase(column);
 			destroyed = true;
 		}
@@ -258,21 +259,19 @@ int simple_stable::adjust_column(const char * column, ssize_t delta, dtype::ctyp
 	{
 		/* clean up in case of error */
 		if(created)
-		{
 			column_map.erase(column);
-			free((void *) column);
-		}
 		else if(destroyed)
 		{
 			c = &column_map[column];
 			c->row_count = -delta;
 			c->type = type;
+			c->index = old_index;
 		}
 	}
 	return r;
 }
 
-int simple_stable::append(dtype key, const char * column, const dtype & value)
+int simple_stable::append(dtype key, const istr & column, const dtype & value)
 {
 	int r;
 	bool increment = !ct_data->find(key, column).exists();
@@ -291,7 +290,7 @@ int simple_stable::append(dtype key, const char * column, const dtype & value)
 	return r;
 }
 
-int simple_stable::remove(dtype key, const char * column)
+int simple_stable::remove(dtype key, const istr & column)
 {
 	int r;
 	dtype::ctype type;
@@ -389,13 +388,7 @@ void simple_stable::deinit()
 {
 	if(md_dfd < 0)
 		return;
-	while(!column_map.empty())
-	{
-		column_map_full_iter it = column_map.begin();
-		const char * column = it->first;
-		column_map.erase(column);
-		free((void *) column);
-	}
+	column_map.clear();
 	delete ct_data;
 	delete _dt_data;
 	delete dt_meta;
