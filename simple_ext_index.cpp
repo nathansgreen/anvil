@@ -3,6 +3,7 @@
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
 #include "blob_buffer.h"
+#include "index_factory.h"
 #include "simple_ext_index.h"
 
 /* multi value blob format:
@@ -72,14 +73,14 @@ dtype simple_ext_index::iter::pri() const
 	abort();
 }
 
-int simple_ext_index::map(const dtype & key, dtype & value) const
+int simple_ext_index::map(const dtype & key, dtype * value) const
 {
 	/* give the unique pri for this key; only makes sense if unique is true */
 	assert(is_unique);
 	blob pri = ro_store->find(key);
 	if(!pri.exists())
 		return -1;
-	value = dtype(pri, ref_table->key_type());
+	*value = dtype(pri, ref_table->key_type());
 	return 0;
 }
 
@@ -179,21 +180,23 @@ int simple_ext_index::remove(const dtype & key, const dtype & pri)
 	return rw_store->append(key, data);
 }
 
-int simple_ext_index::init(const dtable * store, const dtable * table, bool unique)
+int simple_ext_index::init(const dtable * store, const dtable * primary, const params & config)
 {
+	if(!config.get("unique", &is_unique, false))
+		return -EINVAL;
 	/* any further checking here? */
-	is_unique = unique;
-	ref_table = table;
+	ref_table = primary;
 	ro_store = store;
 	rw_store = NULL;
 	return 0;
 }
 
-int simple_ext_index::init(dtable * store, const dtable * table, bool unique)
+int simple_ext_index::init(dtable * store, const dtable * primary, const params & config)
 {
+	if(!config.get("unique", &is_unique, false))
+		return -EINVAL;
 	/* any further checking here? */
-	is_unique = unique;
-	ref_table = table;
+	ref_table = primary;
 	ro_store = store;
 	rw_store = store->writable() ? store : NULL;
 	return 0;
@@ -264,3 +267,5 @@ int simple_ext_index::find(const blob & b, const dtype & pri, uint32_t * idx, ui
 	}
 	return -1;
 }
+
+DEFINE_EI_FACTORY(simple_ext_index);

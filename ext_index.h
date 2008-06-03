@@ -31,7 +31,7 @@ public:
 	virtual bool writable() const = 0;
 	
 	/* only usable if unique() returns true */
-	virtual dtype map(dtype key) const = 0;
+	virtual int map(const dtype & key, dtype * value) const = 0;
 	
 	virtual iter * iterator() const = 0;
 	virtual iter * iterator(dtype key) const = 0;

@@ -11,7 +11,9 @@
 
 #include "dtype.h"
 #include "dtable.h"
+#include "params.h"
 #include "ext_index.h"
+#include "index_factory.h"
 
 class simple_ext_index : public ext_index
 {
@@ -26,7 +28,7 @@ public:
 		return rw_store ? rw_store->writable() : false;
 	}
 	
-	virtual int map(const dtype & key, dtype & value) const;
+	virtual int map(const dtype & key, dtype * value) const;
 	
 	virtual iter * iterator() const;
 	virtual iter * iterator(dtype key) const;
@@ -40,10 +42,12 @@ public:
 	
 	inline simple_ext_index() : ro_store(NULL), rw_store(NULL) {}
 	/* read only version */
-	int init(const dtable * store, const dtable * table, bool unique);
+	int init(const dtable * store, const dtable * primary, const params & config);
 	/* if you want this index to be writable */
-	int init(dtable * store, const dtable * table, bool unique);
+	int init(dtable * store, const dtable * primary, const params & config);
 	inline virtual ~simple_ext_index() {}
+	
+	DECLARE_EI_FACTORY(simple_ext_index);
 	
 private:
 	bool is_unique;
