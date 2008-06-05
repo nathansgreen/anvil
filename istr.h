@@ -22,6 +22,9 @@
  * unions. (Also, it must be explicitly cast to const char *, or have str()
  * called, to pass through ... as in printf().) */
 
+/* Well, OK, we'll do one other thing here. We'll support concatenation with the
+ * + operator, since you'd never use that on const char * anyway. But that's it. */
+
 class istr
 {
 public:
@@ -86,6 +89,34 @@ public:
 		}
 		else
 			shared = NULL;
+		return *this;
+	}
+	
+	inline istr operator+(const char * x) const
+	{
+		if(!shared || !x)
+			/* this return here is why we don't just call this below */
+			return shared ? *this : istr(x);
+		size_t length = strlen(shared->string) + strlen(x);
+		istr result(shared->string, length);
+		strcat(result.shared->string, x);
+		return result;
+	}
+	
+	inline istr operator+(const istr & x) const
+	{
+		if(!shared || !x.shared)
+			return shared ? *this : x;
+		size_t length = strlen(shared->string) + strlen(x.shared->string);
+		istr result(shared->string, length);
+		strcat(result.shared->string, x.shared->string);
+		return result;
+	}
+	
+	inline istr & operator+=(const istr & x)
+	{
+		istr result = *this + x;
+		*this = result;
 		return *this;
 	}
 	

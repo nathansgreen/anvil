@@ -25,6 +25,7 @@ public:
 	virtual size_t row_count(const istr & column) const;
 	virtual dtype::ctype column_type(const istr & column) const;
 	virtual ext_index * column_index(const istr & column) const;
+	virtual int set_column_index(const istr & column, ext_index * index);
 	
 	virtual dtable::key_iter * keys() const;
 	virtual iter * iterator() const;
