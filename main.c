@@ -14,7 +14,6 @@
 #include <readline/history.h>
 
 #include "openat.h"
-#include "hash_map.h"
 #include "journal.h"
 #include "transaction.h"
 #include "str_tbl.h"
@@ -812,7 +811,6 @@ int main(int argc, char * argv[])
 	char * home = getenv("HOME");
 	char history[PATH_MAX];
 	int r;
-	hash_map_init();
 	/* toilet_init() calls tx_init() for us */
 	if((r = toilet_init(".")) < 0)
 	{
