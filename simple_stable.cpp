@@ -98,6 +98,15 @@ ext_index * simple_stable::column_index(const istr & column) const
 	return c ? c->index : NULL;
 }
 
+int simple_stable::set_column_index(const istr & column, ext_index * index)
+{
+	column_map_full_iter it = column_map.find(column);
+	if(it == column_map.end())
+		return -ENOENT;
+	it->second.index = index;
+	return 0;
+}
+
 dtable::key_iter * simple_stable::keys() const
 {
 	return ct_data->keys();

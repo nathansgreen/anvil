@@ -50,7 +50,11 @@ public:
 	virtual size_t column_count() const = 0;
 	virtual size_t row_count(const istr & column) const = 0;
 	virtual dtype::ctype column_type(const istr & column) const = 0;
+	
+	/* stables can keep track of column indices that you give them, or they
+	 * can take care of creating and managing the indices themselves */
 	virtual ext_index * column_index(const istr & column) const = 0;
+	virtual int set_column_index(const istr & column, ext_index * index) = 0;
 	
 	virtual dtable::key_iter * keys() const = 0;
 	virtual iter * iterator() const = 0;
