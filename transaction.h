@@ -17,7 +17,7 @@ extern "C" {
  * its header file inside the extern "C" block. */
 #include <patchgroup.h>
 
-typedef uint32_t tx_id;
+typedef int32_t tx_id;
 typedef int tx_fd;
 
 int tx_init(int dfd);

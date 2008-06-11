@@ -3,7 +3,6 @@
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
 #define _ATFILE_SOURCE
-#define _GNU_SOURCE
 
 #include <errno.h>
 #include <stdlib.h>
@@ -14,9 +13,11 @@
 #include <string.h>
 #include <assert.h>
 
+#include <algorithm> /* for std::sort */
+#include <map>
+#include <vector>
+
 #include "openat.h"
-#include "vector.h"
-#include "hash_map.h"
 #include "journal.h"
 #include "transaction.h"
 
@@ -79,7 +80,8 @@ static journal * last_journal = NULL;
 static journal * current_journal = NULL;
 
 static tx_id last_tx_id = -1;
-static hash_map_t * tx_id_map = NULL;
+typedef std::map<tx_id, journal *> tx_map_t;
+static tx_map_t * tx_map; 
 
 /* TX_FDS should be a power of 2 */
 #define TX_FDS 1024
@@ -99,6 +101,11 @@ static tx_fd last_tx_fd = -1;
 
 static int tx_playback(journal * j);
 
+static bool str_less(const char * a, const char * b)
+{
+	return (strcmp(a,b) < 0) ? true : false;
+}
+
 /* scans journal dir, recovers transactions */
 int tx_init(int dfd)
 {
@@ -107,7 +114,7 @@ int tx_init(int dfd)
 	DIR * dir;
 	int copy, error = -1;
 	struct dirent * ent;
-	vector_t * entries;
+	std::vector<char *> entries;
 	
 	if(journal_dir >= 0)
 		return -EBUSY;
@@ -136,12 +143,6 @@ int tx_init(int dfd)
 		close(copy);
 		goto fail;
 	}
-	entries = vector_create();
-	if(!entries)
-	{
-		closedir(dir);
-		goto fail;
-	}
 	
 	while((ent = readdir(dir)))
 	{
@@ -151,28 +152,26 @@ int tx_init(int dfd)
 		name = strdup(ent->d_name);
 		if(!name)
 			break;
-		if(vector_push_back(entries, name) < 0)
-		{
-			free(name);
-			break;
-		}
+		entries.push_back(name);
 	}
 	closedir(dir);
 	if(ent)
 	{
 	fail_vector:
-		while(!vector_empty(entries))
-			free(vector_pop_back(entries));
-		vector_destroy(entries);
+		while(!entries.empty())
+		{
+			free(entries.back());
+			entries.pop_back();
+		}
 		goto fail;
 	}
 	
 	/* XXX currently we assume recovery of journals in lexicographic order */
-	vector_sort(entries, (int (*)(const void *, const void *)) strcmp);
+	std::sort(entries.begin(), entries.end(), str_less);
 	
-	for(i = 0; i < vector_size(entries); i++)
+	for(i = 0; i < entries.size(); i++)
 	{
-		char * name = (char *) vector_elt(entries, i);
+		char * name = entries[i];
 		last_tx_id = strtol(name, NULL, 16);
 		error = journal_reopen(journal_dir, name, &current_journal, last_journal);
 		if(error < 0)
@@ -200,11 +199,13 @@ int tx_init(int dfd)
 		current_journal = NULL;
 	}
 	
-	while(!vector_empty(entries))
-		free(vector_pop_back(entries));
-	vector_destroy(entries);
-	tx_id_map = hash_map_create();
-	if(!tx_id_map)
+	while(!entries.empty())
+	{
+		free(entries.back());
+		entries.pop_back();
+	}
+	tx_map = new tx_map_t;
+	if(!tx_map)
 	{
 		error = -ENOMEM;
 		goto fail;
@@ -219,22 +220,21 @@ fail:
 
 void tx_deinit(void)
 {
-	hash_map_it2_t it;
 	if(journal_dir < 0)
 		return;
 	if(current_journal)
 		tx_end(0);
-	it = hash_map_it2_create(tx_id_map);
-	while(hash_map_it2_next(&it))
+	for(tx_map_t::iterator itr = tx_map->begin(); itr != tx_map->end(); ++itr)
 	{
-		journal * j = (journal *) it.val;
+		journal * j = itr->second;
 		if(j != last_journal)
 			journal_free(j);
 	}
-	hash_map_destroy(tx_id_map);
+	tx_map->clear();
+	delete tx_map;
 	if(last_journal)
 		journal_free(last_journal);
-	tx_id_map = NULL;
+	tx_map = NULL;
 	close(journal_dir);
 	journal_dir = -1;
 }
@@ -248,7 +248,7 @@ int tx_start(void)
 	current_journal = journal_create(journal_dir, name, last_journal);
 	if(!current_journal)
 		return -1;
-	if(last_journal && !hash_map_find_val(tx_id_map, (void *) last_tx_id))
+	if(last_journal && tx_map->find(last_tx_id) == tx_map->end())
 	{
 		journal_free(last_journal);
 		last_journal = NULL;
@@ -271,9 +271,8 @@ tx_id tx_end(int assign_id)
 		return -ENOENT;
 	if(assign_id)
 	{
-		r = hash_map_insert(tx_id_map, (void *) last_tx_id, current_journal);
-		if(r < 0)
-			return r;
+		if(!tx_map->insert(std::make_pair(last_tx_id, current_journal)).second)
+			return -ENOENT;
 	}
 	r = journal_commit(current_journal);
 	if(r < 0)
@@ -291,21 +290,22 @@ tx_id tx_end(int assign_id)
 	return 0;
 	
 fail:
-	if(assign_id)
-		hash_map_erase(tx_id_map, (void *) last_tx_id);
+	if(assign_id) 
+		tx_map->erase(last_tx_id);
 	return r;
 }
 
 int tx_sync(tx_id id)
 {
 	int r;
-	journal * j = (journal *) hash_map_find_val(tx_id_map, (void *) id);
-	if(!j)
+	tx_map_t::iterator itr = tx_map->find(id);
+	if(itr == tx_map->end())
 		return -EINVAL;
+	journal * j = itr->second;
 	r = journal_flush(j);
 	if(r < 0)
 		return r;
-	hash_map_erase(tx_id_map, (void *) id);
+	tx_map->erase(id);
 	if(j != last_journal)
 		journal_free(j);
 	return 0;
@@ -313,10 +313,11 @@ int tx_sync(tx_id id)
 
 int tx_forget(tx_id id)
 {
-	journal * j = (journal *) hash_map_find_val(tx_id_map, (void *) id);
-	if(!j)
+	tx_map_t::iterator itr = tx_map->find(id);
+	if(itr == tx_map->end())
 		return -EINVAL;
-	hash_map_erase(tx_id_map, (void *) id);
+	journal * j = itr->second;
+	tx_map->erase(id);
 	if(j != last_journal)
 		journal_free(j);
 	return 0;
@@ -428,14 +429,14 @@ static int tx_rename_playback(struct tx_hdr * header, size_t length)
 
 static int tx_record_processor(void * data, size_t length, void * param)
 {
-	struct tx_hdr * header = data;
+	struct tx_hdr * header = (tx_hdr *) data;
 	switch(header->type)
 	{
-		case WRITE:
+		case tx_hdr::WRITE:
 			return tx_write_playback(header->write, length);
-		case UNLINK:
+		case tx_hdr::UNLINK:
 			return tx_unlink_playback(header->unlink, length);
-		case RENAME:
+		case tx_hdr::RENAME:
 			return tx_rename_playback(header, length);
 	}
 	return -ENOSYS;
@@ -529,7 +530,7 @@ ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset)
 	size_t count = 1;
 	if(!current_journal)
 		return -EBUSY;
-	header->type.type = WRITE;
+	header->type.type = tx_hdr::WRITE;
 	header->write.length = length;
 	header->write.offset = offset;
 	iov[0].iov_base = header;
@@ -561,7 +562,8 @@ ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset)
 int tx_vnprintf(tx_fd fd, off_t offset, size_t max, const char * format, va_list ap)
 {
 	char buffer[512];
-	int r, length = vsnprintf(buffer, sizeof(buffer), format, ap);
+	int r;
+       	uint32_t length = vsnprintf(buffer, sizeof(buffer), format, ap);
 	if(length >= sizeof(buffer) || (max != (size_t) -1 && length > max))
 		return -E2BIG;
 	r = tx_write(fd, buffer, length, offset);
@@ -618,7 +620,7 @@ int tx_unlink(int dfd, const char * name)
 	int r;
 	if(!current_journal)
 		return -EBUSY;
-	header.type.type = UNLINK;
+	header.type.type = tx_hdr::UNLINK;
 	iov[0].iov_base = &header;
 	iov[0].iov_len = sizeof(header);
 	dir = getcwdat(dfd, NULL, 0);
