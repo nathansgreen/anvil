@@ -29,16 +29,16 @@ public:
 	
 	virtual dtable::key_iter * keys() const;
 	virtual iter * iterator() const;
-	virtual iter * iterator(dtype key) const;
+	virtual iter * iterator(const dtype & key) const;
 	
-	virtual bool find(dtype key, const istr & column, dtype * value) const;
-	virtual bool contains(dtype key) const;
+	virtual bool find(const dtype & key, const istr & column, dtype * value) const;
+	virtual bool contains(const dtype & key) const;
 	
 	virtual bool writable() const;
 	
-	virtual int append(dtype key, const istr & column, const dtype & value);
-	virtual int remove(dtype key, const istr & column);
-	virtual int remove(dtype key);
+	virtual int append(const dtype & key, const istr & column, const dtype & value);
+	virtual int remove(const dtype & key, const istr & column);
+	virtual int remove(const dtype & key);
 	
 	virtual dtype::ctype key_type() const;
 	

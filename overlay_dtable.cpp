@@ -84,7 +84,7 @@ dtable::iter * overlay_dtable::iterator() const
 	return new iter(this);
 }
 
-blob overlay_dtable::lookup(dtype key, const dtable ** source) const
+blob overlay_dtable::lookup(const dtype & key, const dtable ** source) const
 {
 	size_t i;
 	for(i = 0; i < table_count; i++)

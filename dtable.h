@@ -43,11 +43,11 @@ public:
 	};
 	
 	virtual iter * iterator() const = 0;
-	virtual blob lookup(dtype key, const dtable ** source) const = 0;
-	inline blob find(dtype key) const { const dtable * source; return lookup(key, &source); }
+	virtual blob lookup(const dtype & key, const dtable ** source) const = 0;
+	inline blob find(const dtype & key) const { const dtable * source; return lookup(key, &source); }
 	inline virtual bool writable() const { return false; }
-	inline virtual int append(dtype key, const blob & blob) { return -ENOSYS; }
-	inline virtual int remove(dtype key) { return -ENOSYS; }
+	inline virtual int append(const dtype & key, const blob & blob) { return -ENOSYS; }
+	inline virtual int remove(const dtype & key) { return -ENOSYS; }
 	inline dtype::ctype key_type() const { return ktype; }
 	inline virtual ~dtable() {}
 	

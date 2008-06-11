@@ -45,7 +45,7 @@ dtable::iter * journal_dtable::iterator() const
 	return new iter(node, this);
 }
 
-blob journal_dtable::lookup(dtype key, const dtable ** source) const
+blob journal_dtable::lookup(const dtype & key, const dtable ** source) const
 {
 	node * node = find_node(key);
 	if(node)
@@ -130,7 +130,7 @@ template<class T> inline int journal_dtable::log(T * entry, const blob & blob)
 	return r;
 }
 
-int journal_dtable::log(dtype key, const blob & blob)
+int journal_dtable::log(const dtype & key, const blob & blob)
 {
 	switch(key.type)
 	{
@@ -171,7 +171,7 @@ int journal_dtable::log(dtype key, const blob & blob)
 	abort();
 }
 
-int journal_dtable::append(dtype key, const blob & blob)
+int journal_dtable::append(const dtype & key, const blob & blob)
 {
 	int r;
 	node * node;
@@ -189,7 +189,7 @@ int journal_dtable::append(dtype key, const blob & blob)
 	return add_node(key, blob);
 }
 
-int journal_dtable::remove(dtype key)
+int journal_dtable::remove(const dtype & key)
 {
 	return append(key, blob());
 }
@@ -240,7 +240,7 @@ void journal_dtable::deinit()
 	}
 }
 
-journal_dtable::node * journal_dtable::find_node(dtype key) const
+journal_dtable::node * journal_dtable::find_node(const dtype & key) const
 {
 	node * node = root;
 	while(node && node->key != key)
@@ -249,7 +249,7 @@ journal_dtable::node * journal_dtable::find_node(dtype key) const
 }
 
 /* a simple binary tree for now */
-int journal_dtable::add_node(dtype key, const blob & value)
+int journal_dtable::add_node(const dtype & key, const blob & value)
 {
 	node ** ptr = &root;
 	node * old = NULL;

@@ -37,7 +37,7 @@ public:
 	{
 		return overlay->iterator();
 	}
-	inline virtual blob lookup(dtype key, const dtable ** source) const
+	inline virtual blob lookup(const dtype & key, const dtable ** source) const
 	{
 		return overlay->lookup(key, source);
 	}
@@ -45,13 +45,13 @@ public:
 	inline virtual bool writable() const { return true; }
 	
 	/* send to journal_dtable */
-	inline virtual int append(dtype key, const blob & blob)
+	inline virtual int append(const dtype & key, const blob & blob)
 	{
 		if(!blob.exists() && !find(key).exists())
 			return 0;
 		return journal->append(key, blob);
 	}
-	inline virtual int remove(dtype key)
+	inline virtual int remove(const dtype & key)
 	{
 		if(!find(key).exists())
 			return 0;

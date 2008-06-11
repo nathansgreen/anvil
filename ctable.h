@@ -32,15 +32,15 @@ public:
 	
 	virtual dtable::key_iter * keys() const = 0;
 	virtual iter * iterator() const = 0;
-	virtual iter * iterator(dtype key) const = 0;
-	virtual blob find(dtype key, const istr & column) const = 0;
-	virtual bool contains(dtype key) const = 0;
+	virtual iter * iterator(const dtype & key) const = 0;
+	virtual blob find(const dtype & key, const istr & column) const = 0;
+	virtual bool contains(const dtype & key) const = 0;
 	virtual bool writable() const = 0;
-	virtual int append(dtype key, const istr & column, const blob & value) = 0;
+	virtual int append(const dtype & key, const istr & column, const blob & value) = 0;
 	/* remove just a column */
-	virtual int remove(dtype key, const istr & column) = 0;
+	virtual int remove(const dtype & key, const istr & column) = 0;
 	/* remove the whole row */
-	virtual int remove(dtype key) = 0;
+	virtual int remove(const dtype & key) = 0;
 	inline dtype::ctype key_type() const { return dt_source->key_type(); }
 	inline ctable() : dt_source(NULL) {}
 	inline virtual ~ctable() {}

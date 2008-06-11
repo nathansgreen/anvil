@@ -91,12 +91,12 @@ ctable::iter * simple_ctable::iterator() const
 	return new iter(dt_source->iterator());
 }
 
-ctable::iter * simple_ctable::iterator(dtype key) const
+ctable::iter * simple_ctable::iterator(const dtype & key) const
 {
 	return new iter(dt_source->find(key));
 }
 
-blob simple_ctable::find(dtype key, const istr & column) const
+blob simple_ctable::find(const dtype & key, const istr & column) const
 {
 	blob row = dt_source->find(key);
 	if(!row.exists())
@@ -106,13 +106,13 @@ blob simple_ctable::find(dtype key, const istr & column) const
 	return columns.get(column);
 }
 
-bool simple_ctable::contains(dtype key) const
+bool simple_ctable::contains(const dtype & key) const
 {
 	return dt_source->find(key).exists();
 }
 
 /* if we made a better find(), this could avoid flattening every time */
-int simple_ctable::append(dtype key, const istr & column, const blob & value)
+int simple_ctable::append(const dtype & key, const istr & column, const blob & value)
 {
 	int r = 0;
 	blob row = wdt_source->find(key);
@@ -125,7 +125,7 @@ int simple_ctable::append(dtype key, const istr & column, const blob & value)
 	return r;
 }
 
-int simple_ctable::remove(dtype key, const istr & column)
+int simple_ctable::remove(const dtype & key, const istr & column)
 {
 	int r = append(key, column, blob());
 	if(r >= 0)

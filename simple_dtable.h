@@ -35,7 +35,7 @@ class simple_dtable : public dtable
 {
 public:
 	virtual iter * iterator() const;
-	virtual blob lookup(dtype key, const dtable ** source) const;
+	virtual blob lookup(const dtype & key, const dtable ** source) const;
 	
 	inline simple_dtable() : fd(-1) {}
 	int init(int dfd, const char * file, const params & config);
@@ -78,7 +78,7 @@ private:
 	};
 	
 	dtype get_key(size_t index, size_t * data_length = NULL, off_t * data_offset = NULL) const;
-	int find_key(dtype key, size_t * data_length, off_t * data_offset, size_t * index) const;
+	int find_key(const dtype & key, size_t * data_length, off_t * data_offset, size_t * index) const;
 	blob get_value(size_t index, size_t data_length, off_t data_offset) const;
 	blob get_value(size_t index) const;
 	

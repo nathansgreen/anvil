@@ -124,7 +124,7 @@ stable::iter * simple_stable::iterator() const
 	return wrapper;
 }
 
-stable::iter * simple_stable::iterator(dtype key) const
+stable::iter * simple_stable::iterator(const dtype & key) const
 {
 	stable::iter * wrapper;
 	ctable::iter * source = ct_data->iterator(key);
@@ -136,7 +136,7 @@ stable::iter * simple_stable::iterator(dtype key) const
 	return wrapper;
 }
 
-bool simple_stable::find(dtype key, const istr & column, dtype * value) const
+bool simple_stable::find(const dtype & key, const istr & column, dtype * value) const
 {
 	const column_info * c = get_column(column);
 	if(!c)
@@ -148,7 +148,7 @@ bool simple_stable::find(dtype key, const istr & column, dtype * value) const
 	return true;
 }
 
-bool simple_stable::contains(dtype key) const
+bool simple_stable::contains(const dtype & key) const
 {
 	return ct_data->contains(key);
 }
@@ -280,7 +280,7 @@ int simple_stable::adjust_column(const istr & column, ssize_t delta, dtype::ctyp
 	return r;
 }
 
-int simple_stable::append(dtype key, const istr & column, const dtype & value)
+int simple_stable::append(const dtype & key, const istr & column, const dtype & value)
 {
 	int r;
 	bool increment = !ct_data->find(key, column).exists();
@@ -299,7 +299,7 @@ int simple_stable::append(dtype key, const istr & column, const dtype & value)
 	return r;
 }
 
-int simple_stable::remove(dtype key, const istr & column)
+int simple_stable::remove(const dtype & key, const istr & column)
 {
 	int r;
 	dtype::ctype type;
@@ -317,7 +317,7 @@ int simple_stable::remove(dtype key, const istr & column)
 	return r;
 }
 
-int simple_stable::remove(dtype key)
+int simple_stable::remove(const dtype & key)
 {
 	int r;
 	ctable::iter * columns = ct_data->iterator(key);

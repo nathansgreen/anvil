@@ -26,6 +26,7 @@ str_tbl
 dtable
 ctable
 stable
+performance
 EOF
 mkdir /mnt/test/journals
 sudo umount /mnt/test

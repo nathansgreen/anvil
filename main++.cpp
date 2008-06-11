@@ -4,8 +4,10 @@
 
 #define _ATFILE_SOURCE
 
+#include <time.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <sys/time.h>
 
 #include "openat.h"
 #include "transaction.h"
@@ -26,6 +28,7 @@ extern "C" {
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
+int command_performance(int argc, const char * argv[]);
 };
 
 static void print(dtype x)
@@ -385,4 +388,83 @@ int command_stable(int argc, const char * argv[])
 	delete sst;
 	
 	return 0;
+}
+
+static const char * column_names[] = {"c_one", "c_two", "c_three", "c_four", "c_five"};
+#define COLUMN_NAMES (sizeof(column_names) / sizeof(column_names[0]))
+
+int command_performance(int argc, const char * argv[])
+{
+	int r;
+	struct timeval start, end;
+	simple_stable * sst;
+	params config, base_config;
+	
+	base_config.set_class("base", ustr_dtable);
+	base_config.set("digest_interval", 2);
+	base_config.set("combine_interval", 2 * 4);
+	base_config.set("combine_count", 4 + 1);
+	config.set("meta_config", base_config);
+	config.set("data_config", base_config);
+	config.set_class("meta", managed_dtable);
+	config.set_class("data", managed_dtable);
+	config.set_class("columns", simple_ctable);
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = simple_stable::create(AT_FDCWD, "perftest", config, dtype::UINT32);
+	printf("stable::create = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	sst = new simple_stable;
+	r = sst->init(AT_FDCWD, "perftest", config);
+	printf("sst->init = %d\n", r);
+	
+	printf("Start timing!\n");
+	gettimeofday(&start, NULL);
+	
+	for(int i = 0; i < 1000; i++)
+	{
+		const char * column_name = column_names[rand() % COLUMN_NAMES];
+		if(!(i % 10))
+		{
+			r = tx_start();
+			if(r < 0)
+				goto fail_tx_start;
+		}
+		r = sst->append((uint32_t) rand() % 10000, column_name, (uint32_t) rand());
+		if(r < 0)
+			goto fail_append;
+		if((i % 100) == 99)
+		{
+			r = sst->maintain();
+			if(r < 0)
+				goto fail_maintain;
+		}
+		if((i % 10) == 9)
+		{
+			r = tx_end(0);
+			assert(r >= 0);
+		}
+	}
+	
+	gettimeofday(&end, NULL);
+	end.tv_sec -= start.tv_sec;
+	if(end.tv_usec < start.tv_usec)
+	{
+		end.tv_usec += 1000000;
+		end.tv_sec--;
+	}
+	end.tv_usec -= start.tv_usec;
+	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
+	
+	return 0;
+	
+fail_maintain:
+fail_append:
+	tx_end(0);
+fail_tx_start:
+	delete sst;
+	return r;
 }

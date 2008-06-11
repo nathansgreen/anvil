@@ -111,7 +111,7 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 	abort();
 }
 
-int simple_dtable::find_key(dtype key, size_t * data_length, off_t * data_offset, size_t * index) const
+int simple_dtable::find_key(const dtype & key, size_t * data_length, off_t * data_offset, size_t * index) const
 {
 	/* binary search */
 	ssize_t min = 0, max = key_count - 1;
@@ -155,7 +155,7 @@ blob simple_dtable::get_value(size_t index) const
 	return (data_length != (size_t) -1) ? get_value(index, data_length, data_offset) : blob();
 }
 
-blob simple_dtable::lookup(dtype key, const dtable ** source) const
+blob simple_dtable::lookup(const dtype & key, const dtable ** source) const
 {
 	size_t data_length, index;
 	off_t data_offset;

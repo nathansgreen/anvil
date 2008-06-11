@@ -18,18 +18,18 @@ class simple_ctable : public ctable
 public:
 	virtual dtable::key_iter * keys() const;
 	virtual iter * iterator() const;
-	virtual iter * iterator(dtype key) const;
-	virtual blob find(dtype key, const istr & column) const;
-	virtual bool contains(dtype key) const;
+	virtual iter * iterator(const dtype & key) const;
+	virtual blob find(const dtype & key, const istr & column) const;
+	virtual bool contains(const dtype & key) const;
 	
 	inline virtual bool writable() const
 	{
 		return wdt_source ? wdt_source->writable() : false;
 	}
 	
-	virtual int append(dtype key, const istr & column, const blob & value);
-	virtual int remove(dtype key, const istr & column);
-	inline virtual int remove(dtype key)
+	virtual int append(const dtype & key, const istr & column, const blob & value);
+	virtual int remove(const dtype & key, const istr & column);
+	inline virtual int remove(const dtype & key)
 	{
 		return wdt_source->remove(key);
 	}
