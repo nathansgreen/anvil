@@ -103,7 +103,7 @@ private:
 		virtual const istr & column() const;
 		virtual dtype value() const;
 		inline siter(ctable::iter * source, const stable * types) : data(source), meta(types) {}
-		virtual ~siter() {}
+		virtual ~siter() { delete data; }
 	private:
 		ctable::iter * data;
 		const stable * meta;

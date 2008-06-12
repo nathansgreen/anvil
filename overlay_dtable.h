@@ -45,7 +45,7 @@ private:
 		virtual blob value() const;
 		virtual const dtable * source() const;
 		inline iter(const overlay_dtable * source);
-		virtual ~iter() { delete[] subs; }
+		virtual ~iter();
 		
 	private:
 		struct sub

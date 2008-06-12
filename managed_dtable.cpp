@@ -243,6 +243,7 @@ int managed_dtable::combine(size_t first, size_t last)
 	if(last != (size_t) -1)
 		for(size_t i = first; i <= last; i++)
 		{
+			delete copy[i].first;
 			sprintf(name, "md_data.%u", copy[i].second);
 			tx_unlink(md_dfd, name);
 		}

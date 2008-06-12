@@ -20,6 +20,13 @@ overlay_dtable::iter::iter(const overlay_dtable * source)
 	next();
 }
 
+overlay_dtable::iter::~iter()
+{
+	for(size_t i = 0; i < ovr_source->table_count; i++)
+		delete subs[i].iter;
+	delete[] subs;
+}
+
 bool overlay_dtable::iter::valid() const
 {
 	return next_index < ovr_source->table_count;
