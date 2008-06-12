@@ -247,23 +247,28 @@ int simple_stable::adjust_column(const istr & column, ssize_t delta, dtype::ctyp
 			destroyed = true;
 		}
 	}
-	/* create the column meta blob */
-	blob_buffer meta(sizeof(size_t) + 1);
-	meta << c->row_count;
-	switch(type)
+	if(!destroyed)
 	{
-		case dtype::UINT32:
-			meta << (uint8_t) 1;
-			break;
-		case dtype::DOUBLE:
-			meta << (uint8_t) 2;
-			break;
-		case dtype::STRING:
-			meta << (uint8_t) 3;
-			break;
+		/* create the column meta blob */
+		blob_buffer meta(sizeof(size_t) + 1);
+		meta << c->row_count;
+		switch(type)
+		{
+			case dtype::UINT32:
+				meta << (uint8_t) 1;
+				break;
+			case dtype::DOUBLE:
+				meta << (uint8_t) 2;
+				break;
+			case dtype::STRING:
+				meta << (uint8_t) 3;
+				break;
+		}
+		/* and write it */
+		r = dt_meta->append(column, meta);
 	}
-	/* and write it */
-	r = dt_meta->append(column, meta);
+	else
+		r = dt_meta->remove(column);
 	if(r < 0)
 	{
 		/* clean up in case of error */

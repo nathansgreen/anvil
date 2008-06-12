@@ -16,6 +16,8 @@
 #include "blob_buffer.h"
 #include "ustr_dtable.h"
 
+#define DEBUG_USTR 0
+
 /* ustr dtable file format:
  * byte 0-3: magic number
  * byte 4-7: format version
@@ -159,7 +161,7 @@ blob ustr_dtable::unpack_blob(const blob & source, size_t unpacked_size) const
 				buffer.append(string, length);
 			}
 			else
-				for(size_t j = i - dup_escape_len; j < i + dup_index_size; j++)
+				for(size_t j = i - dup_escape_len; j < i; j++)
 					buffer << source[j];
 			i += dup_index_size - 1;
 		}
@@ -690,7 +692,90 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	close(fd);
 	r = 0;
 	
+#if DEBUG_USTR
+	{
+	ustr_dtable * new_ustr = new ustr_dtable;
+	r = new_ustr->init(dfd, file, config);
+	
+	printf("%s: performing sanity check on new file\n", __PRETTY_FUNCTION__);
+	dtable::iter * new_iter = new_ustr->iterator();
+	iter = source->iterator();
+	while(iter->valid())
+	{
+		dtype key = iter->key();
+		blob value = iter->value();
+		if(!value.exists())
+			/* omit non-existent entries no longer needed */
+			if(!shadow || !shadow->find(key).exists())
+			{
+				iter->next();
+				continue;
+			}
+		if(!new_iter->valid())
+		{
+			printf("%s: ERROR: EOF on new dtable\n", __PRETTY_FUNCTION__);
+			break;
+		}
+		dtype new_key = new_iter->key();
+		blob new_value = new_iter->value();
+		if(key.type != new_key.type)
+		{
+			printf("%s: ERROR: key type mismatch\n", __PRETTY_FUNCTION__);
+			break;
+		}
+		if(key != new_key)
+		{
+			printf("%s: ERROR: key mismatch\n", __PRETTY_FUNCTION__);
+			break;
+		}
+		if(value.size() != new_value.size())
+		{
+			printf("%s: ERROR: value size mismatch\n", __PRETTY_FUNCTION__);
+			break;
+		}
+		
+		size_t i;
+		for(i = 0; i < value.size(); i++)
+			if(value[i] != new_value[i])
+				break;
+		if(i < value.size())
+		{
+			printf("%s: ERROR: value mismatch\n", __PRETTY_FUNCTION__);
+			printf("Original value:\n");
+			for(i = 0; i < value.size(); i++)
+				printf("%02x[%c] %c", value[i], isprint(value[i]) ? value[i] : '.', ((i % 16) == 15) ? '\n' : ' ');
+			printf("\nNew value:\n");
+			for(i = 0; i < new_value.size(); i++)
+				printf("%02x[%c] %c", new_value[i], isprint(new_value[i]) ? new_value[i] : '.', ((i % 16) == 15) ? '\n' : ' ');
+			value = pack_blob(value, header, dup_array, dups.size());
+			printf("\nPacked as:\n");
+			for(i = 0; i < value.size(); i++)
+				printf("%02x[%c] %c", value[i], isprint(value[i]) ? value[i] : '.', ((i % 16) == 15) ? '\n' : ' ');
+			printf("\n");
+			break;
+		}
+		
+		iter->next();
+		new_iter->next();
+	}
+	if(!iter->valid() && new_iter->valid())
+		printf("%s: ERROR: EOF on original dtable\n", __PRETTY_FUNCTION__);
+	if(iter->valid() || new_iter->valid())
+	{
+		printf("Duplicate strings:\n");
+		for(size_t i = 0; i < dups.size(); i++)
+			printf("#%02d: %s\n", i, dup_array[i]);
+		printf("Escape character: 0x%02x\n", header.dup_escape[0]);
+	}
+	delete iter;
+	delete new_iter;
+	delete new_ustr;
+	}
+#endif
+	
 out_strings:
+	if(dup_array)
+		free(dup_array);
 	if(string_array)
 		free(string_array);
 	return r;
