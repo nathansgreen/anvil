@@ -424,7 +424,7 @@ int command_performance(int argc, const char * argv[])
 	printf("Start timing!\n");
 	gettimeofday(&start, NULL);
 	
-	for(int i = 0; i < 1000; i++)
+	for(int i = 0; i < 10000; i++)
 	{
 		const char * column_name = column_names[rand() % COLUMN_NAMES];
 		if(!(i % 10))
@@ -436,6 +436,18 @@ int command_performance(int argc, const char * argv[])
 		r = sst->append((uint32_t) rand() % 10000, column_name, (uint32_t) rand());
 		if(r < 0)
 			goto fail_append;
+		if((i % 1000) == 999)
+		{
+			gettimeofday(&end, NULL);
+			end.tv_sec -= start.tv_sec;
+			if(end.tv_usec < start.tv_usec)
+			{
+				end.tv_usec += 1000000;
+				end.tv_sec--;
+			}
+			end.tv_usec -= start.tv_usec;
+			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 100, (int) end.tv_sec, (int) end.tv_usec);
+		}
 		if((i % 100) == 99)
 		{
 			r = sst->maintain();
@@ -459,6 +471,7 @@ int command_performance(int argc, const char * argv[])
 	end.tv_usec -= start.tv_usec;
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
 	
+	delete sst;
 	return 0;
 	
 fail_maintain:

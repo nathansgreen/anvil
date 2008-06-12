@@ -55,6 +55,8 @@ sudo umount /mnt/test
 sudo rmmod kfstitchd
 echo "done."
 
+echo -ne \\007
+
 sudo mount /dev/sdb1 /mnt/test -t ext2
 if [ -f /mnt/test/core ]
 then

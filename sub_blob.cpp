@@ -175,6 +175,7 @@ void sub_blob::populate() const
 		name[label] = 0;
 		offset += label;
 		
+		assert(offset + length <= base.size());
 		ovr = find(name);
 		if(!ovr)
 			/* it hasn't been populated yet, so do it now */
