@@ -4,8 +4,6 @@
 
 #include <errno.h>
 #include <assert.h>
-#include <stdlib.h>
-#include <string.h>
 
 #include "blob_buffer.h"
 #include "sub_blob.h"
@@ -81,7 +79,7 @@ blob sub_blob::get(const istr & column) const
 	blob value = extract(column);
 	/* don't add non-existent blobs to the override list */
 	if(value.exists())
-		new override(column, extract(column), &overrides);
+		new override(column, value, &overrides);
 	return value;
 }
 
@@ -108,6 +106,18 @@ int sub_blob::remove(const istr & column)
 }
 
 blob sub_blob::flatten(bool internalize)
+{
+	blob flat = const_cast<const sub_blob *>(this)->flatten();
+	if(internalize)
+	{
+		base = flat;
+		while(overrides)
+			delete overrides;
+	}
+	return flat;
+}
+
+blob sub_blob::flatten() const
 {
 	size_t count = 0, total_size = 1;
 	uint32_t max_length = 0;
@@ -141,12 +151,6 @@ blob sub_blob::flatten(bool internalize)
 		flat.append(scan->value);
 	}
 	assert(total_size == flat.size());
-	if(internalize)
-	{
-		base = flat;
-		while(overrides)
-			delete overrides;
-	}
 	return flat;
 }
 
@@ -165,24 +169,18 @@ void sub_blob::populate() const
 	uint8_t length_size = base[0];
 	while(offset + length_size + 1 < base.size())
 	{
-		override * ovr;
 		size_t length = read_bytes(&base[0], &offset, length_size);
 		size_t label = base[offset++];
-		char * name = (char *) malloc(label + 1);
-		assert(name);
+		istr name(&base.index<char>(offset), label);
 		
-		memcpy(name, &base[offset], label);
-		name[label] = 0;
 		offset += label;
-		
 		assert(offset + length <= base.size());
-		ovr = find(name);
-		if(!ovr)
+		
+		if(!find(name))
 			/* it hasn't been populated yet, so do it now */
 			new override(name, blob(length, &base[offset]), &overrides);
 		
 		offset += length;
-		free(name);
 	}
 }
 

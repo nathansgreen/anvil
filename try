@@ -38,7 +38,7 @@ sudo insmod fstitch/kfstitchd.ko device=/dev/sdb
 sudo mount /mnt/test
 echo "done."
 
-#export VALGRIND="valgrind --trace-children=yes"
+#export VALGRIND="valgrind --trace-children=yes --leak-check=full"
 echo "script run" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
 echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
 #(WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")

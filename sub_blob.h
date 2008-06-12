@@ -31,13 +31,28 @@ public:
 	
 	inline sub_blob() : modified(false), overrides(NULL) {}
 	inline sub_blob(const blob & x) : base(x), modified(false), overrides(NULL) {}
+	inline sub_blob(const sub_blob & x) : base(x.flatten()), modified(false), overrides(NULL) {}
+	inline sub_blob & operator=(const sub_blob & x)
+	{
+		if(this == &x)
+			return *this;
+		while(overrides)
+			delete overrides;
+		base = x.flatten();
+		modified = false;
+		return *this;
+	}
 	
 	blob get(const istr & column) const;
 	int set(const istr & column, const blob & value);
 	int remove(const istr & column);
+	/* defaults to internalizing the flattened
+	 * blob, which invalidates any iterators */
 	blob flatten(bool internalize = true);
-	/* it is undefined what happens if you call flatten() while
-	 * iterating, but get(), set(), and remove() should all work */
+	/* the const version never internalizes the flattened blob */
+	blob flatten() const;
+	/* see above about calling flatten() while iterating,
+	 * but get(), set(), and remove() should all work */
 	iter * iterator() const;
 	
 	inline ~sub_blob()
@@ -57,26 +72,21 @@ private:
 		override ** prev;
 		override * next;
 		
-		inline override(const istr & column, const blob & x, override ** first = NULL)
+		inline override(const istr & column, const blob & x, override ** first)
 			: name(column), value(x)
 		{
-			if(first)
-			{
-				prev = first;
-				next = *first;
-				*first = this;
-			}
-			else
-			{
-				prev = NULL;
-				next = NULL;
-			}
+			prev = first;
+			next = *first;
+			*first = this;
+			if(next)
+				next->prev = &next;
 		}
 		
 		inline ~override()
 		{
-			if(prev)
-				*prev = next;
+			*prev = next;
+			if(next)
+				next->prev = prev;
 		}
 	};
 	mutable override * overrides;
