@@ -14,6 +14,12 @@ OBJECTS=$(COBJECTS) $(CPPOBJECTS)
 
 .PHONY: all clean clean-all count count-all php
 
+ifeq ($(findstring -pg,$(CFLAGS)),-pg)
+ifeq ($(findstring -pg,$(LDFLAGS)),)
+LDFLAGS:=-pg $(LDFLAGS)
+endif
+endif
+
 CFLAGS:=-Wall -Ifstitch/include $(CFLAGS)
 LDFLAGS:=-Lfstitch/obj/kernel/lib -lpatchgroup -Wl,-R,$(PWD)/fstitch/obj/kernel/lib $(LDFLAGS)
 
@@ -26,13 +32,27 @@ all: tags main
 	g++ -c $< -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
 
 libtoilet.so: $(OBJECTS) fstitch/obj/kernel/lib/libpatchgroup.so
-	g++ -shared -o libtoilet.so $(OBJECTS) -ldl $(LDFLAGS)
+	g++ -shared -o $@ $(OBJECTS) -ldl $(LDFLAGS)
 
+libtoilet.o: $(OBJECTS)
+	ld -r -o $@ $(OBJECTS)
+
+# Make libtoilet.a from libtoilet.o instead of $(OBJECTS) directly so that
+# classes not directly referenced still get included and register themselves
+# to be looked up via factory registries, which is how most *tables work.
+libtoilet.a: libtoilet.o
+	ar csr $@ $<
+
+ifeq ($(findstring -pg,$(CFLAGS)),-pg)
+main: libtoilet.a main.o main++.o
+	g++ -o $@ main.o main++.o libtoilet.a -lreadline -ltermcap $(LDFLAGS)
+else
 main: libtoilet.so main.o main++.o
-	g++ -o main main.o main++.o -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
+	g++ -o $@ main.o main++.o -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
+endif
 
 clean:
-	rm -f main libtoilet.so *.o .depend tags
+	rm -f main libtoilet.so libtoilet.a *.o .depend tags
 
 clean-all: clean
 	php/clean

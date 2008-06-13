@@ -1,6 +1,7 @@
 #!/bin/bash
 
-CFLAGS=-ggdb make || exit $?
+# If -pg is used here, be sure to run toilet only once below, probably not with valgrind
+CFLAGS="-ggdb" make || exit $?
 
 HOST="`hostname`"
 if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" ]
@@ -62,6 +63,13 @@ if [ -f /mnt/test/core ]
 then
 	echo "Starting debugger on core."
 	gdb -c /mnt/test/core main
+fi
+if [ -f /mnt/test/gmon.out ]
+then
+	cp /mnt/test/gmon.out .
+	gprof main gmon.out > gmon.sum
+else
+	rm -f gmon.out gmon.sum
 fi
 sudo umount /mnt/test
 

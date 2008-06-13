@@ -2,6 +2,7 @@
 .copy_to
 .depend
 libtoilet.so
+libtoilet.a
 fstitch
 main
 tags
