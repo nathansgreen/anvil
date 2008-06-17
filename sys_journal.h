@@ -86,7 +86,7 @@ public:
 	int discard(journal_listener * listener);
 	/* gets only those entries that have been committed */
 	int get_entries(journal_listener * listener);
-	/* copy the the (committed) entries in this journal to a new one, omitting the discarded entries */
+	/* copy the (committed) entries in this journal to a new one, omitting the discarded entries */
 	int digest(int dfd, const char * file);
 	
 	inline sys_journal() : fd(-1) {}
@@ -115,10 +115,8 @@ private:
 	static sys_journal global_journal;
 	static std::map<listener_id, journal_listener *> listener_map;
 	
-	/* this is a class purely for the destructor */
-	class unique_id
+	struct unique_id
 	{
-	public:
 		tx_fd fd;
 		listener_id next;
 		inline unique_id() : fd(-1), next(NO_ID) {}

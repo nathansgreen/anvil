@@ -18,6 +18,10 @@
  * may be implemented using a journal. There are too many journals here, but we
  * can optimize that later... */
 
+/* We can fix this easily! Make the sys_journal file itself store merely the
+ * size and sequence number of a secondary file, and use regular append
+ * operations (inside a patchgroup) to add data to the secondary files. */
+
 #define SYSJ_MAGIC 0xBAFE9BDA
 #define SYSJ_VERSION 0
 

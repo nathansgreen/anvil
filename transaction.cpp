@@ -21,6 +21,8 @@
 #include "journal.h"
 #include "transaction.h"
 
+#include "istr.h"
+
 /* The routines in this file implement a file system transaction interface on
  * top of a generic journal module. Here we keep a journal directory with the
  * journal transactions, and manage initiating recovery when necessary. There
@@ -51,7 +53,7 @@ struct tx_write_hdr {
 };
 
 struct tx_hdr {
-	enum { WRITE, UNLINK, RENAME } type;
+	enum { WRITE, UNLINK } type;
 	union {
 		struct tx_write_hdr write[0];
 		struct tx_name_hdr unlink[0];
@@ -101,11 +103,6 @@ static tx_fd last_tx_fd = -1;
 
 static int tx_playback(journal * j);
 
-static bool str_less(const char * a, const char * b)
-{
-	return (strcmp(a,b) < 0) ? true : false;
-}
-
 /* scans journal dir, recovers transactions */
 int tx_init(int dfd)
 {
@@ -114,7 +111,7 @@ int tx_init(int dfd)
 	DIR * dir;
 	int copy, error = -1;
 	struct dirent * ent;
-	std::vector<char *> entries;
+	std::vector<istr> entries;
 	
 	if(journal_dir >= 0)
 		return -EBUSY;
@@ -146,64 +143,47 @@ int tx_init(int dfd)
 	
 	while((ent = readdir(dir)))
 	{
-		char * name;
 		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
 			continue;
-		name = strdup(ent->d_name);
-		if(!name)
-			break;
-		entries.push_back(name);
+		entries.push_back(ent->d_name);
 	}
 	closedir(dir);
 	if(ent)
-	{
-	fail_vector:
-		while(!entries.empty())
-		{
-			free(entries.back());
-			entries.pop_back();
-		}
 		goto fail;
-	}
 	
 	/* XXX currently we assume recovery of journals in lexicographic order */
-	std::sort(entries.begin(), entries.end(), str_less);
+	std::sort(entries.begin(), entries.end(), strcmp_less());
 	
 	for(i = 0; i < entries.size(); i++)
 	{
-		char * name = entries[i];
+		const char * name = entries[i];
 		last_tx_id = strtol(name, NULL, 16);
 		error = journal_reopen(journal_dir, name, &current_journal, last_journal);
 		if(error < 0)
-			goto fail_vector;
+			goto fail;
 		if(!current_journal)
 		{
 			/* uncommitted journal */
 			error = unlinkat(journal_dir, name, 0);
 			if(error < 0)
-				goto fail_vector;
+				goto fail;
 			continue;
 		}
 		error = tx_playback(current_journal);
 		if(error < 0)
-			goto fail_vector;
+			goto fail;
 		for(fd = 0; fd < TX_FDS; fd++)
 			if(tx_fds[fd].fd >= 0)
 				tx_close(fd);
 		error = journal_erase(current_journal);
 		if(error < 0)
-			goto fail_vector;
+			goto fail;
 		if(last_journal)
 			journal_free(last_journal);
 		last_journal = current_journal;
 		current_journal = NULL;
 	}
 	
-	while(!entries.empty())
-	{
-		free(entries.back());
-		entries.pop_back();
-	}
 	tx_map = new tx_map_t;
 	if(!tx_map)
 	{
@@ -395,36 +375,16 @@ static int tx_write_playback(struct tx_write_hdr * header, size_t length)
 static int tx_unlink_playback(struct tx_name_hdr * header, size_t length)
 {
 	int r, dfd;
-	char * dir;
-	char * name;
-	dir = strndup(header->strings, header->dir_len);
-	if(!dir)
-		return -ENOMEM;
-	name = strndup(&header->strings[header->dir_len], header->name_len);
-	if(!name)
-	{
-		free(dir);
-		return -ENOMEM;
-	}
+	istr dir(header->strings, header->dir_len);
+	istr name(&header->strings[header->dir_len], header->name_len);
 	dfd = open(dir, 0);
 	if(dfd < 0)
-	{
-		free(name);
-		free(dir);
 		return dfd;
-	}
 	r = unlinkat(dfd, name, 0);
 	if(r < 0 && errno == ENOENT)
 		r = 0;
 	close(dfd);
-	free(name);
-	free(dir);
 	return r;
-}
-
-static int tx_rename_playback(struct tx_hdr * header, size_t length)
-{
-	return -ENOSYS;
 }
 
 static int tx_record_processor(void * data, size_t length, void * param)
@@ -436,8 +396,6 @@ static int tx_record_processor(void * data, size_t length, void * param)
 			return tx_write_playback(header->write, length);
 		case tx_hdr::UNLINK:
 			return tx_unlink_playback(header->unlink, length);
-		case tx_hdr::RENAME:
-			return tx_rename_playback(header, length);
 	}
 	return -ENOSYS;
 }
@@ -636,9 +594,4 @@ int tx_unlink(int dfd, const char * name)
 	r = journal_appendv4(current_journal, iov, 3, NULL);
 	free(dir);
 	return r;
-}
-
-int tx_rename(int old_dfd, const char * old_name, int new_dfd, const char * new_name)
-{
-	return -ENOSYS;
 }

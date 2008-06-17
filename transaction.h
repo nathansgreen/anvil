@@ -39,8 +39,8 @@ int tx_vnprintf(tx_fd fd, off_t offset, size_t max, const char * format, va_list
 int tx_nprintf(tx_fd fd, off_t offset, size_t max, const char * format, ...);
 int tx_close(tx_fd fd);
 
+/* see the detailed comments about this function in transaction.cpp before you use it */
 int tx_unlink(int dfd, const char * name);
-int tx_rename(int old_dfd, const char * old_name, int new_dfd, const char * new_name);
 
 #ifdef __cplusplus
 }
