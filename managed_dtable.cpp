@@ -157,7 +157,7 @@ int managed_dtable::combine(size_t first, size_t last)
 	
 	pid = patchgroup_create(0);
 	if(pid <= 0)
-		return (int) pid;
+		return pid ? (int) pid : -1;
 	r = patchgroup_release(pid);
 	assert(r >= 0);
 	r = patchgroup_engage(pid);

@@ -19,6 +19,8 @@
 #include <map>
 #include <set>
 
+#include "istr.h"
+
 class sys_journal
 {
 public:
@@ -66,13 +68,13 @@ public:
 		
 		inline int journal_append(void * entry, size_t length)
 		{
-			sys_journal * j = journal ? journal : sys_journal::get_global_journal();
+			sys_journal * j = journal ? journal : get_global_journal();
 			return j->append(this, entry, length);
 		}
 		
 		inline int journal_discard()
 		{
-			sys_journal * j = journal ? journal : sys_journal::get_global_journal();
+			sys_journal * j = journal ? journal : get_global_journal();
 			return j->discard(this);
 		}
 		
@@ -86,15 +88,15 @@ public:
 	int discard(journal_listener * listener);
 	/* gets only those entries that have been committed */
 	int get_entries(journal_listener * listener);
-	/* copy the (committed) entries in this journal to a new one, omitting the discarded entries */
-	int digest(int dfd, const char * file);
+	/* remove any discarded entries from this journal */
+	int filter();
 	
-	inline sys_journal() : fd(-1) {}
+	inline sys_journal() : meta_dfd(-1), data_fd(-1), meta_fd(-1) {}
 	int init(int dfd, const char * file, bool create = false, bool fail_missing = false);
 	void deinit();
 	inline ~sys_journal()
 	{
-		if(fd >= 0)
+		if(data_fd >= 0)
 			deinit();
 	}
 	
@@ -109,9 +111,16 @@ public:
 	static listener_id get_unique_id();
 	
 private:
-	tx_fd fd;
-	off_t offset;
+	int meta_dfd;
+	istr meta_name;
+	
+	int data_fd;
+	tx_fd meta_fd;
+	off_t data_size;
+	uint32_t sequence;
+	
 	std::set<listener_id> discarded;
+	
 	static sys_journal global_journal;
 	static std::map<listener_id, journal_listener *> listener_map;
 	
@@ -130,6 +139,8 @@ private:
 	
 	/* if no listener provided, all listeners, via global registry */
 	int playback(journal_listener * target = NULL, bool fail_missing = false);
+	/* copy the entries in this journal to a new one, omitting the discarded entries */
+	int filter(int dfd, const char * file);
 };
 
 #endif /* __SYS_JOURNAL_H */

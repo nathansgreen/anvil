@@ -13,21 +13,30 @@
 
 #include "sys_journal.h"
 
-/* Currently, sys_journal is built on top of transactions, which are built on
- * top of journal.c, which is built on top of Featherstitch patchgroups, which
- * may be implemented using a journal. There are too many journals here, but we
- * can optimize that later... */
+extern "C" {
+/* Featherstitch does not know about C++ so we include
+ * its header file inside an extern "C" block. */
+#include <patchgroup.h>
+}
 
-/* We can fix this easily! Make the sys_journal file itself store merely the
- * size and sequence number of a secondary file, and use regular append
- * operations (inside a patchgroup) to add data to the secondary files. */
+#define SYSJ_META_MAGIC 0xBAFE9BDA
+#define SYSJ_META_VERSION 1
 
-#define SYSJ_MAGIC 0xBAFE9BDA
-#define SYSJ_VERSION 0
+#define SYSJ_DATA_MAGIC 0x874C74FD
+#define SYSJ_DATA_VERSION 0
 
-struct file_header
+struct meta_journal
 {
-	uint32_t magic, version;
+	uint32_t magic;
+	uint32_t version;
+	uint32_t seq;
+	off_t size;
+} __attribute__((packed));
+
+struct data_header
+{
+	uint32_t magic;
+	uint32_t version;
 } __attribute__((packed));
 
 struct entry_header
@@ -38,35 +47,87 @@ struct entry_header
 
 int sys_journal::append(journal_listener * listener, void * entry, size_t length)
 {
+	int r;
+	meta_journal info;
 	entry_header header;
+	patchgroup_id_t pid;
+	
 	header.id = listener->id();
 	assert(lookup_listener(header.id) == listener);
 	assert(!discarded.count(header.id));
 	if(length == (size_t) -1)
 		return -EINVAL;
 	header.length = length;
-	if(tx_write(fd, &header, sizeof(header), offset) < 0)
-		return -1;
-	offset += sizeof(header);
-	if(tx_write(fd, entry, length, offset) < 0)
+	
+	lseek(data_fd, data_size, SEEK_SET);
+	pid = patchgroup_create(0);
+	if(pid <= 0)
+		return pid ? (int) pid : -1;
+	r = patchgroup_release(pid);
+	assert(r >= 0);
+	r = patchgroup_engage(pid);
+	assert(r >= 0);
+	if(write(data_fd, &header, sizeof(header)) != sizeof(header)
+	   || write(data_fd, entry, length) != (ssize_t) length)
 	{
-		/* need to unwrite the header */
-		assert(0);
+		r = patchgroup_disengage(pid);
+		assert(r >= 0);
+		r = patchgroup_abandon(pid);
+		assert(r >= 0);
 		return -1;
 	}
-	offset += length;
+	patchgroup_disengage(pid);
+	tx_add_depend(pid);
+	patchgroup_abandon(pid);
+	
+	info.magic = SYSJ_META_MAGIC;
+	info.version = SYSJ_META_VERSION;
+	info.seq = sequence;
+	info.size = data_size + sizeof(header) + length;
+	if(tx_write(meta_fd, &info, sizeof(info), 0) < 0)
+		return -1;
+	data_size = info.size;
 	return 0;
 }
 
 int sys_journal::discard(journal_listener * listener)
 {
+	int r;
+	meta_journal info;
 	entry_header header;
+	patchgroup_id_t pid;
+	
 	header.id = listener->id();
 	assert(lookup_listener(header.id) == listener);
 	header.length = (size_t) -1;
-	if(tx_write(fd, &header, sizeof(header), offset) < 0)
+	
+	lseek(data_fd, data_size, SEEK_SET);
+	pid = patchgroup_create(0);
+	if(pid <= 0)
+		return pid ? (int) pid : -1;
+	r = patchgroup_release(pid);
+	assert(r >= 0);
+	r = patchgroup_engage(pid);
+	assert(r >= 0);
+	if(write(data_fd, &header, sizeof(header)) != sizeof(header))
+	{
+		r = patchgroup_disengage(pid);
+		assert(r >= 0);
+		r = patchgroup_abandon(pid);
+		assert(r >= 0);
 		return -1;
-	offset += sizeof(header);
+	}
+	patchgroup_disengage(pid);
+	tx_add_depend(pid);
+	patchgroup_abandon(pid);
+	
+	info.magic = SYSJ_META_MAGIC;
+	info.version = SYSJ_META_VERSION;
+	info.seq = sequence;
+	info.size = data_size + sizeof(header);
+	if(tx_write(meta_fd, &info, sizeof(info), 0) < 0)
+		return -1;
+	data_size = info.size;
 	discarded.insert(header.id);
 	return 0;
 }
@@ -76,26 +137,82 @@ int sys_journal::get_entries(journal_listener * listener)
 	return playback(listener);
 }
 
-int sys_journal::digest(int dfd, const char * file)
+int sys_journal::filter()
 {
+	int r;
+	char seq[16];
+	meta_journal info;
+	patchgroup_id_t pid;
+	
+	info.magic = SYSJ_META_MAGIC;
+	info.version = SYSJ_META_VERSION;
+	info.seq = sequence + 1;
+	info.size = data_size;
+	snprintf(seq, sizeof(seq), ".%u", info.seq);
+	
+	istr data = istr(meta_name) + seq;
+	pid = patchgroup_create(0);
+	if(pid <= 0)
+		return pid ? (int) pid : -1;
+	patchgroup_release(pid);
+	patchgroup_engage(pid);
+	r = filter(meta_dfd, data);
+	patchgroup_disengage(pid);
+	if(r >= 0)
+	{
+		tx_add_depend(pid);
+		patchgroup_abandon(pid);
+		r = tx_write(meta_dfd, &info, sizeof(info), 0);
+		if(r >= 0)
+		{
+			/* delete the old sys_journal data */
+			snprintf(seq, sizeof(seq), ".%u", sequence);
+			data = meta_name + seq;
+			tx_unlink(meta_dfd, data);
+		}
+		else
+			unlinkat(meta_dfd, data, 0);
+	}
+	else
+	{
+		patchgroup_abandon(pid);
+		unlinkat(meta_dfd, data, 0);
+	}
+	return r;
+}
+
+int sys_journal::filter(int dfd, const char * file)
+{
+	int r, out;
+	off_t offset;
+	data_header header;
 	entry_header entry;
-	int r, out, ufd = tx_read_fd(fd);
-	assert(ufd >= 0);
 	out = openat(dfd, file, O_WRONLY | O_TRUNC | O_CREAT, 0644);
 	if(out < 0)
 		return out;
-	r = lseek(ufd, sizeof(file_header), SEEK_SET);
+	header.magic = SYSJ_DATA_MAGIC;
+	header.version = SYSJ_DATA_VERSION;
+	r = write(out, &header, sizeof(header));
+	if(r != sizeof(header))
+		goto fail;
+	offset = sizeof(header);
+	r = lseek(data_fd, offset, SEEK_SET);
 	if(r < 0)
 		goto fail;
-	while((r = read(ufd, &entry, sizeof(entry))) == sizeof(entry))
+	while(offset < data_size)
 	{
 		void * data;
+		r = read(data_fd, &entry, sizeof(entry));
+		if(r != sizeof(entry))
+			goto fail;
+		offset += sizeof(entry);
 		if(entry.length == (size_t) -1)
 			continue;
+		offset += entry.length;
 		if(discarded.count(entry.id))
 		{
 			/* skip this entry, it's been discarded */
-			lseek(ufd, entry.length, SEEK_CUR);
+			lseek(data_fd, entry.length, SEEK_CUR);
 			continue;
 		}
 		data = malloc(entry.length);
@@ -104,7 +221,7 @@ int sys_journal::digest(int dfd, const char * file)
 			r = -ENOMEM;
 			goto fail;
 		}
-		if(read(ufd, data, entry.length) != (ssize_t) entry.length)
+		if(read(data_fd, data, entry.length) != (ssize_t) entry.length)
 		{
 			free(data);
 			r = -EIO;
@@ -121,55 +238,137 @@ int sys_journal::digest(int dfd, const char * file)
 		if(r != (int) entry.length)
 			goto fail;
 	}
-	if(r)
+	if(offset != data_size)
 		goto fail;
 	close(out);
-	lseek(ufd, 0, SEEK_END);
+	lseek(data_fd, data_size, SEEK_SET);
 	return 0;
 	
 fail:
 	close(out);
 	unlinkat(dfd, file, 0);
-	lseek(ufd, 0, SEEK_END);
+	lseek(data_fd, data_size, SEEK_SET);
 	return (r < 0) ? r : -1;
 }
 
 int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing)
 {
 	bool do_playback = false;
-	if(fd >= 0)
+	if(data_fd >= 0)
 		deinit();
-	offset = 0;
-	fd = tx_open(dfd, file, O_RDWR);
-	if(fd < 0)
+	meta_fd = tx_open(dfd, file, O_RDWR);
+	if(meta_fd < 0)
 	{
-		if(create && (fd == -ENOENT || errno == ENOENT))
+		int r;
+		meta_journal info;
+		data_header header;
+		patchgroup_id_t pid;
+		
+		if(!create || (meta_fd != -ENOENT && errno != ENOENT))
+			return (int) meta_fd;
+		
+		/* due to O_CREAT not being part of the transaction, we might
+		 * get an empty file as a result of this, which later will
+		 * cause an error below instead of here... hence create: */
+		meta_fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
+		if(meta_fd < 0)
+			return (int) meta_fd;
+	create:
+		istr data = istr(file) + ".0";
+		pid = patchgroup_create(0);
+		if(pid <= 0)
 		{
-			int r;
-			file_header header;
-			/* XXX due to O_CREAT not being part of the transaction, we might get
-			 * an empty file as a result of this, which later will cause an error
-			 * below instead of here... we should handle that case somewhere */
-			fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
-			if(fd < 0)
-				return (int) fd;
-			header.magic = SYSJ_MAGIC;
-			header.version = SYSJ_VERSION;
-			r = tx_write(fd, &header, sizeof(header), 0);
-			if(r < 0)
-			{
-				tx_close(fd);
-				tx_unlink(dfd, file);
-				fd = -1;
-				return r;
-			}
-			offset = sizeof(header);
+			tx_close(meta_fd);
+			tx_unlink(dfd, file);
+			return pid ? (int) pid : -1;
 		}
-		else
-			return (int) fd;
+		patchgroup_release(pid);
+		patchgroup_engage(pid);
+		
+		data_fd = openat(dfd, data, O_RDWR | O_CREAT | O_TRUNC, 0644);
+		header.magic = SYSJ_DATA_MAGIC;
+		header.version = SYSJ_DATA_VERSION;
+		r = write(data_fd, &header, sizeof(header));
+		patchgroup_disengage(pid);
+		if(r != sizeof(header))
+		{
+			patchgroup_abandon(pid);
+			r = -1;
+			goto fail_create;
+		}
+		tx_add_depend(pid);
+		patchgroup_abandon(pid);
+		
+		info.magic = SYSJ_META_MAGIC;
+		info.version = SYSJ_META_VERSION;
+		info.seq = 0;
+		info.size = sizeof(header);
+		r = tx_write(meta_fd, &info, sizeof(info), 0);
+		if(r < 0)
+		{
+		fail_create:
+			close(data_fd);
+			unlinkat(dfd, data, 0);
+			tx_close(meta_fd);
+			tx_unlink(dfd, file);
+			meta_fd = -1;
+			data_fd = -1;
+			return r;
+		}
+		data_size = info.size;
+		sequence = info.seq;
 	}
 	else
+	{
+		char seq[16];
+		meta_journal info;
+		data_header header;
+		int fd = tx_read_fd(meta_fd);
+		if(read(fd, &info, sizeof(info)) != sizeof(info))
+		{
+			struct stat st;
+			int r = fstat(fd, &st);
+			if(r >= 0 && !st.st_size)
+				goto create;
+			tx_close(meta_fd);
+			meta_fd = -1;
+			return -1;
+		}
+		if(info.magic != SYSJ_META_MAGIC || info.version != SYSJ_META_VERSION)
+		{
+			tx_close(meta_fd);
+			meta_fd = -1;
+			return -EINVAL;
+		}
+		snprintf(seq, sizeof(seq), ".%u", info.seq);
+		istr data = istr(file) + seq;
+		data_fd = openat(dfd, data, O_RDWR);
+		if(data_fd < 0)
+		{
+			tx_close(meta_fd);
+			meta_fd = -1;
+			return data_fd;
+		}
+		if(read(data_fd, &header, sizeof(header)) != sizeof(header))
+		{
+			close(data_fd);
+			tx_close(meta_fd);
+			meta_fd = -1;
+			data_fd = -1;
+			return -1;
+		}
+		if(header.magic != SYSJ_DATA_MAGIC || header.version != SYSJ_DATA_VERSION)
+		{
+			close(data_fd);
+			tx_close(meta_fd);
+			meta_fd = -1;
+			data_fd = -1;
+			return -EINVAL;
+		}
+		data_size = info.size;
+		sequence = info.seq;
 		do_playback = true;
+	}
 	/* any other initialization here */
 	if(do_playback)
 	{
@@ -180,28 +379,35 @@ int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing
 			return r;
 		}
 	}
+	meta_name = file;
+	if(dfd != AT_FDCWD)
+	{
+		meta_dfd = dup(dfd);
+		if(meta_dfd < 0)
+			deinit();
+		return meta_dfd;
+	}
+	else
+		meta_dfd = AT_FDCWD;
 	return 0;
 }
 
 int sys_journal::playback(journal_listener * target, bool fail_missing)
 {
 	/* playback */
-	file_header header;
-	entry_header entry;
 	std::set<listener_id> missing;
-	int r, ufd = tx_read_fd(fd);
-	assert(ufd >= 0);
-	r = lseek(ufd, 0, SEEK_SET);
-	if(r < 0)
-		return r;
-	if((r = read(ufd, &header, sizeof(header))) != sizeof(header))
-		return (r < 0) ? r : -EIO;
-	if(header.magic != SYSJ_MAGIC || header.version != SYSJ_VERSION)
-		return -EINVAL;
-	while((r = read(ufd, &entry, sizeof(entry))) == sizeof(entry))
+	off_t offset = sizeof(data_header);
+	assert(data_size >= offset);
+	lseek(data_fd, offset, SEEK_SET);
+	while(offset < data_size)
 	{
+		int r;
 		void * data;
+		entry_header entry;
 		journal_listener * listener;
+		if(read(data_fd, &entry, sizeof(entry)) != sizeof(entry))
+			return -EIO;
+		offset += sizeof(entry);
 		if(entry.length == (size_t) -1)
 		{
 			/* warn if entry.id == target->id() ? */
@@ -218,7 +424,8 @@ int sys_journal::playback(journal_listener * target, bool fail_missing)
 			/* skip other entries */
 			if(listener->id() != entry.id)
 			{
-				lseek(ufd, entry.length, SEEK_CUR);
+				lseek(data_fd, entry.length, SEEK_CUR);
+				offset += entry.length;
 				continue;
 			}
 		}
@@ -228,18 +435,20 @@ int sys_journal::playback(journal_listener * target, bool fail_missing)
 			if(!listener)
 			{
 				missing.insert(entry.id);
-				lseek(ufd, entry.length, SEEK_CUR);
+				lseek(data_fd, entry.length, SEEK_CUR);
+				offset += entry.length;
 				continue;
 			}
 		}
 		data = malloc(entry.length);
 		if(!data)
 			return -ENOMEM;
-		if(read(ufd, data, entry.length) != (ssize_t) entry.length)
+		if(read(data_fd, data, entry.length) != (ssize_t) entry.length)
 		{
 			free(data);
 			return -EIO;
 		}
+		offset += entry.length;
 		/* data is passed by reference */
 		r = listener->journal_replay(data, entry.length);
 		if(data)
@@ -247,23 +456,30 @@ int sys_journal::playback(journal_listener * target, bool fail_missing)
 		if(r < 0)
 			return r;
 	}
-	if(r > 0)
+	if(offset != data_size)
 		return -EIO;
-	if(!offset)
-		offset = lseek(ufd, 0, SEEK_END);
 	if(fail_missing && !missing.empty())
 		/* print warning message? */
 		return -ENOENT;
-	return r;
+	return 0;
 }
 
 void sys_journal::deinit()
 {
-	if(fd >= 0)
+	if(data_fd >= 0)
 	{
+		assert(meta_fd >= 0);
 		discarded.clear();
-		tx_close(fd);
-		fd = -1;
+		close(data_fd);
+		tx_close(meta_fd);
+		meta_fd = -1;
+		data_fd = -1;
+		meta_name = NULL;
+		if(meta_dfd >= 0 && meta_dfd != AT_FDCWD)
+		{
+			close(meta_dfd);
+			meta_dfd = -1;
+		}
 	}
 }
 
