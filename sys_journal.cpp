@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 
 #include "openat.h"
 #include "transaction.h"
