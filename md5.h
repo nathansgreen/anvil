@@ -42,6 +42,10 @@
 
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Data structure for MD5 (Message-Digest) computation */
 typedef struct {
   uint32_t i[2];                   /* number of _bits_ handled mod 2^64 */
@@ -53,5 +57,9 @@ typedef struct {
 void MD5Init (MD5_CTX *mdContext);
 void MD5Update (MD5_CTX *mdContext, unsigned char *inBuf, unsigned int inLen);
 void MD5Final (unsigned char hash[], MD5_CTX *mdContext);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* MD5_H */
