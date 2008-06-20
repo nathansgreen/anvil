@@ -143,7 +143,7 @@ int sys_journal::filter()
 	info.magic = SYSJ_META_MAGIC;
 	info.version = SYSJ_META_VERSION;
 	info.seq = sequence + 1;
-	info.size = data_size;
+	/* size will be filled in by filter() below */
 	snprintf(seq, sizeof(seq), ".%u", info.seq);
 	
 	istr data = istr(meta_name) + seq;
@@ -153,7 +153,7 @@ int sys_journal::filter()
 	r = patchgroup_release(pid);
 	assert(r >= 0);
 	patchgroup_engage(pid);
-	r = filter(meta_dfd, data);
+	r = filter(meta_dfd, data, &info.size);
 	patchgroup_disengage(pid);
 	if(r >= 0)
 	{
@@ -166,6 +166,7 @@ int sys_journal::filter()
 			close(data_fd);
 			data_fd = openat(meta_dfd, data, O_RDWR);
 			assert(data_fd >= 0);
+			data_size = info.size;
 			lseek(data_fd, data_size, SEEK_SET);
 			/* delete the old sys_journal data */
 			snprintf(seq, sizeof(seq), ".%u", sequence);
@@ -185,7 +186,7 @@ int sys_journal::filter()
 	return r;
 }
 
-int sys_journal::filter(int dfd, const char * file)
+int sys_journal::filter(int dfd, const char * file, off_t * new_size)
 {
 	int r, out;
 	off_t offset;
@@ -244,6 +245,7 @@ int sys_journal::filter(int dfd, const char * file)
 	}
 	if(offset != data_size)
 		goto fail;
+	*new_size = lseek(out, 0, SEEK_END);
 	close(out);
 	lseek(data_fd, data_size, SEEK_SET);
 	return 0;

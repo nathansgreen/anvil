@@ -142,7 +142,7 @@ private:
 	/* if no listener provided, all listeners, via global registry */
 	int playback(journal_listener * target = NULL, bool fail_missing = false);
 	/* copy the entries in this journal to a new one, omitting the discarded entries */
-	int filter(int dfd, const char * file);
+	int filter(int dfd, const char * file, off_t * new_size);
 	/* tx_add_depend()s the patchgroup and tx_write()s the meta file */
 	int flush_tx();
 	/* actual function used for tx_register_pre_end */
