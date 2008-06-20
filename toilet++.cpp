@@ -5,6 +5,7 @@
 #define _ATFILE_SOURCE
 
 #include <errno.h>
+#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -29,11 +30,16 @@ int toilet_init(const char * path)
 		r = tx_start();
 		if(r >= 0)
 		{
+			sys_journal * global = sys_journal::get_global_journal();
 			r = sys_journal::set_unique_id_file(fd, "sys_journal_id", true);
 			if(r >= 0)
-				r = sys_journal::get_global_journal()->init(fd, "sys_journal", true);
+				r = global->init(fd, "sys_journal", true);
 			if(r >= 0)
+			{
+				/* maybe we should not always do this here? */
+				r = global->filter();
 				r = tx_end(0);
+			}
 			else
 				tx_end(0);
 		}

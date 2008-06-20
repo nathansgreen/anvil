@@ -99,6 +99,8 @@ static tx_fd last_tx_fd = -1;
 
 #define FID_FD(x) ((x) % TX_FDS)
 
+static struct tx_pre_end * pre_end_handlers = NULL;
+
 /* operations on transactions */
 
 static int tx_playback(journal * j);
@@ -237,6 +239,12 @@ int tx_start(void)
 	return 0;
 }
 
+void tx_register_pre_end(struct tx_pre_end * handle)
+{
+	handle->_next = pre_end_handlers;
+	pre_end_handlers = handle;
+}
+
 int tx_add_depend(patchgroup_id_t pid)
 {
 	if(!current_journal)
@@ -249,6 +257,11 @@ tx_id tx_end(int assign_id)
 	int r;
 	if(!current_journal)
 		return -ENOENT;
+	while(pre_end_handlers)
+	{
+		pre_end_handlers->handle(pre_end_handlers->data);
+		pre_end_handlers = pre_end_handlers->_next;
+	}
 	if(assign_id)
 	{
 		if(!tx_map->insert(std::make_pair(last_tx_id, current_journal)).second)
@@ -488,6 +501,7 @@ ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset)
 	size_t count = 1;
 	if(!current_journal)
 		return -EBUSY;
+	assert(tx_fds[fd].fd >= 0);
 	header->type.type = tx_hdr::WRITE;
 	header->write.length = length;
 	header->write.offset = offset;

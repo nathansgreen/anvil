@@ -20,10 +20,20 @@ extern "C" {
 typedef int32_t tx_id;
 typedef int tx_fd;
 
+struct tx_pre_end {
+	/* fill in the data and handle fields */
+	void * data;
+	void (*handle)(void * data);
+	/* but leave this one alone */
+	struct tx_pre_end * _next;
+};
+
 int tx_init(int dfd);
 void tx_deinit(void);
 
 int tx_start(void);
+/* adds a pre-end handler to the current transaction */
+void tx_register_pre_end(struct tx_pre_end * handle);
 /* adds a patchgroup dependency this transaction, so it will commit only after the patchgroup */
 int tx_add_depend(patchgroup_id_t pid);
 tx_id tx_end(int assign_id);
