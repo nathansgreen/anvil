@@ -346,6 +346,7 @@ fail:
 
 int journal_erase(journal * j)
 {
+	uint8_t zero[sizeof(struct record) + CHECKSUM_LENGTH];
 	patchgroup_id_t erase;
 	if(!j->playback)
 		return -EINVAL;
@@ -366,15 +367,15 @@ int journal_erase(journal * j)
 	if(j->prev && patchgroup_add_depend(erase, j->prev->erase) < 0)
 		goto fail;
 	patchgroup_release(erase);
-	close(j->fd);
-	j->fd = -1;
 	if(patchgroup_engage(erase) < 0)
 	{
 		/* this basically can't happen */
 		patchgroup_abandon(erase);
 		return -1;
 	}
-	if(unlinkat(j->dfd, j->path, 0) < 0)
+	lseek(j->fd, -sizeof(zero), SEEK_END);
+	memset(zero, 0, sizeof(zero));
+	if(write(j->fd, zero, sizeof(zero)) != sizeof(zero))
 	{
 		int save = errno;
 		patchgroup_disengage(erase);
@@ -383,7 +384,25 @@ int journal_erase(journal * j)
 		return -1;
 	}
 	patchgroup_disengage(erase);
+	close(j->fd);
+	j->fd = -1;
 	j->erase = erase;
+	erase = patchgroup_create(0);
+	if(erase > 0)
+	{
+		patchgroup_label(erase, "delete");
+		if(patchgroup_add_depend(erase, j->playback) >= 0)
+			if(!j->prev || patchgroup_add_depend(erase, j->prev->erase) >= 0)
+			{
+				patchgroup_release(erase);
+				if(patchgroup_engage(erase) >= 0)
+				{
+					unlinkat(j->dfd, j->path, 0);
+					patchgroup_disengage(erase);
+				}
+			}
+		patchgroup_abandon(erase);
+	}
 	if(j->prev)
 		journal_free(j->prev);
 	return 0;
