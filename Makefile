@@ -31,11 +31,11 @@ all: tags main
 %.o: %.cpp
 	g++ -c $< -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
 
-libtoilet.so: $(OBJECTS) fstitch/obj/kernel/lib/libpatchgroup.so
-	g++ -shared -o $@ $(OBJECTS) -ldl $(LDFLAGS)
+libtoilet.so: libtoilet.o fstitch/obj/kernel/lib/libpatchgroup.so
+	g++ -shared -o $@ $< -ldl $(LDFLAGS)
 
 libtoilet.o: $(OBJECTS)
-	ld -r -o $@ $(OBJECTS)
+	ld -r -o $@ $^
 
 # Make libtoilet.a from libtoilet.o instead of $(OBJECTS) directly so that
 # classes not directly referenced still get included and register themselves
