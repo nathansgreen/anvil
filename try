@@ -3,6 +3,9 @@
 # If -pg is used here, be sure to run toilet only once below, probably not with valgrind
 CFLAGS="-ggdb" make || exit $?
 
+# Uncomment to use valgrind
+#export VALGRIND="valgrind --trace-children=yes --leak-check=full"
+
 HOST="`hostname`"
 if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" ]
 then
@@ -15,7 +18,7 @@ sudo mke2fs -m 0 -b 4096 /dev/sdb1 &> /dev/null
 sudo mount /dev/sdb1 /mnt/test -t ext2
 sudo chown `whoami` /mnt/test
 cp demo /mnt/test
-cat > /mnt/test/run << EOF
+cat > /mnt/test/tests << EOF
 journal create tj
 journal append record1
 journal append record2
@@ -27,7 +30,6 @@ str_tbl
 dtable
 ctable
 stable
-performance
 EOF
 mkdir /mnt/test/journals
 sudo umount /mnt/test
@@ -39,17 +41,28 @@ sudo insmod fstitch/kfstitchd.ko device=/dev/sdb
 sudo mount /mnt/test
 echo "done."
 
-#export VALGRIND="valgrind --trace-children=yes --leak-check=full"
-echo "script run" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
-echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
-#(WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+# Run the performance test
+echo "performance" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+ls -lR /mnt/test
 
-#ls -lR /mnt/test
-#true | hexdump -C /mnt/test/teststrings
-#true | hexdump -C /mnt/test/sys_journal
-#true | hexdump -C /mnt/test/managed_dtable/md_meta
-#true | hexdump -C /mnt/test/managed_dtable/md_data.2
-#true | hexdump -C /mnt/test/managed_ctable/md_data.1
+if [ ! -f /mnt/test/core ]
+then
+	# Run some tests
+	#echo "script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+	#ls -lR /mnt/test
+	
+	# Run the old demo
+	#echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+	#ls -lR /mnt/test
+	
+	# Allow custom commands
+	#(WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+	#ls -lR /mnt/test
+	
+	# Filter the system journal
+	true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+	ls -l /mnt/test/sys_journal*
+fi
 
 echo "Unloading Featherstitch... "
 sudo umount /mnt/test
@@ -72,5 +85,3 @@ else
 	rm -f gmon.out gmon.sum
 fi
 sudo umount /mnt/test
-
-#dmesg | tail -n 30
