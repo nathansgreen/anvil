@@ -42,8 +42,6 @@
  * each data blob:
  * [] = byte 0-m: data bytes */
 
-/* TODO: use some sort of buffering here to avoid lots of small read()/write() calls */
-
 ustr_dtable::iter::iter(const ustr_dtable * source)
 	: index(0), sdt_source(source)
 {
@@ -93,8 +91,7 @@ dtype ustr_dtable::get_key(size_t index, size_t * data_length, off_t * data_offs
 	uint8_t size = key_size + length_size + offset_size;
 	uint8_t bytes[size];
 	
-	lseek(fd, key_start_off + size * index, SEEK_SET);
-	r = read(fd, bytes, size);
+	r = fp->read(key_start_off + size * index, bytes, size);
 	assert(r == size);
 	
 	if(data_length)
@@ -178,10 +175,9 @@ blob ustr_dtable::get_value(size_t index, size_t data_length, off_t data_offset)
 {
 	ssize_t read_length;
 	blob_buffer value(data_length);
-	lseek(fd, data_start_off + data_offset, SEEK_SET);
 	value.set_size(data_length, false);
 	assert(data_length == value.size());
-	read_length = read(fd, &value[0], data_length);
+	read_length = fp->read(data_start_off + data_offset, &value[0], data_length);
 	value.set_size(read_length);
 	/* the data length stored in the key record is the unpacked size */
 	return dup_index_size ? unpack_blob(value, data_length) : blob(value);
@@ -218,12 +214,13 @@ int ustr_dtable::init(int dfd, const char * file, const params & config)
 {
 	int r = -1;
 	struct dtable_header header;
-	if(fd >= 0)
+	if(fp)
 		deinit();
-	fd = openat(dfd, file, O_RDONLY);
-	if(fd < 0)
-		return fd;
-	if(read(fd, &header, sizeof(header)) != sizeof(header))
+	/* the larger the buffers, the more memory we use but the fewer read() system calls we'll make... */
+	fp = rofile::open<8, 8>(dfd, file);
+	if(!fp)
+		return -1;
+	if(fp->read(0, &header) < 0)
 		goto fail;
 	if(header.magic != USDTABLE_MAGIC || header.version != USDTABLE_VERSION)
 		goto fail;
@@ -248,13 +245,10 @@ int ustr_dtable::init(int dfd, const char * file, const params & config)
 			ktype = dtype::STRING;
 			if(key_size > 4)
 				goto fail;
-			r = st_init(&st, fd, key_start_off);
+			r = st_init(&st, fp->read_fd(), key_start_off);
 			if(r < 0)
 				goto fail;
 			key_start_off += st.size;
-			r = lseek(fd, key_start_off, SEEK_SET);
-			if(r < 0)
-				goto fail_st;
 			break;
 		default:
 			goto fail;
@@ -267,7 +261,7 @@ int ustr_dtable::init(int dfd, const char * file, const params & config)
 		dup_index_size = header.dup_index_size;
 		dup_escape_len = header.dup_escape_len;
 		memcpy(dup_escape, header.dup_escape, sizeof(dup_escape));
-		r = st_init(&dup, fd, data_start_off + header.dup_offset);
+		r = st_init(&dup, fp->read_fd(), data_start_off + header.dup_offset);
 		if(r < 0)
 			goto fail_st;
 	}
@@ -283,21 +277,21 @@ fail_st:
 	if(ktype == dtype::STRING)
 		st_kill(&st);
 fail:
-	close(fd);
-	fd = -1;
+	delete fp;
+	fp = NULL;
 	return (r < 0) ? r : -1;
 }
 
 void ustr_dtable::deinit()
 {
-	if(fd >= 0)
+	if(fp)
 	{
 		if(dup_index_size)
 			st_kill(&dup);
 		if(ktype == dtype::STRING)
 			st_kill(&st);
-		close(fd);
-		fd = -1;
+		delete fp;
+		fp = NULL;
 	}
 }
 
@@ -405,6 +399,7 @@ blob ustr_dtable::pack_blob(const blob & source, const dtable_header & header, c
 	return buffer;
 }
 
+/* TODO: use some sort of buffering here to avoid lots of small write() calls */
 int ustr_dtable::create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow)
 {
 	stringset strings;

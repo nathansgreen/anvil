@@ -1,5 +1,5 @@
 CSOURCES=blowfish.c journal.c md5.c openat.c str_tbl.c
-CPPSOURCES=counted_stringset.cpp istr.cpp stringset.cpp transaction.cpp
+CPPSOURCES=counted_stringset.cpp istr.cpp rofile.cpp stringset.cpp transaction.cpp
 CPPSOURCES+=blob.cpp blob_buffer.cpp params.cpp sub_blob.cpp sys_journal.cpp
 CPPSOURCES+=simple_dtable.cpp simple_ctable.cpp simple_stable.cpp simple_ext_index.cpp
 CPPSOURCES+=journal_dtable.cpp overlay_dtable.cpp ustr_dtable.cpp managed_dtable.cpp
@@ -18,6 +18,11 @@ ifeq ($(findstring -pg,$(CFLAGS)),-pg)
 ifeq ($(findstring -pg,$(LDFLAGS)),)
 LDFLAGS:=-pg $(LDFLAGS)
 endif
+# We can't actually do this without a small change to openat.c;
+# dlsym(RTLD_NEXT, ...) crashes when libc is linked statically
+#ifeq ($(findstring -lc_p,$(LDFLAGS)),)
+#LDFLAGS:=-lc_p $(LDFLAGS)
+#endif
 endif
 
 CFLAGS:=-Wall -Ifstitch/include $(CFLAGS)

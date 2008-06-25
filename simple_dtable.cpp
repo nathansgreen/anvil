@@ -34,8 +34,6 @@
  * each data blob:
  * [] = byte 0-m: data bytes */
 
-/* TODO: use some sort of buffering here to avoid lots of small read()/write() calls */
-
 simple_dtable::iter::iter(const simple_dtable * source)
 	: index(0), sdt_source(source)
 {
@@ -85,8 +83,7 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 	uint8_t size = key_size + length_size + offset_size;
 	uint8_t bytes[size];
 	
-	lseek(fd, key_start_off + size * index, SEEK_SET);
-	r = read(fd, bytes, size);
+	r = fp->read(key_start_off + size * index, bytes, size);
 	assert(r == size);
 	
 	if(data_length)
@@ -139,10 +136,10 @@ int simple_dtable::find_key(const dtype & key, size_t * data_length, off_t * dat
 blob simple_dtable::get_value(size_t index, size_t data_length, off_t data_offset) const
 {
 	blob_buffer value(data_length);
-	lseek(fd, data_start_off + data_offset, SEEK_SET);
 	value.set_size(data_length, false);
 	assert(data_length == value.size());
-	data_length = read(fd, &value[0], data_length);
+	data_length = fp->read(data_start_off + data_offset, &value[0], data_length);
+	assert(data_length == value.size());
 	return value;
 }
 
@@ -175,12 +172,13 @@ int simple_dtable::init(int dfd, const char * file, const params & config)
 {
 	int r = -1;
 	struct dtable_header header;
-	if(fd >= 0)
+	if(fp)
 		deinit();
-	fd = openat(dfd, file, O_RDONLY);
-	if(fd < 0)
-		return fd;
-	if(read(fd, &header, sizeof(header)) != sizeof(header))
+	/* the larger the buffers, the more memory we use but the fewer read() system calls we'll make... */
+	fp = rofile::open<8, 8>(dfd, file);
+	if(!fp)
+		return -1;
+	if(fp->read(0, &header) < 0)
 		goto fail;
 	if(header.magic != SDTABLE_MAGIC || header.version != SDTABLE_VERSION)
 		goto fail;
@@ -205,16 +203,10 @@ int simple_dtable::init(int dfd, const char * file, const params & config)
 			ktype = dtype::STRING;
 			if(key_size > 4)
 				goto fail;
-			r = st_init(&st, fd, key_start_off);
+			r = st_init(&st, fp->read_fd(), key_start_off);
 			if(r < 0)
 				goto fail;
 			key_start_off += st.size;
-			r = lseek(fd, key_start_off, SEEK_SET);
-			if(r < 0)
-			{
-				st_kill(&st);
-				goto fail;
-			}
 			break;
 		default:
 			goto fail;
@@ -224,19 +216,19 @@ int simple_dtable::init(int dfd, const char * file, const params & config)
 	return 0;
 	
 fail:
-	close(fd);
-	fd = -1;
+	delete fp;
+	fp = NULL;
 	return (r < 0) ? r : -1;
 }
 
 void simple_dtable::deinit()
 {
-	if(fd >= 0)
+	if(fp)
 	{
 		if(ktype == dtype::STRING)
 			st_kill(&st);
-		close(fd);
-		fd = -1;
+		delete fp;
+		fp = NULL;
 	}
 }
 
@@ -260,8 +252,7 @@ ssize_t simple_dtable::locate_string(const char ** array, ssize_t size, const ch
 	return -1;
 }
 
-/* FIXME: by reserving space for the header, and storing the string table at the end of the file, we
- * can reduce the number of passes over the input keys to only 1 (but still that plus the data) */
+/* TODO: use some sort of buffering here to avoid lots of small write() calls */
 int simple_dtable::create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow)
 {
 	stringset strings;

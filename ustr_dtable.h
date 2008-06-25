@@ -18,6 +18,7 @@
 #include "blob.h"
 #include "dtable.h"
 #include "dtable_factory.h"
+#include "rofile.h"
 
 /* The ustr (unique string) dtable is designed with simple_ctable in mind. It
  * scans the blobs for column names as stored by simple_ctable with sub_blob,
@@ -38,12 +39,12 @@ public:
 	virtual iter * iterator() const;
 	virtual blob lookup(const dtype & key, const dtable ** source) const;
 	
-	inline ustr_dtable() : fd(-1) {}
+	inline ustr_dtable() : fp(NULL) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
 	inline virtual ~ustr_dtable()
 	{
-		if(fd >= 0)
+		if(fp)
 			deinit();
 	}
 	
@@ -93,7 +94,7 @@ private:
 	static size_t pack_size(const blob & source, const dtable_header & header, const char ** dups, ssize_t dup_count);
 	static blob pack_blob(const blob & source, const dtable_header & header, const char ** dups, ssize_t dup_count);
 	
-	int fd;
+	rofile * fp;
 	size_t key_count;
 	struct str_tbl st, dup;
 	uint8_t key_size, length_size, offset_size;
