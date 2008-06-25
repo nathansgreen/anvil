@@ -203,7 +203,7 @@ int simple_dtable::init(int dfd, const char * file, const params & config)
 			ktype = dtype::STRING;
 			if(key_size > 4)
 				goto fail;
-			r = st.init(fp->read_fd(), key_start_off);
+			r = st.init(fp, key_start_off);
 			if(r < 0)
 				goto fail;
 			key_start_off += st.get_size();

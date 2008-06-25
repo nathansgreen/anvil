@@ -12,6 +12,8 @@
 #error stringtbl.h is a C++ header file
 #endif
 
+#include "rofile.h"
+
 /* A string table is a section of a file which maintains a collection of unique
  * strings in sorted order. String tables are immutable once created. */
 
@@ -20,14 +22,14 @@
 class stringtbl
 {
 public:
-	inline stringtbl() : fd(-1) {}
+	inline stringtbl() : fp(NULL) {}
 	inline ~stringtbl()
 	{
-		if(fd >= 0)
+		if(fp)
 			deinit();
 	}
 	
-	int init(int fd, off_t start);
+	int init(const rofile * fp, off_t start);
 	void deinit();
 	
 	inline size_t get_size()
@@ -56,7 +58,7 @@ private:
 		const char * string;
 	};
 	
-	int fd;
+	const rofile * fp;
 	off_t start;
 	ssize_t count;
 	size_t size;

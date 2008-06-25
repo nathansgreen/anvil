@@ -4,32 +4,28 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-#include <string.h>
+#include <errno.h>
 
 #include "stringtbl.h"
-#include "transaction.h"
-
-/* TODO: use some sort of buffering here to avoid lots of small read()/write() calls */
 
 struct st_header {
 	ssize_t count;
 	uint8_t bytes[2];
 } __attribute__((packed));
 
-int stringtbl::init(int fd, off_t start)
+int stringtbl::init(const rofile * fp, off_t start)
 {
 	int r;
 	st_header header;
-	if(this->fd >= 0)
+	off_t offset = start + sizeof(header);
+	if(this->fp)
 		deinit();
-	r = lseek(fd, start, SEEK_SET);
+	r = fp->read(start, &header);
 	if(r < 0)
-		return r;
-	r = ::read(fd, &header, sizeof(header));
-	if(r != sizeof(header))
 		return (r < 0) ? r : -1;
-	this->fd = fd;
+	if(header.bytes[0] > 4 || header.bytes[1] > 4)
+		return -EINVAL;
+	this->fp = fp;
 	this->start = start;
 	count = header.count;
 	bytes[0] = header.bytes[0];
@@ -41,9 +37,13 @@ int stringtbl::init(int fd, off_t start)
 	{
 		uint32_t value = 0;
 		uint8_t buffer[8];
-		r = ::read(fd, buffer, bytes[2]);
+		r = fp->read(offset, buffer, bytes[2]);
 		if(r != bytes[2])
+		{
+			this->fp = NULL;
 			return (r < 0) ? r : -1;
+		}
+		offset += bytes[2];
 		/* read big endian order */
 		for(r = 0; r < bytes[0]; r++)
 			value = (value << 8) | buffer[r];
@@ -60,12 +60,12 @@ int stringtbl::init(int fd, off_t start)
 
 void stringtbl::deinit()
 {
-	if(fd >= 0)
+	if(fp)
 	{
 		for(ssize_t i = 0; i < ST_LRU; i++)
 			if(lru[i].string)
 				free((void *) lru[i].string);
-		fd = -1;
+		fp = NULL;
 	}
 }
 
@@ -83,10 +83,7 @@ const char * stringtbl::get(ssize_t index) const
 			return lru[i].string;
 	/* not in LRU */
 	offset = start + sizeof(st_header) + index * bytes[2];
-	i = lseek(fd, offset, SEEK_SET);
-	if(i < 0)
-		return NULL;
-	i = ::read(fd, buffer, bytes[2]);
+	i = fp->read(offset, buffer, bytes[2]);
 	if(i != bytes[2])
 		return NULL;
 	/* read big endian order */
@@ -97,13 +94,10 @@ const char * stringtbl::get(ssize_t index) const
 		offset = (offset << 8) | buffer[bc++];
 	offset += start;
 	/* now we have the length and offset */
-	i = lseek(fd, offset, SEEK_SET);
-	if(i < 0)
-		return NULL;
 	string = (char *) malloc(length + 1);
 	if(!string)
 		return NULL;
-	i = ::read(fd, string, length);
+	i = fp->read(offset, string, length);
 	if(i != length)
 	{
 		free(string);
@@ -185,9 +179,10 @@ void stringtbl::array_free(const char ** array, ssize_t count)
 	free(array);
 }
 
+/* TODO: use some sort of buffering here to avoid lots of small pwrite() calls */
 int stringtbl::create(int fd, off_t * start, const char ** strings, ssize_t count)
 {
-	struct st_header header = {count, {4, 1}};
+	st_header header = {count, {4, 1}};
 	size_t size = 0, max = 0;
 	ssize_t i;
 	int r;

@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <unistd.h>
 
 #ifndef __cplusplus
 #error rofile.h is a C++ header file
@@ -30,24 +31,18 @@ public:
 	int open(int dfd, const char * file);
 	void close();
 	
-	/* return the underlying read-only file descriptor */
-	inline int read_fd()
-	{
-		return fd;
-	}
-	
 	/* return the size of the file (as of open()) */
-	inline off_t size()
+	inline off_t size() const
 	{
 		return f_size;
 	}
 	
 	/* read some data from the file */
-	virtual ssize_t read(off_t offset, void * data, ssize_t size) = 0;
+	virtual ssize_t read(off_t offset, void * data, ssize_t size) const = 0;
 	
 	/* read the structure from the file */
 	template<class T>
-	inline ssize_t read(off_t offset, T * data)
+	inline ssize_t read(off_t offset, T * data) const
 	{
 		ssize_t r = read(offset, data, sizeof(T));
 		return (r == sizeof(T)) ? 0 : (r < 0) ? r : -1;
@@ -63,7 +58,7 @@ protected:
 	
 	int fd;
 	off_t f_size;
-	size_t last_buffer;
+	mutable size_t last_buffer;
 };
 
 /* buffer_size is in KiB */
@@ -71,7 +66,7 @@ template<ssize_t buffer_size, int buffer_count>
 class rofile_size : public rofile
 {
 public:
-	virtual ssize_t read(off_t offset, void * data, ssize_t size)
+	virtual ssize_t read(off_t offset, void * data, ssize_t size) const
 	{
 		ssize_t left = size;
 		if(size > (ssize_t) sizeof(buffers[0].data))
@@ -141,7 +136,7 @@ private:
 		}
 	};
 	
-	buffer buffers[buffer_count];
+	mutable buffer buffers[buffer_count];
 	
 	virtual void reset()
 	{
@@ -155,7 +150,7 @@ private:
 	
 	/* find the buffer containing the given offset and set last_buffer to its index */
 	/* only use this if last_buffer is not already the index of such a buffer! */
-	bool find_not_last(off_t offset)
+	bool find_not_last(off_t offset) const
 	{
 		for(size_t i = 0; i < buffer_count; i++)
 			if(i != last_buffer && buffers[i].contains(offset))
@@ -167,7 +162,7 @@ private:
 	}
 	
 	/* load a buffer from file containing the given offset, and set last_buffer to its index */
-	bool load_buffer(off_t offset)
+	bool load_buffer(off_t offset) const
 	{
 		if(offset >= f_size)
 			return false;

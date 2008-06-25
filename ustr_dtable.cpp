@@ -245,7 +245,7 @@ int ustr_dtable::init(int dfd, const char * file, const params & config)
 			ktype = dtype::STRING;
 			if(key_size > 4)
 				goto fail;
-			r = st.init(fp->read_fd(), key_start_off);
+			r = st.init(fp, key_start_off);
 			if(r < 0)
 				goto fail;
 			key_start_off += st.get_size();
@@ -261,7 +261,7 @@ int ustr_dtable::init(int dfd, const char * file, const params & config)
 		dup_index_size = header.dup_index_size;
 		dup_escape_len = header.dup_escape_len;
 		memcpy(dup_escape, header.dup_escape, sizeof(dup_escape));
-		r = dup.init(fp->read_fd(), data_start_off + header.dup_offset);
+		r = dup.init(fp, data_start_off + header.dup_offset);
 		if(r < 0)
 			goto fail_st;
 	}
