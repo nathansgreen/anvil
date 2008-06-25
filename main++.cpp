@@ -398,14 +398,16 @@ int command_performance(int argc, const char * argv[])
 	int r;
 	struct timeval start, end;
 	simple_stable * sst;
-	params config, base_config;
+	params config, meta_config, data_config;
 	
-	base_config.set_class("base", ustr_dtable);
-	base_config.set("digest_interval", 2);
-	base_config.set("combine_interval", 2 * 4);
-	base_config.set("combine_count", 4 + 1);
-	config.set("meta_config", base_config);
-	config.set("data_config", base_config);
+	meta_config.set("digest_interval", 2);
+	meta_config.set("combine_interval", 2 * 4);
+	meta_config.set("combine_count", 4 + 1);
+	data_config = meta_config;
+	meta_config.set_class("base", simple_dtable);
+	data_config.set_class("base", ustr_dtable);
+	config.set("meta_config", meta_config);
+	config.set("data_config", data_config);
 	config.set_class("meta", managed_dtable);
 	config.set_class("data", managed_dtable);
 	config.set_class("columns", simple_ctable);

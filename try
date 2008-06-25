@@ -45,7 +45,7 @@ echo "done."
 echo "performance" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
 ls -lR /mnt/test
 
-if [ ! -f /mnt/test/core ]
+if [ ! -f /mnt/test/core -a ! -f /mnt/test/gmon.out ]
 then
 	# Run some tests
 	#echo "script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
