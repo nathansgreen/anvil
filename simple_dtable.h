@@ -9,7 +9,7 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
-#include "str_tbl.h"
+#include "stringtbl.h"
 
 #ifndef __cplusplus
 #error simple_dtable.h is a C++ header file
@@ -88,7 +88,7 @@ private:
 	
 	rofile * fp;
 	size_t key_count;
-	struct str_tbl st;
+	stringtbl st;
 	uint8_t key_size, length_size, offset_size;
 	off_t key_start_off, data_start_off;
 };

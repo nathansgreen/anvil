@@ -2,14 +2,12 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#define _GNU_SOURCE
-
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <string.h>
 
-#include "str_tbl.h"
+#include "stringtbl.h"
 #include "transaction.h"
 
 /* TODO: use some sort of buffering here to avoid lots of small read()/write() calls */
@@ -19,114 +17,117 @@ struct st_header {
 	uint8_t bytes[2];
 } __attribute__((packed));
 
-int st_init(struct str_tbl * st, int fd, off_t start)
+int stringtbl::init(int fd, off_t start)
 {
-	struct st_header header;
-	ssize_t i;
-	int r = lseek(fd, start, SEEK_SET);
+	int r;
+	st_header header;
+	if(this->fd >= 0)
+		deinit();
+	r = lseek(fd, start, SEEK_SET);
 	if(r < 0)
 		return r;
-	r = read(fd, &header, sizeof(header));
+	r = ::read(fd, &header, sizeof(header));
 	if(r != sizeof(header))
 		return (r < 0) ? r : -1;
-	st->fd = fd;
-	st->start = start;
-	st->count = header.count;
-	st->bytes[0] = header.bytes[0];
-	st->bytes[1] = header.bytes[1];
-	st->bytes[2] = st->bytes[0] + st->bytes[1];
-	/* calculate st->size */
-	st->size = sizeof(header) + st->bytes[2] * st->count;
-	for(i = 0; i < st->count; i++)
+	this->fd = fd;
+	this->start = start;
+	count = header.count;
+	bytes[0] = header.bytes[0];
+	bytes[1] = header.bytes[1];
+	bytes[2] = bytes[0] + bytes[1];
+	/* calculate size */
+	size = sizeof(header) + bytes[2] * count;
+	for(ssize_t i = 0; i < count; i++)
 	{
 		uint32_t value = 0;
-		uint8_t bytes[8];
-		r = read(fd, bytes, st->bytes[2]);
-		if(r != st->bytes[2])
+		uint8_t buffer[8];
+		r = ::read(fd, buffer, bytes[2]);
+		if(r != bytes[2])
 			return (r < 0) ? r : -1;
 		/* read big endian order */
-		for(r = 0; r < st->bytes[0]; r++)
-			value = (value << 8) | bytes[r];
-		st->size += value;
+		for(r = 0; r < bytes[0]; r++)
+			value = (value << 8) | buffer[r];
+		size += value;
 	}
-	for(i = 0; i < ST_LRU; i++)
+	for(ssize_t i = 0; i < ST_LRU; i++)
 	{
-		st->lru[i].index = -1;
-		st->lru[i].string = NULL;
+		lru[i].index = -1;
+		lru[i].string = NULL;
 	}
-	st->lru_next = 0;
+	lru_next = 0;
 	return 0;
 }
 
-int st_kill(struct str_tbl * st)
+void stringtbl::deinit()
 {
-	ssize_t i;
-	for(i = 0; i < ST_LRU; i++)
-		if(st->lru[i].string)
-			free((void *) st->lru[i].string);
-	return 0;
+	if(fd >= 0)
+	{
+		for(ssize_t i = 0; i < ST_LRU; i++)
+			if(lru[i].string)
+				free((void *) lru[i].string);
+		fd = -1;
+	}
 }
 
-const char * st_get(const struct str_tbl * st, ssize_t index)
+const char * stringtbl::get(ssize_t index) const
 {
 	int i, bc = 0;
 	off_t offset;
-	size_t length = 0;
-	uint8_t bytes[8];
+	ssize_t length = 0;
+	uint8_t buffer[8];
 	char * string;
-	if(index < 0 || index >= st->count)
+	if(index < 0 || index >= count)
 		return NULL;
 	for(i = 0; i < ST_LRU; i++)
-		if(st->lru[i].index == index)
-			return st->lru[i].string;
+		if(lru[i].index == index)
+			return lru[i].string;
 	/* not in LRU */
-	offset = st->start + sizeof(struct st_header) + index * st->bytes[2];
-	i = lseek(st->fd, offset, SEEK_SET);
+	offset = start + sizeof(st_header) + index * bytes[2];
+	i = lseek(fd, offset, SEEK_SET);
 	if(i < 0)
 		return NULL;
-	i = read(st->fd, bytes, st->bytes[2]);
-	if(i != st->bytes[2])
+	i = ::read(fd, buffer, bytes[2]);
+	if(i != bytes[2])
 		return NULL;
 	/* read big endian order */
-	for(i = 0; i < st->bytes[0]; i++)
-		length = (length << 8) | bytes[bc++];
+	for(i = 0; i < bytes[0]; i++)
+		length = (length << 8) | buffer[bc++];
 	offset = 0;
-	for(i = 0; i < st->bytes[1]; i++)
-		offset = (offset << 8) | bytes[bc++];
-	offset += st->start;
+	for(i = 0; i < bytes[1]; i++)
+		offset = (offset << 8) | buffer[bc++];
+	offset += start;
 	/* now we have the length and offset */
-	i = lseek(st->fd, offset, SEEK_SET);
+	i = lseek(fd, offset, SEEK_SET);
 	if(i < 0)
 		return NULL;
-	string = malloc(length + 1);
+	string = (char *) malloc(length + 1);
 	if(!string)
 		return NULL;
-	i = read(st->fd, string, length);
+	i = ::read(fd, string, length);
 	if(i != length)
 	{
 		free(string);
 		return NULL;
 	}
 	string[length] = 0;
-	i = st->lru_next;
-	/* the LRU entries don't count as const */
-	((struct str_tbl *) st)->lru[i].index = index;
-	if(st->lru[i].string)
-		free((void *) st->lru[i].string);
-	((struct str_tbl *) st)->lru[i].string = string;
+	i = lru_next;
+	lru[i].index = index;
+	if(lru[i].string)
+		free((void *) lru[i].string);
+	lru[i].string = string;
 	return string;
 }
 
-ssize_t st_locate(const struct str_tbl * st, const char * string)
+ssize_t stringtbl::locate(const char * string) const
 {
 	/* binary search */
-	ssize_t min = 0, max = st->count - 1;
+	ssize_t min = 0, max = count - 1;
 	while(min <= max)
 	{
 		int c;
 		/* watch out for overflow! */
 		ssize_t index = min + (max - min) / 2;
-		const char * value = st_get(st, index);
+		const char * value = get(index);
 		if(!value)
 			return -1;
 		c = strcmp(value, string);
@@ -140,15 +141,15 @@ ssize_t st_locate(const struct str_tbl * st, const char * string)
 	return -1;
 }
 
-const char ** st_read(struct str_tbl * st)
+const char ** stringtbl::read() const
 {
 	ssize_t i;
-	const char ** u = malloc(sizeof(*u) * st->count);
+	const char ** u = (const char **) malloc(sizeof(*u) * count);
 	if(!u)
 		return NULL;
-	for(i = 0; i < st->count; i++)
+	for(i = 0; i < count; i++)
 	{
-		const char * string = st_get(st, i);
+		const char * string = get(i);
 		if(!string)
 			break;
 		/* TODO: suck out of lru array instead of strdup */
@@ -156,7 +157,7 @@ const char ** st_read(struct str_tbl * st)
 		if(!u[i])
 			break;
 	}
-	if(i < st->count)
+	if(i < count)
 	{
 		while(i > 0)
 			free((void *) u[--i]);
@@ -171,12 +172,12 @@ static int st_strcmp(const void * a, const void * b)
 	return strcmp(*(const char **) a, *(const char **) b);
 }
 
-void st_array_sort(const char ** array, ssize_t count)
+void stringtbl::array_sort(const char ** array, ssize_t count)
 {
 	qsort(array, count, sizeof(*array), st_strcmp);
 }
 
-void st_array_free(const char ** array, ssize_t count)
+void stringtbl::array_free(const char ** array, ssize_t count)
 {
 	ssize_t i;
 	for(i = 0; i < count; i++)
@@ -184,14 +185,14 @@ void st_array_free(const char ** array, ssize_t count)
 	free(array);
 }
 
-static int _st_create(int fd, off_t * start, const char ** strings, ssize_t count, ssize_t (*do_write)(int, const void *, size_t, off_t))
+int stringtbl::create(int fd, off_t * start, const char ** strings, ssize_t count)
 {
 	struct st_header header = {count, {4, 1}};
 	size_t size = 0, max = 0;
 	ssize_t i;
 	int r;
 	/* the strings must be sorted */
-	st_array_sort(strings, count);
+	array_sort(strings, count);
 	for(i = 0; i < count; i++)
 	{
 		size_t length = strlen(strings[i]);
@@ -220,9 +221,9 @@ static int _st_create(int fd, off_t * start, const char ** strings, ssize_t coun
 			header.bytes[1] = 4;
 	}
 	/* write the header */
-	r = do_write(fd, &header, sizeof(header), *start);
-	if(r < 0)
-		return r;
+	r = pwrite(fd, &header, sizeof(header), *start);
+	if(r != sizeof(header))
+		return (r < 0) ? r : -1;
 	*start += sizeof(header);
 	/* start of strings */
 	max = sizeof(header) + (header.bytes[0] + header.bytes[1]) * count;
@@ -230,7 +231,7 @@ static int _st_create(int fd, off_t * start, const char ** strings, ssize_t coun
 	for(i = 0; i < count; i++)
 	{
 		int j, bc = 0;
-		uint8_t bytes[8];
+		uint8_t buffer[8];
 		uint32_t value;
 		size = strlen(strings[i]);
 		value = size;
@@ -238,27 +239,27 @@ static int _st_create(int fd, off_t * start, const char ** strings, ssize_t coun
 		/* write big endian order */
 		for(j = 0; j < header.bytes[0]; j++)
 		{
-			bytes[bc - j - 1] = value & 0xFF;
+			buffer[bc - j - 1] = value & 0xFF;
 			value >>= 8;
 		}
 		value = max;
 		bc += header.bytes[1];
 		for(j = 0; j < header.bytes[1]; j++)
 		{
-			bytes[bc - j - 1] = value & 0xFF;
+			buffer[bc - j - 1] = value & 0xFF;
 			value >>= 8;
 		}
 		max += size;
-		r = do_write(fd, bytes, bc, *start);
-		if(r < 0)
-			return r;
+		r = pwrite(fd, buffer, bc, *start);
+		if(r != bc)
+			return (r < 0) ? r : -1;
 		*start += bc;
 	}
 	/* write the strings */
 	for(i = 0; i < count; i++)
 	{
 		size = strlen(strings[i]);
-		r = do_write(fd, strings[i], size, *start);
+		r = pwrite(fd, strings[i], size, *start);
 		if(r < 0)
 			return r;
 		*start += size;
@@ -266,17 +267,7 @@ static int _st_create(int fd, off_t * start, const char ** strings, ssize_t coun
 	return 0;
 }
 
-int st_create(int fd, off_t * start, const char ** strings, ssize_t count)
-{
-	return _st_create(fd, start, strings, count, pwrite);
-}
-
-int st_create_tx(tx_fd fd, off_t * start, const char ** strings, ssize_t count)
-{
-	return _st_create(fd, start, strings, count, tx_write);
-}
-
-static int _st_combine(int fd, off_t * start, struct str_tbl * st1, struct str_tbl * st2, int (*do_create)(int, off_t *, const char **, ssize_t))
+int stringtbl::combine(int fd, off_t * start, const stringtbl * st1, const stringtbl * st2)
 {
 	ssize_t i1 = 0, i2 = 0;
 	ssize_t total = 0;
@@ -285,13 +276,13 @@ static int _st_combine(int fd, off_t * start, struct str_tbl * st1, struct str_t
 	const char ** u;
 	int r;
 	/* read the source tables */
-	s1 = st_read(st1);
+	s1 = st1->read();
 	if(!s1)
 		return -1;
-	s2 = st_read(st2);
+	s2 = st2->read();
 	if(!s2)
 	{
-		st_array_free(s1, st1->count);
+		array_free(s1, st1->count);
 		return -1;
 	}
 	/* count the total number of strings */
@@ -305,11 +296,11 @@ static int _st_combine(int fd, off_t * start, struct str_tbl * st1, struct str_t
 		total++;
 	}
 	total += (st1->count - i1) + (st2->count - i2);
-	u = malloc(sizeof(*u) * total);
+	u = (const char **) malloc(sizeof(*u) * total);
 	if(!u)
 	{
-		st_array_free(s2, st2->count);
-		st_array_free(s1, st1->count);
+		array_free(s2, st2->count);
+		array_free(s1, st1->count);
 	}
 	/* merge the arrays */
 	i1 = 0;
@@ -333,17 +324,7 @@ static int _st_combine(int fd, off_t * start, struct str_tbl * st1, struct str_t
 	free(s2);
 	free(s1);
 	/* create the combined string table */
-	r = do_create(fd, start, u, total);
-	st_array_free(u, total);
+	r = create(fd, start, u, total);
+	array_free(u, total);
 	return r;
-}
-
-int st_combine(int fd, off_t * start, struct str_tbl * st1, struct str_tbl * st2)
-{
-	return _st_combine(fd, start, st1, st2, st_create);
-}
-
-int st_combine_tx(tx_fd fd, off_t * start, struct str_tbl * st1, struct str_tbl * st2)
-{
-	return _st_combine(fd, start, st1, st2, st_create_tx);
 }

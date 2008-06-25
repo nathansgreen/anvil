@@ -103,7 +103,7 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 			return dtype(value);
 		}
 		case dtype::STRING:
-			return dtype(st_get(&st, read_bytes(bytes, 0, key_size)));
+			return dtype(st.get(read_bytes(bytes, 0, key_size)));
 	}
 	abort();
 }
@@ -203,10 +203,10 @@ int simple_dtable::init(int dfd, const char * file, const params & config)
 			ktype = dtype::STRING;
 			if(key_size > 4)
 				goto fail;
-			r = st_init(&st, fp->read_fd(), key_start_off);
+			r = st.init(fp->read_fd(), key_start_off);
 			if(r < 0)
 				goto fail;
-			key_start_off += st.size;
+			key_start_off += st.get_size();
 			break;
 		default:
 			goto fail;
@@ -226,7 +226,7 @@ void simple_dtable::deinit()
 	if(fp)
 	{
 		if(ktype == dtype::STRING)
-			st_kill(&st);
+			st.deinit();
 		delete fp;
 		fp = NULL;
 	}
@@ -354,7 +354,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	if(string_array)
 	{
 		off_t out_off = sizeof(header);
-		r = st_create(fd, &out_off, string_array, strings.size());
+		r = stringtbl::create(fd, &out_off, string_array, strings.size());
 		if(r < 0)
 			goto fail_unlink;
 		lseek(fd, 0, SEEK_END);

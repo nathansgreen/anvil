@@ -111,7 +111,7 @@ dtype ustr_dtable::get_key(size_t index, size_t * data_length, off_t * data_offs
 			return dtype(value);
 		}
 		case dtype::STRING:
-			return dtype(st_get(&st, read_bytes(bytes, 0, key_size)));
+			return dtype(st.get(read_bytes(bytes, 0, key_size)));
 	}
 	abort();
 }
@@ -150,7 +150,7 @@ blob ustr_dtable::unpack_blob(const blob & source, size_t unpacked_size) const
 		if(!memcmp(dup_escape, &source[i], dup_escape_len))
 		{
 			ssize_t index = read_bytes(&source[0], i += dup_escape_len, dup_index_size);
-			const char * string = st_get(&dup, index);
+			const char * string = dup.get(index);
 			if(string)
 			{
 				uint8_t length = strlen(string);
@@ -245,10 +245,10 @@ int ustr_dtable::init(int dfd, const char * file, const params & config)
 			ktype = dtype::STRING;
 			if(key_size > 4)
 				goto fail;
-			r = st_init(&st, fp->read_fd(), key_start_off);
+			r = st.init(fp->read_fd(), key_start_off);
 			if(r < 0)
 				goto fail;
-			key_start_off += st.size;
+			key_start_off += st.get_size();
 			break;
 		default:
 			goto fail;
@@ -261,7 +261,7 @@ int ustr_dtable::init(int dfd, const char * file, const params & config)
 		dup_index_size = header.dup_index_size;
 		dup_escape_len = header.dup_escape_len;
 		memcpy(dup_escape, header.dup_escape, sizeof(dup_escape));
-		r = st_init(&dup, fp->read_fd(), data_start_off + header.dup_offset);
+		r = dup.init(fp->read_fd(), data_start_off + header.dup_offset);
 		if(r < 0)
 			goto fail_st;
 	}
@@ -275,7 +275,7 @@ int ustr_dtable::init(int dfd, const char * file, const params & config)
 	
 fail_st:
 	if(ktype == dtype::STRING)
-		st_kill(&st);
+		st.deinit();
 fail:
 	delete fp;
 	fp = NULL;
@@ -287,9 +287,9 @@ void ustr_dtable::deinit()
 	if(fp)
 	{
 		if(dup_index_size)
-			st_kill(&dup);
+			dup.deinit();
 		if(ktype == dtype::STRING)
-			st_kill(&st);
+			st.deinit();
 		delete fp;
 		fp = NULL;
 	}
@@ -487,7 +487,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 		uint8_t escape;
 		uint32_t byte_counts[256];
 		dup_array = dups.array();
-		st_array_sort(dup_array, dups.size());
+		stringtbl::array_sort(dup_array, dups.size());
 		
 		/* hardcode these for a while */
 		header.dup_index_size = 1;
@@ -604,7 +604,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	if(string_array)
 	{
 		off_t out_off = sizeof(header);
-		r = st_create(fd, &out_off, string_array, strings.size());
+		r = stringtbl::create(fd, &out_off, string_array, strings.size());
 		if(r < 0)
 			goto fail_unlink;
 		lseek(fd, 0, SEEK_END);
@@ -677,7 +677,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	if(dup_array)
 	{
 		off_t out_off = lseek(fd, 0, SEEK_END);
-		r = st_create(fd, &out_off, dup_array, dups.size());
+		r = stringtbl::create(fd, &out_off, dup_array, dups.size());
 		if(r < 0)
 			goto fail_unlink;
 		lseek(fd, 0, SEEK_END);

@@ -9,7 +9,7 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
-#include "str_tbl.h"
+#include "stringtbl.h"
 
 #ifndef __cplusplus
 #error ustr_dtable.h is a C++ header file
@@ -96,7 +96,7 @@ private:
 	
 	rofile * fp;
 	size_t key_count;
-	struct str_tbl st, dup;
+	stringtbl st, dup;
 	uint8_t key_size, length_size, offset_size;
 	uint8_t dup_index_size, dup_escape_len, dup_escape[2];
 	off_t key_start_off, data_start_off;
