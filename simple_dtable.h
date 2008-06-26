@@ -9,7 +9,7 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
-#include "str_tbl.h"
+#include "stringtbl.h"
 
 #ifndef __cplusplus
 #error simple_dtable.h is a C++ header file
@@ -18,6 +18,7 @@
 #include "blob.h"
 #include "dtable.h"
 #include "dtable_factory.h"
+#include "rofile.h"
 
 /* The simple dtable does nothing fancy to store the blobs efficiently. It just
  * stores the key and the blob literally, including size information. These
@@ -37,12 +38,12 @@ public:
 	virtual iter * iterator() const;
 	virtual blob lookup(const dtype & key, const dtable ** source) const;
 	
-	inline simple_dtable() : fd(-1) {}
+	inline simple_dtable() : fp(NULL) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
 	inline virtual ~simple_dtable()
 	{
-		if(fd >= 0)
+		if(fp)
 			deinit();
 	}
 	
@@ -85,9 +86,9 @@ private:
 	/* helper for create() above */
 	static ssize_t locate_string(const char ** array, ssize_t size, const char * string);
 	
-	int fd;
+	rofile * fp;
 	size_t key_count;
-	struct str_tbl st;
+	stringtbl st;
 	uint8_t key_size, length_size, offset_size;
 	off_t key_start_off, data_start_off;
 };

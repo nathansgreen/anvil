@@ -91,7 +91,22 @@ int blob_buffer::overwrite(size_t offset, const void * data, size_t length)
 			memset(&internal->bytes[internal->size], 0, offset - internal->size);
 		internal->size = offset + length;
 	}
-	memcpy(&internal->bytes[offset], data, length);
+	/* unroll memcpy a little bit... this call right here is expensive! */
+	switch(length)
+	{
+		case 4:
+			internal->bytes[offset + 3] = ((uint8_t *) data)[3];
+		case 3:
+			internal->bytes[offset + 2] = ((uint8_t *) data)[2];
+		case 2:
+			internal->bytes[offset + 1] = ((uint8_t *) data)[1];
+		case 1:
+			internal->bytes[offset] = *(uint8_t *) data;
+		case 0:
+			break;
+		default:
+			memcpy(&internal->bytes[offset], data, length);
+	}
 	return 0;
 }
 

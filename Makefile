@@ -1,6 +1,7 @@
-CSOURCES=blowfish.c journal.c md5.c openat.c str_tbl.c
-CPPSOURCES=counted_stringset.cpp istr.cpp stringset.cpp transaction.cpp
-CPPSOURCES+=blob.cpp blob_buffer.cpp params.cpp sub_blob.cpp sys_journal.cpp
+# Not many C source files left now...
+CSOURCES=blowfish.c journal.c md5.c openat.c
+CPPSOURCES=counted_stringset.cpp istr.cpp rofile.cpp rwfile.cpp stringset.cpp stringtbl.cpp
+CPPSOURCES+=blob.cpp blob_buffer.cpp params.cpp sub_blob.cpp sys_journal.cpp transaction.cpp
 CPPSOURCES+=simple_dtable.cpp simple_ctable.cpp simple_stable.cpp simple_ext_index.cpp
 CPPSOURCES+=journal_dtable.cpp overlay_dtable.cpp ustr_dtable.cpp managed_dtable.cpp
 CPPSOURCES+=dtable_factory.cpp ctable_factory.cpp index_factory.cpp toilet++.cpp
@@ -18,6 +19,11 @@ ifeq ($(findstring -pg,$(CFLAGS)),-pg)
 ifeq ($(findstring -pg,$(LDFLAGS)),)
 LDFLAGS:=-pg $(LDFLAGS)
 endif
+# We can't actually do this without a small change to openat.c;
+# dlsym(RTLD_NEXT, ...) crashes when libc is linked statically
+#ifeq ($(findstring -lc_p,$(LDFLAGS)),)
+#LDFLAGS:=-lc_p $(LDFLAGS)
+#endif
 endif
 
 CFLAGS:=-Wall -Ifstitch/include $(CFLAGS)
@@ -31,11 +37,11 @@ all: tags main
 %.o: %.cpp
 	g++ -c $< -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
 
-libtoilet.so: $(OBJECTS) fstitch/obj/kernel/lib/libpatchgroup.so
-	g++ -shared -o $@ $(OBJECTS) -ldl $(LDFLAGS)
+libtoilet.so: libtoilet.o fstitch/obj/kernel/lib/libpatchgroup.so
+	g++ -shared -o $@ $< -ldl $(LDFLAGS)
 
 libtoilet.o: $(OBJECTS)
-	ld -r -o $@ $(OBJECTS)
+	ld -r -o $@ $^
 
 # Make libtoilet.a from libtoilet.o instead of $(OBJECTS) directly so that
 # classes not directly referenced still get included and register themselves

@@ -398,14 +398,16 @@ int command_performance(int argc, const char * argv[])
 	int r;
 	struct timeval start, end;
 	simple_stable * sst;
-	params config, base_config;
+	params config, meta_config, data_config;
 	
-	base_config.set_class("base", ustr_dtable);
-	base_config.set("digest_interval", 2);
-	base_config.set("combine_interval", 2 * 4);
-	base_config.set("combine_count", 4 + 1);
-	config.set("meta_config", base_config);
-	config.set("data_config", base_config);
+	meta_config.set("digest_interval", 2);
+	meta_config.set("combine_interval", 2 * 4);
+	meta_config.set("combine_count", 4 + 1);
+	data_config = meta_config;
+	meta_config.set_class("base", simple_dtable);
+	data_config.set_class("base", ustr_dtable);
+	config.set("meta_config", meta_config);
+	config.set("data_config", data_config);
 	config.set_class("meta", managed_dtable);
 	config.set_class("data", managed_dtable);
 	config.set_class("columns", simple_ctable);
@@ -421,22 +423,22 @@ int command_performance(int argc, const char * argv[])
 	r = sst->init(AT_FDCWD, "perftest", config);
 	printf("sst->init = %d\n", r);
 	
-	printf("Start timing!\n");
+	printf("Start timing! (200000 appends)\n");
 	gettimeofday(&start, NULL);
 	
-	for(int i = 0; i < 10000; i++)
+	for(int i = 0; i < 200000; i++)
 	{
 		const char * column_name = column_names[rand() % COLUMN_NAMES];
-		if(!(i % 10))
+		if(!(i % 100))
 		{
 			r = tx_start();
 			if(r < 0)
 				goto fail_tx_start;
 		}
-		r = sst->append((uint32_t) rand() % 10000, column_name, (uint32_t) rand());
+		r = sst->append((uint32_t) rand() % 20000, column_name, (uint32_t) rand());
 		if(r < 0)
 			goto fail_append;
-		if((i % 1000) == 999)
+		if((i % 20000) == 19999)
 		{
 			gettimeofday(&end, NULL);
 			end.tv_sec -= start.tv_sec;
@@ -446,15 +448,15 @@ int command_performance(int argc, const char * argv[])
 				end.tv_sec--;
 			}
 			end.tv_usec -= start.tv_usec;
-			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 100, (int) end.tv_sec, (int) end.tv_usec);
+			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 2000, (int) end.tv_sec, (int) end.tv_usec);
 		}
-		if((i % 100) == 99)
+		if((i % 1000) == 999)
 		{
 			r = sst->maintain();
 			if(r < 0)
 				goto fail_maintain;
 		}
-		if((i % 10) == 9)
+		if((i % 100) == 99)
 		{
 			r = tx_end(0);
 			assert(r >= 0);
