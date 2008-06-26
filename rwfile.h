@@ -48,6 +48,7 @@ public:
 	}
 	
 	int create(int dfd, const char * file, patchgroup_id_t pid = 0, mode_t mode = 0644);
+	int open(int dfd, const char * file, off_t end_offset, patchgroup_id_t pid = 0);
 	
 	/* flush the buffer */
 	int flush();
@@ -58,18 +59,42 @@ public:
 	/* flushes the buffer before setting, so might fail */
 	int set_pid(patchgroup_id_t pid);
 	
+	inline patchgroup_id_t get_pid()
+	{
+		return pid;
+	}
+	
+	/* return the current idea of the end of the file */
+	inline off_t end()
+	{
+		return write_mode ? (write_offset + filled) : write_offset;
+	}
+	
 	/* append some data to the file */
 	ssize_t append(const void * data, ssize_t size);
 	
+	/* read some data from the file */
+	/* this should be const, but due to the shared cache, it's easier not to bother */
+	ssize_t read(off_t offset, void * data, ssize_t size);
+	
 	/* append the structure to the file */
 	template<class T>
-	inline ssize_t append(const T * data)
+	inline int append(const T * data)
 	{
 		ssize_t r = append(data, sizeof(T));
-		return (r == sizeof(T)) ? 0 : (r < 0) ? r : -1;
+		return (r == sizeof(T)) ? 0 : (r < 0) ? (int) r : -1;
 	}
 	
-protected:
+	/* read the structure from the file */
+	/* this should be const, but due to the shared cache, it's easier not to bother */
+	template<class T>
+	inline int read(off_t offset, T * data)
+	{
+		ssize_t r = read(offset, data, sizeof(T));
+		return (r == sizeof(T)) ? 0 : (r < 0) ? (int) r : -1;
+	}
+	
+private:
 	int fd;
 	bool write_mode;
 	ssize_t filled, buffer_size;

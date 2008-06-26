@@ -26,6 +26,7 @@ extern "C" {
 #include <set>
 
 #include "istr.h"
+#include "rwfile.h"
 
 class sys_journal
 {
@@ -97,12 +98,12 @@ public:
 	/* remove any discarded entries from this journal */
 	int filter();
 	
-	inline sys_journal() : meta_dfd(-1), data_fd(-1), meta_fd(-1), pid(0) { handle.data = this; handle.handle = flush_tx_static; }
+	inline sys_journal() : meta_dfd(-1), meta_fd(-1), pid(0) { handle.data = this; handle.handle = flush_tx_static; }
 	int init(int dfd, const char * file, bool create = false, bool fail_missing = false);
 	void deinit();
 	inline ~sys_journal()
 	{
-		if(data_fd >= 0)
+		if(meta_fd >= 0)
 			deinit();
 	}
 	
@@ -120,7 +121,7 @@ private:
 	int meta_dfd;
 	istr meta_name;
 	
-	int data_fd;
+	rwfile data;
 	tx_fd meta_fd;
 	off_t data_size;
 	uint32_t sequence;

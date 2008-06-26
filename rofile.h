@@ -31,12 +31,6 @@ public:
 	int open(int dfd, const char * file);
 	void close();
 	
-	/* return the size of the file (as of open()) */
-	inline off_t size() const
-	{
-		return f_size;
-	}
-	
 	/* read some data from the file */
 	virtual ssize_t read(off_t offset, void * data, ssize_t size) const = 0;
 	
