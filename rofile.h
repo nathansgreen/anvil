@@ -14,9 +14,9 @@
 #error rofile.h is a C++ header file
 #endif
 
-/* This class provides a stdio-like wrapper around a file descriptor, keeping
- * track of several buffers for file data preread from different parts of the
- * file but not yet requested by the rest of the application. */
+/* This class provides a stdio-like wrapper around a read-only file descriptor,
+ * keeping track of several buffers for file data preread from different parts
+ * of the file but not yet requested by the rest of the application. */
 
 class rofile
 {
@@ -42,10 +42,10 @@ public:
 	
 	/* read the structure from the file */
 	template<class T>
-	inline ssize_t read(off_t offset, T * data) const
+	inline int read(off_t offset, T * data) const
 	{
 		ssize_t r = read(offset, data, sizeof(T));
-		return (r == sizeof(T)) ? 0 : (r < 0) ? r : -1;
+		return (r == sizeof(T)) ? 0 : (r < 0) ? (int) r : -1;
 	}
 	
 	/* buffer_size is in KiB */

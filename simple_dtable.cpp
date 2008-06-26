@@ -11,6 +11,7 @@
 
 #include "openat.h"
 
+#include "rwfile.h"
 #include "stringset.h"
 #include "blob_buffer.h"
 #include "simple_dtable.h"
@@ -252,7 +253,6 @@ ssize_t simple_dtable::locate_string(const char ** array, ssize_t size, const ch
 	return -1;
 }
 
-/* TODO: use some sort of buffering here to avoid lots of small write() calls */
 int simple_dtable::create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow)
 {
 	stringset strings;
@@ -262,7 +262,8 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	size_t key_count = 0, max_data_size = 0, total_data_size = 0;
 	uint32_t max_key = 0;
 	dtable_header header;
-	int r, fd, size;
+	int r, size;
+	rwfile out;
 	if(shadow && shadow->key_type() != key_type)
 		return -EINVAL;
 	if(key_type == dtype::STRING)
@@ -335,17 +336,14 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	header.offset_size = byte_size(total_data_size);
 	size = header.key_size + header.length_size + header.offset_size;
 	
-	fd = openat(dfd, file, O_RDWR | O_TRUNC | O_CREAT, 0644);
-	if(fd < 0)
-	{
-		r = fd;
+	r = out.create(dfd, file);
+	if(r < 0)
 		goto out_strings;
-	}
-	r = write(fd, &header, sizeof(header));
-	if(r != sizeof(header))
+	r = out.append(&header);
+	if(r < 0)
 	{
 	fail_unlink:
-		close(fd);
+		out.close();
 		unlinkat(dfd, file, 0);
 		if(r >= 0)
 			r = -1;
@@ -353,11 +351,9 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	}
 	if(string_array)
 	{
-		off_t out_off = sizeof(header);
-		r = stringtbl::create(fd, &out_off, string_array, strings.size());
+		r = stringtbl::create(&out, string_array, strings.size());
 		if(r < 0)
 			goto fail_unlink;
-		lseek(fd, 0, SEEK_END);
 	}
 	
 	/* now the key array */
@@ -390,7 +386,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 		}
 		layout_bytes(bytes, &i, meta.exists() ? meta.size() + 1 : 0, header.length_size);
 		layout_bytes(bytes, &i, total_data_size, header.offset_size);
-		r = write(fd, bytes, i);
+		r = out.append(bytes, i);
 		if(r != i)
 		{
 			delete iter;
@@ -408,7 +404,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 		iter->next();
 		if(!value.exists())
 			continue;
-		r = write(fd, &value[0], value.size());
+		r = out.append(&value[0], value.size());
 		if(r != (int) value.size())
 		{
 			delete iter;
@@ -416,8 +412,10 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 		}
 	}
 	delete iter;
-	/* assume close() works */
-	close(fd);
+	
+	r = out.close();
+	if(r < 0)
+		goto fail_unlink;
 	r = 0;
 	
 out_strings:

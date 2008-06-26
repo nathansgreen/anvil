@@ -13,6 +13,7 @@
 #endif
 
 #include "rofile.h"
+#include "rwfile.h"
 
 /* A string table is a section of a file which maintains a collection of unique
  * strings in sorted order. String tables are immutable once created. */
@@ -48,8 +49,8 @@ public:
 	static void array_free(const char ** array, ssize_t count);
 
 	/* leaves the input string array sorted */
-	static int create(int fd, off_t * start, const char ** strings, ssize_t count);
-	static int combine(int fd, off_t * start, const stringtbl * st1, const stringtbl * st2);
+	static int create(rwfile * fp, const char ** strings, ssize_t count);
+	static int combine(rwfile * fp, const stringtbl * st1, const stringtbl * st2);
 
 private:
 	struct lru_ent

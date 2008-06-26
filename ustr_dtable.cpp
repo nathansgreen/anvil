@@ -11,6 +11,7 @@
 
 #include "openat.h"
 
+#include "rwfile.h"
 #include "stringset.h"
 #include "counted_stringset.h"
 #include "blob_buffer.h"
@@ -399,7 +400,6 @@ blob ustr_dtable::pack_blob(const blob & source, const dtable_header & header, c
 	return buffer;
 }
 
-/* TODO: use some sort of buffering here to avoid lots of small write() calls */
 int ustr_dtable::create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow)
 {
 	stringset strings;
@@ -411,7 +411,8 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	size_t key_count = 0, max_data_size = 0, total_data_size = 0;
 	uint32_t max_key = 0;
 	dtable_header header;
-	int r, fd, size;
+	int r, size;
+	rwfile out;
 	if(shadow && shadow->key_type() != key_type)
 		return -EINVAL;
 	if(key_type == dtype::STRING)
@@ -585,17 +586,14 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	header.offset_size = byte_size(total_data_size);
 	size = header.key_size + header.length_size + header.offset_size;
 	
-	fd = openat(dfd, file, O_RDWR | O_TRUNC | O_CREAT, 0644);
-	if(fd < 0)
-	{
-		r = fd;
+	r = out.create(dfd, file);
+	if(r < 0)
 		goto out_strings;
-	}
-	r = write(fd, &header, sizeof(header));
-	if(r != sizeof(header))
+	r = out.append(&header);
+	if(r < 0)
 	{
 	fail_unlink:
-		close(fd);
+		out.close();
 		unlinkat(dfd, file, 0);
 		if(r >= 0)
 			r = -1;
@@ -603,11 +601,9 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	}
 	if(string_array)
 	{
-		off_t out_off = sizeof(header);
-		r = stringtbl::create(fd, &out_off, string_array, strings.size());
+		r = stringtbl::create(&out, string_array, strings.size());
 		if(r < 0)
 			goto fail_unlink;
-		lseek(fd, 0, SEEK_END);
 	}
 	
 	/* now the key array */
@@ -640,7 +636,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 		}
 		layout_bytes(bytes, &i, value.exists() ? value.size() + 1 : 0, header.length_size);
 		layout_bytes(bytes, &i, total_data_size, header.offset_size);
-		r = write(fd, bytes, i);
+		r = out.append(bytes, i);
 		if(r != i)
 		{
 			delete iter;
@@ -664,7 +660,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 			continue;
 		if(dup_array)
 			value = pack_blob(value, header, dup_array, dups.size());
-		r = write(fd, &value[0], value.size());
+		r = out.append(&value[0], value.size());
 		if(r != (int) value.size())
 		{
 			delete iter;
@@ -676,15 +672,14 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	/* the duplicate string table */
 	if(dup_array)
 	{
-		off_t out_off = lseek(fd, 0, SEEK_END);
-		r = stringtbl::create(fd, &out_off, dup_array, dups.size());
+		r = stringtbl::create(&out, dup_array, dups.size());
 		if(r < 0)
 			goto fail_unlink;
-		lseek(fd, 0, SEEK_END);
 	}
 	
-	/* assume close() works */
-	close(fd);
+	r = out.close();
+	if(r < 0)
+		goto fail_unlink;
 	r = 0;
 	
 #if DEBUG_USTR

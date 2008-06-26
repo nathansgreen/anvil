@@ -179,8 +179,7 @@ void stringtbl::array_free(const char ** array, ssize_t count)
 	free(array);
 }
 
-/* TODO: use some sort of buffering here to avoid lots of small pwrite() calls */
-int stringtbl::create(int fd, off_t * start, const char ** strings, ssize_t count)
+int stringtbl::create(rwfile * fp, const char ** strings, ssize_t count)
 {
 	st_header header = {count, {4, 1}};
 	size_t size = 0, max = 0;
@@ -216,10 +215,9 @@ int stringtbl::create(int fd, off_t * start, const char ** strings, ssize_t coun
 			header.bytes[1] = 4;
 	}
 	/* write the header */
-	r = pwrite(fd, &header, sizeof(header), *start);
-	if(r != sizeof(header))
-		return (r < 0) ? r : -1;
-	*start += sizeof(header);
+	r = fp->append(&header);
+	if(r < 0)
+		return r;
 	/* start of strings */
 	max = sizeof(header) + (header.bytes[0] + header.bytes[1]) * count;
 	/* write the length/offset table */
@@ -245,24 +243,22 @@ int stringtbl::create(int fd, off_t * start, const char ** strings, ssize_t coun
 			value >>= 8;
 		}
 		max += size;
-		r = pwrite(fd, buffer, bc, *start);
+		r = fp->append(buffer, bc);
 		if(r != bc)
 			return (r < 0) ? r : -1;
-		*start += bc;
 	}
 	/* write the strings */
 	for(i = 0; i < count; i++)
 	{
 		size = strlen(strings[i]);
-		r = pwrite(fd, strings[i], size, *start);
-		if(r < 0)
-			return r;
-		*start += size;
+		r = fp->append(strings[i], size);
+		if(r != (int) size)
+			return (r < 0) ? r : -1;
 	}
 	return 0;
 }
 
-int stringtbl::combine(int fd, off_t * start, const stringtbl * st1, const stringtbl * st2)
+int stringtbl::combine(rwfile * fp, const stringtbl * st1, const stringtbl * st2)
 {
 	ssize_t i1 = 0, i2 = 0;
 	ssize_t total = 0;
@@ -319,7 +315,7 @@ int stringtbl::combine(int fd, off_t * start, const stringtbl * st1, const strin
 	free(s2);
 	free(s1);
 	/* create the combined string table */
-	r = create(fd, start, u, total);
+	r = create(fp, u, total);
 	array_free(u, total);
 	return r;
 }

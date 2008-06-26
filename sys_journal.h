@@ -16,6 +16,12 @@
 #error journal++.h is a C++ header file
 #endif
 
+extern "C" {
+/* Featherstitch does not know about C++ so we include
+ * its header file inside an extern "C" block. */
+#include <patchgroup.h>
+}
+
 #include <map>
 #include <set>
 

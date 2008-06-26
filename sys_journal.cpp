@@ -14,12 +14,6 @@
 
 #include "sys_journal.h"
 
-extern "C" {
-/* Featherstitch does not know about C++ so we include
- * its header file inside an extern "C" block. */
-#include <patchgroup.h>
-}
-
 #define SYSJ_META_MAGIC 0xBAFE9BDA
 #define SYSJ_META_VERSION 1
 
