@@ -423,13 +423,13 @@ int command_performance(int argc, const char * argv[])
 	r = sst->init(AT_FDCWD, "perftest", config);
 	printf("sst->init = %d\n", r);
 	
-	printf("Start timing! (200000 appends)\n");
+	printf("Start timing! (2000000 appends)\n");
 	gettimeofday(&start, NULL);
 	
-	for(int i = 0; i < 200000; i++)
+	for(int i = 0; i < 2000000; i++)
 	{
 		const char * column_name = column_names[rand() % COLUMN_NAMES];
-		if(!(i % 100))
+		if(!(i % 1000))
 		{
 			r = tx_start();
 			if(r < 0)
@@ -438,7 +438,7 @@ int command_performance(int argc, const char * argv[])
 		r = sst->append((uint32_t) rand() % 20000, column_name, (uint32_t) rand());
 		if(r < 0)
 			goto fail_append;
-		if((i % 20000) == 19999)
+		if((i % 200000) == 199999)
 		{
 			gettimeofday(&end, NULL);
 			end.tv_sec -= start.tv_sec;
@@ -448,15 +448,15 @@ int command_performance(int argc, const char * argv[])
 				end.tv_sec--;
 			}
 			end.tv_usec -= start.tv_usec;
-			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 2000, (int) end.tv_sec, (int) end.tv_usec);
+			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 20000, (int) end.tv_sec, (int) end.tv_usec);
 		}
-		if((i % 1000) == 999)
+		if((i % 10000) == 9999)
 		{
 			r = sst->maintain();
 			if(r < 0)
 				goto fail_maintain;
 		}
-		if((i % 100) == 99)
+		if((i % 1000) == 999)
 		{
 			r = tx_end(0);
 			assert(r >= 0);

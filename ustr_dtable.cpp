@@ -218,7 +218,7 @@ int ustr_dtable::init(int dfd, const char * file, const params & config)
 	if(fp)
 		deinit();
 	/* the larger the buffers, the more memory we use but the fewer read() system calls we'll make... */
-	fp = rofile::open<16, 8>(dfd, file);
+	fp = rofile::open<16, 16>(dfd, file);
 	if(!fp)
 		return -1;
 	if(fp->read(0, &header) < 0)
