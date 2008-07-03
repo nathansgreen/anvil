@@ -16,16 +16,25 @@ extern "C" {
  * its header file inside the extern "C" block. */
 #include <patchgroup.h>
 
+/* a commit record */
+struct commit_record {
+	off_t offset;
+	size_t length;
+};
+typedef struct commit_record commit_record;
+
 /* a journal */
 struct journal {
-	int fd, dfd;
+	int fd, dfd, crfd;
 	char * path;
 	patchgroup_id_t records;
-	patchgroup_id_t future_commit;
-	patchgroup_id_t commit;
+	patchgroup_id_t future;
+	patchgroup_id_t last_commit;
 	patchgroup_id_t playback;
 	patchgroup_id_t erase;
 	struct journal * prev;
+	uint32_t commit_groups;
+	commit_record prev_commit_record;
 	int usage;
 };
 typedef struct journal journal;
