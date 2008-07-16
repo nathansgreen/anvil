@@ -145,7 +145,7 @@ int tx_init(int dfd)
 	
 	while((ent = readdir(dir)))
 	{
-		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") || strstr(ent->d_name, ".commit"))
 			continue;
 		entries.push_back(ent->d_name);
 	}
