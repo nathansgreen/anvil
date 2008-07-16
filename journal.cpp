@@ -383,7 +383,6 @@ fail:
 
 int journal_erase(journal * j)
 {
-	uint8_t zero[sizeof(struct commit_record) + CHECKSUM_LENGTH];
 	patchgroup_id_t erase;
 	if(!j->playback)
 		return -EINVAL;
@@ -393,62 +392,31 @@ int journal_erase(journal * j)
 	erase = patchgroup_create(0);
 	if(erase <= 0)
 		return -1;
-	patchgroup_label(erase, "erase");
+	patchgroup_label(erase, "delete");
 	if(patchgroup_add_depend(erase, j->playback) < 0)
 	{
-	fail:
 		patchgroup_release(erase);
 		patchgroup_abandon(erase);
 		return -1;
 	}
-	if(j->prev && patchgroup_add_depend(erase, j->prev->erase) < 0)
-		goto fail;
-	patchgroup_release(erase);
-	if(patchgroup_engage(erase) < 0)
-	{
-		/* this basically can't happen */
-		patchgroup_abandon(erase);
-		return -1;
-	}
-	//XXX This could be done more efficiently
-	lseek(j->crfd, 0, SEEK_SET);
-	memset(zero, 0, sizeof(zero));
-	for(uint32_t i = 0; i < j->commit_groups; ++i)
-	{
-		if(write(j->crfd, zero, sizeof(zero)) != sizeof(zero))
-		{
-			int save = errno;
-			patchgroup_disengage(erase);
-			patchgroup_abandon(erase);
-			errno = save;
-			return -1;
-		}
-	}
-	patchgroup_disengage(erase);
 	close(j->fd);
 	close(j->crfd);
 	j->fd = -1;
 	j->crfd = -1;
-	j->erase = erase;
-	erase = patchgroup_create(0);
-	if(erase > 0)
-	{
-		patchgroup_label(erase, "delete");
-		if(patchgroup_add_depend(erase, j->playback) >= 0)
-			if(!j->prev || patchgroup_add_depend(erase, j->prev->erase) >= 0)
+	if(patchgroup_add_depend(erase, j->playback) >= 0)
+		if(!j->prev || patchgroup_add_depend(erase, j->prev->erase) >= 0)
+		{
+			patchgroup_release(erase);
+			if(patchgroup_engage(erase) >= 0)
 			{
-				patchgroup_release(erase);
-				if(patchgroup_engage(erase) >= 0)
-				{
-					unlinkat(j->dfd, j->path, 0);
-					istr crname = j->path;
-					crname += ".commit";
-					unlinkat(j->dfd, crname, 0);
-					patchgroup_disengage(erase);
-				}
+				unlinkat(j->dfd, j->path, 0);
+				istr crname = j->path;
+				crname += ".commit";
+				unlinkat(j->dfd, crname, 0);
+				patchgroup_disengage(erase);
 			}
-		patchgroup_abandon(erase);
-	}
+		}
+	j->erase = erase;
 	if(j->prev)
 		journal_free(j->prev);
 	return 0;
