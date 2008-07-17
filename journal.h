@@ -16,27 +16,9 @@ extern "C" {
  * its header file inside the extern "C" block. */
 #include <patchgroup.h>
 
-/* a commit record */
-struct commit_record {
-	off_t offset;
-	size_t length;
-};
-typedef struct commit_record commit_record;
+#define J_COMMIT_EXT ".commit"
 
-/* a journal */
-struct journal {
-	int fd, dfd, crfd;
-	char * path;
-	patchgroup_id_t records;
-	patchgroup_id_t future;
-	patchgroup_id_t last_commit;
-	patchgroup_id_t playback;
-	patchgroup_id_t erase;
-	struct journal * prev;
-	uint32_t commit_groups;
-	commit_record prev_commit_record;
-	int usage;
-};
+struct journal;
 typedef struct journal journal;
 
 /* a pointer into a record in the journal */
@@ -85,6 +67,30 @@ int journal_reopen(int dfd, const char * path, journal ** pj, journal * prev);
 
 #ifdef __cplusplus
 }
+
+#include "istr.h"
+
+/* a commit record */
+struct commit_record {
+	off_t offset;
+	size_t length;
+} __attribute__((packed));
+
+/* a journal */
+struct journal {
+	int fd, dfd, crfd;
+	istr path;
+	patchgroup_id_t records;
+	patchgroup_id_t future;
+	patchgroup_id_t last_commit;
+	patchgroup_id_t playback;
+	patchgroup_id_t erase;
+	struct journal * prev;
+	uint32_t commit_groups;
+	struct commit_record prev_cr;
+	int usage;
+};
+
 #endif
 
 #endif /* __JOURNAL_H */

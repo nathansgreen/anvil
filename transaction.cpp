@@ -105,6 +105,15 @@ static struct tx_pre_end * pre_end_handlers = NULL;
 
 static int tx_playback(journal * j);
 
+static int ends_with(const char * string, const char * suffix)
+{
+	size_t str_len = strlen(string);
+	size_t suf_len = strlen(suffix);
+	if(str_len < suf_len)
+		return 0;
+	return !strcmp(&string[str_len - suf_len], suffix);
+}
+
 /* scans journal dir, recovers transactions */
 int tx_init(int dfd)
 {
@@ -145,7 +154,7 @@ int tx_init(int dfd)
 	
 	while((ent = readdir(dir)))
 	{
-		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") || strstr(ent->d_name, ".commit"))
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") || ends_with(ent->d_name, J_COMMIT_EXT))
 			continue;
 		entries.push_back(ent->d_name);
 	}

@@ -6,20 +6,19 @@
 
 #include <errno.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/uio.h>
 
 #include "md5.h"
-
 #include "openat.h"
 #include "journal.h"
+
 #include "istr.h"
 
 /* This is the generic journal module. It uses Featherstitch dependencies to
  * keep a journal of uninterpreted records, which later can be played back
- * either to commit the transaction or to recover it. The records do not
+ * either to commit transactions or to recover them. The records do not
  * necessarily have to describe idempotent actions, but if they do not, the
  * client code must be able to figure out whether a record's action has already
  * been taken or not so as not to perform it twice in the event of recovery. */
@@ -34,28 +33,17 @@ journal * journal_create(int dfd, const char * path, journal * prev)
 	journal * j;
 	if(prev && !prev->last_commit)
 		return NULL;
-	j = (journal *)malloc(sizeof(*j));
+	j = new journal;
 	if(!j)
 		return NULL;
 	j->dfd = dfd;
-	j->path = strdup(path);
+	j->path = path;
 	if(!j->path)
-	{
-		int save = errno;
-		free(j);
-		errno = save;
-		return NULL;
-	}
+		goto error;
 	/* hmm... should we include the openat() in the patchgroup? */
-	j->fd = openat(dfd, path, O_CREAT | O_RDWR | O_EXCL, 0600);
+	j->fd = openat(dfd, path, O_CREAT | O_RDWR | O_EXCL, 0644);
 	if(j->fd < 0)
-	{
-		int save = errno;
-		free(j->path);
-		free(j);
-		errno = save;
-		return NULL;
-	}
+		goto error;
 	j->records = 0;
 	j->crfd = -1;
 	j->future = 0;
@@ -64,12 +52,18 @@ journal * journal_create(int dfd, const char * path, journal * prev)
 	j->erase = 0;
 	j->prev = prev;
 	j->commit_groups = 0;
-	j->prev_commit_record.offset = 0;
-	j->prev_commit_record.length = 0;
+	j->prev_cr.offset = 0;
+	j->prev_cr.length = 0;
 	j->usage = 1;
 	if(prev)
 		prev->usage++;
 	return j;
+	
+error:
+	int save = errno;
+	delete j;
+	errno = save;
+	return NULL;
 }
 
 int journal_appendv4(journal * j, const struct iovec * iovp, size_t count, journal_record * location)
@@ -94,7 +88,7 @@ int journal_appendv4(journal * j, const struct iovec * iovp, size_t count, journ
 	iov[0].iov_base = &header;
 	iov[0].iov_len = sizeof(header);
 	memcpy(&iov[1], iovp, count * sizeof(*iovp));
-	if(j->records == 0)
+	if(!j->records)
 	{
 		j->records = patchgroup_create(0);
 		if(j->records <= 0)
@@ -104,7 +98,7 @@ int journal_appendv4(journal * j, const struct iovec * iovp, size_t count, journ
 	}
 	if(patchgroup_engage(j->records) < 0)
 		return -1;
-	if(writev(j->fd, iov, count + 1) != (ssize_t)(sizeof(header) + header.length))
+	if(writev(j->fd, iov, count + 1) != (ssize_t) (sizeof(header) + header.length))
 	{
 		int save = errno;
 		ftruncate(j->fd, offset);
@@ -130,7 +124,7 @@ int journal_amendv4(journal * j, const journal_record * location, const struct i
 {
 	size_t i, length;
 	/* artificial limit to match journal_appendv4() */
-	if(count > 4 || location->offset < (off_t) (j->prev_commit_record.offset + j->prev_commit_record.length))
+	if(count > 4 || location->offset < j->prev_cr.offset + (off_t) j->prev_cr.length)
 		return -EINVAL;
 	length = iovp[0].iov_len;
 	for(i = 1; i < count; i++)
@@ -138,7 +132,7 @@ int journal_amendv4(journal * j, const journal_record * location, const struct i
 	if(location->length != length)
 		return -EINVAL;
 	lseek(j->fd, location->offset + sizeof(struct record), SEEK_SET);
-	if(j->records == 0)
+	if(!j->records)
 	{
 		j->records = patchgroup_create(0);
 		if(j->records <= 0)
@@ -148,7 +142,7 @@ int journal_amendv4(journal * j, const journal_record * location, const struct i
 	}
 	if(patchgroup_engage(j->records) < 0)
 		return -1;
-	if(write(j->fd, iovp, count) != (ssize_t)location->length)
+	if(write(j->fd, iovp, count) != (ssize_t) location->length)
 	{
 		int save = errno;
 		patchgroup_disengage(j->records);
@@ -212,26 +206,25 @@ static int journal_checksum(journal * j, off_t start, off_t end, uint8_t * check
 int journal_commit(journal * j)
 {
 	uint8_t checksum[CHECKSUM_LENGTH];
-	struct iovec iov[2];
+	struct commit_record cr;
 	patchgroup_id_t commit;
+	struct iovec iov[2];
 	off_t offset;
+	
 	if(j->prev && !j->prev->last_commit)
 		/* or commit it here? */
 		return -EINVAL;
-
-	commit_record cr;
-	istr cr_name = j->path;
-	cr_name += ".commit";
+	
 	if(j->crfd < 0)
 	{
-		j->crfd = openat(j->dfd, cr_name, O_CREAT | O_RDWR | O_APPEND, 0600);
+		j->crfd = openat(j->dfd, j->path + J_COMMIT_EXT, O_CREAT | O_RDWR | O_APPEND, 0644);
 		if(j->crfd < 0)
 			return -1;
 	}
 	else
 		lseek(j->crfd, 0, SEEK_END);
 	offset = lseek(j->fd, 0, SEEK_END);
-	cr.offset = j->prev_commit_record.offset + j->prev_commit_record.length;
+	cr.offset = j->prev_cr.offset + j->prev_cr.length;
 	cr.length = offset - cr.offset;
 	if(journal_checksum(j, cr.offset, cr.offset + cr.length, checksum) < 0)
 		return -1;
@@ -244,10 +237,9 @@ int journal_commit(journal * j)
 	else
 		commit = j->future;
 	patchgroup_label(commit, "commit");
-
-	if(j->records == 0)
+	if(!j->records)
 		return 0;
-
+	
 	if((patchgroup_add_depend(commit, j->records) < 0) ||
 	   ((j->last_commit > 0) && (patchgroup_add_depend(commit, j->last_commit) < 0)))
 	{
@@ -256,8 +248,8 @@ int journal_commit(journal * j)
 		patchgroup_abandon(commit);
 		return -1;
 	}
-
-	if(j->prev && j->commit_groups == 0 && patchgroup_add_depend(commit, j->prev->last_commit) < 0)
+	
+	if(j->prev && !j->commit_groups && patchgroup_add_depend(commit, j->prev->last_commit) < 0)
 		goto fail;
 	patchgroup_release(commit);
 	iov[0].iov_base = &cr;
@@ -288,8 +280,8 @@ int journal_commit(journal * j)
 	j->future = 0;
 	j->records = 0;
 	j->last_commit = commit;
-	++j->commit_groups;
-	j->prev_commit_record = cr;
+	j->commit_groups++;
+	j->prev_cr = cr;
 	return 0;
 }
 
@@ -308,11 +300,8 @@ int journal_abort(journal * j)
 		journal_free(j->prev);
 	close(j->fd);
 	unlinkat(j->dfd, j->path, 0);
-	istr crname = j->path;
-	crname += ".commit";
-	unlinkat(j->dfd, crname, 0);
-	free(j->path);
-	free(j);
+	unlinkat(j->dfd, j->path + J_COMMIT_EXT, 0);
+	delete j;
 	return 0;
 }
 
@@ -323,7 +312,7 @@ int journal_playback(journal * j, record_processor processor, void * param)
 	struct commit_record cr;
 	uint8_t buffer[65536];
 	int r = -1;
-	if(j->commit_groups == 0)
+	if(!j->commit_groups)
 		return -EINVAL;
 	playback = patchgroup_create(0);
 	if(playback <= 0)
@@ -336,13 +325,13 @@ int journal_playback(journal * j, record_processor processor, void * param)
 		return -1;
 	}
 	patchgroup_release(playback);
-	if(j->last_commit == 0)
-		// if we haven't commited anything replay the whole journal
+	if(!j->last_commit)
+		/* if we haven't commited anything replay the whole journal */
 		lseek(j->crfd, 0, SEEK_SET);
 	else
-		// only replay the records from the last commit
-		lseek(j->crfd, -(sizeof(commit_record) + CHECKSUM_LENGTH), SEEK_END);
-
+		/* only replay the records from the last commit */
+		lseek(j->crfd, -(sizeof(cr) + CHECKSUM_LENGTH), SEEK_END);
+	
 	if(patchgroup_engage(playback) < 0)
 	{
 		/* this basically can't happen */
@@ -360,7 +349,7 @@ int journal_playback(journal * j, record_processor processor, void * param)
 				r = -1;
 				goto fail;
 			}
-			if(read(j->fd, buffer, header.length) != (ssize_t)header.length)
+			if(read(j->fd, buffer, header.length) != (ssize_t) header.length)
 			{
 				r = -1;
 				goto fail;
@@ -410,9 +399,7 @@ int journal_erase(journal * j)
 			if(patchgroup_engage(erase) >= 0)
 			{
 				unlinkat(j->dfd, j->path, 0);
-				istr crname = j->path;
-				crname += ".commit";
-				unlinkat(j->dfd, crname, 0);
+				unlinkat(j->dfd, j->path + J_COMMIT_EXT, 0);
 				patchgroup_disengage(erase);
 			}
 		}
@@ -442,15 +429,14 @@ int journal_free(journal * j)
 	patchgroup_abandon(j->playback);
 	patchgroup_abandon(j->erase);
 	/* no need to close j->fd or unlink, since those were done in journal_erase() */
-	free(j->path);
-	free(j);
+	delete j;
 	return 0;
 }
 
 /* returns 1 for OK, 0 for failure, and < 0 on I/O error */
 static int journal_verify(journal * j)
 {
-	commit_record cr;
+	struct commit_record cr;
 	uint8_t checksum[2][CHECKSUM_LENGTH];
 	struct iovec iov[2];
 	if(j->crfd < 0)
@@ -476,40 +462,28 @@ int journal_reopen(int dfd, const char * path, journal ** pj, journal * prev)
 {
 	int r;
 	journal * j;
+	off_t offset;
 	
 	if(prev && !prev->last_commit)
 		return -EINVAL;
-	j = (journal *)malloc(sizeof(*j));
+	j = new journal;
 	if(!j)
 		return -1;
 	j->dfd = dfd;
-	j->path = strdup(path);
+	j->path = path;
 	if(!j->path)
-	{
-		int save = errno;
-		free(j);
-		errno = save;
-		return -1;
-	}
-	istr cr_name = j->path;
-	cr_name += ".commit";
-	/* do we want to O_CREAT here */
-	j->crfd = openat(dfd, cr_name, O_CREAT | O_RDWR, 0600);
+		goto error;
+	/* do we want to O_CREAT here? */
+	j->crfd = openat(dfd, j->path + J_COMMIT_EXT, O_CREAT | O_RDWR, 0644);
 	j->fd = openat(dfd, path, O_RDWR);
 	if(j->fd < 0 || j->crfd < 0)
-	{
-		int save = errno;
-		free(j->path);
-		free(j);
-		errno = save;
-		return -1;
-	}
-	lseek(j->crfd, -(sizeof(j->prev_commit_record) + CHECKSUM_LENGTH), SEEK_END);
-	r = read(j->crfd, &j->prev_commit_record, sizeof(j->prev_commit_record));
-	if(r != (int) sizeof(j->prev_commit_record))
+		goto error;
+	lseek(j->crfd, -(sizeof(j->prev_cr) + CHECKSUM_LENGTH), SEEK_END);
+	r = read(j->crfd, &j->prev_cr, sizeof(j->prev_cr));
+	if(r != (int) sizeof(j->prev_cr))
 		return (r < 0) ? r : -1;
-	off_t offset = lseek(j->crfd, 0, SEEK_END);
-	j->commit_groups = offset / (sizeof(j->prev_commit_record) + CHECKSUM_LENGTH);
+	offset = lseek(j->crfd, 0, SEEK_END);
+	j->commit_groups = offset / (sizeof(j->prev_cr) + CHECKSUM_LENGTH);
 	j->records = 0;
 	j->future = 0;
 	j->last_commit = 0;
@@ -520,21 +494,22 @@ int journal_reopen(int dfd, const char * path, journal ** pj, journal * prev)
 	if(prev)
 		prev->usage++;
 	/* get rid of any uncommited records that might be in the journal */
-	r = ftruncate(j->fd, j->prev_commit_record.offset + j->prev_commit_record.length);
-	if(r < 0)
-		goto error;
-	/* check the checksum */
-	r = journal_verify(j);
-	if(r != 1)
+	r = ftruncate(j->fd, j->prev_cr.offset + j->prev_cr.length);
+	if(r < 0 || (r = journal_verify(j)) <= 0)
 	{
-error:		if(prev)
+		if(prev)
 			prev->usage--;
 		close(j->fd);
 		close(j->crfd);
-		free(j->path);
-		free(j);
+		delete j;
 		j = NULL;
 	}
 	*pj = j;
 	return (r < 0) ? r : 0;
+	
+error:
+	int save = errno;
+	delete j;
+	errno = save;
+	return -1;
 }
