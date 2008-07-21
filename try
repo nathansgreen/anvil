@@ -6,10 +6,23 @@ CFLAGS="-ggdb" make || exit $?
 # Uncomment to use valgrind
 #export VALGRIND="valgrind --trace-children=yes --leak-check=full"
 
+# Uncomment to enable patchgroup traces on the tests
+#PERF_TRACE="PATCHGROUP_TRACE=perf.pgt"
+#TEST_TRACE="PATCHGROUP_TRACE=test.pgt"
+#DEMO_TRACE="PATCHGROUP_TRACE=demo.pgt"
+#HAND_TRACE="PATCHGROUP_TRACE=hand.pgt"
+#SYSJ_TRACE="PATCHGROUP_TRACE=sysj.pgt"
+
 HOST="`hostname`"
 if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" ]
 then
 	echo "Not running on a kudos-* test machine, won't overwrite your file systems."
+	exit 1
+fi
+
+if mount | grep -q "on /mnt/test"
+then
+	echo "/mnt/test is mounted; unmount before running this script."
 	exit 1
 fi
 
@@ -41,32 +54,31 @@ sudo mount /mnt/test
 echo "done."
 
 # Run the performance test
-echo "performance" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+echo "performance" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $PERF_TRACE exec $VALGRIND '"$WD/toilet"')
 ls -lR /mnt/test
 
 if [ ! -f /mnt/test/core -a ! -f /mnt/test/gmon.out ]
 then
 	# Run some tests
-	#echo "script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+	#echo "script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $TEST_TRACE exec $VALGRIND '"$WD/toilet"')
 	#ls -lR /mnt/test
 	
 	# Run the old demo
-	#echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+	#echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $DEMO_TRACE exec $VALGRIND '"$WD/toilet"')
 	#ls -lR /mnt/test
 	
 	# Allow custom commands
-	#(WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+	#(WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $HAND_TRACE exec $VALGRIND '"$WD/toilet"')
 	#ls -lR /mnt/test
 	
 	# Filter the system journal
-	true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec $VALGRIND "$WD/toilet")
+	true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $SYSJ_TRACE exec $VALGRIND '"$WD/toilet"')
 	ls -l /mnt/test/sys_journal*
 fi
 
-echo "Unloading Featherstitch... "
+echo "Unloading Featherstitch..."
 sudo umount /mnt/test
-sudo rmmod kfstitchd
-echo "done."
+time sudo rmmod kfstitchd
 
 echo -ne \\007
 
@@ -83,4 +95,10 @@ then
 else
 	rm -f gmon.out gmon.sum
 fi
+for pgt in /mnt/test/*.pgt
+do
+	[ "$pgt" == "/mnt/test/*.pgt" ] && break
+	echo "Patchgroup trace: `basename "$pgt"`"
+	cp "$pgt" .
+done
 sudo umount /mnt/test

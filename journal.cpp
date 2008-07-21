@@ -165,11 +165,12 @@ int journal_add_depend(journal * j, patchgroup_id_t pid)
 {
 	if(!j->future)
 	{
-		patchgroup_id_t external_dependency = patchgroup_create(0);
-		if(external_dependency <= 0)
+		patchgroup_id_t future = patchgroup_create(0);
+		if(future <= 0)
 			return -1;
-		patchgroup_label(external_dependency, "external_dependency");
-		j->future = external_dependency;
+		patchgroup_label(future, "future");
+		patchgroup_label(pid, "external dependency");
+		j->future = future;
 	}
 	return patchgroup_add_depend(j->future, pid);
 }
@@ -372,6 +373,7 @@ fail:
 
 int journal_erase(journal * j)
 {
+	int r;
 	patchgroup_id_t erase;
 	if(!j->playback)
 		return -EINVAL;
@@ -382,27 +384,28 @@ int journal_erase(journal * j)
 	if(erase <= 0)
 		return -1;
 	patchgroup_label(erase, "delete");
-	if(patchgroup_add_depend(erase, j->playback) < 0)
+	if(patchgroup_add_depend(erase, j->playback) < 0 ||
+	   (j->prev && patchgroup_add_depend(erase, j->prev->erase) < 0))
 	{
 		patchgroup_release(erase);
 		patchgroup_abandon(erase);
 		return -1;
 	}
+	r = patchgroup_release(erase);
+	assert(r >= 0);
+	r = patchgroup_engage(erase);
+	assert(r >= 0);
+	
+	unlinkat(j->dfd, j->path, 0);
+	unlinkat(j->dfd, j->path + J_COMMIT_EXT, 0);
+	
+	r = patchgroup_disengage(erase);
+	assert(r >= 0);
+	
 	close(j->fd);
 	close(j->crfd);
 	j->fd = -1;
 	j->crfd = -1;
-	if(patchgroup_add_depend(erase, j->playback) >= 0)
-		if(!j->prev || patchgroup_add_depend(erase, j->prev->erase) >= 0)
-		{
-			patchgroup_release(erase);
-			if(patchgroup_engage(erase) >= 0)
-			{
-				unlinkat(j->dfd, j->path, 0);
-				unlinkat(j->dfd, j->path + J_COMMIT_EXT, 0);
-				patchgroup_disengage(erase);
-			}
-		}
 	j->erase = erase;
 	if(j->prev)
 		journal_free(j->prev);
