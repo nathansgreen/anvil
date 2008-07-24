@@ -21,24 +21,14 @@ extern "C" {
 struct journal;
 typedef struct journal journal;
 
-/* a pointer into a record in the journal */
-struct journal_record {
-	off_t offset;
-	size_t length;
-};
-typedef struct journal_record journal_record;
-
 typedef int (*record_processor)(void * data, size_t length, void * param);
 
 /* creates a new journal */
 journal * journal_create(int dfd, const char * path, journal * prev);
 
-/* appends a record to the journal, optionally saving a pointer to it for later ammending */
-int journal_append(journal * j, const void * data, size_t length, journal_record * location);
-int journal_appendv4(journal * j, const struct iovec * iovp, size_t count, journal_record * location);
-/* amends a record in the journal with new data */
-int journal_amend(journal * j, const journal_record * location, const void * data);
-int journal_amendv4(journal * j, const journal_record * location, const struct iovec * iovp, size_t count);
+/* appends a record to the journal */
+int journal_append(journal * j, const void * data, size_t length);
+int journal_appendv4(journal * j, const struct iovec * iovp, size_t count);
 
 /* adds a patchgroup dependency to the (future) commit record, so that this journal will depend on it */
 int journal_add_depend(journal * j, patchgroup_id_t pid);

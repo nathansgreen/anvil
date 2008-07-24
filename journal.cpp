@@ -66,7 +66,7 @@ error:
 	return NULL;
 }
 
-int journal_appendv4(journal * j, const struct iovec * iovp, size_t count, journal_record * location)
+int journal_appendv4(journal * j, const struct iovec * iovp, size_t count)
 {
 	struct record header;
 	struct iovec iov[5];
@@ -80,11 +80,6 @@ int journal_appendv4(journal * j, const struct iovec * iovp, size_t count, journ
 	if(header.length == (size_t) -1)
 		return -EINVAL;
 	offset = lseek(j->fd, 0, SEEK_END);
-	if(location)
-	{
-		location->offset = offset;
-		location->length = header.length;
-	}
 	iov[0].iov_base = &header;
 	iov[0].iov_len = sizeof(header);
 	memcpy(&iov[1], iovp, count * sizeof(*iovp));
@@ -112,53 +107,12 @@ int journal_appendv4(journal * j, const struct iovec * iovp, size_t count, journ
 	return 0;
 }
 
-int journal_append(journal * j, const void * data, size_t length, journal_record * location)
+int journal_append(journal * j, const void * data, size_t length)
 {
 	struct iovec iov;
 	iov.iov_base = (void *) data;
 	iov.iov_len = length;
-	return journal_appendv4(j, &iov, 1, location);
-}
-
-int journal_amendv4(journal * j, const journal_record * location, const struct iovec * iovp, size_t count)
-{
-	size_t i, length;
-	/* artificial limit to match journal_appendv4() */
-	if(count > 4 || location->offset < j->prev_cr.offset + (off_t) j->prev_cr.length)
-		return -EINVAL;
-	length = iovp[0].iov_len;
-	for(i = 1; i < count; i++)
-		length += iovp[i].iov_len;
-	if(location->length != length)
-		return -EINVAL;
-	lseek(j->fd, location->offset + sizeof(struct record), SEEK_SET);
-	if(!j->records)
-	{
-		j->records = patchgroup_create(0);
-		if(j->records <= 0)
-			return -1;
-		patchgroup_label(j->records, "records");
-		patchgroup_release(j->records);
-	}
-	if(patchgroup_engage(j->records) < 0)
-		return -1;
-	if(write(j->fd, iovp, count) != (ssize_t) location->length)
-	{
-		int save = errno;
-		patchgroup_disengage(j->records);
-		errno = save;
-		return -1;
-	}
-	patchgroup_disengage(j->records);
-	return 0;
-}
-
-int journal_amend(journal * j, const journal_record * location, const void * data)
-{
-	struct iovec iov;
-	iov.iov_base = (void *) data;
-	iov.iov_len = location->length;
-	return journal_amendv4(j, location, &iov, 1);
+	return journal_appendv4(j, &iov, 1);
 }
 
 int journal_add_depend(journal * j, patchgroup_id_t pid)

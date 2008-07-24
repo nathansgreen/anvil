@@ -573,7 +573,7 @@ static int command_journal(int argc, const char * argv[])
 			if(argc < 3)
 				printf("OK, but what should I append?\n");
 			else
-				r = journal_append(j, argv[2], strlen(argv[2]) + 1, NULL);
+				r = journal_append(j, argv[2], strlen(argv[2]) + 1);
 		}
 	}
 	else if(!strcmp(argv[1], "commit"))
