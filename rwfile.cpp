@@ -175,6 +175,10 @@ ssize_t rwfile::read(off_t offset, void * data, ssize_t size)
 			return r;
 	}
 	
+	/* negative offsets are taken to be relative to the end of the file */
+	if(offset < 0)
+		offset += write_offset;
+	
 	/* handle large reads without the buffer */
 	if(size > buffer_size)
 		return pread(fd, data, size, offset);

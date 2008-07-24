@@ -7,6 +7,7 @@
 
 /* This is the main C header file for toilet. */
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
