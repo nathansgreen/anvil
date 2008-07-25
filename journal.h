@@ -59,6 +59,7 @@ int journal_reopen(int dfd, const char * path, journal ** pj, journal * prev);
 }
 
 #include "istr.h"
+#include "rwfile.h"
 
 /* a commit record */
 struct commit_record {
@@ -68,8 +69,9 @@ struct commit_record {
 
 /* a journal */
 struct journal {
-	int fd, dfd, crfd;
+	int dfd, crfd;
 	istr path;
+	rwfile data_file, commit_file;
 	patchgroup_id_t records;
 	patchgroup_id_t future;
 	patchgroup_id_t last_commit;

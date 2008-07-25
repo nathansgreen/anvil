@@ -15,6 +15,7 @@
 #include "journal.h"
 
 #include "istr.h"
+#include "rwfile.h"
 
 /* This is the generic journal module. It uses Featherstitch dependencies to
  * keep a journal of uninterpreted records, which later can be played back
@@ -41,8 +42,7 @@ journal * journal_create(int dfd, const char * path, journal * prev)
 	if(!j->path)
 		goto error;
 	/* hmm... should we include the openat() in the patchgroup? */
-	j->fd = openat(dfd, path, O_CREAT | O_RDWR | O_EXCL, 0644);
-	if(j->fd < 0)
+	if(j->data_file.create(dfd, path) < 0)
 		goto error;
 	j->records = 0;
 	j->crfd = -1;
@@ -69,7 +69,6 @@ error:
 int journal_appendv4(journal * j, const struct iovec * iovp, size_t count)
 {
 	struct record header;
-	struct iovec iov[5];
 	off_t offset;
 	size_t i;
 	if(count > 4)
@@ -79,10 +78,18 @@ int journal_appendv4(journal * j, const struct iovec * iovp, size_t count)
 		header.length += iovp[i].iov_len;
 	if(header.length == (size_t) -1)
 		return -EINVAL;
-	offset = lseek(j->fd, 0, SEEK_END);
-	iov[0].iov_base = &header;
-	iov[0].iov_len = sizeof(header);
-	memcpy(&iov[1], iovp, count * sizeof(*iovp));
+	uint8_t * data = (uint8_t *)malloc(header.length + sizeof(header));
+	uint8_t * cursor = data;
+	memcpy(cursor, &header, sizeof(header));
+	cursor += sizeof(header);
+	for(i = 0; i < count; i++)
+	{
+		memcpy(cursor, iovp[i].iov_base, iovp[i].iov_len);
+		cursor += iovp[i].iov_len;
+	}
+	assert((size_t)(cursor - data) == (header.length + sizeof(header)));
+
+	offset = j->data_file.end();
 	if(!j->records)
 	{
 		j->records = patchgroup_create(0);
@@ -90,20 +97,18 @@ int journal_appendv4(journal * j, const struct iovec * iovp, size_t count)
 			return -1;
 		patchgroup_label(j->records, "records");
 		patchgroup_release(j->records);
+		j->data_file.set_pid(j->records);
 	}
-	if(patchgroup_engage(j->records) < 0)
-		return -1;
-	if(writev(j->fd, iov, count + 1) != (ssize_t) (sizeof(header) + header.length))
+	if(j->data_file.append(data, header.length + sizeof(header)) != (ssize_t) (sizeof(header) + header.length))
 	{
 		int save = errno;
-		ftruncate(j->fd, offset);
-		patchgroup_disengage(j->records);
+		j->data_file.truncate(offset);
 		/* make sure the pointer is not past the end of the file */
-		lseek(j->fd, 0, SEEK_END);
 		errno = save;
+		free(data);
 		return -1;
 	}
-	patchgroup_disengage(j->records);
+	free(data);
 	return 0;
 }
 
@@ -138,8 +143,7 @@ static int journal_checksum(journal * j, off_t start, off_t end, uint8_t * check
 	uint8_t buffer[4096];
 	ssize_t size;
 	MD5Init(&ctx);
-	lseek(j->fd, start, SEEK_SET);
-	size = read(j->fd, buffer, sizeof(buffer));
+	size = j->data_file.read(start, buffer, sizeof(buffer));
 	while(size > 0 && end > start)
 	{
 		if(size > end)
@@ -150,7 +154,7 @@ static int journal_checksum(journal * j, off_t start, off_t end, uint8_t * check
 		else
 			end -= size;
 		MD5Update(&ctx, buffer, size);
-		size = read(j->fd, buffer, sizeof(buffer));
+		size = j->data_file.read(start, buffer, sizeof(buffer));
 	}
 	if(size < 0)
 		return -1;
@@ -178,7 +182,7 @@ int journal_commit(journal * j)
 	}
 	else
 		lseek(j->crfd, 0, SEEK_END);
-	offset = lseek(j->fd, 0, SEEK_END);
+	offset = j->data_file.end();
 	cr.offset = j->prev_cr.offset + j->prev_cr.length;
 	cr.length = offset - cr.offset;
 	if(journal_checksum(j, cr.offset, cr.offset + cr.length, checksum) < 0)
@@ -195,10 +199,12 @@ int journal_commit(journal * j)
 	if(!j->records)
 		return 0;
 	
+	j->data_file.set_pid(0);
 	if((patchgroup_add_depend(commit, j->records) < 0) ||
 	   ((j->last_commit > 0) && (patchgroup_add_depend(commit, j->last_commit) < 0)))
 	{
 	fail:
+		j->data_file.set_pid(j->records);
 		patchgroup_release(commit);
 		patchgroup_abandon(commit);
 		return -1;
@@ -220,14 +226,12 @@ int journal_commit(journal * j)
 	if(writev(j->crfd, iov, 2) != sizeof(cr) + sizeof(checksum))
 	{
 		int save = errno;
-		ftruncate(j->fd, offset);
+		j->data_file.truncate(offset);
 		patchgroup_disengage(commit);
-		/* the ftruncate() really should be part of j->records, but
+		/* the truncate() really should be part of j->records, but
 		 * since commit depends on j->records, we'll substitute it */
 		patchgroup_abandon(j->records);
-		j->records = commit;
 		/* make sure the pointer is not past the end of the file */
-		lseek(j->fd, 0, SEEK_END);
 		errno = save;
 		return -1;
 	}
@@ -253,7 +257,7 @@ int journal_abort(journal * j)
 		patchgroup_abandon(j->records);
 	if(j->prev)
 		journal_free(j->prev);
-	close(j->fd);
+	j->data_file.close();
 	unlinkat(j->dfd, j->path, 0);
 	unlinkat(j->dfd, j->path + J_COMMIT_EXT, 0);
 	delete j;
@@ -295,21 +299,20 @@ int journal_playback(journal * j, record_processor processor, void * param)
 	}
 	while(read(j->crfd, &cr, sizeof(cr)) == sizeof(cr)) 
 	{
-		lseek(j->fd, cr.offset, SEEK_SET);
-		size_t nbytes = 0;
-		while(nbytes < cr.length)
+		off_t curoff = cr.offset;
+		while((size_t)(curoff - cr.offset) < cr.length)
 		{
-			if(read(j->fd, &header, sizeof(header)) != sizeof(header))
+			if(j->data_file.read(curoff, &header, sizeof(header)) != sizeof(header))
 			{
 				r = -1;
 				goto fail;
 			}
-			if(read(j->fd, buffer, header.length) != (ssize_t) header.length)
+			if(j->data_file.read(curoff + sizeof(header), buffer, header.length) != (ssize_t) header.length)
 			{
 				r = -1;
 				goto fail;
 			}
-			nbytes += sizeof(header) + header.length;
+			curoff += sizeof(header) + header.length;
 			r = processor(buffer, header.length, param);
 			if(r < 0)
 				goto fail;
@@ -356,9 +359,8 @@ int journal_erase(journal * j)
 	r = patchgroup_disengage(erase);
 	assert(r >= 0);
 	
-	close(j->fd);
+	j->data_file.close();
 	close(j->crfd);
-	j->fd = -1;
 	j->crfd = -1;
 	j->erase = erase;
 	if(j->prev)
@@ -385,7 +387,7 @@ int journal_free(journal * j)
 		patchgroup_abandon(j->future);
 	patchgroup_abandon(j->playback);
 	patchgroup_abandon(j->erase);
-	/* no need to close j->fd or unlink, since those were done in journal_erase() */
+	/* no need to unlink, since those were done in journal_erase() */
 	delete j;
 	return 0;
 }
@@ -432,8 +434,7 @@ int journal_reopen(int dfd, const char * path, journal ** pj, journal * prev)
 		goto error;
 	/* do we want to O_CREAT here? */
 	j->crfd = openat(dfd, j->path + J_COMMIT_EXT, O_CREAT | O_RDWR, 0644);
-	j->fd = openat(dfd, path, O_RDWR);
-	if(j->fd < 0 || j->crfd < 0)
+	if(j->crfd < 0)
 		goto error;
 	lseek(j->crfd, -(sizeof(j->prev_cr) + CHECKSUM_LENGTH), SEEK_END);
 	r = read(j->crfd, &j->prev_cr, sizeof(j->prev_cr));
@@ -451,12 +452,12 @@ int journal_reopen(int dfd, const char * path, journal ** pj, journal * prev)
 	if(prev)
 		prev->usage++;
 	/* get rid of any uncommited records that might be in the journal */
-	r = ftruncate(j->fd, j->prev_cr.offset + j->prev_cr.length);
+	r = j->data_file.open(dfd, path, j->prev_cr.offset + j->prev_cr.length);
 	if(r < 0 || (r = journal_verify(j)) <= 0)
 	{
 		if(prev)
 			prev->usage--;
-		close(j->fd);
+		j->data_file.close();
 		close(j->crfd);
 		delete j;
 		j = NULL;
