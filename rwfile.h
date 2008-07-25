@@ -56,6 +56,9 @@ public:
 	/* flushes the buffer before closing, so might fail */
 	int close();
 	
+	/* sets the logical end of the file */
+	int truncate(off_t end_offset);
+	
 	/* flushes the buffer before setting, so might fail */
 	int set_pid(patchgroup_id_t pid);
 	

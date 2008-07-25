@@ -88,6 +88,18 @@ int rwfile::close()
 	return 0;
 }
 
+int rwfile::truncate(off_t end_offset)
+{
+	if(write_mode && filled)
+	{
+		int r = flush();
+		if(r < 0)
+			return r;
+	}
+	write_offset = end_offset;
+	return 0;
+}
+
 int rwfile::set_pid(patchgroup_id_t pid)
 {
 	if(write_mode && filled)
