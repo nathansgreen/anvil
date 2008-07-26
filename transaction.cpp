@@ -169,7 +169,7 @@ int tx_init(int dfd)
 	{
 		const char * name = entries[i];
 		last_tx_id = strtol(name, NULL, 16);
-		error = journal_reopen(journal_dir, name, &current_journal, last_journal);
+		error = journal::reopen(journal_dir, name, &current_journal, last_journal);
 		if(error < 0)
 			goto fail;
 		if(!current_journal)
@@ -186,11 +186,11 @@ int tx_init(int dfd)
 		for(fd = 0; fd < TX_FDS; fd++)
 			if(tx_fds[fd].fd >= 0)
 				tx_close(fd);
-		error = journal_erase(current_journal);
+		error = current_journal->erase();
 		if(error < 0)
 			goto fail;
 		if(last_journal)
-			journal_free(last_journal);
+			last_journal->release();
 		last_journal = current_journal;
 		current_journal = NULL;
 	}
@@ -219,12 +219,12 @@ void tx_deinit(void)
 	{
 		journal * j = itr->second;
 		if(j != last_journal)
-			journal_free(j);
+			j->release();
 	}
 	tx_map->clear();
 	delete tx_map;
 	if(last_journal)
-		journal_free(last_journal);
+		last_journal->release();
 	tx_map = NULL;
 	close(journal_dir);
 	journal_dir = -1;
@@ -236,12 +236,12 @@ int tx_start(void)
 	if(journal_dir < 0 || current_journal)
 		return -EBUSY;
 	snprintf(name, sizeof(name), "%08x.jnl", last_tx_id + 1);
-	current_journal = journal_create(journal_dir, name, last_journal);
+	current_journal = journal::create(journal_dir, name, last_journal);
 	if(!current_journal)
 		return -1;
 	if(last_journal && tx_map->find(last_tx_id) == tx_map->end())
 	{
-		journal_free(last_journal);
+		last_journal->release();
 		last_journal = NULL;
 	}
 	last_tx_id++;
@@ -258,7 +258,7 @@ int tx_add_depend(patchgroup_id_t pid)
 {
 	if(!current_journal)
 		return -ENOENT;
-	return journal_add_depend(current_journal, pid);
+	return current_journal->add_depend(pid);
 }
 
 tx_id tx_end(int assign_id)
@@ -276,14 +276,14 @@ tx_id tx_end(int assign_id)
 		if(!tx_map->insert(std::make_pair(last_tx_id, current_journal)).second)
 			return -ENOENT;
 	}
-	r = journal_commit(current_journal);
+	r = current_journal->commit();
 	if(r < 0)
 		goto fail;
 	r = tx_playback(current_journal);
 	if(r < 0)
 		/* not clear how to uncommit the journal... */
 		goto fail;
-	r = journal_erase(current_journal);
+	r = current_journal->erase();
 	if(r < 0)
 		/* not clear how to unplayback the journal... */
 		goto fail;
@@ -304,12 +304,12 @@ int tx_sync(tx_id id)
 	if(itr == tx_map->end())
 		return -EINVAL;
 	journal * j = itr->second;
-	r = journal_wait(j);
+	r = j->wait();
 	if(r < 0)
 		return r;
 	tx_map->erase(id);
 	if(j != last_journal)
-		journal_free(j);
+		j->release();
 	return 0;
 }
 
@@ -321,7 +321,7 @@ int tx_forget(tx_id id)
 	journal * j = itr->second;
 	tx_map->erase(id);
 	if(j != last_journal)
-		journal_free(j);
+		j->release();
 	return 0;
 }
 
@@ -424,7 +424,7 @@ static int tx_record_processor(void * data, size_t length, void * param)
 
 static int tx_playback(journal * j)
 {
-	return journal_playback(j, tx_record_processor, NULL);
+	return j->playback(tx_record_processor, NULL);
 }
 
 /* operations on files within a transaction */
@@ -536,7 +536,7 @@ ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset)
 	iov[count++].iov_len = length;
 	tx_fds[fd].usage++;
 	/* FIXME if this fails and count == 4, then fix tx_fds[fd].tid */
-	return journal_appendv(current_journal, iov, count);
+	return current_journal->appendv(iov, count);
 }
 
 int tx_vnprintf(tx_fd fd, off_t offset, size_t max, const char * format, va_list ap)
@@ -613,7 +613,7 @@ int tx_unlink(int dfd, const char * name)
 	iov[2].iov_base = (void *) name;
 	iov[2].iov_len = header.unlink.name_len;
 	header.unlink.mode = 0;
-	r = journal_appendv(current_journal, iov, 3);
+	r = current_journal->appendv(iov, 3);
 	free(dir);
 	return r;
 }

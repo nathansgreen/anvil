@@ -12,6 +12,7 @@
 #include "openat.h"
 #include "transaction.h"
 
+#include "journal.h"
 #include "dtable.h"
 #include "ctable.h"
 #include "stable.h"
@@ -25,11 +26,85 @@
 #include "simple_stable.h"
 
 extern "C" {
+int command_journal(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_performance(int argc, const char * argv[]);
 };
+
+static int journal_process(void * data, size_t length, void * param)
+{
+	printf("Journal entry: %s (length %d)\n", (char *) data, length - 1);
+	return 0;
+}
+
+int command_journal(int argc, const char * argv[])
+{
+	static journal * j = NULL;
+	int r = 0;
+	if(argc < 2)
+		printf("Do what with a journal?\n");
+	else if(!strcmp(argv[1], "create"))
+	{
+		if(j)
+			printf("You need to erase the current journal first.\n");
+		else
+		{
+			if(argc < 3)
+				printf("OK, but what should I call it?\n");
+			else
+			{
+				j = journal::create(AT_FDCWD, argv[2], NULL);
+				if(!j)
+					r = -errno;
+			}
+		}
+	}
+	else if(!strcmp(argv[1], "append"))
+	{
+		if(!j)
+			printf("You need to create a journal first.\n");
+		else
+		{
+			if(argc < 3)
+				printf("OK, but what should I append?\n");
+			else
+				r = j->append(argv[2], strlen(argv[2]) + 1);
+		}
+	}
+	else if(!strcmp(argv[1], "commit"))
+	{
+		if(!j)
+			printf("You need to create a journal first.\n");
+		else
+			r = j->commit();
+	}
+	else if(!strcmp(argv[1], "playback"))
+	{
+		if(!j)
+			printf("You need to create and commit a journal first.\n");
+		else
+			r = j->playback(journal_process, NULL);
+	}
+	else if(!strcmp(argv[1], "erase"))
+	{
+		if(!j)
+			printf("You need to create, commit, and playback a journal first.\n");
+		else
+		{
+			r = j->erase();
+			if(r >= 0)
+			{
+				j->release();
+				j = NULL;
+			}
+		}
+	}
+	else
+		printf("Unknown journal action: %s\n", argv[1]);
+	return r;
+}
 
 static void print(dtype x)
 {

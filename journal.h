@@ -5,68 +5,92 @@
 #ifndef __JOURNAL_H
 #define __JOURNAL_H
 
+#include <errno.h>
 #include <stdint.h>
 #include <sys/uio.h>
 
-#ifdef __cplusplus
-extern "C" {
+#ifndef __cplusplus
+#error journal.h is a C++ header file
 #endif
 
+extern "C" {
 /* Featherstitch does not know about C++ so we include
- * its header file inside the extern "C" block. */
+ * its header file inside an extern "C" block. */
 #include <patchgroup.h>
-
-#define J_COMMIT_EXT ".commit"
-
-struct journal;
-typedef struct journal journal;
-
-typedef int (*record_processor)(void * data, size_t length, void * param);
-
-/* creates a new journal */
-journal * journal_create(int dfd, const char * path, journal * prev);
-
-/* appends a record to the journal */
-int journal_append(journal * j, const void * data, size_t length);
-int journal_appendv(journal * j, const struct iovec * iovp, size_t count);
-
-/* adds a patchgroup dependency to the (future) commit record, so that this journal will depend on it */
-int journal_add_depend(journal * j, patchgroup_id_t pid);
-
-/* commits a journal atomically, but does not block waiting for it */
-int journal_commit(journal * j);
-/* blocks waiting for a committed journal to be written to disk */
-int journal_wait(journal * j);
-
-/* plays back a journal, possibly during recovery */
-int journal_playback(journal * j, record_processor processor, void * param);
-
-/* erases a journal after successful playback */
-int journal_erase(journal * j);
-
-/* frees the journal structure after erasure */
-int journal_free(journal * j);
-
-/* reopens an existing journal if it is committed, otherwise leaves it alone */
-int journal_reopen(int dfd, const char * path, journal ** pj, journal * prev);
-
-#ifdef __cplusplus
 }
 
 #include "istr.h"
 #include "rwfile.h"
 
+#define J_COMMIT_EXT ".commit"
 #define J_CHECKSUM_LEN 16
 
-/* a commit record */
-struct commit_record {
-	off_t offset;
-	size_t length;
-	uint8_t checksum[J_CHECKSUM_LEN];
-} __attribute__((packed));
-
-/* a journal */
-struct journal {
+class journal
+{
+public:
+	typedef int (*record_processor)(void * data, size_t length, void * param);
+	
+	/* appends a record to the journal */
+	int appendv(const struct iovec * iovp, size_t count);
+	inline int append(const void * data, size_t length)
+	{
+		struct iovec iov;
+		iov.iov_base = (void *) data;
+		iov.iov_len = length;
+		return appendv(&iov, 1);
+	}
+	
+	/* adds a patchgroup dependency to the (future) commit record, so that this journal will depend on it */
+	int add_depend(patchgroup_id_t pid);
+	
+	/* commits a journal atomically, but does not block waiting for it */
+	int commit();
+	
+	/* blocks waiting for a committed journal to be written to disk */
+	inline int wait()
+	{
+		if(!last_commit)
+			return -EINVAL;
+		return patchgroup_sync(last_commit);
+	}
+	
+	/* plays back a journal, possibly during recovery */
+	int playback(record_processor processor, void * param);
+	
+	/* erases a journal after successful playback */
+	int erase();
+	
+	/* releases the journal structure after erasure */
+	int release();
+	
+	/* creates a new journal */
+	static journal * create(int dfd, const char * path, journal * prev);
+	
+	/* reopens an existing journal if it is committed, otherwise leaves it alone */
+	static int reopen(int dfd, const char * path, journal ** pj, journal * prev);
+	
+private:
+	/* a commit record */
+	struct commit_record {
+		off_t offset;
+		size_t length;
+		uint8_t checksum[J_CHECKSUM_LEN];
+	} __attribute__((packed));
+	
+	inline journal(const istr & path, int dfd, journal * prev)
+		: path(path), dfd(dfd), crfd(-1), records(0), future(0), last_commit(0),
+		  finished(0), erasure(0), prev(prev), commits(0), playbacks(0), usage(1)
+	{
+		prev_cr.offset = 0;
+		prev_cr.length = 0;
+		if(prev)
+			prev->usage++;
+	}
+	inline ~journal() {}
+	
+	int checksum(off_t start, off_t end, uint8_t * checksum);
+	int verify();
+	
 	istr path;
 	int dfd, crfd;
 	rwfile data_file;
@@ -79,7 +103,7 @@ struct journal {
 	/* depends on all the playbacks; will be the erasure */
 	patchgroup_id_t finished;
 	/* the erasure of this journal */
-	patchgroup_id_t erase;
+	patchgroup_id_t erasure;
 	/* the previous journal */
 	struct journal * prev;
 	/* how many commits have been done on this journal */
@@ -87,11 +111,9 @@ struct journal {
 	/* how many playbacks have been done on this journal */
 	uint32_t playbacks;
 	/* the most recent commit record data */
-	struct commit_record prev_cr;
+	commit_record prev_cr;
 	/* usage count of this journal */
 	int usage;
 };
-
-#endif
 
 #endif /* __JOURNAL_H */

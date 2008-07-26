@@ -14,7 +14,6 @@
 #include <readline/history.h>
 
 #include "openat.h"
-#include "journal.h"
 #include "transaction.h"
 #include "toilet++.h"
 
@@ -536,79 +535,6 @@ static int command_query(int argc, const char * argv[])
 	return r;
 }
 
-static int journal_process(void * data, size_t length, void * param)
-{
-	printf("Journal entry: %s (length %d)\n", (char *) data, length - 1);
-	return 0;
-}
-
-static int command_journal(int argc, const char * argv[])
-{
-	static journal * j = NULL;
-	int r = 0;
-	if(argc < 2)
-		printf("Do what with a journal?\n");
-	else if(!strcmp(argv[1], "create"))
-	{
-		if(j)
-			printf("You need to erase the current journal first.\n");
-		else
-		{
-			if(argc < 3)
-				printf("OK, but what should I call it?\n");
-			else
-			{
-				j = journal_create(AT_FDCWD, argv[2], NULL);
-				if(!j)
-					r = -errno;
-			}
-		}
-	}
-	else if(!strcmp(argv[1], "append"))
-	{
-		if(!j)
-			printf("You need to create a journal first.\n");
-		else
-		{
-			if(argc < 3)
-				printf("OK, but what should I append?\n");
-			else
-				r = journal_append(j, argv[2], strlen(argv[2]) + 1);
-		}
-	}
-	else if(!strcmp(argv[1], "commit"))
-	{
-		if(!j)
-			printf("You need to create a journal first.\n");
-		else
-			r = journal_commit(j);
-	}
-	else if(!strcmp(argv[1], "playback"))
-	{
-		if(!j)
-			printf("You need to create and commit a journal first.\n");
-		else
-			r = journal_playback(j, journal_process, NULL);
-	}
-	else if(!strcmp(argv[1], "erase"))
-	{
-		if(!j)
-			printf("You need to create, commit, and playback a journal first.\n");
-		else
-		{
-			r = journal_erase(j);
-			if(r >= 0)
-			{
-				journal_free(j);
-				j = NULL;
-			}
-		}
-	}
-	else
-		printf("Unknown journal action: %s\n", argv[1]);
-	return r;
-}
-
 static int command_tx(int argc, const char * argv[])
 {
 	int r;
@@ -634,6 +560,7 @@ static int command_tx(int argc, const char * argv[])
 	return 0;
 }
 
+int command_journal(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
