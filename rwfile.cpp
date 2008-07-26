@@ -85,6 +85,7 @@ int rwfile::close()
 			return r;
 	}
 	::close(fd);
+	fd = -1;
 	return 0;
 }
 
