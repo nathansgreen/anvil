@@ -304,7 +304,7 @@ int tx_sync(tx_id id)
 	if(itr == tx_map->end())
 		return -EINVAL;
 	journal * j = itr->second;
-	r = journal_flush(j);
+	r = journal_wait(j);
 	if(r < 0)
 		return r;
 	tx_map->erase(id);
@@ -536,7 +536,7 @@ ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset)
 	iov[count++].iov_len = length;
 	tx_fds[fd].usage++;
 	/* FIXME if this fails and count == 4, then fix tx_fds[fd].tid */
-	return journal_appendv4(current_journal, iov, count);
+	return journal_appendv(current_journal, iov, count);
 }
 
 int tx_vnprintf(tx_fd fd, off_t offset, size_t max, const char * format, va_list ap)
@@ -613,7 +613,7 @@ int tx_unlink(int dfd, const char * name)
 	iov[2].iov_base = (void *) name;
 	iov[2].iov_len = header.unlink.name_len;
 	header.unlink.mode = 0;
-	r = journal_appendv4(current_journal, iov, 3);
+	r = journal_appendv(current_journal, iov, 3);
 	free(dir);
 	return r;
 }

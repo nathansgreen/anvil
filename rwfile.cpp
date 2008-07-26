@@ -92,7 +92,14 @@ int rwfile::truncate(off_t end_offset)
 {
 	if(write_mode && filled)
 	{
-		int r = flush();
+		int r;
+		/* check if we can just lop off some buffer */
+		if(write_offset <= end_offset && end_offset <= write_offset + filled)
+		{
+			filled = end_offset - write_offset;
+			return 0;
+		}
+		r = flush();
 		if(r < 0)
 			return r;
 	}
