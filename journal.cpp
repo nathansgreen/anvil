@@ -28,7 +28,7 @@ struct data_header {
 	size_t length;
 } __attribute__((packed));
 
-journal * journal::create(int dfd, const char * path, journal * prev)
+journal * journal::create(int dfd, const istr & path, journal * prev)
 {
 	journal * j;
 	if(prev && !prev->last_commit)
@@ -397,7 +397,7 @@ int journal::verify()
 	return 1;
 }
 
-int journal::reopen(int dfd, const char * path, journal ** pj, journal * prev)
+int journal::reopen(int dfd, const istr & path, journal ** pj, journal * prev)
 {
 	int r;
 	journal * j;

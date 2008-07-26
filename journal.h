@@ -64,10 +64,10 @@ public:
 	int release();
 	
 	/* creates a new journal */
-	static journal * create(int dfd, const char * path, journal * prev);
+	static journal * create(int dfd, const istr & path, journal * prev);
 	
 	/* reopens an existing journal if it is committed, otherwise leaves it alone */
-	static int reopen(int dfd, const char * path, journal ** pj, journal * prev);
+	static int reopen(int dfd, const istr & path, journal ** pj, journal * prev);
 	
 private:
 	/* a commit record */
