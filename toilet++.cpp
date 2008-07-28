@@ -27,7 +27,7 @@ int toilet_init(const char * path)
 	r = tx_init(fd);
 	if(r >= 0)
 	{
-		r = tx_start();
+		r = tx_start_r();
 		if(r >= 0)
 		{
 			sys_journal * global = sys_journal::get_global_journal();
@@ -38,10 +38,10 @@ int toilet_init(const char * path)
 			{
 				/* maybe we should not always do this here? */
 				r = global->filter();
-				r = tx_end(0);
+				r = tx_end_r();
 			}
 			else
-				tx_end(0);
+				tx_end_r();
 		}
 	}
 	close(fd);
@@ -233,12 +233,12 @@ int toilet_new_gtable(t_toilet * toilet, const char * name)
 	config.set("data_config", base_config);
 	config.set_class("meta", managed_dtable);
 	config.set_class("data", managed_dtable);
-	r = tx_start();
+	r = tx_start_r();
 	if(r < 0)
 		return r;
 	/* will fail if the gtable already exists */
 	r = simple_stable::create(toilet->path_fd, name, config, dtype::UINT32);
-	tx_end(0);
+	tx_end_r();
 	if(r < 0)
 		return r;
 	toilet->gtable_names.push_back(name);
@@ -280,11 +280,11 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	config.set_class("meta", managed_dtable);
 	config.set_class("data", managed_dtable);
 	config.set_class("columns", simple_ctable);
-	r = tx_start();
+	r = tx_start_r();
 	if(r < 0)
 		goto fail_open;
 	r = sst->init(toilet->path_fd, name, config);
-	tx_end(0);
+	tx_end_r();
 	if(r < 0)
 		goto fail_open;
 	
@@ -307,11 +307,11 @@ const char * toilet_gtable_name(t_gtable * gtable)
 
 int toilet_gtable_maintain(t_gtable * gtable)
 {
-	int r = tx_start();
+	int r = tx_start_r();
 	if(r < 0)
 		return r;
 	r = gtable->table->maintain();
-	tx_end(0);
+	tx_end_r();
 	return r;
 }
 
@@ -420,23 +420,23 @@ static int toilet_new_row_id(t_toilet * toilet, t_row_id * row)
 
 int toilet_new_row(t_gtable * gtable, t_row_id * new_id)
 {
-	int r = tx_start();
+	int r = tx_start_r();
 	if(r < 0)
 		return r;
 	/* doesn't actually do anything other than reserve a row ID! */
 	/* technically this row ID can therefore be used in several gtables... */
 	r = toilet_new_row_id(gtable->toilet, new_id);
-	tx_end(0);
+	tx_end_r();
 	return r;
 }
 
 int toilet_drop_row(t_row * row)
 {
-	int r = tx_start();
+	int r = tx_start_r();
 	if(r < 0)
 		return r;
 	r = row->gtable->table->remove(row->id);
-	tx_end(0);
+	tx_end_r();
 	if(r >= 0)
 		toilet_put_row(row);
 	return r;
@@ -515,22 +515,22 @@ const t_value * toilet_row_value_type(t_row * row, const char * key, t_type * ty
 
 int toilet_row_set_value(t_row * row, const char * key, t_type type, const t_value * value)
 {
-	int r = tx_start();
+	int r = tx_start_r();
 	if(r < 0)
 		return r;
 	switch(type)
 	{
 		case T_INT:
 			r = row->gtable->table->append(row->id, key, value->v_int);
-			tx_end(0);
+			tx_end_r();
 			return r;
 		case T_FLOAT:
 			r = row->gtable->table->append(row->id, key, value->v_float);
-			tx_end(0);
+			tx_end_r();
 			return r;
 		case T_STRING:
 			r = row->gtable->table->append(row->id, key, value->v_string);
-			tx_end(0);
+			tx_end_r();
 			return r;
 	}
 	abort();
@@ -538,11 +538,11 @@ int toilet_row_set_value(t_row * row, const char * key, t_type type, const t_val
 
 int toilet_row_remove_key(t_row * row, const char * key)
 {
-	int r = tx_start();
+	int r = tx_start_r();
 	if(r < 0)
 		return r;
 	r = row->gtable->table->remove(row->id, key);
-	tx_end(0);
+	tx_end_r();
 	return r;
 }
 

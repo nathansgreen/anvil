@@ -52,6 +52,19 @@ int tx_close(tx_fd fd);
 /* see the detailed comments about this function in transaction.cpp before you use it */
 int tx_unlink(int dfd, const char * name);
 
+/* simple recursive transaction functions: the "real" transaction is the outermost one */
+
+int tx_start_r(void);
+int tx_end_r(void);
+
+struct tx_handle {
+	uint32_t in_tx;
+};
+#define TX_HANDLE_INIT(handle) do { (handle).in_tx = 0; } while(0)
+#define TX_START(handle) ({ int r = 0; if(!(handle).in_tx++) { r = tx_start_r(); if(r < 0) (handle).in_tx--; } assert((handle).in_tx); r; })
+#define TX_END(handle) ({ int r = 0; assert((handle).in_tx); if(!--(handle).in_tx) { r = tx_end_r(); if(r < 0) (handle).in_tx++; } r; })
+#define TX_CLEANUP(handle) do { if((handle).in_tx) { int r = tx_end_r(); assert(r >= 0); } (handle).in_tx = 0; } while(0)
+
 #ifdef __cplusplus
 }
 #endif

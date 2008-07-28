@@ -80,6 +80,7 @@ struct tx_unlink {
 static int journal_dir = -1;
 static journal * last_journal = NULL;
 static journal * current_journal = NULL;
+static uint32_t tx_recursion = 0;
 
 static tx_id last_tx_id = -1;
 typedef std::map<tx_id, journal *> tx_map_t;
@@ -245,6 +246,7 @@ int tx_start(void)
 		last_journal = NULL;
 	}
 	last_tx_id++;
+	tx_recursion++;
 	return 0;
 }
 
@@ -266,6 +268,8 @@ tx_id tx_end(int assign_id)
 	int r;
 	if(!current_journal)
 		return -ENOENT;
+	if(tx_recursion != 1)
+		return -EBUSY;
 	while(pre_end_handlers)
 	{
 		pre_end_handlers->handle(pre_end_handlers->data);
@@ -289,6 +293,7 @@ tx_id tx_end(int assign_id)
 		goto fail;
 	last_journal = current_journal;
 	current_journal = NULL;
+	tx_recursion--;
 	return 0;
 	
 fail:
@@ -616,4 +621,23 @@ int tx_unlink(int dfd, const char * name)
 	r = current_journal->appendv(iov, 3);
 	free(dir);
 	return r;
+}
+
+int tx_start_r(void)
+{
+	if(!tx_recursion)
+		return tx_start();
+	tx_recursion++;
+	assert(tx_recursion);
+	return 0;
+}
+
+int tx_end_r(void)
+{
+	if(!tx_recursion)
+		return -EBUSY;
+	if(tx_recursion == 1)
+		return tx_end(0);
+	tx_recursion--;
+	return 0;
 }
