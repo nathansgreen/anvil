@@ -522,14 +522,23 @@ int toilet_row_set_value(t_row * row, const char * key, t_type type, const t_val
 	{
 		case T_INT:
 			r = row->gtable->table->append(row->id, key, value->v_int);
+			if(r >= 0 && row->values.count(key))
+				row->values[key]->v_int = value->v_int;
 			tx_end_r();
 			return r;
 		case T_FLOAT:
 			r = row->gtable->table->append(row->id, key, value->v_float);
+			if(r >= 0 && row->values.count(key))
+				row->values[key]->v_float = value->v_float;
 			tx_end_r();
 			return r;
 		case T_STRING:
 			r = row->gtable->table->append(row->id, key, value->v_string);
+			if(r >= 0 && row->values.count(key))
+			{
+				free(row->values[key]);
+				row->values[key] = (t_value *) strdup(value->v_string);
+			}
 			tx_end_r();
 			return r;
 	}
@@ -542,6 +551,11 @@ int toilet_row_remove_key(t_row * row, const char * key)
 	if(r < 0)
 		return r;
 	r = row->gtable->table->remove(row->id, key);
+	if(r >= 0 && row->values.count(key))
+	{
+		free(row->values[key]);
+		row->values.erase(key);
+	}
 	tx_end_r();
 	return r;
 }
