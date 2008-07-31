@@ -291,15 +291,12 @@ int journal::playback(record_processor processor, void * param)
 			return -1;
 		}
 		patchgroup_label(finished, "finished");
-		r = patchgroup_add_depend(finished, playback);
-		if(r < 0)
-		{
-			patchgroup_release(finished);
-			patchgroup_abandon(finished);
-			finished = 0;
-			patchgroup_abandon(playback);
-			return r;
-		}
+	}
+	r = patchgroup_add_depend(finished, playback);
+	if(r < 0)
+	{
+		patchgroup_abandon(playback);
+		return r;
 	}
 	patchgroup_abandon(playback);
 	playbacks = commits;
