@@ -22,6 +22,7 @@
 #include "transaction.h"
 
 #include "istr.h"
+#include "params.h"
 
 /* The routines in this file implement a file system transaction interface on
  * top of a generic journal module. Here we keep a journal directory with the
@@ -81,6 +82,7 @@ static int journal_dir = -1;
 static journal * last_journal = NULL;
 static journal * current_journal = NULL;
 static uint32_t tx_recursion = 0;
+static int log_size = 0;
 
 static tx_id last_tx_id = -1;
 typedef std::map<tx_id, journal *> tx_map_t;
@@ -116,7 +118,7 @@ static int ends_with(const char * string, const char * suffix)
 }
 
 /* scans journal dir, recovers transactions */
-int tx_init(int dfd)
+int tx_init(int dfd, const params & config)
 {
 	size_t i;
 	tx_fd fd;
@@ -196,6 +198,12 @@ int tx_init(int dfd)
 		current_journal = NULL;
 	}
 	
+	if(!config.get("log_size", &log_size, 0))
+	{
+		error = -EINVAL;
+		goto fail;
+	}
+
 	tx_map = new tx_map_t;
 	if(!tx_map)
 	{
@@ -233,19 +241,22 @@ void tx_deinit(void)
 
 int tx_start(void)
 {
-	char name[16];
-	if(journal_dir < 0 || current_journal)
-		return -EBUSY;
-	snprintf(name, sizeof(name), "%08x.jnl", last_tx_id + 1);
-	current_journal = journal::create(journal_dir, name, last_journal);
 	if(!current_journal)
-		return -1;
-	if(last_journal && tx_map->find(last_tx_id) == tx_map->end())
 	{
-		last_journal->release();
-		last_journal = NULL;
+		if(journal_dir < 0)
+			return -EBUSY;
+		char name[16];
+		snprintf(name, sizeof(name), "%08x.jnl", last_tx_id + 1);
+		current_journal = journal::create(journal_dir, name, last_journal);
+		if(!current_journal)
+			return -1;
+		if(last_journal && tx_map->find(last_tx_id) == tx_map->end())
+		{
+			last_journal->release();
+			last_journal = NULL;
+		}
+		last_tx_id++;
 	}
-	last_tx_id++;
 	tx_recursion++;
 	return 0;
 }
@@ -261,6 +272,16 @@ int tx_add_depend(patchgroup_id_t pid)
 	if(!current_journal)
 		return -ENOENT;
 	return current_journal->add_depend(pid);
+}
+
+static inline int switch_journal()
+{
+		int r = current_journal->erase();
+		if(r < 0)
+			return r;
+		last_journal = current_journal;
+		current_journal = NULL;
+		return 0;
 }
 
 tx_id tx_end(int assign_id)
@@ -287,12 +308,12 @@ tx_id tx_end(int assign_id)
 	if(r < 0)
 		/* not clear how to uncommit the journal... */
 		goto fail;
-	r = current_journal->erase();
-	if(r < 0)
-		/* not clear how to unplayback the journal... */
-		goto fail;
-	last_journal = current_journal;
-	current_journal = NULL;
+	if(current_journal->size() >= log_size)
+	{
+		r = switch_journal();
+		if(r < 0)
+			goto fail;
+	}
 	tx_recursion--;
 	return 0;
 	
