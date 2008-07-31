@@ -167,6 +167,8 @@ int journal_dtable::log(const dtype & key, const blob & blob)
 			}
 			return log(entry, blob);
 		}
+		case dtype::BLOB:
+			/* fall through */ ;
 	}
 	abort();
 }

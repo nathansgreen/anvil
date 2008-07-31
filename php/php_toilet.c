@@ -271,7 +271,7 @@ static int verify_zval_convert(zval * zvalue, t_type type, const t_value ** valu
 				r = 0;
 			}
 			break;
-		/*case T_BLOB:
+		case T_BLOB:
 			if(Z_TYPE_P(zvalue) == IS_STRING)
 			{
 				space->v_blob.data = Z_STRVAL_P(zvalue);
@@ -279,7 +279,7 @@ static int verify_zval_convert(zval * zvalue, t_type type, const t_value ** valu
 				*value = space;
 				r = 0;
 			}
-			break;*/
+			break;
 	}
 	return r;
 }
@@ -444,9 +444,9 @@ static void row_hash_populate_column(zval * hash, t_row * row, const char * name
 		case T_STRING:
 			add_assoc_string(hash, (char *) name, (char *) value->v_string, 1);
 			break;
-		/*case T_BLOB:
+		case T_BLOB:
 			add_assoc_stringl(hash, (char *) name, value->v_blob.data, value->v_blob.length, 1);
-			break;*/
+			break;
 	}
 }
 
@@ -518,8 +518,8 @@ static int parse_type(const char * string, t_type * type)
 		*type = T_FLOAT;
 	else if(!strcmp(string, "string"))
 		*type = T_STRING;
-	/*else if(!strcmp(string, "blob"))
-		*type = T_BLOB;*/
+	else if(!strcmp(string, "blob"))
+		*type = T_BLOB;
 	else
 		return -EINVAL;
 	return 0;

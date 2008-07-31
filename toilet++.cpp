@@ -359,6 +359,8 @@ t_type toilet_columns_type(t_columns * columns)
 			return T_FLOAT;
 		case dtype::STRING:
 			return T_STRING;
+		case dtype::BLOB:
+			return T_BLOB;
 	}
 	abort();
 }
@@ -395,6 +397,8 @@ t_type toilet_gtable_column_type(t_gtable * gtable, const char * name)
 			return T_FLOAT;
 		case dtype::STRING:
 			return T_STRING;
+		case dtype::BLOB:
+			return T_BLOB;
 	}
 	abort();
 }
@@ -503,6 +507,14 @@ const t_value * toilet_row_value(t_row * row, const char * key, t_type type)
 			converted = (t_value *) strdup(value.str);
 			row->values[key] = converted;
 			return converted;
+		case dtype::BLOB:
+			if(type != T_BLOB)
+				return NULL;
+			converted = (t_value *) malloc(sizeof(*converted));
+			converted->v_blob.length = value.blb.size();
+			converted->v_blob.data = malloc(converted->v_blob.length);
+			memcpy(converted->v_blob.data, &value.blb[0], converted->v_blob.length);
+			return converted;
 	}
 	abort();
 }
@@ -541,6 +553,21 @@ int toilet_row_set_value(t_row * row, const char * key, t_type type, const t_val
 			}
 			tx_end_r();
 			return r;
+		case T_BLOB:
+		{
+			blob b(value->v_blob.length, value->v_blob.data);
+			r = row->gtable->table->append(row->id, key, b);
+			if(r >= 0 && row->values.count(key))
+			{
+				t_value * cache = row->values[key];
+				free(cache->v_blob.data);
+				cache->v_blob.length = value->v_blob.length;
+				cache->v_blob.data = malloc(value->v_blob.length);
+				memcpy(cache->v_blob.data, value->v_blob.data, value->v_blob.length);
+			}
+			tx_end_r();
+			return r;
+		}
 	}
 	abort();
 }
@@ -585,9 +612,20 @@ static bool toilet_row_matches(t_gtable * gtable, t_row_id id, t_simple_query * 
 			return dtype(query->values[0]->v_float) <= value && value <= dtype(query->values[1]->v_float);
 		case T_STRING:
 			assert(value.type == dtype::STRING);
+			/* FIXME copies the strings just to compare them */
 			if(!query->values[1])
 				return value == dtype(query->values[0]->v_string);
 			return dtype(query->values[0]->v_string) <= value && value <= dtype(query->values[1]->v_string);
+		case T_BLOB:
+		{
+			assert(value.type == dtype::BLOB);
+			/* FIXME copies the blobs just to compare them */
+			blob b0(query->values[0]->v_blob.length, query->values[0]->v_blob.data), b1;
+			if(!query->values[1])
+				return value == dtype(b0);
+			b1 = blob(query->values[1]->v_blob.length, query->values[1]->v_blob.data);
+			return dtype(b0) <= value && value <= dtype(b1);
+		}
 	}
 	abort();
 }
@@ -636,6 +674,10 @@ t_rowset * toilet_simple_query(t_gtable * gtable, t_simple_query * query)
 				if(query->type != T_STRING)
 					return NULL;
 				break;
+			case dtype::BLOB:
+				if(query->type != T_BLOB)
+					return NULL;
+				break;
 			/* no default; want the compiler to warn of new cases */
 		}
 	}
@@ -676,6 +718,10 @@ ssize_t toilet_count_simple_query(t_gtable * gtable, t_simple_query * query)
 			break;
 		case dtype::STRING:
 			if(query->type != T_STRING)
+				return -EINVAL;
+			break;
+		case dtype::BLOB:
+			if(query->type != T_BLOB)
 				return -EINVAL;
 			break;
 		/* no default; want the compiler to warn of new cases */

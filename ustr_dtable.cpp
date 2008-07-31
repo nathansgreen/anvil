@@ -113,6 +113,8 @@ dtype ustr_dtable::get_key(size_t index, size_t * data_length, off_t * data_offs
 		}
 		case dtype::STRING:
 			return dtype(st.get(read_bytes(bytes, 0, key_size)));
+		case dtype::BLOB:
+			/* fall through */ ;
 	}
 	abort();
 }
@@ -415,6 +417,8 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	rwfile out;
 	if(shadow && shadow->key_type() != key_type)
 		return -EINVAL;
+	if(key_type == dtype::BLOB)
+		return -EINVAL;
 	if(key_type == dtype::STRING)
 	{
 		r = strings.init();
@@ -448,6 +452,8 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 			case dtype::STRING:
 				strings.add(key.str);
 				break;
+			case dtype::BLOB:
+				abort();
 		}
 		if(blob_size)
 		{
@@ -577,9 +583,8 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 			header.key_type = 3;
 			header.key_size = byte_size(strings.size() - 1);
 			break;
-		default:
-			r = -EINVAL;
-			goto out_strings;
+		case dtype::BLOB:
+			abort();
 	}
 	/* we reserve size 0 for non-existent entries, so add 1 */
 	header.length_size = byte_size(max_data_size + 1);
@@ -633,6 +638,8 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 				max_key = locate_string(string_array, strings.size(), key.str);
 				layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
+			case dtype::BLOB:
+				abort();
 		}
 		layout_bytes(bytes, &i, value.exists() ? value.size() + 1 : 0, header.length_size);
 		layout_bytes(bytes, &i, total_data_size, header.offset_size);

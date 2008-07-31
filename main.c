@@ -284,6 +284,9 @@ static void print_value(t_type type, const t_value * value)
 		case T_STRING:
 			printf("%s\n", value->v_string);
 			break;
+		case T_BLOB:
+			printf("(blob:%u)\n", value->v_blob.length);
+			break;
 	}
 }
 
@@ -389,6 +392,8 @@ static t_value * parse_value(t_type type, const char * string, t_value * value)
 			return value;
 		case T_STRING:
 			return (t_value *) string;
+		case T_BLOB:
+			/* fall through */ ;
 	}
 	return NULL;
 }
@@ -401,6 +406,8 @@ static int parse_type(const char * string, t_type * type)
 		*type = T_FLOAT;
 	else if(!strcmp(string, "string"))
 		*type = T_STRING;
+	else if(!strcmp(string, "blob"))
+		*type = T_BLOB;
 	else
 		return -EINVAL;
 	return 0;

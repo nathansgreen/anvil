@@ -42,16 +42,16 @@ public:
 	
 	inline simple_ext_index() : ro_store(NULL), rw_store(NULL) {}
 	/* read only version */
-	int init(const dtable * store, const dtable * primary, const params & config);
+	int init(const dtable * store, dtype::ctype pri_key_type, const params & config);
 	/* if you want this index to be writable */
-	int init(dtable * store, const dtable * primary, const params & config);
+	int init(dtable * store, dtype::ctype pri_key_type, const params & config);
 	inline virtual ~simple_ext_index() {}
 	
 	DECLARE_EI_FACTORY(simple_ext_index);
 	
 private:
 	bool is_unique;
-	const dtable * ref_table;
+	dtype::ctype ref_key_type;
 	const dtable * ro_store;
 	dtable * rw_store;
 	

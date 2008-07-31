@@ -34,8 +34,8 @@ private:
 class index_factory
 {
 public:
-	virtual ext_index * open(const dtable * store, const dtable * primary, const params & config) const = 0;
-	virtual ext_index * open(dtable * store, const dtable * primary, const params & config) const = 0;
+	virtual ext_index * open(const dtable * store, dtype::ctype pri_key_type, const params & config) const = 0;
+	virtual ext_index * open(dtable * store, dtype::ctype pri_key_type, const params & config) const = 0;
 	
 	virtual ~index_factory()
 	{
@@ -58,10 +58,10 @@ class index_static_factory : public index_factory
 public:
 	index_static_factory(const istr & class_name) : index_factory(class_name) {}
 	
-	virtual ext_index * open(const dtable * store, const dtable * primary, const params & config) const
+	virtual ext_index * open(const dtable * store, dtype::ctype pri_key_type, const params & config) const
 	{
 		T * index = new T;
-		int r = index->init(store, primary, config);
+		int r = index->init(store, pri_key_type, config);
 		if(r < 0)
 		{
 			delete index;
@@ -70,10 +70,10 @@ public:
 		return index;
 	}
 	
-	virtual ext_index * open(dtable * store, const dtable * primary, const params & config) const
+	virtual ext_index * open(dtable * store, dtype::ctype pri_key_type, const params & config) const
 	{
 		T * index = new T;
-		int r = index->init(store, primary, config);
+		int r = index->init(store, pri_key_type, config);
 		if(r < 0)
 		{
 			delete index;

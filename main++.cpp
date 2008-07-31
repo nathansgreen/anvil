@@ -119,6 +119,9 @@ static void print(dtype x)
 		case dtype::STRING:
 			printf("%s", (const char *) x.str);
 			break;
+		case dtype::BLOB:
+			printf("(blob:%u)", x.blb.size());
+			break;
 	}
 }
 

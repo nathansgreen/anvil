@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <inttypes.h>
 #include <sys/types.h>
 
@@ -62,6 +63,50 @@ public:
 	inline bool exists() const
 	{
 		return internal != NULL;
+	}
+	
+	inline bool operator==(const blob & x) const
+	{
+		if(internal == x.internal)
+			return true;
+		if(!internal || !x.internal)
+			return false;
+		if(internal->size != x.internal->size)
+			return false;
+		return !memcmp(internal->bytes, x.internal->bytes, internal->size);
+	}
+	
+	inline bool operator!=(const blob & x) const
+	{
+		return !(*this == x);
+	}
+	
+	inline bool operator<(const blob & x) const
+	{
+		int r;
+		size_t min;
+		if(internal == x.internal)
+			return false;
+		if(!internal || !x.internal)
+			return !internal;
+		min = (internal->size < x.internal->size) ? internal->size : x.internal->size;
+		r = memcmp(internal->bytes, x.internal->bytes, min);
+		return r ? r < 0 : internal->size < x.internal->size;
+	}
+	
+	inline bool operator<=(const blob & x) const
+	{
+		return !(x < *this);
+	}
+	
+	inline bool operator>(const blob & x) const
+	{
+		return x < *this;
+	}
+	
+	inline bool operator>=(const blob & x) const
+	{
+		return !(*this < x);
 	}
 	
 private:

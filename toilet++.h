@@ -23,7 +23,8 @@ enum t_type
 {
 	T_INT = 1,
 	T_FLOAT = 2,
-	T_STRING = 3
+	T_STRING = 3,
+	T_BLOB = 4
 };
 typedef enum t_type t_type;
 
@@ -38,6 +39,8 @@ static inline const char * toilet_name_type(t_type type)
 			return "float";
 		case T_STRING:
 			return "string";
+		case T_BLOB:
+			return "blob";
 	}
 	return "(unknown)";
 }
@@ -68,7 +71,7 @@ union t_value
 	double v_float;
 	const char v_string[0];
 	struct {
-		int length;
+		size_t length;
 		void * data;
 	} v_blob;
 };
@@ -135,7 +138,7 @@ t_gtable * toilet_row_gtable(t_row * row);
 
 /* values */
 
-/* the values returned are valid until toilet_put_row() */
+/* the values returned are valid until the row is modified or closed */
 const t_value * toilet_row_value(t_row * row, const char * key, t_type type);
 const t_value * toilet_row_value_type(t_row * row, const char * key, t_type * type);
 

@@ -68,8 +68,9 @@ dtype simple_ext_index::iter::pri() const
 			return dtype(multi_value.index<uint32_t>(0, offset));
 		case dtype::DOUBLE:
 			return dtype(multi_value.index<double>(0, offset));
+		case dtype::BLOB:
+			/* fall through */ ;
 	}
-	/* TODO: better way of handling errors */
 	abort();
 }
 
@@ -80,20 +81,20 @@ int simple_ext_index::map(const dtype & key, dtype * value) const
 	blob pri = ro_store->find(key);
 	if(!pri.exists())
 		return -1;
-	*value = dtype(pri, ref_table->key_type());
+	*value = dtype(pri, ref_key_type);
 	return 0;
 }
 
 ext_index::iter * simple_ext_index::iterator() const
 {
 	/* iterate over all keys */
-	return new iter(this, ro_store->iterator(), ref_table->key_type());
+	return new iter(this, ro_store->iterator(), ref_key_type);
 }
 
 ext_index::iter * simple_ext_index::iterator(dtype key) const
 {
 	/* iterate over only this one key */
-	return new iter(this, key, ref_table->key_type());
+	return new iter(this, key, ref_key_type);
 }
 
 int simple_ext_index::set(const dtype & key, const dtype & pri)
@@ -116,14 +117,15 @@ int simple_ext_index::remove(const dtype & key)
 
 int simple_ext_index::add(const dtype & key, const dtype & pri)
 {
+	blob_buffer old;
 	/* for !unique: add this pri to this key if it is not already there */
 	assert(!is_unique);
-	if(!rw_store || ro_store->key_type() != key.type || ref_table->key_type() != pri.type)
+	if(!rw_store || ro_store->key_type() != key.type || ref_key_type != pri.type)
 		return -1;
-	blob_buffer old = ro_store->find(key);
+	old = ro_store->find(key);
 	if(!old.exists())
 		return -1;
-	if(ref_table->key_type() == dtype::STRING)
+	if(ref_key_type == dtype::STRING)
 		old << strlen(pri.str);
 	return rw_store->append(key, old << pri);
 }
@@ -131,15 +133,15 @@ int simple_ext_index::add(const dtype & key, const dtype & pri)
 int simple_ext_index::update(const dtype & key, const dtype & old_pri, const dtype & new_pri)
 {
 	int r;
+	blob_buffer data;
+	uint32_t start = 0, end = 0;
 	/* for !unique: change this key's mapping to old_pri to new_pri */
 	assert(!is_unique && rw_store);
-	if(!rw_store || ro_store->key_type() != key.type || ref_table->key_type() != new_pri.type ||
-			ref_table->key_type() != old_pri.type)
+	if(!rw_store || ro_store->key_type() != key.type || ref_key_type != new_pri.type || ref_key_type != old_pri.type)
 		return -1;
-	blob_buffer data = ro_store->find(key);
+	data = ro_store->find(key);
 	if(!data.exists())
 		return -1;
-	uint32_t start = 0, end = 0;
 	r = find(data, old_pri, &start, &end);
 	if(r < 0)
 		return r;
@@ -152,14 +154,15 @@ int simple_ext_index::update(const dtype & key, const dtype & old_pri, const dty
 int simple_ext_index::remove(const dtype & key, const dtype & pri)
 {
 	int r;
+	blob_buffer data;
+	uint32_t start = 0, end = 0;
 	/* for !unique: remove this pri from this key */
 	assert(!is_unique);
-	if(!rw_store || ro_store->key_type() != key.type || ref_table->key_type() != pri.type)
+	if(!rw_store || ro_store->key_type() != key.type || ref_key_type != pri.type)
 		return -1;
-	blob_buffer data = ro_store->find(key);
+	data = ro_store->find(key);
 	if(!data.exists())
 		return -1;
-	uint32_t start = 0, end = 0;
 	r = find(data, pri, &start, &end);
 	if(r < 0)
 		return r;
@@ -180,23 +183,27 @@ int simple_ext_index::remove(const dtype & key, const dtype & pri)
 	return rw_store->append(key, data);
 }
 
-int simple_ext_index::init(const dtable * store, const dtable * primary, const params & config)
+int simple_ext_index::init(const dtable * store, dtype::ctype pri_key_type, const params & config)
 {
+	if(pri_key_type == dtype::BLOB)
+		return -EINVAL;
 	if(!config.get("unique", &is_unique, false))
 		return -EINVAL;
 	/* any further checking here? */
-	ref_table = primary;
+	ref_key_type = pri_key_type;
 	ro_store = store;
 	rw_store = NULL;
 	return 0;
 }
 
-int simple_ext_index::init(dtable * store, const dtable * primary, const params & config)
+int simple_ext_index::init(dtable * store, dtype::ctype pri_key_type, const params & config)
 {
+	if(pri_key_type == dtype::BLOB)
+		return -EINVAL;
 	if(!config.get("unique", &is_unique, false))
 		return -EINVAL;
 	/* any further checking here? */
-	ref_table = primary;
+	ref_key_type = pri_key_type;
 	ro_store = store;
 	rw_store = store->writable() ? store : NULL;
 	return 0;
@@ -208,7 +215,7 @@ int simple_ext_index::init(dtable * store, const dtable * primary, const params 
  * equal to the dtype at the idx byte offset. */
 int simple_ext_index::find(const blob & b, const dtype & pri, uint32_t * idx, uint32_t * next, dtype * set) const
 {
-	assert(pri.type == ref_table->key_type());
+	assert(pri.type == ref_key_type);
 	switch(pri.type)
 	{
 		case dtype::STRING:
@@ -262,10 +269,10 @@ int simple_ext_index::find(const blob & b, const dtype & pri, uint32_t * idx, ui
 			}
 			break;
 		}
-		default:
-			return -1;
+		case dtype::BLOB:
+			/* fall through */ ;
 	}
-	return -1;
+	abort();
 }
 
 DEFINE_EI_FACTORY(simple_ext_index);

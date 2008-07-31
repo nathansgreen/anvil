@@ -24,7 +24,7 @@
 class dtype
 {
 public:
-	enum ctype {UINT32, DOUBLE, STRING};
+	enum ctype {UINT32, DOUBLE, STRING, BLOB};
 	ctype type;
 	
 	union
@@ -32,8 +32,9 @@ public:
 		uint32_t u32;
 		double dbl;
 	};
-	/* alas, we can't put this in the union */
+	/* alas, we can't put these in the union */
 	istr str;
+	blob blb;
 	
 	inline dtype(uint32_t x) : type(UINT32), u32(x) {}
 	inline dtype(double x) : type(DOUBLE), dbl(x) {}
@@ -41,6 +42,7 @@ public:
 	/* have to provide this even though usually istr is transparent */
 	inline dtype(const char * x) : type(STRING), u32(0), str(x) {}
 	inline dtype(const char * x, size_t length) : type(STRING), u32(0), str(x, length) {}
+	inline dtype(const blob & x) : type(BLOB), u32(0), blb(x) {}
 	inline dtype(const blob & b, ctype t)
 		: type(t)
 	{
@@ -58,6 +60,9 @@ public:
 			case STRING:
 				str = b;
 				return;
+			case BLOB:
+				blb = b;
+				return;
 		}
 		abort();
 	}
@@ -72,6 +77,8 @@ public:
 				return blob(sizeof(double), &dbl);
 			case STRING:
 				return blob(strlen(str), str);
+			case BLOB:
+				return blb;
 		}
 		abort();
 	}
@@ -86,6 +93,8 @@ public:
 				return "double";
 			case STRING:
 				return "string";
+			case BLOB:
+				return "blob";
 		}
 		return "unknown";
 	}
@@ -105,6 +114,8 @@ public:
 				return dbl == x.dbl;
 			case STRING:
 				return !strcmp(str, x.str);
+			case BLOB:
+				return blb == x.blb;
 		}
 		abort();
 	}
@@ -125,6 +136,8 @@ public:
 				return dbl < x.dbl;
 			case STRING:
 				return strcmp(str, x.str) < 0;
+			case BLOB:
+				return blb < x.blb;
 		}
 		abort();
 	}

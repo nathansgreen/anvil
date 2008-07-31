@@ -189,6 +189,9 @@ int simple_stable::load_columns()
 			case 3:
 				c->type = dtype::STRING;
 				break;
+			case 4:
+				c->type = dtype::BLOB;
+				break;
 		}
 		source->next();
 	}
@@ -262,6 +265,9 @@ int simple_stable::adjust_column(const istr & column, ssize_t delta, dtype::ctyp
 				break;
 			case dtype::STRING:
 				meta << (uint8_t) 3;
+				break;
+			case dtype::BLOB:
+				meta << (uint8_t) 4;
 				break;
 		}
 		/* and write it */
