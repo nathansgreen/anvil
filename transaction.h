@@ -28,7 +28,6 @@ struct tx_pre_end {
 	struct tx_pre_end * _next;
 };
 
-int tx_init(int dfd);
 void tx_deinit(void);
 
 int tx_start(void);
@@ -68,6 +67,10 @@ struct tx_handle {
 
 #ifdef __cplusplus
 }
+
+#include "params.h"
+int tx_init(int dfd, const params & config);
+
 #endif
 
 #endif /* __TRANSACTION_H */

@@ -13,6 +13,7 @@
 #include "blowfish.h"
 #include "toilet++.h"
 #include "transaction.h"
+#include "params.h"
 
 #include "simple_dtable.h"
 #include "managed_dtable.h"
@@ -24,7 +25,10 @@ int toilet_init(const char * path)
 	int r, fd = open(path, 0);
 	if(fd < 0)
 		return fd;
-	r = tx_init(fd);
+	params config;
+	//make maximum log size 4MB
+	config.set<int>("log_size", 4194304);
+	r = tx_init(fd, config);
 	if(r >= 0)
 	{
 		r = tx_start_r();
