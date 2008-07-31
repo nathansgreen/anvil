@@ -26,7 +26,7 @@ int toilet_init(const char * path)
 	if(fd < 0)
 		return fd;
 	params config;
-	//make maximum log size 4MB
+	/* make maximum log size 4MB */
 	config.set<int>("log_size", 4194304);
 	r = tx_init(fd, config);
 	if(r >= 0)

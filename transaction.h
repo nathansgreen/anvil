@@ -69,6 +69,7 @@ struct tx_handle {
 }
 
 #include "params.h"
+
 int tx_init(int dfd, const params & config);
 
 #endif
