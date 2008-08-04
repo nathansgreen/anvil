@@ -40,10 +40,19 @@ struct entry_header
 	size_t length;
 } __attribute__((packed));
 
+#define DEBUG_SYSJ 0
+
+#if DEBUG_SYSJ
+#define SYSJ_DEBUG(format, args...) printf("%s @%p[%u %u] (" format ")\n", __FUNCTION__, this, (unsigned) data.end(), (unsigned) data_size, ##args)
+#else
+#define SYSJ_DEBUG(format, args...)
+#endif
+
 int sys_journal::append(journal_listener * listener, void * entry, size_t length)
 {
 	int r;
 	entry_header header;
+	SYSJ_DEBUG("%d, %p, %u", listener->id(), entry, length);
 	
 	header.id = listener->id();
 	assert(lookup_listener(header.id) == listener);
@@ -70,9 +79,13 @@ int sys_journal::append(journal_listener * listener, void * entry, size_t length
 		return r;
 	r = data.append(entry, length);
 	if(r != (int) length)
+	{
+		data.truncate(-sizeof(header));
 		return (r < 0) ? r : -1;
+	}
 	data_size += sizeof(header) + length;
 	
+	assert(data.end() == data_size);
 	return 0;
 }
 
@@ -80,6 +93,7 @@ int sys_journal::discard(journal_listener * listener)
 {
 	int r;
 	entry_header header;
+	SYSJ_DEBUG("%d", listener->id());
 	
 	header.id = listener->id();
 	assert(lookup_listener(header.id) == listener);
@@ -103,6 +117,7 @@ int sys_journal::discard(journal_listener * listener)
 	data_size += sizeof(header);
 	discarded.insert(header.id);
 	
+	assert(data.end() == data_size);
 	return 0;
 }
 
@@ -116,6 +131,7 @@ int sys_journal::filter()
 	int r;
 	char seq[16];
 	meta_journal info;
+	SYSJ_DEBUG("");
 	
 	if(pid > 0)
 	{
@@ -130,6 +146,7 @@ int sys_journal::filter()
 	info.seq = sequence + 1;
 	/* size will be filled in by filter() below */
 	snprintf(seq, sizeof(seq), ".%u", info.seq);
+	assert(data.end() == data_size);
 	
 	istr data_name = istr(meta_name) + seq;
 	pid = patchgroup_create(0);
@@ -168,6 +185,7 @@ int sys_journal::filter()
 		unlinkat(meta_dfd, data_name, 0);
 	}
 	pid = 0;
+	assert(data.end() == data_size);
 	return r;
 }
 
@@ -177,6 +195,7 @@ int sys_journal::filter(int dfd, const char * file, off_t * new_size)
 	off_t offset;
 	data_header header;
 	entry_header entry;
+	SYSJ_DEBUG("%d, %s", dfd, file);
 	int r = out.create(dfd, file);
 	if(r < 0)
 		return r;
@@ -242,6 +261,7 @@ fail:
 int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing)
 {
 	bool do_playback = false;
+	SYSJ_DEBUG("%d, %s, %d, %d", dfd, file, create, fail_missing);
 	if(meta_fd >= 0)
 		deinit();
 	meta_fd = tx_open(dfd, file, O_RDWR);
@@ -392,7 +412,9 @@ int sys_journal::playback(journal_listener * target, bool fail_missing)
 	/* playback */
 	std::set<listener_id> missing;
 	off_t offset = sizeof(data_header);
+	SYSJ_DEBUG("%d, %d", target ? target->id() : 0, fail_missing);
 	assert(data_size >= offset);
+	assert(data.end() == data_size);
 	while(offset < data_size)
 	{
 		int r;
@@ -453,11 +475,13 @@ int sys_journal::playback(journal_listener * target, bool fail_missing)
 	if(fail_missing && !missing.empty())
 		/* print warning message? */
 		return -ENOENT;
+	assert(data.end() == data_size);
 	return 0;
 }
 
 void sys_journal::deinit()
 {
+	SYSJ_DEBUG("");
 	if(meta_fd >= 0)
 	{
 		int r;
@@ -557,10 +581,12 @@ int sys_journal::flush_tx()
 {
 	int r;
 	meta_journal info;
+	SYSJ_DEBUG("");
 	
 	if(pid <= 0)
 		return 0;
 	assert(data.get_pid() == pid);
+	assert(data.end() == data_size);
 	r = data.flush();
 	if(r < 0)
 		return r;
@@ -578,6 +604,7 @@ int sys_journal::flush_tx()
 	data.set_pid(0);
 	pid = 0;
 	
+	assert(data.end() == data_size);
 	return 0;
 }
 

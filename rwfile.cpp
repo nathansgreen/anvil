@@ -51,7 +51,7 @@ int rwfile::open(int dfd, const char * file, off_t end_offset, patchgroup_id_t p
 int rwfile::flush()
 {
 	ssize_t r = 0, written = 0;
-	if(!filled)
+	if(!write_mode || !filled)
 		return 0;
 	if(pid > 0)
 		patchgroup_engage(pid);
@@ -91,6 +91,9 @@ int rwfile::close()
 
 int rwfile::truncate(off_t end_offset)
 {
+	/* negative offsets are taken to be relative to the end of the file */
+	if(end_offset < 0)
+		end_offset += end();
 	if(write_mode && filled)
 	{
 		int r;
