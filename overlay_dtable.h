@@ -41,6 +41,7 @@ private:
 		virtual bool valid() const;
 		virtual bool next();
 		virtual dtype key() const;
+		virtual bool seek(const dtype & key);
 		virtual metablob meta() const;
 		virtual blob value() const;
 		virtual const dtable * source() const;

@@ -29,6 +29,7 @@ private:
 		virtual bool next() { return false; }
 		/* well, really we have nothing to return */
 		virtual dtype key() const { return dtype(0u); }
+		virtual bool seek(const dtype & key) { return false; }
 		virtual metablob meta() const { return metablob(); }
 		virtual blob value() const { return blob(); }
 		virtual const dtable * source() const { return NULL; }

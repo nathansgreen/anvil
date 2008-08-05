@@ -100,6 +100,7 @@ private:
 		virtual bool valid() const;
 		virtual bool next();
 		virtual dtype key() const;
+		virtual bool seek(const dtype & key);
 		virtual const istr & column() const;
 		virtual dtype value() const;
 		inline siter(ctable::iter * source, const stable * types) : data(source), meta(types) {}

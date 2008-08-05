@@ -64,6 +64,7 @@ private:
 		virtual bool valid() const;
 		virtual bool next();
 		virtual dtype key() const;
+		virtual bool seek(const dtype & key);
 		virtual const istr & column() const;
 		virtual blob value() const;
 		inline iter(dtable::iter * src);

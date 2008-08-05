@@ -59,6 +59,11 @@ dtype simple_stable::siter::key() const
 	return data->key();
 }
 
+bool simple_stable::siter::seek(const dtype & key)
+{
+	return data->seek(key);
+}
+
 const istr & simple_stable::siter::column() const
 {
 	return data->column();

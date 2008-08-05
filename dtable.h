@@ -31,6 +31,10 @@ public:
 		 * both would compile without error. So, we use next() here. */
 		virtual bool next() = 0;
 		virtual dtype key() const = 0;
+		/* Seeks this iterator to the requested key, or the next key if the
+		 * requested key is not present. Returns true if the requested key was
+		 * found, and false otherwise. */
+		virtual bool seek(const dtype & key) = 0;
 		virtual ~key_iter() {}
 	};
 	class iter : public key_iter

@@ -39,8 +39,9 @@ public:
 		virtual bool valid() const = 0;
 		/* see the note about dtable::iter in dtable.h */
 		virtual bool next() = 0;
-		/* can't call key() if you got this iterator via iterator(key) */
+		/* can't call key() or seek() if you got this iterator via iterator(key) */
 		virtual dtype key() const = 0;
+		virtual bool seek(const dtype & key) = 0;
 		virtual const istr & column() const = 0;
 		virtual dtype value() const = 0;
 		virtual ~iter() {}

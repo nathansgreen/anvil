@@ -71,6 +71,20 @@ dtype overlay_dtable::iter::key() const
 	return subs[next_index].iter->key();
 }
 
+bool overlay_dtable::iter::seek(const dtype & key)
+{
+	bool found = false;
+	for(size_t i = 0; i < ovr_source->table_count; i++)
+	{
+		if(subs[i].iter->seek(key))
+			found = true;
+		subs[i].empty = !subs[i].iter->valid();
+		subs[i].valid = subs[i].iter->valid();
+	}
+	next();
+	return found;
+}
+
 metablob overlay_dtable::iter::meta() const
 {
 	return subs[next_index].iter->meta();
