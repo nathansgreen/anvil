@@ -154,9 +154,11 @@ int toilet_row_remove_key(t_row * row, const char * key);
 
 t_cursor * toilet_gtable_cursor(t_gtable * gtable);
 int toilet_cursor_valid(t_cursor * cursor);
+/* returns nonzero if it found an exact match, zero otherwise */
 int toilet_cursor_seek(t_cursor * cursor, t_row_id id);
 int toilet_cursor_next(t_cursor * cursor);
 int toilet_cursor_prev(t_cursor * cursor);
+int toilet_cursor_last(t_cursor * cursor);
 t_row_id toilet_cursor_row_id(t_cursor * cursor);
 void toilet_close_cursor(t_cursor * cursor);
 
