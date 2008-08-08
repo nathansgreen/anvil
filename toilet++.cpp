@@ -623,16 +623,14 @@ int toilet_cursor_prev(t_cursor * cursor)
 {
 	t_cursor_union safer;
 	safer.cursor = cursor;
-	abort();
-	//return safer.iter->prev();
+	return safer.iter->prev();
 }
 
 int toilet_cursor_last(t_cursor * cursor)
 {
 	t_cursor_union safer;
 	safer.cursor = cursor;
-	abort();
-	//return safer.iter->last();
+	return safer.iter->last();
 }
 
 t_row_id toilet_cursor_row_id(t_cursor * cursor)
