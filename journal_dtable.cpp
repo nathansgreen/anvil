@@ -26,11 +26,11 @@ bool journal_dtable::iter::prev()
 bool journal_dtable::iter::last()
 {
 	node * node = jdt_node;
-	while(node->up)
+	while(node && node->up)
 	{
 		node = node->up;
 	}
-	while(node->right)
+	while(node && node->right)
 	{
 		node = node->right;
 	}
