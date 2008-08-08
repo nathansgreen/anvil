@@ -66,6 +66,60 @@ bool simple_ctable::iter::next()
 	}
 }
 
+bool simple_ctable::iter::prev()
+{
+	if(columns)
+	{
+		if(columns->prev())
+			return true;
+		delete columns;
+		columns = NULL;
+	}
+	if(!source)
+		return false;
+	for(;;)
+	{
+		if(!source->prev())
+			return false;
+		blob value = source->value();
+		if(!value.exists())
+			continue;
+		row = sub_blob(value);
+		columns = row.iterator();
+		if(!columns)
+			return false;
+		columns->last();
+		if(columns->valid())
+			return true;
+		delete columns;
+		columns = NULL;
+	}
+}
+
+bool simple_ctable::iter::last()
+{
+	if(!source)
+		return false;
+	if(columns)
+	{
+		delete columns;
+		columns = NULL;
+	}
+	if(!source->last())
+		return false;
+	blob value = source->value();
+	row = sub_blob(value);
+	columns = row.iterator();
+	if(!columns)
+		return false;
+	columns->last();
+	if(columns->valid())
+		return true;
+	delete columns;
+	columns = NULL;
+	return false;
+}
+
 dtype simple_ctable::iter::key() const
 {
 	return source->key();

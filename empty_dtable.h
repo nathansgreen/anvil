@@ -27,6 +27,8 @@ private:
 	public:
 		virtual bool valid() const { return false; }
 		virtual bool next() { return false; }
+		virtual bool prev() { return false; }
+		virtual bool last() { return false; }
 		/* well, really we have nothing to return */
 		virtual dtype key() const { return dtype(0u); }
 		virtual metablob meta() const { return metablob(); }

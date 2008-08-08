@@ -24,6 +24,8 @@ public:
 		virtual bool valid() const = 0;
 		/* see the note about dtable::iter in dtable.h */
 		virtual bool next() = 0;
+		virtual bool prev() = 0;
+		virtual bool last() = 0;
 		virtual const istr & column() const = 0;
 		virtual blob value() const = 0;
 		virtual ~iter() {}
@@ -67,26 +69,27 @@ private:
 	
 	struct override
 	{
+		/* must be first see named_iter::prev() */
+		override ** pprev;
+		override * next;
 		istr name;
 		blob value;
-		override ** prev;
-		override * next;
 		
 		inline override(const istr & column, const blob & x, override ** first)
 			: name(column), value(x)
 		{
-			prev = first;
+			pprev = first;
 			next = *first;
 			*first = this;
 			if(next)
-				next->prev = &next;
+				next->pprev = &next;
 		}
 		
 		inline ~override()
 		{
-			*prev = next;
+			*pprev = next;
 			if(next)
-				next->prev = prev;
+				next->pprev = pprev;
 		}
 	};
 	mutable override * overrides;
@@ -96,13 +99,17 @@ private:
 	public:
 		virtual bool valid() const;
 		virtual bool next();
+		virtual bool prev();
+		virtual bool last();
 		virtual const istr & column() const;
 		virtual blob value() const;
-		inline named_iter(override * first) : current(first) {}
+		inline named_iter(const sub_blob * src) : current(src->overrides), previous(NULL), source(src) {}
 		virtual ~named_iter() {}
 		
 	private:
 		const override * current;
+		const override * previous;
+		const sub_blob * source;
 	};
 	
 	override * find(const istr & column) const;

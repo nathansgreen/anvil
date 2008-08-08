@@ -39,6 +39,24 @@ bool overlay_dtable::iter::next()
 	bool first = true;
 	dtype min_key((uint32_t) 0);
 	next_index = ovr_source->table_count;
+
+	if(lastdir == backward)
+		for(size_t i = 0; i < ovr_source->table_count; i++)
+		{
+			assert(!(!subs[i].empty && !subs[i].valid));
+			if(subs[i].empty && !subs[i].valid)
+			{
+				subs[i].empty = !(subs[i].iter->valid());
+				subs[i].valid = subs[i].iter->valid();
+			}
+			else
+			{
+				subs[i].empty = true;
+				subs[i].valid = true;
+			}
+		}
+	lastdir = forward;
+
 	for(size_t i = 0; i < ovr_source->table_count; i++)
 	{
 		if(subs[i].empty && subs[i].valid)
@@ -64,6 +82,65 @@ bool overlay_dtable::iter::next()
 		return false;
 	subs[next_index].empty = true;
 	return true;
+}
+
+bool overlay_dtable::iter::prev()
+{
+	bool first = true;
+	dtype max_key((uint32_t) 0);
+	next_index = ovr_source->table_count;
+
+	if(lastdir == forward)
+		for(size_t i = 0; i < ovr_source->table_count; i++)
+		{
+			assert(!(!subs[i].empty && !subs[i].valid));
+			subs[i].empty = true;
+			subs[i].valid = true;
+		}
+	lastdir = backward;
+
+	for(size_t i = 0; i < ovr_source->table_count; i++)
+	{
+		if(subs[i].empty && subs[i].valid)
+		{
+			/* fill in empty slots */
+			subs[i].empty = false;
+			subs[i].valid = subs[i].iter->prev();
+		}
+		if(!subs[i].valid)
+			/* skip exhausted tables */
+			continue;
+		if(first || subs[i].iter->key() > max_key)
+		{
+			first = false;
+			next_index = i;
+			max_key = subs[i].iter->key();
+		}
+		else if(subs[i].iter->key() == max_key)
+			/* skip shadowed entry */
+			subs[i].empty = true;
+	}
+	if(next_index >= ovr_source->table_count)
+		return false;
+	subs[next_index].empty = true;
+	return true;
+}
+
+bool overlay_dtable::iter::last()
+{
+	for(size_t i = 0; i < ovr_source->table_count; i++)
+	{
+		subs[i].iter->last();
+		if(subs[i].iter->valid())
+		{
+			subs[i].iter->next();
+			subs[i].valid = true;
+		}
+		else
+			subs[i].valid = false;
+		subs[i].empty = true;
+	}
+	return prev();
 }
 
 dtype overlay_dtable::iter::key() const

@@ -63,6 +63,8 @@ private:
 	public:
 		virtual bool valid() const;
 		virtual bool next();
+		virtual bool prev();
+		virtual bool last();
 		virtual dtype key() const;
 		virtual const istr & column() const;
 		virtual blob value() const;

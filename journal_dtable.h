@@ -61,6 +61,7 @@ private:
 	/* will reuse an existing node if possible */
 	int add_node(const dtype & key, const blob & value);
 	static void next_node(node ** n);
+	static void prev_node(node ** n);
 	static void kill_nodes(node * n);
 	
 	class iter : public dtable::iter
@@ -68,14 +69,16 @@ private:
 	public:
 		virtual bool valid() const;
 		virtual bool next();
+		virtual bool prev();
+		virtual bool last();
 		virtual dtype key() const;
 		virtual metablob meta() const;
 		virtual blob value() const;
 		virtual const dtable * source() const;
-		inline iter(node * start, const dtable * source) : jdt_next(start), jdt_source(source) {}
+		inline iter(node * start, const dtable * source) : jdt_node(start), jdt_source(source) {}
 		virtual ~iter() {}
 	private:
-		node * jdt_next;
+		node * jdt_node;
 		const dtable * jdt_source;
 	};
 	

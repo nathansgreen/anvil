@@ -8,28 +8,49 @@
 
 bool journal_dtable::iter::valid() const
 {
-	return jdt_next != NULL;
+	return jdt_node != NULL;
 }
 
 bool journal_dtable::iter::next()
 {
-	next_node(&jdt_next);
-	return jdt_next != NULL;
+	next_node(&jdt_node);
+	return jdt_node != NULL;
+}
+
+bool journal_dtable::iter::prev()
+{
+	prev_node(&jdt_node);
+	return jdt_node != NULL;
+}
+
+bool journal_dtable::iter::last()
+{
+	node * node = jdt_node;
+	while(node->up)
+	{
+		node = node->up;
+	}
+	while(node->right)
+	{
+		node = node->right;
+	}
+	jdt_node = node;
+	return jdt_node != NULL;
 }
 
 dtype journal_dtable::iter::key() const
 {
-	return jdt_next->key;
+	return jdt_node->key;
 }
 
 metablob journal_dtable::iter::meta() const
 {
-	return jdt_next->value;
+	return jdt_node->value;
 }
 
 blob journal_dtable::iter::value() const
 {
-	return jdt_next->value;
+	return jdt_node->value;
 }
 
 const dtable * journal_dtable::iter::source() const
@@ -290,6 +311,24 @@ void journal_dtable::next_node(node ** n)
 	else
 	{
 		while(node->up && node->up->right == node)
+			node = node->up;
+		node = node->up;
+	}
+	*n = node;
+}
+
+void journal_dtable::prev_node(node ** n)
+{
+	node * node = *n;
+	if(node->left)
+	{
+		node = node->left;
+		while(node->right)
+			node = node->right;
+	}
+	else
+	{
+		while(node->up && node->up->left == node)
 			node = node->up;
 		node = node->up;
 	}

@@ -50,6 +50,16 @@ bool simple_dtable::iter::next()
 	return ++index < sdt_source->key_count;
 }
 
+bool simple_dtable::iter::last()
+{
+	return (index = (sdt_source->key_count - 1));
+}
+
+bool simple_dtable::iter::prev()
+{
+	return (index - 1 > sdt_source->key_count) ? false : --index >= 0;
+}
+
 dtype simple_dtable::iter::key() const
 {
 	return sdt_source->get_key(index);

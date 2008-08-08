@@ -30,6 +30,8 @@ public:
 		 * operators. In particular we'd need ++*it instead of just ++it, yet
 		 * both would compile without error. So, we use next() here. */
 		virtual bool next() = 0;
+		virtual bool prev() = 0;
+		virtual bool last() = 0;
 		virtual dtype key() const = 0;
 		virtual ~key_iter() {}
 	};

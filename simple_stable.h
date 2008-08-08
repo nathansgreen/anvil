@@ -83,15 +83,17 @@ private:
 	public:
 		virtual bool valid() const;
 		virtual bool next();
+		virtual bool prev();
+		virtual bool last();
 		virtual const istr & name() const;
 		virtual size_t row_count() const;
 		virtual dtype::ctype type() const;
 		virtual ext_index * index() const;
-		inline citer(column_map_iter source, column_map_iter last) : meta(source), end(last) {}
+		inline citer(column_map_iter source, const std_column_map cmap) : meta(source), columns(cmap) {}
 		virtual ~citer() {}
 	private:
 		column_map_iter meta;
-		column_map_iter end;
+		std_column_map columns;
 	};
 	
 	class siter : public stable::iter
@@ -99,6 +101,8 @@ private:
 	public:
 		virtual bool valid() const;
 		virtual bool next();
+		virtual bool prev();
+		virtual bool last();
 		virtual dtype key() const;
 		virtual const istr & column() const;
 		virtual dtype value() const;

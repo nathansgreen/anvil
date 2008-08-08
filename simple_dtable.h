@@ -66,6 +66,8 @@ private:
 	public:
 		virtual bool valid() const;
 		virtual bool next();
+		virtual bool prev();
+		virtual bool last();
 		virtual dtype key() const;
 		virtual metablob meta() const;
 		virtual blob value() const;

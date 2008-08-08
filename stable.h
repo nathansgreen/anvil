@@ -25,6 +25,7 @@ public:
 		virtual bool valid() const = 0;
 		/* see the note about dtable::iter in dtable.h */
 		virtual bool next() = 0;
+		virtual bool prev() = 0;
 		virtual const istr & name() const = 0;
 		virtual size_t row_count() const = 0;
 		virtual dtype::ctype type() const = 0;
@@ -39,6 +40,7 @@ public:
 		virtual bool valid() const = 0;
 		/* see the note about dtable::iter in dtable.h */
 		virtual bool next() = 0;
+		virtual bool prev() = 0;
 		/* can't call key() if you got this iterator via iterator(key) */
 		virtual dtype key() const = 0;
 		virtual const istr & column() const = 0;

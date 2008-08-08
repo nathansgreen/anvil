@@ -32,10 +32,35 @@ bool sub_blob::named_iter::valid() const
 	return current != NULL;
 }
 
+bool sub_blob::named_iter::prev()
+{
+	if(current)
+	{
+		if(current->pprev != &source->overrides)
+			current = (override *) current->pprev;
+	}
+	else
+		current = previous;
+	return current != NULL;
+}
+
 bool sub_blob::named_iter::next()
 {
 	if(current)
+	{
+		previous = current;
 		current = current->next;
+	}
+	return current != NULL;
+}
+
+bool sub_blob::named_iter::last()
+{
+	while(current && current->next)
+	{
+		previous = current;
+		current = current->next;
+	}
 	return current != NULL;
 }
 
@@ -157,7 +182,7 @@ blob sub_blob::flatten() const
 sub_blob::iter * sub_blob::iterator() const
 {
 	populate();
-	return new named_iter(overrides);
+	return new named_iter(this);
 }
 
 void sub_blob::populate() const

@@ -58,6 +58,17 @@ bool ustr_dtable::iter::next()
 	return ++index < sdt_source->key_count;
 }
 
+bool ustr_dtable::iter::prev()
+{
+	return (index - 1 > sdt_source->key_count) ? false : --index >= 0;
+}
+
+bool ustr_dtable::iter::last()
+{
+	index = sdt_source->key_count - 1;
+	return index < sdt_source->key_count;
+}
+
 dtype ustr_dtable::iter::key() const
 {
 	return sdt_source->get_key(index);
