@@ -58,6 +58,7 @@ private:
 	};
 	
 	node * find_node(const dtype & key) const;
+	node * find_node_next(const dtype & key, bool * found) const;
 	/* will reuse an existing node if possible */
 	int add_node(const dtype & key, const blob & value);
 	static void next_node(node ** n);
@@ -72,14 +73,15 @@ private:
 		virtual bool prev();
 		virtual bool last();
 		virtual dtype key() const;
+		virtual bool seek(const dtype & key);
 		virtual metablob meta() const;
 		virtual blob value() const;
 		virtual const dtable * source() const;
-		inline iter(node * start, const dtable * source) : jdt_node(start), jdt_source(source) {}
+		inline iter(node * start, const journal_dtable * source) : jdt_node(start), jdt_source(source) {}
 		virtual ~iter() {}
 	private:
 		node * jdt_node;
-		const dtable * jdt_source;
+		const journal_dtable * jdt_source;
 	};
 	
 	int add_string(const istr & string, uint32_t * index);

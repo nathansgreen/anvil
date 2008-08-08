@@ -61,6 +61,9 @@ typedef struct t_row t_row;
 struct t_toilet;
 typedef struct t_toilet t_toilet;
 
+struct t_cursor;
+typedef struct t_cursor t_cursor;
+
 struct t_rowset;
 typedef struct t_rowset t_rowset;
 
@@ -147,6 +150,18 @@ int toilet_row_set_value(t_row * row, const char * key, t_type type, const t_val
 /* remove the key and its value */
 int toilet_row_remove_key(t_row * row, const char * key);
 
+/* cursors */
+
+t_cursor * toilet_gtable_cursor(t_gtable * gtable);
+int toilet_cursor_valid(t_cursor * cursor);
+/* returns nonzero if it found an exact match, zero otherwise */
+int toilet_cursor_seek(t_cursor * cursor, t_row_id id);
+int toilet_cursor_next(t_cursor * cursor);
+int toilet_cursor_prev(t_cursor * cursor);
+int toilet_cursor_last(t_cursor * cursor);
+t_row_id toilet_cursor_row_id(t_cursor * cursor);
+void toilet_close_cursor(t_cursor * cursor);
+
 /* queries and rowsets */
 
 t_rowset * toilet_simple_query(t_gtable * gtable, t_simple_query * query);
@@ -224,6 +239,13 @@ struct t_toilet
 	std::map<t_row_id, t_row *> rows;
 	int out_count;
 	inline t_toilet() : out_count(1) {}
+};
+
+/* t_cursor is really just dtable::key_iter */
+union t_cursor_union
+{
+	t_cursor * cursor;
+	dtable::key_iter * iter;
 };
 
 struct t_rowset

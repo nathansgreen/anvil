@@ -591,6 +591,66 @@ int toilet_row_remove_key(t_row * row, const char * key)
 	return r;
 }
 
+t_cursor * toilet_gtable_cursor(t_gtable * gtable)
+{
+	t_cursor_union safer;
+	safer.iter = gtable->table->keys();
+	return safer.cursor;
+}
+
+int toilet_cursor_valid(t_cursor * cursor)
+{
+	t_cursor_union safer;
+	safer.cursor = cursor;
+	return safer.iter->valid();
+}
+
+int toilet_cursor_seek(t_cursor * cursor, t_row_id id)
+{
+	t_cursor_union safer;
+	safer.cursor = cursor;
+	return safer.iter->seek(id);
+}
+
+int toilet_cursor_next(t_cursor * cursor)
+{
+	t_cursor_union safer;
+	safer.cursor = cursor;
+	return safer.iter->next();
+}
+
+int toilet_cursor_prev(t_cursor * cursor)
+{
+	t_cursor_union safer;
+	safer.cursor = cursor;
+	abort();
+	//return safer.iter->prev();
+}
+
+int toilet_cursor_last(t_cursor * cursor)
+{
+	t_cursor_union safer;
+	safer.cursor = cursor;
+	abort();
+	//return safer.iter->last();
+}
+
+t_row_id toilet_cursor_row_id(t_cursor * cursor)
+{
+	t_cursor_union safer;
+	safer.cursor = cursor;
+	dtype key = safer.iter->key();
+	assert(key.type == dtype::UINT32);
+	return key.u32;
+}
+
+void toilet_close_cursor(t_cursor * cursor)
+{
+	t_cursor_union safer;
+	safer.cursor = cursor;
+	delete safer.iter;
+}
+
 static bool toilet_row_matches(t_gtable * gtable, t_row_id id, t_simple_query * query)
 {
 	/* match all rows in the gtable */

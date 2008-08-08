@@ -43,6 +43,13 @@ dtype journal_dtable::iter::key() const
 	return jdt_node->key;
 }
 
+bool journal_dtable::iter::seek(const dtype & key)
+{
+	bool found;
+	jdt_node = jdt_source->find_node_next(key, &found);
+	return found;
+}
+
 metablob journal_dtable::iter::meta() const
 {
 	return jdt_node->value;
@@ -268,6 +275,40 @@ journal_dtable::node * journal_dtable::find_node(const dtype & key) const
 	node * node = root;
 	while(node && node->key != key)
 		node = (node->key < key) ? node->right : node->left;
+	return node;
+}
+
+journal_dtable::node * journal_dtable::find_node_next(const dtype & key, bool * found) const
+{
+	node * node = root;
+	if(!node)
+	{
+		*found = false;
+		return NULL;
+	}
+	while(node->key != key)
+	{
+		if(node->key < key)
+		{
+			if(!node->right)
+			{
+				next_node(&node);
+				*found = false;
+				return node;
+			}
+			node = node->right;
+		}
+		else
+		{
+			if(!node->left)
+			{
+				*found = false;
+				return node;
+			}
+			node = node->left;
+		}
+	}
+	*found = true;
 	return node;
 }
 

@@ -65,6 +65,11 @@ dtype simple_dtable::iter::key() const
 	return sdt_source->get_key(index);
 }
 
+bool simple_dtable::iter::seek(const dtype & key)
+{
+	return sdt_source->find_key(key, NULL, NULL, &index) >= 0;
+}
+
 metablob simple_dtable::iter::meta() const
 {
 	size_t data_length;
@@ -125,8 +130,6 @@ int simple_dtable::find_key(const dtype & key, size_t * data_length, off_t * dat
 {
 	/* binary search */
 	ssize_t min = 0, max = key_count - 1;
-	if(!key_count)
-		return -ENOENT;
 	while(min <= max)
 	{
 		/* watch out for overflow! */
@@ -143,6 +146,8 @@ int simple_dtable::find_key(const dtype & key, size_t * data_length, off_t * dat
 			return 0;
 		}
 	}
+	if(index)
+		*index = min;
 	return -ENOENT;
 }
 

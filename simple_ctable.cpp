@@ -125,6 +125,32 @@ dtype simple_ctable::iter::key() const
 	return source->key();
 }
 
+bool simple_ctable::iter::seek(const dtype & key)
+{
+	bool found;
+	if(columns)
+	{
+		delete columns;
+		columns = NULL;
+	}
+	found = source->seek(key);
+	while(source->valid())
+	{
+		blob value = source->value();
+		if(value.exists())
+		{
+			row = sub_blob(value);
+			columns = row.iterator();
+			if(columns->valid())
+				break;
+			delete columns;
+			columns = NULL;
+		}
+		source->next();
+	}
+	return found;
+}
+
 const istr & simple_ctable::iter::column() const
 {
 	return columns->column();
