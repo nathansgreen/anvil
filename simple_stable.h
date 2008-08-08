@@ -89,11 +89,11 @@ private:
 		virtual size_t row_count() const;
 		virtual dtype::ctype type() const;
 		virtual ext_index * index() const;
-		inline citer(column_map_iter source, const std_column_map cmap) : meta(source), columns(cmap) {}
+		inline citer(column_map_iter source, const std_column_map * cmap) : meta(source), columns(cmap) {}
 		virtual ~citer() {}
 	private:
 		column_map_iter meta;
-		std_column_map columns;
+		const std_column_map * columns;
 	};
 	
 	class siter : public stable::iter

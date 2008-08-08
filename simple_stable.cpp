@@ -14,19 +14,19 @@
 
 bool simple_stable::citer::valid() const
 {
-	return meta != columns.end();
+	return meta != columns->end();
 }
 
 bool simple_stable::citer::next()
 {
-	if(meta != columns.end())
+	if(meta != columns->end())
 		meta++;
-	return meta != columns.end();
+	return meta != columns->end();
 }
 
 bool simple_stable::citer::prev()
 {
-	if(meta != columns.begin())
+	if(meta != columns->begin())
 	{
 		--meta;
 		return true;
@@ -37,8 +37,8 @@ bool simple_stable::citer::prev()
 
 bool simple_stable::citer::last()
 {
-	meta = columns.end();
-	if(--meta != columns.end())
+	meta = columns->end();
+	if(--meta != columns->end())
 		return true;
 	return false;
 }
@@ -105,7 +105,7 @@ dtype simple_stable::siter::value() const
 
 stable::column_iter * simple_stable::columns() const
 {
-	return new citer(column_map.begin(), column_map);
+	return new citer(column_map.begin(), &column_map);
 }
 
 size_t simple_stable::column_count() const
