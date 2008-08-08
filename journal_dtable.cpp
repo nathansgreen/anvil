@@ -19,22 +19,22 @@ bool journal_dtable::iter::next()
 
 bool journal_dtable::iter::prev()
 {
-	prev_node(&jdt_node);
-	return jdt_node != NULL;
+	node * node;
+	if(jdt_node)
+	{
+		node = jdt_node;
+		prev_node(&node);
+	}
+	else
+		for(node = jdt_source->root; node && node->right; node = node->right);
+	if(node)
+		jdt_node = node;
+	return node != NULL;
 }
 
 bool journal_dtable::iter::last()
 {
-	node * node = jdt_node;
-	while(node && node->up)
-	{
-		node = node->up;
-	}
-	while(node && node->right)
-	{
-		node = node->right;
-	}
-	jdt_node = node;
+	for(jdt_node = jdt_source->root; jdt_node && jdt_node->right; jdt_node = jdt_node->right);
 	return jdt_node != NULL;
 }
 
