@@ -41,7 +41,7 @@ public:
 		
 		inline journal_listener() : local_id(NO_ID), journal(NULL) {}
 		
-		inline listener_id id()
+		inline listener_id id() const
 		{
 			return local_id;
 		}

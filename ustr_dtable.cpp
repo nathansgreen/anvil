@@ -44,56 +44,63 @@
  * [] = byte 0-m: data bytes */
 
 ustr_dtable::iter::iter(const ustr_dtable * source)
-	: index(0), sdt_source(source)
+	: index(0), udt_source(source)
 {
 }
 
 bool ustr_dtable::iter::valid() const
 {
-	return index < sdt_source->key_count;
+	return index < udt_source->key_count;
 }
 
 bool ustr_dtable::iter::next()
 {
-	return ++index < sdt_source->key_count;
+	if(index == udt_source->key_count)
+		return false;
+	return ++index < udt_source->key_count;
 }
 
 bool ustr_dtable::iter::prev()
 {
-	return (index - 1 > sdt_source->key_count) ? false : --index >= 0;
+	if(!index)
+		return false;
+	index--;
+	return true;
 }
 
 bool ustr_dtable::iter::last()
 {
-	index = sdt_source->key_count - 1;
-	return index < sdt_source->key_count;
+	if(!udt_source->key_count)
+		return false;
+	index = udt_source->key_count - 1;
+	return true;
 }
 
 dtype ustr_dtable::iter::key() const
 {
-	return sdt_source->get_key(index);
+	return udt_source->get_key(index);
 }
 
 bool ustr_dtable::iter::seek(const dtype & key)
 {
-	return sdt_source->find_key(key, NULL, NULL, &index) >= 0;
+	return udt_source->find_key(key, NULL, NULL, &index) >= 0;
 }
 
 metablob ustr_dtable::iter::meta() const
 {
 	size_t data_length;
-	sdt_source->get_key(index, &data_length);
+	udt_source->get_key(index, &data_length);
 	return data_length ? metablob(data_length) : metablob();
 }
 
 blob ustr_dtable::iter::value() const
 {
-	return sdt_source->get_value(index);
+	return udt_source->get_value(index);
 }
 
 const dtable * ustr_dtable::iter::source() const
 {
-	return sdt_source;
+	return udt_source;
 }
 
 dtable::iter * ustr_dtable::iterator() const

@@ -37,10 +37,10 @@ bool overlay_dtable::iter::valid() const
 bool overlay_dtable::iter::next()
 {
 	bool first = true;
-	dtype min_key((uint32_t) 0);
+	dtype min_key(0u);
 	next_index = ovr_source->table_count;
-
-	if(lastdir == backward)
+	
+	if(lastdir == BACKWARD)
 		for(size_t i = 0; i < ovr_source->table_count; i++)
 		{
 			assert(!(!subs[i].empty && !subs[i].valid));
@@ -55,8 +55,8 @@ bool overlay_dtable::iter::next()
 				subs[i].valid = true;
 			}
 		}
-	lastdir = forward;
-
+	lastdir = FORWARD;
+	
 	for(size_t i = 0; i < ovr_source->table_count; i++)
 	{
 		if(subs[i].empty && subs[i].valid)
@@ -87,18 +87,18 @@ bool overlay_dtable::iter::next()
 bool overlay_dtable::iter::prev()
 {
 	bool first = true;
-	dtype max_key((uint32_t) 0);
+	dtype max_key(0u);
 	next_index = ovr_source->table_count;
-
-	if(lastdir == forward)
+	
+	if(lastdir == FORWARD)
 		for(size_t i = 0; i < ovr_source->table_count; i++)
 		{
 			assert(!(!subs[i].empty && !subs[i].valid));
 			subs[i].empty = true;
 			subs[i].valid = true;
 		}
-	lastdir = backward;
-
+	lastdir = BACKWARD;
+	
 	for(size_t i = 0; i < ovr_source->table_count; i++)
 	{
 		if(subs[i].empty && subs[i].valid)
@@ -120,7 +120,7 @@ bool overlay_dtable::iter::prev()
 			/* skip shadowed entry */
 			subs[i].empty = true;
 	}
-	if(next_index >= ovr_source->table_count)
+	if(next_index == ovr_source->table_count)
 		return false;
 	subs[next_index].empty = true;
 	return true;
@@ -140,6 +140,7 @@ bool overlay_dtable::iter::last()
 			subs[i].valid = false;
 		subs[i].empty = true;
 	}
+	lastdir = FORWARD;
 	return prev();
 }
 

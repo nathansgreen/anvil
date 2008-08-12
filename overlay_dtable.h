@@ -60,7 +60,7 @@ private:
 		sub * subs;
 		size_t next_index;
 		const overlay_dtable * ovr_source;
-		enum direction {forward, backward} lastdir;
+		enum direction {FORWARD, BACKWARD} lastdir;
 	};
 	
 	const dtable ** tables;

@@ -47,17 +47,25 @@ bool simple_dtable::iter::valid() const
 
 bool simple_dtable::iter::next()
 {
+	if(index == sdt_source->key_count)
+		return false;
 	return ++index < sdt_source->key_count;
-}
-
-bool simple_dtable::iter::last()
-{
-	return (index = (sdt_source->key_count - 1));
 }
 
 bool simple_dtable::iter::prev()
 {
-	return (index - 1 > sdt_source->key_count) ? false : --index >= 0;
+	if(!index)
+		return false;
+	index--;
+	return true;
+}
+
+bool simple_dtable::iter::last()
+{
+	if(!sdt_source->key_count)
+		return false;
+	index = sdt_source->key_count - 1;
+	return true;
 }
 
 dtype simple_dtable::iter::key() const
