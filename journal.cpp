@@ -8,7 +8,6 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/uio.h>
 
 #include "md5.h"
 #include "openat.h"
@@ -47,7 +46,7 @@ journal * journal::create(int dfd, const istr & path, journal * prev)
 	return j;
 }
 
-int journal::appendv(const struct iovec * iovp, size_t count)
+int journal::appendv(const struct ovec * ovp, size_t count)
 {
 	data_header header;
 	uint8_t * data;
@@ -55,16 +54,16 @@ int journal::appendv(const struct iovec * iovp, size_t count)
 	size_t i, cursor;
 	if(count < 1 || erasure)
 		return -EINVAL;
-	header.length = iovp[0].iov_len;
+	header.length = ovp[0].ov_len;
 	for(i = 1; i < count; i++)
-		header.length += iovp[i].iov_len;
+		header.length += ovp[i].ov_len;
 	data = (uint8_t *) malloc(header.length + sizeof(header));
 	cursor = sizeof(header);
 	memcpy(data, &header, sizeof(header));
 	for(i = 0; i < count; i++)
 	{
-		memcpy(&data[cursor], iovp[i].iov_base, iovp[i].iov_len);
-		cursor += iovp[i].iov_len;
+		memcpy(&data[cursor], ovp[i].ov_base, ovp[i].ov_len);
+		cursor += ovp[i].ov_len;
 	}
 	assert(cursor == sizeof(header) + header.length);
 	

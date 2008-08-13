@@ -7,15 +7,15 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/uio.h>
 #include <unistd.h>
 #include <string.h>
 #include <assert.h>
 
-#include <algorithm> /* for std::sort */
 #include <map>
 #include <vector>
+#include <algorithm> /* for std::sort */
 
 #include "openat.h"
 #include "journal.h"
@@ -88,17 +88,51 @@ static tx_id last_tx_id = -1;
 typedef std::map<tx_id, journal *> tx_map_t;
 static tx_map_t * tx_map; 
 
+struct write_log {
+	struct write_log * next;
+	size_t length;
+	off_t offset;
+	/* must be the last member */
+	uint8_t data[0];
+	
+	/* wrap the malloc() memory trick */
+	static inline write_log * alloc(size_t length, off_t offset, const void * data)
+	{
+		write_log * log = (write_log *) malloc(sizeof(write_log) + length);
+		if(log)
+		{
+			log->next = NULL;
+			log->length = length;
+			log->offset = offset;
+			memcpy(log->data, data, length);
+		}
+		return log;
+	}
+	
+	inline void free()
+	{
+		::free(this);
+	}
+	
+private:
+	/* make sure these are never used */
+	write_log(); ~write_log();
+	write_log(const write_log & x);
+	write_log & operator=(const write_log & x);
+};
+
 /* TX_FDS should be a power of 2 */
 #define TX_FDS 1024
 static struct {
-	int fd, usage;
+	int fd, writes, usage;
 	char * dir;
 	char * name;
 	mode_t mode;
 	tx_id tid;
 	tx_fid fid;
+	write_log * log;
+	write_log ** last;
 } tx_fds[TX_FDS];
-static tx_fd last_tx_fd = -1;
 
 #define FID_FD(x) ((x) % TX_FDS)
 
@@ -120,8 +154,6 @@ static int ends_with(const char * string, const char * suffix)
 /* scans journal dir, recovers transactions */
 int tx_init(int dfd, const params & config)
 {
-	size_t i;
-	tx_fd fd;
 	DIR * dir;
 	int copy, error = -1;
 	struct dirent * ent;
@@ -129,12 +161,13 @@ int tx_init(int dfd, const params & config)
 	
 	if(journal_dir >= 0)
 		return -EBUSY;
-	for(fd = 0; fd < TX_FDS; fd++)
+	for(tx_fd fd = 0; fd < TX_FDS; fd++)
 	{
 		tx_fds[fd].fd = -1;
 		tx_fds[fd].fid = fd;
+		tx_fds[fd].log = NULL;
+		tx_fds[fd].last = &tx_fds[fd].log;
 	}
-	last_tx_fd = 0;
 	copy = atexit(tx_deinit);
 	if(copy < 0)
 		return copy;
@@ -168,7 +201,7 @@ int tx_init(int dfd, const params & config)
 	/* XXX currently we assume recovery of journals in lexicographic order */
 	std::sort(entries.begin(), entries.end(), strcmp_less());
 	
-	for(i = 0; i < entries.size(); i++)
+	for(size_t i = 0; i < entries.size(); i++)
 	{
 		const char * name = entries[i];
 		last_tx_id = strtol(name, NULL, 16);
@@ -186,7 +219,7 @@ int tx_init(int dfd, const params & config)
 		error = tx_playback(current_journal);
 		if(error < 0)
 			goto fail;
-		for(fd = 0; fd < TX_FDS; fd++)
+		for(tx_fd fd = 0; fd < TX_FDS; fd++)
 			if(tx_fds[fd].fd >= 0)
 				tx_close(fd);
 		error = current_journal->erase();
@@ -274,14 +307,14 @@ int tx_add_depend(patchgroup_id_t pid)
 	return current_journal->add_depend(pid);
 }
 
-static inline int switch_journal()
+static int switch_journal(void)
 {
-		int r = current_journal->erase();
-		if(r < 0)
-			return r;
-		last_journal = current_journal;
-		current_journal = NULL;
-		return 0;
+	int r = current_journal->erase();
+	if(r < 0)
+		return r;
+	last_journal = current_journal;
+	current_journal = NULL;
+	return 0;
 }
 
 tx_id tx_end(int assign_id)
@@ -354,7 +387,7 @@ int tx_forget(tx_id id)
 /* transaction playback */
 
 /* When doing normal playback, the files will all be open already (but possibly
- * with negative usage counts, indicating they've been "closed" during the
+ * with negative write counts, indicating they've been "closed" during the
  * transaction). We can thus just go directly to their tx_fds entries and use
  * the file descriptors there. The tx_fd of each file is unique since files are
  * not actually closed until the end of the transaction, which is useful for
@@ -398,11 +431,14 @@ static int tx_write_playback(struct tx_write_hdr * header, size_t length)
 		}
 		tx_fds[fd].tid = last_tx_id;
 		/* important so that tx_close() will work after recovery! */
-		tx_fds[fd].usage = 0;
+		tx_fds[fd].writes = 0;
+		tx_fds[fd].usage = 1;
 		data = &header->name->strings[header->name->dir_len + header->name->name_len];
+		assert(!tx_fds[fd].log);
 	}
 	else
 	{
+		write_log * log = tx_fds[fd].log;
 		if(header->length + sizeof(struct tx_write) == length)
 			/* not a full header with pathnames */
 			data = header->data;
@@ -412,10 +448,14 @@ static int tx_write_playback(struct tx_write_hdr * header, size_t length)
 			assert(header->length + sizeof(struct tx_full_write) + header->name->dir_len + header->name->name_len == length);
 			data = &header->name->strings[header->name->dir_len + header->name->name_len];
 		}
+		assert(log);
+		assert(log->length == header->length && log->offset == header->offset);
+		if(!(tx_fds[fd].log = log->next))
+			tx_fds[fd].last = &tx_fds[fd].log;
+		log->free();
 	}
-	lseek(tx_fds[fd].fd, header->offset, SEEK_SET);
-	write(tx_fds[fd].fd, data, header->length);
-	if(tx_fds[fd].usage < 0 && !++tx_fds[fd].usage)
+	pwrite(tx_fds[fd].fd, data, header->length, header->offset);
+	if(tx_fds[fd].writes < 0 && !++tx_fds[fd].writes)
 		tx_close(fd);
 	return 0;
 }
@@ -455,30 +495,64 @@ static int tx_playback(journal * j)
 
 /* operations on files within a transaction */
 
-static tx_fd get_next_tx_fd(void)
+static int same_path(const char * d1, const char * f1, const char * d2, const char * f2)
 {
-	tx_fd fd = last_tx_fd;
-	
-	/* XXX necessary? probably not... */
-	if(fd == -1)
+	size_t d1l = strlen(d1);
+	size_t d2l = strlen(d2);
+	/* support directory names with trailing / */
+	if(d1[d1l - 1] == '/')
+		d1l--;
+	if(d2[d2l - 1] == '/')
+		d2l--;
+	/* already lined up? then just compare each part */
+	if(d1l == d2l)
+		return !strncmp(d1, d2, d1l) && !strcmp(f1, f2);
+	/* handle d1l > d2l by switching 1<->2 */
+	if(d1l > d2l)
 	{
-		for(fd = 0; fd < TX_FDS; fd++)
-		{
-			tx_fds[fd].fd = -1;
-			tx_fds[fd].fid = fd;
-		}
-		last_tx_fd = 0;
-		return 0;
+		const char * ss;
+		size_t sl = d1l;
+		d1l = d2l; d2l = sl;
+		ss = d1; d1 = d2; d2 = ss;
+		ss = f1; f1 = f2; f2 = ss;
 	}
-	
-	do {
-		if(tx_fds[last_tx_fd].fd < 0)
-			return last_tx_fd;
-		if(++last_tx_fd == TX_FDS)
-			last_tx_fd = 0;
-	} while(fd != last_tx_fd);
-	
-	return -1;
+	assert(d1l < d2l);
+	if(strncmp(d1, d2, d1l))
+		return 0;
+	if(d2[d1l] != '/')
+		return 0;
+	d2 = &d2[d1l + 1];
+	d2l -= d1l + 1;
+	if(strncmp(d2, f1, d2l))
+		return 0;
+	if(f1[d2l] != '/')
+		return 0;
+	f1 = &f1[d2l + 1];
+	return !strcmp(f1, f2);
+}
+
+static tx_fd get_tx_fd(const char * dir, const char * name)
+{
+	tx_fd min = -1;
+	for(tx_fd fd = 0; fd < TX_FDS; fd++)
+		if(tx_fds[fd].fd < 0)
+		{
+			/* if it's currently closed, check if it's the lowest */
+			if(min == -1)
+				min = fd;
+		}
+		else
+		{
+			/* if it's currently open, check if it's the same file */
+			if(same_path(tx_fds[fd].dir, tx_fds[fd].name, dir, name))
+			{
+				if(tx_fds[fd].writes < 0)
+					tx_fds[fd].writes = -tx_fds[fd].writes;
+				tx_fds[fd].usage++;
+				return fd;
+			}
+		}
+	return min;
 }
 
 /* XXX: flags must either be stored in the journal, or some flags like O_TRUNC and O_EXCL must be disallowed */
@@ -487,11 +561,24 @@ static tx_fd get_next_tx_fd(void)
 tx_fd tx_open(int dfd, const char * name, int flags, ...)
 {
 	int fd;
+	char * dir;
 	if(journal_dir < 0)
 		return -EBUSY;
-	fd = get_next_tx_fd();
+	dir = getcwdat(dfd, NULL, 0);
+	if(!dir)
+		return (errno > 0) ? -errno : -1;
+	fd = get_tx_fd(dir, name);
 	if(fd < 0)
+	{
+		free(dir);
 		return fd;
+	}
+	if(tx_fds[fd].fd >= 0)
+	{
+		free(dir);
+		/* already open */
+		return fd;
+	}
 	if(flags & O_CREAT)
 	{
 		va_list ap;
@@ -501,30 +588,77 @@ tx_fd tx_open(int dfd, const char * name, int flags, ...)
 	}
 	else
 		tx_fds[fd].mode = 0;
-	tx_fds[fd].dir = getcwdat(dfd, NULL, 0);
-	if(!tx_fds[fd].dir)
-		return (errno > 0) ? -errno : -1;
+	tx_fds[fd].dir = dir;
 	tx_fds[fd].name = strdup(name);
 	if(!tx_fds[fd].name)
 	{
-		free(tx_fds[fd].dir);
+		free(dir);
 		return -ENOMEM;
 	}
 	tx_fds[fd].fd = openat(dfd, name, flags, tx_fds[fd].mode);
 	if(tx_fds[fd].fd < 0)
 	{
 		free(tx_fds[fd].name);
-		free(tx_fds[fd].dir);
+		free(dir);
 		return tx_fds[fd].fd;
 	}
+	tx_fds[fd].writes = 0;
+	tx_fds[fd].usage = 1;
 	/* i.e., not this tx ID for sure */
 	tx_fds[fd].tid = last_tx_id - 1;
 	return fd;
 }
 
-int tx_read_fd(tx_fd fd)
+int tx_emptyfile(tx_fd fd)
 {
-	return tx_fds[fd].fd;
+	int r;
+	struct stat st;
+	if(tx_fds[fd].log)
+		return 1;
+	r = fstat(tx_fds[fd].fd, &st);
+	if(r < 0)
+		return r;
+	return st.st_size > 0;
+}
+
+ssize_t tx_read(tx_fd fd, void * buf, size_t length, off_t offset)
+{
+	const off_t end = offset + length;
+	ssize_t size = pread(tx_fds[fd].fd, buf, length, offset);
+	if(size < 0)
+		return size;
+	if((size_t) size < length)
+		/* can't use void * in arithmetic... */
+		memset(&((uint8_t *) buf)[size], 0, length - size);
+	/* this will build up the correct result by applying all uncommitted writes in order */
+	for(write_log * log = tx_fds[fd].log; log; log = log->next)
+	{
+		if(log->offset >= offset)
+		{
+			if(log->offset < end)
+			{
+				off_t start = log->offset - offset;
+				size_t min = length - start;
+				if(log->length < min)
+					min = log->length;
+				/* can't use void * in arithmetic... */
+				memcpy(&((uint8_t *) buf)[start], log->data, min);
+				if(start + min > (size_t) size)
+					size = start + min;
+			}
+		}
+		else if(log->offset + (off_t) log->length > offset)
+		{
+			off_t start = offset - log->offset;
+			size_t min = log->length - start;
+			if(length < min)
+				min = length;
+			memcpy(buf, &log->data[start], min);
+			if(min > (size_t) size)
+				size = min;
+		}
+	}
+	return size;
 }
 
 /* note that tx_write(), unlike write(), does not report the number of bytes written */
@@ -532,37 +666,50 @@ ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset)
 {
 	struct tx_full_write full;
 	struct tx_write * header = &full.write;
-	struct iovec iov[4];
+	struct journal::ovec ov[4];
 	size_t count = 1;
+	int r;
 	if(!current_journal)
 		return -EBUSY;
 	assert(tx_fds[fd].fd >= 0);
 	header->type.type = tx_hdr::WRITE;
 	header->write.length = length;
 	header->write.offset = offset;
-	iov[0].iov_base = header;
-	iov[0].iov_len = sizeof(*header);
+	ov[0].ov_base = header;
+	ov[0].ov_len = sizeof(*header);
 	if(tx_fds[fd].tid != last_tx_id)
 	{
-		iov[0].iov_len = sizeof(full);
+		ov[0].ov_len = sizeof(full);
 		full.name.dir_len = strlen(tx_fds[fd].dir);
-		iov[1].iov_base = tx_fds[fd].dir;
-		iov[1].iov_len = full.name.dir_len;
+		ov[1].ov_base = tx_fds[fd].dir;
+		ov[1].ov_len = full.name.dir_len;
 		full.name.name_len = strlen(tx_fds[fd].name);
-		iov[2].iov_base = tx_fds[fd].name;
-		iov[2].iov_len = full.name.name_len;
+		ov[2].ov_base = tx_fds[fd].name;
+		ov[2].ov_len = full.name.name_len;
 		full.name.mode = tx_fds[fd].mode;
 		count = 3;
 		tx_fds[fd].tid = last_tx_id;
 		tx_fds[fd].fid += TX_FDS;
-		tx_fds[fd].usage = 0;
+		tx_fds[fd].writes = 0;
 	}
 	header->write.fid = tx_fds[fd].fid;
-	iov[count].iov_base = (void *) buf;
-	iov[count++].iov_len = length;
-	tx_fds[fd].usage++;
-	/* FIXME if this fails and count == 4, then fix tx_fds[fd].tid */
-	return current_journal->appendv(iov, count);
+	ov[count].ov_base = buf;
+	ov[count++].ov_len = length;
+	*tx_fds[fd].last = write_log::alloc(length, offset, buf);
+	if(!*tx_fds[fd].last)
+		return -ENOMEM;
+	tx_fds[fd].writes++;
+	r = current_journal->appendv(ov, count);
+	if(r < 0)
+	{
+		tx_fds[fd].writes--;
+		if(count == 4)
+			/* i.e., not this tx ID for sure */
+			tx_fds[fd].tid--;
+	}
+	else
+		tx_fds[fd].last = &(*tx_fds[fd].last)->next;
+	return r;
 }
 
 int tx_vnprintf(tx_fd fd, off_t offset, size_t max, const char * format, va_list ap)
@@ -590,13 +737,16 @@ int tx_nprintf(tx_fd fd, off_t offset, size_t max, const char * format, ...)
 
 int tx_close(tx_fd fd)
 {
-	if(tx_fds[fd].tid == last_tx_id && tx_fds[fd].usage && current_journal)
+	/* still in use by other openers? */
+	if(--tx_fds[fd].usage > 0)
+		return 0;
+	if(tx_fds[fd].tid == last_tx_id && tx_fds[fd].writes && current_journal)
 	{
-		if(tx_fds[fd].usage > 0)
-			tx_fds[fd].usage = -tx_fds[fd].usage;
+		if(tx_fds[fd].writes > 0)
+			tx_fds[fd].writes = -tx_fds[fd].writes;
 		else
 		{
-			fprintf(stderr, "Double close of tx_fd %d?\n", fd);
+			fprintf(stderr, "Extra close of tx_fd %d?\n", fd);
 			return -EINVAL;
 		}
 	}
@@ -605,6 +755,13 @@ int tx_close(tx_fd fd)
 		int r = close(tx_fds[fd].fd);
 		if(r < 0)
 			return r;
+		while(tx_fds[fd].log)
+		{
+			write_log * log = tx_fds[fd].log;
+			tx_fds[fd].log = log->next;
+			log->free();
+		}
+		tx_fds[fd].last = &tx_fds[fd].log;
 		free(tx_fds[fd].name);
 		free(tx_fds[fd].dir);
 		tx_fds[fd].fd = -1;
@@ -621,25 +778,25 @@ int tx_close(tx_fd fd)
 int tx_unlink(int dfd, const char * name)
 {
 	struct tx_unlink header;
-	struct iovec iov[3];
+	struct journal::ovec ov[3];
 	char * dir;
 	int r;
 	if(!current_journal)
 		return -EBUSY;
 	header.type.type = tx_hdr::UNLINK;
-	iov[0].iov_base = &header;
-	iov[0].iov_len = sizeof(header);
+	ov[0].ov_base = &header;
+	ov[0].ov_len = sizeof(header);
 	dir = getcwdat(dfd, NULL, 0);
 	if(!dir)
 		return (errno > 0) ? -errno : -1;
 	header.unlink.dir_len = strlen(dir);
-	iov[1].iov_base = dir;
-	iov[1].iov_len = header.unlink.dir_len;
+	ov[1].ov_base = dir;
+	ov[1].ov_len = header.unlink.dir_len;
 	header.unlink.name_len = strlen(name);
-	iov[2].iov_base = (void *) name;
-	iov[2].iov_len = header.unlink.name_len;
+	ov[2].ov_base = name;
+	ov[2].ov_len = header.unlink.name_len;
 	header.unlink.mode = 0;
-	r = current_journal->appendv(iov, 3);
+	r = current_journal->appendv(ov, 3);
 	free(dir);
 	return r;
 }

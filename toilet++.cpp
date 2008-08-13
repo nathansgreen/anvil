@@ -156,7 +156,7 @@ t_toilet * toilet_open(const char * path, FILE * errors)
 	toilet->row_fd = tx_open(dir_fd, "=next-row", O_RDWR);
 	if(toilet->row_fd < 0)
 		goto fail_read_1;
-	if(read(tx_read_fd(toilet->row_fd), &toilet->next_row, sizeof(toilet->next_row)) != sizeof(toilet->next_row))
+	if(tx_read(toilet->row_fd, &toilet->next_row, sizeof(toilet->next_row), 0) != sizeof(toilet->next_row))
 		goto fail_read_2;
 	
 	/* get the list of gtable names */

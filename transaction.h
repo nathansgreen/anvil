@@ -41,7 +41,8 @@ int tx_sync(tx_id id);
 int tx_forget(tx_id id);
 
 tx_fd tx_open(int dfd, const char * name, int flags, ...);
-int tx_read_fd(tx_fd fd);
+int tx_emptyfile(tx_fd fd);
+ssize_t tx_read(tx_fd fd, void * buf, size_t length, off_t offset);
 /* while the same signature as pwrite(), only returns 0 vs. < 0 (not #bytes written) */
 ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset);
 int tx_vnprintf(tx_fd fd, off_t offset, size_t max, const char * format, va_list ap);

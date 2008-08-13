@@ -7,7 +7,6 @@
 #include <errno.h>
 #include <assert.h>
 #include <fcntl.h>
-#include <sys/stat.h>
 
 #include "openat.h"
 #include "transaction.h"
@@ -337,12 +336,10 @@ int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing
 		char seq[16];
 		meta_journal info;
 		data_header header;
-		int r, fd = tx_read_fd(meta_fd);
-		if(read(fd, &info, sizeof(info)) != sizeof(info))
+		int r;
+		if(tx_read(meta_fd, &info, sizeof(info), 0) != sizeof(info))
 		{
-			struct stat st;
-			r = fstat(fd, &st);
-			if(r >= 0 && !st.st_size)
+			if(tx_emptyfile(meta_fd))
 				goto create;
 			tx_close(meta_fd);
 			meta_fd = -1;
@@ -550,7 +547,7 @@ int sys_journal::set_unique_id_file(int dfd, const char * file, bool create)
 	}
 	else
 	{
-		r = read(tx_read_fd(id.fd), &id.next, sizeof(id.next));
+		r = tx_read(id.fd, &id.next, sizeof(id.next), 0);
 		if(r != sizeof(id.next))
 		{
 			tx_close(id.fd);

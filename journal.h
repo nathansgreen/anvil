@@ -7,7 +7,6 @@
 
 #include <errno.h>
 #include <stdint.h>
-#include <sys/uio.h>
 
 #ifndef __cplusplus
 #error journal.h is a C++ header file
@@ -29,15 +28,19 @@ class journal
 {
 public:
 	typedef int (*record_processor)(void * data, size_t length, void * param);
+	struct ovec {
+		const void * ov_base;
+		size_t ov_len;
+	};
 	
 	/* appends a record to the journal */
-	int appendv(const struct iovec * iovp, size_t count);
+	int appendv(const struct ovec * ovp, size_t count);
 	inline int append(const void * data, size_t length)
 	{
-		struct iovec iov;
-		iov.iov_base = (void *) data;
-		iov.iov_len = length;
-		return appendv(&iov, 1);
+		struct ovec ov;
+		ov.ov_base = data;
+		ov.ov_len = length;
+		return appendv(&ov, 1);
 	}
 	
 	/* adds a patchgroup dependency to the (future) commit record, so that this journal will depend on it */
