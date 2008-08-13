@@ -210,6 +210,10 @@ int simple_stable::load_columns()
 		}
 		
 		blob value = source->value();
+		source->next();
+		/* skip removed columns */
+		if(!value.exists())
+			continue;
 		column_info * c = &column_map[key.str];
 		c->row_count = value.index<size_t>(0);
 		switch(value[sizeof(size_t)])
@@ -227,7 +231,6 @@ int simple_stable::load_columns()
 				c->type = dtype::BLOB;
 				break;
 		}
-		source->next();
 	}
 	if(source->valid())
 		column_map.clear();
