@@ -8,7 +8,7 @@
 #include "overlay_dtable.h"
 
 overlay_dtable::iter::iter(const overlay_dtable * source)
-	: ovr_source(source)
+	: ovr_source(source), lastdir(FORWARD)
 {
 	subs = new sub[source->table_count];
 	for(size_t i = 0; i < source->table_count; i++)
