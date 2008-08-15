@@ -120,6 +120,16 @@ struct jdt_key_str
 	uint8_t data[0];
 } __attribute__((packed));
 
+#define JDT_KEY_BLOB 5
+struct jdt_key_blob
+{
+	uint8_t type;
+	size_t key_size;
+	size_t size;
+	/* key stored first, then data */
+	uint8_t data[0];
+} __attribute__((packed));
+
 int journal_dtable::add_string(const istr & string, uint32_t * index)
 {
 	int r;
@@ -141,14 +151,14 @@ int journal_dtable::add_string(const istr & string, uint32_t * index)
 	return r;
 }
 
-template<class T> inline int journal_dtable::log(T * entry, const blob & blob)
+template<class T> inline int journal_dtable::log(T * entry, const blob & blob, size_t offset)
 {
 	int r;
-	size_t size = sizeof(*entry);
+	size_t size = sizeof(*entry) + offset;
 	if(blob.exists())
 	{
 		entry->size = blob.size();
-		memcpy(entry->data, &blob[0], entry->size);
+		memcpy(&entry->data[offset], &blob[0], entry->size);
 		size += entry->size;
 	}
 	else
@@ -196,7 +206,15 @@ int journal_dtable::log(const dtype & key, const blob & blob)
 			return log(entry, blob);
 		}
 		case dtype::BLOB:
-			/* fall through */ ;
+		{
+			jdt_key_blob * entry = (jdt_key_blob *) malloc(sizeof(*entry) + blob.size() + key.blb.size());
+			if(!entry)
+				return -ENOMEM;
+			entry->type = JDT_KEY_BLOB;
+			entry->key_size = key.blb.size();
+			memcpy(entry->data, &key.blb[0], entry->key_size);
+			return log(entry, blob, entry->key_size);
+		}
 	}
 	abort();
 }
@@ -435,6 +453,14 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 			if(str->size == (size_t) -1)
 				return add_node(string, blob());
 			return add_node(string, blob(str->size, str->data));
+		}
+		case JDT_KEY_BLOB:
+		{
+			jdt_key_blob * blb = (jdt_key_blob *) entry;
+			blob key(blb->key_size, blb->data);
+			if(blb->size == (size_t) -1)
+				return add_node(key, blob());
+			return add_node(key, blob(blb->size, &blb->data[blb->key_size]));
 		}
 		default:
 			return -EINVAL;
