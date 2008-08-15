@@ -50,6 +50,9 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		case 3:
 			ktype = dtype::STRING;
 			break;
+		case 4:
+			ktype = dtype::BLOB;
+			break;
 		default:
 			goto fail_header;
 	}
@@ -320,6 +323,9 @@ int managed_dtable::create(int dfd, const char * name, const params & config, dt
 			break;
 		case dtype::STRING:
 			header.key_type = 3;
+			break;
+		case dtype::BLOB:
+			header.key_type = 4;
 			break;
 		default:
 			return -EINVAL;
