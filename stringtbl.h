@@ -12,6 +12,7 @@
 #error stringtbl.h is a C++ header file
 #endif
 
+#include "blob.h"
 #include "rofile.h"
 #include "rwfile.h"
 
@@ -38,25 +39,32 @@ public:
 		return size;
 	}
 	
+	inline bool is_binary()
+	{
+		return binary;
+	}
+	
 	/* The return value of get() is good until at least ST_LRU
 	 * more calls to get(), or one call to locate(). */
 	const char * get(ssize_t index) const;
+	const blob & get_blob(ssize_t index) const;
 	ssize_t locate(const char * string) const;
-	
-	const char ** read() const;
+	ssize_t locate(const blob & search) const;
 	
 	static void array_sort(const char ** array, ssize_t count);
-	static void array_free(const char ** array, ssize_t count);
+	static void array_sort(blob * array, ssize_t count);
 
 	/* leaves the input string array sorted */
 	static int create(rwfile * fp, const char ** strings, ssize_t count);
-	static int combine(rwfile * fp, const stringtbl * st1, const stringtbl * st2);
+	/* does not modify the input blob array; makes a binary table */
+	static int create(rwfile * fp, const blob * blobs, ssize_t count);
 
 private:
 	struct lru_ent
 	{
 		ssize_t index;
 		const char * string;
+		blob binary;
 	};
 	
 	const rofile * fp;
@@ -64,6 +72,7 @@ private:
 	ssize_t count;
 	size_t size;
 	uint8_t bytes[3];
+	bool binary;
 	mutable lru_ent lru[ST_LRU];
 	int lru_next;
 };

@@ -21,6 +21,9 @@
 class blob
 {
 public:
+	/* the nonexistent blob, for returning as an error from methods that return blob & */
+	static const blob dne;
+	
 	/* non-existent blob constructor */
 	inline blob() : internal(NULL) {}
 	/* other constructors */
@@ -107,6 +110,19 @@ public:
 	inline bool operator>=(const blob & x) const
 	{
 		return !(*this < x);
+	}
+	
+	inline int compare(const blob & x) const
+	{
+		int r;
+		size_t min;
+		if(internal == x.internal)
+			return 0;
+		if(!internal || !x.internal)
+			return internal ? 1 : -1;
+		min = (internal->size < x.internal->size) ? internal->size : x.internal->size;
+		r = memcmp(internal->bytes, x.internal->bytes, min);
+		return r ? r : (internal->size < x.internal->size) ? -1 : 1;
 	}
 	
 private:
