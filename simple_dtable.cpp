@@ -20,11 +20,11 @@
  * byte 0-3: magic number
  * byte 4-7: format version
  * bytes 8-11: key count
- * byte 12: key type (0 -> invalid, 1 -> uint32, 2 -> double, 3 -> string)
- * byte 13: key size (for uint32/string; 1-4 bytes)
+ * byte 12: key type (0 -> invalid, 1 -> uint32, 2 -> double, 3 -> string, 4 -> blob)
+ * byte 13: key size (for uint32/string/blob; 1-4 bytes)
  * byte 14: data length size (1-4 bytes)
  * byte 15: offset size (1-4 bytes)
- * byte 16-n: if key type is string, a string table
+ * byte 16-n: if key type is string/blob, a string table
  * byte 16 or n+1: main data tables
  * 
  * main data tables:
@@ -129,7 +129,7 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 		case dtype::STRING:
 			return dtype(st.get(read_bytes(bytes, 0, key_size)));
 		case dtype::BLOB:
-			/* fall through */;
+			return dtype(st.get_blob(read_bytes(bytes, 0, key_size)));
 	}
 	abort();
 }
@@ -226,7 +226,8 @@ int simple_dtable::init(int dfd, const char * file, const params & config)
 				goto fail;
 			break;
 		case 3:
-			ktype = dtype::STRING;
+		case 4:
+			ktype = (header.key_type == 3) ? dtype::STRING : dtype::BLOB;
 			if(key_size > 4)
 				goto fail;
 			r = st.init(fp, key_start_off);
@@ -278,20 +279,39 @@ ssize_t simple_dtable::locate_string(const char ** array, ssize_t size, const ch
 	return -1;
 }
 
+ssize_t simple_dtable::locate_blob(const blob * array, ssize_t size, const blob & blob)
+{
+	/* binary search */
+	ssize_t min = 0, max = size - 1;
+	while(min <= max)
+	{
+		int c;
+		/* watch out for overflow! */
+		ssize_t index = min + (max - min) / 2;
+		c = array[index].compare(blob);
+		if(c < 0)
+			min = index + 1;
+		else if(c > 0)
+			max = index - 1;
+		else
+			return index;
+	}
+	return -1;
+}
+
 int simple_dtable::create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow)
 {
 	stringset strings;
 	dtable::iter * iter;
 	dtype::ctype key_type = source->key_type();
 	const char ** string_array = NULL;
+	blob * blob_array = NULL;
 	size_t key_count = 0, max_data_size = 0, total_data_size = 0;
 	uint32_t max_key = 0;
 	dtable_header header;
 	int r, size;
 	rwfile out;
 	if(shadow && shadow->key_type() != key_type)
-		return -EINVAL;
-	if(key_type == dtype::BLOB)
 		return -EINVAL;
 	if(key_type == dtype::STRING)
 	{
@@ -324,7 +344,8 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 				strings.add(key.str);
 				break;
 			case dtype::BLOB:
-				abort();
+				strings.add(key.blb);
+				break;
 		}
 		if(meta.size() > max_data_size)
 			max_data_size = meta.size();
@@ -335,6 +356,12 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	{
 		string_array = strings.array();
 		if(!string_array)
+			return -ENOMEM;
+	}
+	else if(key_type == dtype::BLOB)
+	{
+		blob_array = strings.blob_array();
+		if(!blob_array)
 			return -ENOMEM;
 	}
 	
@@ -357,7 +384,9 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 			header.key_size = byte_size(strings.size() - 1);
 			break;
 		case dtype::BLOB:
-			abort();
+			header.key_type = 4;
+			header.key_size = byte_size(strings.size() - 1);
+			break;
 	}
 	/* we reserve size 0 for non-existent entries, so add 1 */
 	header.length_size = byte_size(max_data_size + 1);
@@ -380,6 +409,12 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	if(string_array)
 	{
 		r = stringtbl::create(&out, string_array, strings.size());
+		if(r < 0)
+			goto fail_unlink;
+	}
+	else if(blob_array)
+	{
+		r = stringtbl::create(&out, blob_array, strings.blob_size());
 		if(r < 0)
 			goto fail_unlink;
 	}
@@ -412,7 +447,9 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 				layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 			case dtype::BLOB:
-				abort();
+				max_key = locate_blob(blob_array, strings.blob_size(), key.blb);
+				layout_bytes(bytes, &i, max_key, header.key_size);
+				break;
 		}
 		layout_bytes(bytes, &i, meta.exists() ? meta.size() + 1 : 0, header.length_size);
 		layout_bytes(bytes, &i, total_data_size, header.offset_size);
@@ -451,6 +488,8 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 out_strings:
 	if(string_array)
 		free(string_array);
+	else if(blob_array)
+		delete[] blob_array;
 	return r;
 }
 

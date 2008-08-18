@@ -314,10 +314,9 @@ int stringtbl::create(rwfile * fp, const char ** strings, ssize_t count)
 	return 0;
 }
 
-int stringtbl::create(rwfile * fp, const blob * blobs, ssize_t count)
+int stringtbl::create(rwfile * fp, blob * blobs, ssize_t count)
 {
 	st_header header = {STRINGTBL_VERSION, 1, {4, 1}, count};
-	blob * sorted = new blob[count];
 	size_t size = 0, max = 0;
 	ssize_t i;
 	int r;
@@ -327,10 +326,9 @@ int stringtbl::create(rwfile * fp, const blob * blobs, ssize_t count)
 		size += length;
 		if(length > max)
 			max = length;
-		sorted[i] = blobs[i];
 	}
 	/* the blobs must be sorted */
-	array_sort(sorted, count);
+	array_sort(blobs, count);
 	/* figure out the correct size of the length field */
 	if(max < 0x100)
 		header.bytes[0] = 1;
@@ -363,7 +361,7 @@ int stringtbl::create(rwfile * fp, const blob * blobs, ssize_t count)
 		int j, bc = 0;
 		uint8_t buffer[8];
 		uint32_t value;
-		size = sorted[i].size();
+		size = blobs[i].size();
 		value = size;
 		bc += header.bytes[0];
 		/* write big endian order */
@@ -387,8 +385,8 @@ int stringtbl::create(rwfile * fp, const blob * blobs, ssize_t count)
 	/* write the blobs */
 	for(i = 0; i < count; i++)
 	{
-		size = sorted[i].size();
-		r = fp->append(&sorted[i][0], size);
+		size = blobs[i].size();
+		r = fp->append(&blobs[i][0], size);
 		if(r != (int) size)
 			return (r < 0) ? r : -1;
 	}

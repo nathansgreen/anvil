@@ -54,10 +54,10 @@ public:
 	static void array_sort(const char ** array, ssize_t count);
 	static void array_sort(blob * array, ssize_t count);
 
-	/* leaves the input string array sorted */
+	/* these functions leave the input arrays sorted */
 	static int create(rwfile * fp, const char ** strings, ssize_t count);
-	/* does not modify the input blob array; makes a binary table */
-	static int create(rwfile * fp, const blob * blobs, ssize_t count);
+	/* makes a binary table */
+	static int create(rwfile * fp, blob * blobs, ssize_t count);
 
 private:
 	struct lru_ent
