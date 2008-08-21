@@ -152,12 +152,9 @@ int journal::commit()
 	if(!records)
 		return 0;
 	
-	if(crfd < 0)
-	{
-		if (init_crfd() < 0)
-			return -1;
-	}
-
+	if(crfd < 0 && init_crfd() < 0)
+		return -1;
+	
 	cr.offset = prev_cr.offset + prev_cr.length;
 	cr.length = data_file.end() - cr.offset;
 	if(checksum(cr.offset, cr.offset + cr.length, cr.checksum) < 0)
@@ -223,7 +220,7 @@ int journal::playback(record_processor processor, void * param)
 	commit_record cr;
 	off_t readoff;
 	uint8_t buffer[65536];
-	uint8_t zero_checksum[J_CHECKSUM_LEN] = {0};
+	uint8_t zero_checksum[J_CHECKSUM_LEN];
 	int r = -1;
 	if(erasure)
 		return -EINVAL;
@@ -244,7 +241,7 @@ int journal::playback(record_processor processor, void * param)
 	patchgroup_release(playback);
 	if(last_commit > 0 && commits)
 		/* only replay the records from the last commit */
-		readoff = (commits - 1)*sizeof(cr);
+		readoff = (commits - 1) * sizeof(cr);
 	else
 		/* if we haven't commited anything replay the whole journal */
 		readoff = 0;
@@ -255,11 +252,12 @@ int journal::playback(record_processor processor, void * param)
 		patchgroup_abandon(playback);
 		return -1;
 	}
+	memset(zero_checksum, 0, sizeof(zero_checksum));
 	while(pread(crfd, &cr, sizeof(cr), readoff) == sizeof(cr))
 	{
 		if(!cr.offset && !cr.length && !memcmp(&cr.checksum, &zero_checksum, J_CHECKSUM_LEN))
 			break;
-
+		
 		off_t curoff = cr.offset;
 		while((size_t) (curoff - cr.offset) < cr.length)
 		{
@@ -400,15 +398,18 @@ int journal::verify()
 
 int journal::init_crfd()
 {
-	int r = 0;
+	int r;
+	off_t filesize, pos = 0, lastcr;
+	struct timeval settime[2] = {{0, 0}, {0, 0}};
+	commit_record zero = {0, 0}, cr;
+	
 	crfd = openat(dfd, path + J_COMMIT_EXT, O_CREAT | O_RDWR, 0644);
 	if(crfd < 0)
 		return -1;
-	commit_record zero = {0, 0, {0}}, cr;
-
-	off_t filesize = lseek(crfd, 0, SEEK_END);
-	off_t pos = 0, lastcr = 0;
-	/* Find out where the last good commit record is */
+	
+	filesize = lseek(crfd, 0, SEEK_END);
+	memset(zero.checksum, 0, sizeof(zero.checksum));
+	/* find out where the last good commit record is */
 	while((r = pread(crfd, &cr, sizeof(cr), pos)))
 	{
 		if(r < (int) sizeof(cr))
@@ -423,36 +424,39 @@ int journal::init_crfd()
 		}
 		pos += r;
 	}
-
+	
 	lastcr = pos;
-
+	
 	/* We set the mtime for the commit record file in the future to prevent
-	 * the inode metadata being updated with every write this exploits a hack
-	 * in featherstitch to optimize for patchgroups. */
-	struct timeval settime[2] = {{0,0},{0,0}};
+	 * the inode metadata being updated with every write - this uses a hack
+	 * in Featherstitch to optimize for patchgroups. */
+	
 	/* atime */
 	settime[0].tv_sec = time(NULL);
-	/* mtime is current time plus 20 years */
-	settime[1].tv_sec = settime[0].tv_sec + 630719140;
+	/* mtime is current time plus 10 years, or the end of 31-bit time, whichever is later */
+	settime[1].tv_sec = settime[0].tv_sec + 315360000;
+	if(settime[1].tv_sec < 2147483647)
+		settime[1].tv_sec = 2147483647;
 	if((r = futimes(crfd, settime)) < 0)
 		goto error;
-
-	if(filesize <= (pos + (int)sizeof(cr)))
+	
+	if(filesize <= (pos + (int) sizeof(cr)))
 	{
-		/* Zero out the rest of the file 40000 entries at a time*/
+		/* zero out the rest of the file 40000 entries at a time */
 		uint8_t zbuffer[1000 * sizeof(zero)] = {0};
 		while((pos - filesize) < 40 * (int) sizeof(zbuffer))
 		{
 			r = pwrite(crfd, &zbuffer, sizeof(zbuffer), pos);
-			if(r <= 0 || r < (int)sizeof(zbuffer))
+			if(r <= 0 || r < (int) sizeof(zbuffer))
 				goto error;
 			pos += r;
 		}
+		/* necessary? */
 		fsync(crfd);
 	}
-
+	
 	return lastcr;
-
+	
 error:
 	if(crfd > 0)
 		close(crfd);
