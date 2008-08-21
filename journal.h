@@ -95,6 +95,7 @@ private:
 	inline ~journal() {}
 	
 	int checksum(off_t start, off_t end, uint8_t * checksum);
+	int init_crfd();
 	int verify();
 	
 	istr path;

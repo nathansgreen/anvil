@@ -8,6 +8,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/time.h>
+#include <time.h>
 
 #include "md5.h"
 #include "openat.h"
@@ -152,12 +154,10 @@ int journal::commit()
 	
 	if(crfd < 0)
 	{
-		crfd = openat(dfd, path + J_COMMIT_EXT, O_CREAT | O_RDWR | O_APPEND, 0644);
-		if(crfd < 0)
+		if (init_crfd() < 0)
 			return -1;
 	}
-	else
-		lseek(crfd, 0, SEEK_END);
+
 	cr.offset = prev_cr.offset + prev_cr.length;
 	cr.length = data_file.end() - cr.offset;
 	if(checksum(cr.offset, cr.offset + cr.length, cr.checksum) < 0)
@@ -193,7 +193,7 @@ int journal::commit()
 		patchgroup_abandon(commit);
 		return -1;
 	}
-	if(write(crfd, &cr, sizeof(cr)) != sizeof(cr))
+	if(pwrite(crfd, &cr, sizeof(cr), commits * sizeof(cr)) != sizeof(cr))
 	{
 		int save = errno;
 		patchgroup_disengage(commit);
@@ -221,7 +221,9 @@ int journal::playback(record_processor processor, void * param)
 	patchgroup_id_t playback;
 	data_header header;
 	commit_record cr;
+	off_t readoff;
 	uint8_t buffer[65536];
+	uint8_t zero_checksum[J_CHECKSUM_LEN] = {0};
 	int r = -1;
 	if(erasure)
 		return -EINVAL;
@@ -240,12 +242,12 @@ int journal::playback(record_processor processor, void * param)
 		return -1;
 	}
 	patchgroup_release(playback);
-	if(last_commit > 0)
+	if(last_commit > 0 && commits)
 		/* only replay the records from the last commit */
-		lseek(crfd, -sizeof(cr), SEEK_END);
+		readoff = (commits - 1)*sizeof(cr);
 	else
 		/* if we haven't commited anything replay the whole journal */
-		lseek(crfd, 0, SEEK_SET);
+		readoff = 0;
 	
 	if(patchgroup_engage(playback) < 0)
 	{
@@ -253,8 +255,11 @@ int journal::playback(record_processor processor, void * param)
 		patchgroup_abandon(playback);
 		return -1;
 	}
-	while(read(crfd, &cr, sizeof(cr)) == sizeof(cr)) 
+	while(pread(crfd, &cr, sizeof(cr), readoff) == sizeof(cr))
 	{
+		if(!cr.offset && !cr.length && !memcmp(&cr.checksum, &zero_checksum, J_CHECKSUM_LEN))
+			break;
+
 		off_t curoff = cr.offset;
 		while((size_t) (curoff - cr.offset) < cr.length)
 		{
@@ -279,6 +284,7 @@ int journal::playback(record_processor processor, void * param)
 				return r;
 			}
 		}
+		readoff += sizeof(cr);
 	}
 	patchgroup_disengage(playback);
 	if(!finished)
@@ -380,10 +386,9 @@ int journal::verify()
 	uint8_t actual[J_CHECKSUM_LEN];
 	if(crfd < 0)
 		return -1;
-	lseek(crfd, 0, SEEK_SET);
 	for(uint32_t i = 0; i < commits; i++)
 	{
-		if(read(crfd, &cr, sizeof(cr)) != sizeof(cr))
+		if(pread(crfd, &cr, sizeof(cr), commits * sizeof(cr)) != sizeof(cr))
 			return -1;
 		if(checksum(cr.offset, cr.offset + cr.length, actual) < 0)
 			return -1;
@@ -391,6 +396,67 @@ int journal::verify()
 			return 0;
 	}
 	return 1;
+}
+
+int journal::init_crfd()
+{
+	int r = 0;
+	crfd = openat(dfd, path + J_COMMIT_EXT, O_CREAT | O_RDWR, 0644);
+	if(crfd < 0)
+		return -1;
+	commit_record zero = {0, 0, {0}}, cr;
+
+	off_t filesize = lseek(crfd, 0, SEEK_END);
+	off_t pos = 0, lastcr = 0;
+	/* Find out where the last good commit record is */
+	while((r = pread(crfd, &cr, sizeof(cr), pos)))
+	{
+		if(r < (int) sizeof(cr))
+		{
+			pos -= r;
+			break;
+		}
+		if(!cr.offset && !cr.length && !memcmp(&cr.checksum, &zero.checksum, J_CHECKSUM_LEN))
+		{
+			pos -= r;
+			break;
+		}
+		pos += r;
+	}
+
+	lastcr = pos;
+
+	/* We set the mtime for the commit record file in the future to prevent
+	 * the inode metadata being updated with every write this exploits a hack
+	 * in featherstitch to optimize for patchgroups. */
+	struct timeval settime[2] = {{0,0},{0,0}};
+	/* atime */
+	settime[0].tv_sec = time(NULL);
+	/* mtime is current time plus 20 years */
+	settime[1].tv_sec = settime[0].tv_sec + 630719140;
+	if((r = futimes(crfd, settime)) < 0)
+		goto error;
+
+	if(filesize <= (pos + (int)sizeof(cr)))
+	{
+		/* Zero out the rest of the file 40000 entries at a time*/
+		uint8_t zbuffer[1000 * sizeof(zero)] = {0};
+		while((pos - filesize) < 40 * (int) sizeof(zbuffer))
+		{
+			r = pwrite(crfd, &zbuffer, sizeof(zbuffer), pos);
+			if(r <= 0 || r < (int)sizeof(zbuffer))
+				goto error;
+			pos += r;
+		}
+		fsync(crfd);
+	}
+
+	return lastcr;
+
+error:
+	if(crfd > 0)
+		close(crfd);
+	return r < 0 ? r : -1;
 }
 
 int journal::reopen(int dfd, const istr & path, journal ** pj, journal * prev)
@@ -406,15 +472,12 @@ int journal::reopen(int dfd, const istr & path, journal ** pj, journal * prev)
 		return -1;
 	if(!j->path)
 		goto error;
-	/* do we want to O_CREAT here? */
-	j->crfd = openat(dfd, j->path + J_COMMIT_EXT, O_CREAT | O_RDWR, 0644);
-	if(j->crfd < 0)
+	offset = j->init_crfd();
+	if(offset < 0)
 		goto error;
-	lseek(j->crfd, -sizeof(j->prev_cr), SEEK_END);
-	r = read(j->crfd, &j->prev_cr, sizeof(j->prev_cr));
+	r = pread(j->crfd, &j->prev_cr, sizeof(j->prev_cr), offset - sizeof(j->prev_cr));
 	if(r != (int) sizeof(j->prev_cr))
 		return (r < 0) ? r : -1;
-	offset = lseek(j->crfd, 0, SEEK_END);
 	j->commits = offset / sizeof(j->prev_cr);
 	/* get rid of any uncommited records that might be in the journal */
 	r = j->data_file.open(dfd, path, j->prev_cr.offset + j->prev_cr.length);
