@@ -94,6 +94,7 @@ private:
 	
 	/* helpers for create() above */
 	static ssize_t locate_string(const char ** array, ssize_t size, const char * string);
+	static ssize_t locate_blob(const blob * array, ssize_t size, const blob & blob);
 	static size_t pack_size(const blob & source, const dtable_header & header, const char ** dups, ssize_t dup_count);
 	static blob pack_blob(const blob & source, const dtable_header & header, const char ** dups, ssize_t dup_count);
 	

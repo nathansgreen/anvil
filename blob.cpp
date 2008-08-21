@@ -7,6 +7,8 @@
 
 #include "blob.h"
 
+const blob blob::dne;
+
 blob::blob(size_t size, const void * data)
 {
 	internal = (blob_internal *) malloc(sizeof(*internal) + size);

@@ -120,6 +120,11 @@ public:
 		return *this;
 	}
 	
+	inline size_t length()
+	{
+		return shared ? strlen(shared->string) : 0;
+	}
+	
 	inline const char * str() const
 	{
 		return shared ? shared->string : NULL;

@@ -85,7 +85,7 @@ private:
 	};
 	
 	int add_string(const istr & string, uint32_t * index);
-	template<class T> inline int log(T * entry, const blob & blob);
+	template<class T> inline int log(T * entry, const blob & blob, size_t offset = 0);
 	int log(const dtype & key, const blob & blob);
 	
 	node * root;
