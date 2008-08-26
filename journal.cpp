@@ -31,10 +31,7 @@ struct data_header {
 
 journal * journal::create(int dfd, const istr & path, journal * prev)
 {
-	journal * j;
-	if(prev && !prev->last_commit)
-		return NULL;
-	j = new journal(path, dfd, prev);
+	journal * j = new journal(path, dfd, prev);
 	if(!j)
 		return NULL;
 	/* hmm... should we include this create() in the patchgroup? */
@@ -141,9 +138,6 @@ int journal::commit()
 	
 	if(erasure)
 		return -EINVAL;
-	if(prev && !prev->last_commit)
-		/* or commit it here? */
-		return -EINVAL;
 	if(commits > playbacks)
 		/* must play back previous commit first */
 		return -EINVAL;
@@ -180,7 +174,7 @@ int journal::commit()
 	}
 	if(last_commit > 0 && patchgroup_add_depend(commit, last_commit) < 0)
 		goto fail;
-	if(prev && !commits && patchgroup_add_depend(commit, prev->last_commit) < 0)
+	if(prev && prev->last_commit && !commits && patchgroup_add_depend(commit, prev->last_commit) < 0)
 		goto fail;
 	patchgroup_release(commit);
 	
@@ -213,7 +207,7 @@ int journal::commit()
 	return 0;
 }
 
-int journal::playback(record_processor processor, void * param)
+int journal::playback(record_processor processor, commit_hook commit, void * param)
 {
 	patchgroup_id_t playback;
 	data_header header;
@@ -283,6 +277,16 @@ int journal::playback(record_processor processor, void * param)
 			}
 		}
 		readoff += sizeof(cr);
+		if(commit)
+		{
+			r = commit(param);
+			if(r < 0)
+			{
+				patchgroup_disengage(playback);
+				patchgroup_abandon(playback);
+				return r;
+			}
+		}
 	}
 	patchgroup_disengage(playback);
 	if(!finished)

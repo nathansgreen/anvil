@@ -140,7 +140,7 @@ static struct tx_pre_end * pre_end_handlers = NULL;
 
 /* operations on transactions */
 
-static int tx_playback(journal * j);
+static int tx_record_processor(void * data, size_t length, void * param);
 
 static int ends_with(const char * string, const char * suffix)
 {
@@ -149,6 +149,14 @@ static int ends_with(const char * string, const char * suffix)
 	if(str_len < suf_len)
 		return 0;
 	return !strcmp(&string[str_len - suf_len], suffix);
+}
+
+static int recover_hook(void * param)
+{
+	for(tx_fd fd = 0; fd < TX_FDS; fd++)
+		if(tx_fds[fd].fd >= 0)
+			tx_close(fd);
+	return 0;
 }
 
 /* scans journal dir, recovers transactions */
@@ -216,12 +224,9 @@ int tx_init(int dfd, const params & config)
 				goto fail;
 			continue;
 		}
-		error = tx_playback(current_journal);
+		error = current_journal->playback(tx_record_processor, recover_hook, NULL);
 		if(error < 0)
 			goto fail;
-		for(tx_fd fd = 0; fd < TX_FDS; fd++)
-			if(tx_fds[fd].fd >= 0)
-				tx_close(fd);
 		error = current_journal->erase();
 		if(error < 0)
 			goto fail;
@@ -276,9 +281,9 @@ int tx_start(void)
 {
 	if(!current_journal)
 	{
+		char name[16];
 		if(journal_dir < 0)
 			return -EBUSY;
-		char name[16];
 		snprintf(name, sizeof(name), "%08x.jnl", last_tx_id + 1);
 		current_journal = journal::create(journal_dir, name, last_journal);
 		if(!current_journal)
@@ -288,8 +293,8 @@ int tx_start(void)
 			last_journal->release();
 			last_journal = NULL;
 		}
-		last_tx_id++;
 	}
+	last_tx_id++;
 	tx_recursion++;
 	return 0;
 }
@@ -337,7 +342,7 @@ tx_id tx_end(int assign_id)
 	r = current_journal->commit();
 	if(r < 0)
 		goto fail;
-	r = tx_playback(current_journal);
+	r = current_journal->playback(tx_record_processor, NULL, NULL);
 	if(r < 0)
 		/* not clear how to uncommit the journal... */
 		goto fail;
@@ -448,11 +453,14 @@ static int tx_write_playback(struct tx_write_hdr * header, size_t length)
 			assert(header->length + sizeof(struct tx_full_write) + header->name->dir_len + header->name->name_len == length);
 			data = &header->name->strings[header->name->dir_len + header->name->name_len];
 		}
-		assert(log);
-		assert(log->length == header->length && log->offset == header->offset);
-		if(!(tx_fds[fd].log = log->next))
-			tx_fds[fd].last = &tx_fds[fd].log;
-		log->free();
+		if(log)
+		{
+			assert(log->length == header->length && log->offset == header->offset);
+			if(!(tx_fds[fd].log = log->next))
+				tx_fds[fd].last = &tx_fds[fd].log;
+			log->free();
+		}
+		/* else we are doing a second or later write during recovery */
 	}
 	pwrite(tx_fds[fd].fd, data, header->length, header->offset);
 	if(tx_fds[fd].writes < 0 && !++tx_fds[fd].writes)
@@ -486,11 +494,6 @@ static int tx_record_processor(void * data, size_t length, void * param)
 			return tx_unlink_playback(header->unlink, length);
 	}
 	return -ENOSYS;
-}
-
-static int tx_playback(journal * j)
-{
-	return j->playback(tx_record_processor, NULL);
 }
 
 /* operations on files within a transaction */

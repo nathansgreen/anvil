@@ -85,7 +85,7 @@ int command_journal(int argc, const char * argv[])
 		if(!j)
 			printf("You need to create and commit a journal first.\n");
 		else
-			r = j->playback(journal_process, NULL);
+			r = j->playback(journal_process, NULL, NULL);
 	}
 	else if(!strcmp(argv[1], "erase"))
 	{

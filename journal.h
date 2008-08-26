@@ -28,6 +28,7 @@ class journal
 {
 public:
 	typedef int (*record_processor)(void * data, size_t length, void * param);
+	typedef int (*commit_hook)(void * param);
 	struct ovec {
 		const void * ov_base;
 		size_t ov_len;
@@ -58,7 +59,7 @@ public:
 	}
 	
 	/* plays back a journal, possibly during recovery */
-	int playback(record_processor processor, void * param);
+	int playback(record_processor processor, commit_hook commit, void * param);
 	
 	/* erases a journal after successful playback */
 	int erase();
