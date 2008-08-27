@@ -13,6 +13,9 @@ CFLAGS="-ggdb" make || exit $?
 #HAND_TRACE="PATCHGROUP_TRACE=hand.pgt"
 #SYSJ_TRACE="PATCHGROUP_TRACE=sysj.pgt"
 
+# Uncomment to use Featherstitch journal mode
+#JOURNAL=use_journal=1
+
 HOST="`hostname`"
 if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" ]
 then
@@ -30,6 +33,7 @@ echo -n "Creating file system... "
 sudo mke2fs -m 0 -b 4096 /dev/sdb1 &> /dev/null
 sudo mount /dev/sdb1 /mnt/test -t ext2
 sudo chown `whoami` /mnt/test
+[ "$JOURNAL" ] && dd if=/dev/zero of=/mnt/test/.journal bs=1M count=64 2> /dev/null
 cp demo /mnt/test
 cat > /mnt/test/tests << EOF
 journal create tj
@@ -48,7 +52,7 @@ sudo umount /mnt/test
 echo "done."
 
 echo -n "Loading Featherstitch... "
-sudo insmod fstitch/kfstitchd.ko device=/dev/sdb
+sudo insmod fstitch/kfstitchd.ko device=/dev/sdb $JOURNAL
 [ -f /proc/kfstitchd_debug ] && (cat /proc/kfstitchd_debug > try.fdb &) || rm -f try.fdb
 sudo mount /mnt/test
 echo "done."
