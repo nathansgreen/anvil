@@ -108,10 +108,12 @@ const char * toilet_gtables_name(t_toilet * toilet, size_t index);
 /* gtables */
 
 int toilet_new_gtable(t_toilet * toilet, const char * name);
+int toilet_new_gtable_blobkey(t_toilet * toilet, const char * name);
 int toilet_drop_gtable(t_gtable * gtable);
 
 t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name);
 const char * toilet_gtable_name(t_gtable * gtable);
+bool toilet_gtable_blobkey(t_gtable * gtable);
 int toilet_gtable_maintain(t_gtable * gtable);
 void toilet_put_gtable(t_gtable * gtable);
 
@@ -134,9 +136,11 @@ int toilet_new_row(t_gtable * gtable, t_row_id * new_id);
 int toilet_drop_row(t_row * row);
 
 t_row * toilet_get_row(t_gtable * gtable, t_row_id row_id);
+t_row * toilet_get_row_blobkey(t_gtable * gtable, const void * key, size_t key_size);
 void toilet_put_row(t_row * row);
 
 t_row_id toilet_row_id(t_row * row);
+const void * toilet_row_blobkey(t_row * row, size_t * key_size);
 t_gtable * toilet_row_gtable(t_row * row);
 
 /* values */
@@ -154,15 +158,18 @@ int toilet_row_remove_key(t_row * row, const char * key);
 
 t_cursor * toilet_gtable_cursor(t_gtable * gtable);
 int toilet_cursor_valid(t_cursor * cursor);
-/* returns nonzero if it found an exact match, zero otherwise */
-int toilet_cursor_seek(t_cursor * cursor, t_row_id id);
+/* these return true if they found an exact match, false otherwise */
+bool toilet_cursor_seek(t_cursor * cursor, t_row_id id);
+bool toilet_cursor_seek_blobkey(t_cursor * cursor, const void * key, size_t key_size);
 int toilet_cursor_next(t_cursor * cursor);
 int toilet_cursor_prev(t_cursor * cursor);
 int toilet_cursor_last(t_cursor * cursor);
 t_row_id toilet_cursor_row_id(t_cursor * cursor);
+const void * toilet_cursor_row_blobkey(t_cursor * cursor, size_t * key_size);
 void toilet_close_cursor(t_cursor * cursor);
 
 /* queries and rowsets */
+/* these calls don't work with blobkey gtables yet */
 
 t_rowset * toilet_simple_query(t_gtable * gtable, t_simple_query * query);
 ssize_t toilet_count_simple_query(t_gtable * gtable, t_simple_query * query);
@@ -208,9 +215,13 @@ typedef std::map<istr, t_value *, strcmp_less> value_map;
 struct t_row
 {
 	t_row_id id;
+	blob blobkey;
 	t_gtable * gtable;
 	value_map values;
 	int out_count;
+	
+	inline t_row(t_row_id row_id) : id(row_id) {}
+	inline t_row(const void * key, size_t key_size) : id(0), blobkey(key_size, key) {}
 	
 	inline ~t_row()
 	{

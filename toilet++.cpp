@@ -219,7 +219,7 @@ const char * toilet_gtables_name(t_toilet * toilet, size_t index)
 	return toilet->gtable_names[index];
 }
 
-int toilet_new_gtable(t_toilet * toilet, const char * name)
+static int toilet_new_gtable_type(t_toilet * toilet, const char * name, dtype::ctype type)
 {
 	int r;
 	params config, base_config;
@@ -241,13 +241,23 @@ int toilet_new_gtable(t_toilet * toilet, const char * name)
 	if(r < 0)
 		return r;
 	/* will fail if the gtable already exists */
-	r = simple_stable::create(toilet->path_fd, name, config, dtype::UINT32);
+	r = simple_stable::create(toilet->path_fd, name, config, type);
 	tx_end_r();
 	if(r < 0)
 		return r;
 	toilet->gtable_names.push_back(name);
 	
 	return 0;
+}
+
+int toilet_new_gtable(t_toilet * toilet, const char * name)
+{
+	return toilet_new_gtable_type(toilet, name, dtype::UINT32);
+}
+
+int toilet_new_gtable_blobkey(t_toilet * toilet, const char * name)
+{
+	return toilet_new_gtable_type(toilet, name, dtype::BLOB);
 }
 
 int toilet_drop_gtable(t_gtable * gtable)
@@ -307,6 +317,11 @@ fail_table:
 const char * toilet_gtable_name(t_gtable * gtable)
 {
 	return gtable->name;
+}
+
+bool toilet_gtable_blobkey(t_gtable * gtable)
+{
+	return gtable->table->key_type() == dtype::BLOB;
 }
 
 int toilet_gtable_maintain(t_gtable * gtable)
@@ -452,8 +467,16 @@ int toilet_drop_row(t_row * row)
 
 t_row * toilet_get_row(t_gtable * gtable, t_row_id row_id)
 {
-	t_row * row = new t_row;
-	row->id = row_id;
+	t_row * row = new t_row(row_id);
+	row->gtable = gtable;
+	row->out_count = 1;
+	gtable->out_count++;
+	return row;
+}
+
+t_row * toilet_get_row_blobkey(t_gtable * gtable, const void * key, size_t key_size)
+{
+	t_row * row = new t_row(key, key_size);
 	row->gtable = gtable;
 	row->out_count = 1;
 	gtable->out_count++;
@@ -472,6 +495,13 @@ void toilet_put_row(t_row * row)
 t_row_id toilet_row_id(t_row * row)
 {
 	return row->id;
+}
+
+const void * toilet_row_blobkey(t_row * row, size_t * key_size)
+{
+	*key_size = row->blobkey.size();
+	/* will fail if this is not really a blobkey row */
+	return &row->blobkey[0];
 }
 
 t_gtable * toilet_row_gtable(t_row * row)
@@ -605,11 +635,18 @@ int toilet_cursor_valid(t_cursor * cursor)
 	return safer.iter->valid();
 }
 
-int toilet_cursor_seek(t_cursor * cursor, t_row_id id)
+bool toilet_cursor_seek(t_cursor * cursor, t_row_id id)
 {
 	t_cursor_union safer;
 	safer.cursor = cursor;
 	return safer.iter->seek(id);
+}
+
+bool toilet_cursor_seek_blobkey(t_cursor * cursor, const void * key, size_t key_size)
+{
+	t_cursor_union safer;
+	safer.cursor = cursor;
+	return safer.iter->seek(dtype(blob(key_size, key)));
 }
 
 int toilet_cursor_next(t_cursor * cursor)
@@ -640,6 +677,16 @@ t_row_id toilet_cursor_row_id(t_cursor * cursor)
 	dtype key = safer.iter->key();
 	assert(key.type == dtype::UINT32);
 	return key.u32;
+}
+
+const void * toilet_cursor_row_blobkey(t_cursor * cursor, size_t * key_size)
+{
+	t_cursor_union safer;
+	safer.cursor = cursor;
+	dtype key = safer.iter->key();
+	assert(key.type == dtype::BLOB);
+	*key_size = key.blb.size();
+	return &key.blb[0];
 }
 
 void toilet_close_cursor(t_cursor * cursor)
