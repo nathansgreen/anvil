@@ -55,7 +55,7 @@ public:
 	/* will extend the size/capacity if necessary */
 	inline int overwrite(size_t offset, const blob & x)
 	{
-		if(!x.exists())
+		if(!x.size())
 			return 0;
 		return overwrite(offset, &x[0], x.size());
 	}
