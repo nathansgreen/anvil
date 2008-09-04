@@ -468,14 +468,16 @@ int command_stable(int argc, const char * argv[])
 	return 0;
 }
 
-static const char * column_names[] = {"c_one", "c_two", "c_three", "c_four", "c_five"};
+#define ROW_COUNT 20000
+static const istr column_names[] = {"c_one", "c_two", "c_three", "c_four", "c_five"};
 #define COLUMN_NAMES (sizeof(column_names) / sizeof(column_names[0]))
 
 int command_performance(int argc, const char * argv[])
 {
 	int r;
-	struct timeval start, end;
 	simple_stable * sst;
+	struct timeval start, end;
+	uint32_t table_copy[ROW_COUNT][COLUMN_NAMES];
 	params config, meta_config, data_config;
 	
 	meta_config.set("digest_interval", 2);
@@ -501,19 +503,27 @@ int command_performance(int argc, const char * argv[])
 	r = sst->init(AT_FDCWD, "perftest", config);
 	printf("sst->init = %d\n", r);
 	
+	for(uint32_t i = 0; i < ROW_COUNT; i++)
+		for(uint32_t j = 0; j < COLUMN_NAMES; j++)
+			table_copy[i][j] = (uint32_t) -1;
+	
 	printf("Start timing! (2000000 appends)\n");
 	gettimeofday(&start, NULL);
 	
 	for(int i = 0; i < 2000000; i++)
 	{
-		const char * column_name = column_names[rand() % COLUMN_NAMES];
+		uint32_t row = rand() % ROW_COUNT;
+		uint32_t column = rand() % COLUMN_NAMES;
 		if(!(i % 1000))
 		{
 			r = tx_start();
 			if(r < 0)
 				goto fail_tx_start;
 		}
-		r = sst->append((uint32_t) rand() % 20000, column_name, (uint32_t) rand());
+		do {
+			table_copy[row][column] = rand();
+		} while(table_copy[row][column] == (uint32_t) -1);
+		r = sst->append(row, column_names[column], table_copy[row][column]);
 		if(r < 0)
 			goto fail_append;
 		if((i % 200000) == 199999)
@@ -552,7 +562,36 @@ int command_performance(int argc, const char * argv[])
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
 	
 	delete sst;
+	
+	sst = new simple_stable;
+	r = sst->init(AT_FDCWD, "perftest", config);
+	printf("sst->init = %d\n", r);
+	
+	printf("Verifying writes... ");
+	fflush(stdout);
+	for(uint32_t i = 0; i < ROW_COUNT; i++)
+		for(uint32_t j = 0; j < COLUMN_NAMES; j++)
+		{
+			dtype value(0u);
+			if(sst->find(i, column_names[j], &value))
+			{
+				if(value.type != dtype::UINT32)
+					goto fail_verify;
+				if(table_copy[i][j] != value.u32)
+					goto fail_verify;
+			}
+			else if(table_copy[i][j] != (uint32_t) -1)
+				goto fail_verify;
+		}
+	printf("OK!\n");
+	
+	delete sst;
 	return 0;
+	
+fail_verify:
+	printf("failed!\n");
+	delete sst;
+	return -1;
 	
 fail_maintain:
 fail_append:
