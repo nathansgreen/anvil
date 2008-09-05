@@ -13,6 +13,7 @@
 
 #include "blob.h"
 #include "dtype.h"
+#include "blob_comparator.h"
 
 /* data tables */
 
@@ -55,13 +56,46 @@ public:
 	inline virtual int append(const dtype & key, const blob & blob) { return -ENOSYS; }
 	inline virtual int remove(const dtype & key) { return -ENOSYS; }
 	inline dtype::ctype key_type() const { return ktype; }
+	inline dtable() : blob_cmp(NULL) {}
 	inline virtual ~dtable() {}
+	
+	/* when using blob keys and a custom blob comparator, these will be necessary */
+	inline virtual const istr & blob_comparator_name() const { return istr::null; }
+	inline virtual int blob_comparator_set(const blob_comparator * comparator)
+	{
+		if(blob_cmp)
+		{
+			if(strcmp(blob_cmp->name, comparator->name))
+				return -EINVAL;
+		}
+		else
+		{
+			istr req = blob_comparator_name();
+			if(req && strcmp(req, comparator->name))
+				return -EINVAL;
+		}
+		comparator->retain();
+		if(blob_cmp)
+			blob_cmp->release();
+		blob_cmp = comparator;
+		return 0;
+	}
 	
 	/* maintenance callback; does nothing by default */
 	inline virtual int maintain() { return 0; }
 	
 protected:
 	dtype::ctype ktype;
+	const blob_comparator * blob_cmp;
+	
+	inline void deinit()
+	{
+		if(blob_cmp)
+		{
+			blob_cmp->release();
+			blob_cmp = NULL;
+		}
+	}
 };
 
 #endif /* __DTABLE_H */

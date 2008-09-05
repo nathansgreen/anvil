@@ -33,10 +33,19 @@ public:
 	virtual int append(const dtype & key, const blob & blob);
 	virtual int remove(const dtype & key);
 	
+	inline virtual const istr & blob_comparator_name() const { return cmp_name; }
+	inline virtual int blob_comparator_set(const blob_comparator * comparator)
+	{
+		/* we merely add this assertion, but it's important */
+		assert(!root);
+		return dtable::blob_comparator_set(comparator);
+	}
+	
 	inline journal_dtable() : root(NULL), string_index(0) {}
 	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL);
 	/* reinitialize, optionally discarding the old entries from the journal */
-	int reinit(sys_journal::listener_id lid, bool discard = false);
+	/* NOTE: also clears and releases the blob comparator, if one has been set */
+	int reinit(sys_journal::listener_id lid, bool discard = true);
 	void deinit();
 	inline virtual ~journal_dtable()
 	{
@@ -85,12 +94,15 @@ private:
 	};
 	
 	int add_string(const istr & string, uint32_t * index);
+	int log_blob_cmp();
 	template<class T> inline int log(T * entry, const blob & blob, size_t offset = 0);
 	int log(const dtype & key, const blob & blob);
 	
 	node * root;
 	stringset strings;
 	uint32_t string_index;
+	/* the required blob_comparator name, if any */
+	istr cmp_name;
 };
 
 #endif /* __JOURNAL_DTABLE_H */

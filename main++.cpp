@@ -18,18 +18,18 @@
 #include "stable.h"
 #include "sys_journal.h"
 #include "simple_dtable.h"
-#include "overlay_dtable.h"
-#include "journal_dtable.h"
 #include "managed_dtable.h"
 #include "ustr_dtable.h"
 #include "simple_ctable.h"
 #include "simple_stable.h"
+#include "reverse_blob_comparator.h"
 
 extern "C" {
 int command_journal(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
+int command_blob_cmp(int argc, const char * argv[]);
 int command_performance(int argc, const char * argv[]);
 };
 
@@ -120,7 +120,11 @@ static void print(dtype x)
 			printf("%s", (const char *) x.str);
 			break;
 		case dtype::BLOB:
-			printf("(blob:%u)", x.blb.size());
+			size_t size = x.blb.size();
+			printf("%u[", size);
+			for(size_t i = 0; i < size && i < 8; i++)
+				printf("%02X%s", x.blb[i], (i < size - 1) ? " " : "");
+			printf((size > 8) ? "...]" : "]");
 			break;
 	}
 }
@@ -464,6 +468,66 @@ int command_stable(int argc, const char * argv[])
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	delete sst;
+	
+	return 0;
+}
+
+int command_blob_cmp(int argc, const char * argv[])
+{
+	int r;
+	reverse_blob_comparator reverse;
+	sys_journal::listener_id jid;
+	journal_dtable jdt;
+	
+	/* let reverse know it's on the stack */
+	reverse.on_stack();
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	jid = sys_journal::get_unique_id();
+	if(jid == sys_journal::NO_ID)
+		return -EBUSY;
+	r = jdt.init(dtype::BLOB, jid, NULL);
+	printf("jdt.init = %d\n", r);
+	r = jdt.blob_comparator_set(&reverse);
+	printf("jdt.comparator_set = %d\n", r);
+	for(int i = 0; i < 10; i++)
+	{
+		uint32_t keydata = rand();
+		uint8_t valuedata = i;
+		blob key(sizeof(keydata), &keydata);
+		blob value(sizeof(valuedata), &valuedata);
+		jdt.append(dtype(key), value);
+	}
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	run_iterator(&jdt);
+	
+	r = jdt.reinit(jid, false);
+	printf("jdt.reinit = %d\n", r);
+	printf("current expected comparator: %s\n", (const char *) jdt.blob_comparator_name());
+	
+	run_iterator(&jdt);
+	
+	r = sys_journal::get_global_journal()->get_entries(&jdt);
+	printf("get_entries = %d (expect %d)\n", r, -EBUSY);
+	if(r == -EBUSY)
+	{
+		printf("expect comparator: %s\n", (const char *) jdt.blob_comparator_name());
+		jdt.blob_comparator_set(&reverse);
+		r = sys_journal::get_global_journal()->get_entries(&jdt);
+		printf("get_entries = %d\n", r);
+	}
+	
+	run_iterator(&jdt);
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = jdt.reinit(jid);
+	printf("jdt.reinit = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
 	
 	return 0;
 }

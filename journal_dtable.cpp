@@ -130,6 +130,14 @@ struct jdt_key_blob
 	uint8_t data[0];
 } __attribute__((packed));
 
+#define JDT_BLOB_CMP 6
+struct jdt_blob_cmp
+{
+	uint8_t type;
+	size_t length;
+	char name[0];
+} __attribute__((packed));
+
 int journal_dtable::add_string(const istr & string, uint32_t * index)
 {
 	int r;
@@ -151,6 +159,21 @@ int journal_dtable::add_string(const istr & string, uint32_t * index)
 	return r;
 }
 
+int journal_dtable::log_blob_cmp()
+{
+	int r;
+	size_t length = strlen(blob_cmp->name);
+	jdt_blob_cmp * entry = (jdt_blob_cmp *) malloc(sizeof(*entry) + length);
+	if(!entry)
+		return -ENOMEM;
+	entry->type = JDT_BLOB_CMP;
+	entry->length = length;
+	memcpy(entry->name, blob_cmp->name, length);
+	r = journal_append(entry, sizeof(*entry) + length);
+	free(entry);
+	return 0;
+}
+
 template<class T> inline int journal_dtable::log(T * entry, const blob & blob, size_t offset)
 {
 	int r;
@@ -170,6 +193,14 @@ template<class T> inline int journal_dtable::log(T * entry, const blob & blob, s
 
 int journal_dtable::log(const dtype & key, const blob & blob)
 {
+	if(blob_cmp && !cmp_name)
+	{
+		/* not logged yet, so log it now */
+		int value = log_blob_cmp();
+		if(value < 0)
+			return value;
+		cmp_name = blob_cmp->name;
+	}
 	switch(key.type)
 	{
 		case dtype::UINT32:
@@ -248,6 +279,7 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sy
 	if(id() != sys_journal::NO_ID)
 		deinit();
 	assert(!root);
+	assert(!cmp_name);
 	ktype = key_type;
 	r = strings.init(true);
 	if(r < 0)
@@ -286,13 +318,24 @@ void journal_dtable::deinit()
 		kill_nodes(root);
 		root = NULL;
 	}
+	dtable::deinit();
+	cmp_name = NULL;
 }
 
 journal_dtable::node * journal_dtable::find_node(const dtype & key) const
 {
 	node * node = root;
-	while(node && node->key != key)
-		node = (node->key < key) ? node->right : node->left;
+	if(ktype == dtype::BLOB && blob_cmp)
+		while(node)
+		{
+			int cmp = blob_cmp->compare(node->key.blb, key.blb);
+			if(!cmp)
+				break;
+			node = (cmp < 0) ? node->right : node->left;
+		}
+	else
+		while(node && node->key != key)
+			node = (node->key < key) ? node->right : node->left;
 	return node;
 }
 
@@ -304,44 +347,83 @@ journal_dtable::node * journal_dtable::find_node_next(const dtype & key, bool * 
 		*found = false;
 		return NULL;
 	}
-	while(node->key != key)
+	if(ktype == dtype::BLOB && blob_cmp)
 	{
-		if(node->key < key)
+		int cmp = blob_cmp->compare(node->key.blb, key.blb);
+		while(cmp)
 		{
-			if(!node->right)
+			if(cmp < 0)
 			{
-				next_node(&node);
-				*found = false;
-				return node;
+				if(!node->right)
+				{
+					next_node(&node);
+					*found = false;
+					return node;
+				}
+				node = node->right;
 			}
-			node = node->right;
-		}
-		else
-		{
-			if(!node->left)
+			else
 			{
-				*found = false;
-				return node;
+				if(!node->left)
+				{
+					*found = false;
+					return node;
+				}
+				node = node->left;
 			}
-			node = node->left;
+			cmp = blob_cmp->compare(node->key.blb, key.blb);
 		}
 	}
+	else
+		while(node->key != key)
+		{
+			if(node->key < key)
+			{
+				if(!node->right)
+				{
+					next_node(&node);
+					*found = false;
+					return node;
+				}
+				node = node->right;
+			}
+			else
+			{
+				if(!node->left)
+				{
+					*found = false;
+					return node;
+				}
+				node = node->left;
+			}
+		}
 	*found = true;
 	return node;
 }
 
-/* a simple binary tree for now */
+/* a simple (unbalanced) binary tree for now */
 int journal_dtable::add_node(const dtype & key, const blob & value)
 {
 	node ** ptr = &root;
 	node * old = NULL;
 	node * node = *ptr;
-	while(node && node->key != key)
-	{
-		ptr = (node->key < key) ? &node->right : &node->left;
-		old = node;
-		node = *ptr;
-	}
+	if(ktype == dtype::BLOB && blob_cmp)
+		while(node)
+		{
+			int cmp = blob_cmp->compare(node->key.blb, key.blb);
+			if(!cmp)
+				break;
+			ptr = (cmp < 0) ? &node->right : &node->left;
+			old = node;
+			node = *ptr;
+		}
+	else
+		while(node && node->key != key)
+		{
+			ptr = (node->key < key) ? &node->right : &node->left;
+			old = node;
+			node = *ptr;
+		}
 	if(node)
 	{
 		node->value = value;
@@ -405,6 +487,9 @@ void journal_dtable::kill_nodes(node * n)
 
 int journal_dtable::journal_replay(void *& entry, size_t length)
 {
+	if(cmp_name && !blob_cmp)
+		/* if we need a blob comparator and don't have one, then don't accept journal entries */
+		return -EBUSY;
 	switch(*(uint8_t *) entry)
 	{
 		case JDT_STRING:
@@ -461,6 +546,15 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 			if(blb->size == (size_t) -1)
 				return add_node(key, blob());
 			return add_node(key, blob(blb->size, &blb->data[blb->key_size]));
+		}
+		case JDT_BLOB_CMP:
+		{
+			jdt_blob_cmp * name = (jdt_blob_cmp *) entry;
+			istr copy(name->name, name->length);
+			if(cmp_name && strcmp(cmp_name, copy))
+				return -EINVAL;
+			cmp_name = copy;
+			return 0;
 		}
 		default:
 			return -EINVAL;

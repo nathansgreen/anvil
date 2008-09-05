@@ -46,6 +46,7 @@ tx
 dtable
 ctable
 stable
+blob_cmp
 EOF
 mkdir /mnt/test/journals
 sudo umount /mnt/test

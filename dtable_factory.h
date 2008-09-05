@@ -14,6 +14,7 @@
 #include "dtable.h"
 #include "params.h"
 #include "empty_dtable.h"
+#include "blob_comparator.h"
 
 class dtable_factory;
 
