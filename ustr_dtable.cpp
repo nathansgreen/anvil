@@ -175,7 +175,7 @@ blob ustr_dtable::unpack_blob(const blob & source, size_t unpacked_size) const
 	{
 		if(!memcmp(dup_escape, &source[i], dup_escape_len))
 		{
-			ssize_t index = read_bytes(&source[0], i += dup_escape_len, dup_index_size);
+			ssize_t index = read_bytes(&source[i += dup_escape_len], 0, dup_index_size);
 			const char * string = dup.get(index);
 			if(string)
 			{
@@ -206,6 +206,7 @@ blob ustr_dtable::get_value(size_t index, size_t data_length, off_t data_offset)
 	read_length = fp->read(data_start_off + data_offset, &value[0], data_length);
 	value.set_size(read_length);
 	/* the data length stored in the key record is the unpacked size */
+	/* FIXME what if the packed blob is larger than the original? */
 	return dup_index_size ? unpack_blob(value, data_length) : blob(value);
 }
 
