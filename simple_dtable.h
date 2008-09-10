@@ -30,7 +30,7 @@
  * how to store conveniently, however. */
 
 #define SDTABLE_MAGIC 0xF029DDE3
-#define SDTABLE_VERSION 0
+#define SDTABLE_VERSION 1
 
 class simple_dtable : public dtable
 {
@@ -85,10 +85,6 @@ private:
 	int find_key(const dtype & key, size_t * data_length, off_t * data_offset, size_t * index) const;
 	blob get_value(size_t index, size_t data_length, off_t data_offset) const;
 	blob get_value(size_t index) const;
-	
-	/* helpers for create() above */
-	static ssize_t locate_string(const char ** array, ssize_t size, const char * string);
-	static ssize_t locate_blob(const blob * array, ssize_t size, const blob & blob);
 	
 	rofile * fp;
 	size_t key_count;

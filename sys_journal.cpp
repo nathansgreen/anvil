@@ -407,7 +407,7 @@ int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing
 int sys_journal::playback(journal_listener * target, bool fail_missing)
 {
 	/* playback */
-	std::set<listener_id> missing;
+	std::set<listener_id> missing, failed;
 	off_t offset = sizeof(data_header);
 	SYSJ_DEBUG("%d, %d", target ? target->id() : 0, fail_missing);
 	assert(data_size >= offset);
@@ -433,16 +433,21 @@ int sys_journal::playback(journal_listener * target, bool fail_missing)
 		}
 		if(target)
 		{
-			listener = target;
 			/* skip other entries */
-			if(listener->id() != entry.id)
+			if(target->id() != entry.id)
 			{
 				offset += entry.length;
 				continue;
 			}
+			listener = target;
 		}
 		else
 		{
+			if(failed.count(entry.id))
+			{
+				offset += entry.length;
+				continue;
+			}
 			listener = lookup_listener(entry.id);
 			if(!listener)
 			{
@@ -465,13 +470,19 @@ int sys_journal::playback(journal_listener * target, bool fail_missing)
 		if(entry_data)
 			free(entry_data);
 		if(r < 0)
-			return r;
+		{
+			if(target)
+				return r;
+			failed.insert(entry.id);
+		}
 	}
 	if(offset != data_size)
 		return -EIO;
 	if(fail_missing && !missing.empty())
 		/* print warning message? */
 		return -ENOENT;
+	if(!failed.empty())
+		return -EBUSY;
 	assert(data.end() == data_size);
 	return 0;
 }

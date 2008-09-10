@@ -198,7 +198,7 @@ static void run_iterator(ctable * table)
 			printf("iter->next() returned false, but iter->valid() says there is more!\n");
 			break;
 		}
-		if(first || key != old_key)
+		if(first || key.compare(old_key))
 		{
 			printf("==> key ");
 			print(key);
@@ -243,7 +243,7 @@ static void run_iterator(stable * table)
 			printf("iter->next() returned false, but iter->valid() says there is more!\n");
 			break;
 		}
-		if(first || key != old_key)
+		if(first || key.compare(old_key))
 		{
 			printf("==> key ");
 			print(key);

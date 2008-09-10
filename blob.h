@@ -31,6 +31,8 @@ public:
 	blob(const blob & x);
 	blob & operator=(const blob & x);
 	
+	static ssize_t locate(const blob * array, ssize_t size, const blob & blob);
+	
 	inline ~blob()
 	{
 		if(internal && !--internal->shares)

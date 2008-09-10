@@ -20,6 +20,9 @@ extern "C" {
 #include <patchgroup.h>
 }
 
+#include "blob.h"
+#include "istr.h"
+
 /* This class provides a stdio-like wrapper around a read/write file descriptor,
  * allowing data to be appended to the file (starting at a given position) and
  * optionally engaging a patchgroup before doing any writes. Both reads and
@@ -95,6 +98,22 @@ public:
 	{
 		ssize_t r = read(offset, data, sizeof(T));
 		return (r == sizeof(T)) ? 0 : (r < 0) ? (int) r : -1;
+	}
+	
+	/* appends just the blob with no length field; you must have some way of determining the length later */
+	inline int append(const blob & blob)
+	{
+		ssize_t size = blob.size();
+		ssize_t r = size ? append(&blob[0], size) : 0;
+		return (r == size) ? 0 : (r < 0) ? (int) r : -1;
+	}
+	
+	/* appends just the string with no null terminator; you must have some way of determining the length later */
+	inline int append(const istr & string)
+	{
+		ssize_t length = string.length();
+		ssize_t r = length ? append((const char *) string, length) : 0;
+		return (r == length) ? 0 : (r < 0) ? (int) r : -1;
 	}
 	
 private:

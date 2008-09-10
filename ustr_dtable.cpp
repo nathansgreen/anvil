@@ -20,8 +20,8 @@
 #define DEBUG_USTR 0
 
 /* ustr dtable file format:
- * byte 0-3: magic number
- * byte 4-7: format version
+ * bytes 0-3: magic number
+ * bytes 4-7: format version
  * bytes 8-11: key count
  * byte 12: key type (0 -> invalid, 1 -> uint32, 2 -> double, 3 -> string, 4 -> blob)
  * byte 13: key size (for uint32/string/blob; 1-4 bytes)
@@ -30,10 +30,12 @@
  * bytes 16-19: duplicate string table offset (relative to data start)
  * byte 20: duplicate string index size (1-4 bytes)
  * byte 21: duplicate string escape sequence length (1-2 bytes)
- * byte 22-23: duplicate string escape sequence
- * byte 24-n: if key type is string/blob, a string table
- * byte 24 or n+1: main data tables
- * byte m: duplicate string table (unless offset = 0)
+ * bytes 22-23: duplicate string escape sequence
+ * bytes 24-27: if key type is blob, blob comparator name length
+ * bytes 28-n: if key type is blob and length > 0, blob comparator name
+ * bytes 24-m, 28-m, or n+1-m: if key type is string/blob, a string table
+ * byte 24 or m+1: main data tables
+ * byte o: duplicate string table (unless offset = 0)
  * 
  * main data tables:
  * key array:
@@ -146,14 +148,16 @@ int ustr_dtable::find_key(const dtype & key, size_t * data_length, off_t * data_
 {
 	/* binary search */
 	ssize_t min = 0, max = key_count - 1;
+	assert(!cmp_name == !blob_cmp);
 	while(min <= max)
 	{
 		/* watch out for overflow! */
 		ssize_t mid = min + (max - min) / 2;
 		dtype value = get_key(mid, data_length, data_offset);
-		if(value < key)
+		int c = value.compare(key, blob_cmp);
+		if(c < 0)
 			min = mid + 1;
-		else if(value > key)
+		else if(c > 0)
 			max = mid - 1;
 		else
 		{
@@ -268,8 +272,21 @@ int ustr_dtable::init(int dfd, const char * file, const params & config)
 			if(key_size != sizeof(double))
 				goto fail;
 			break;
-		case 3:
 		case 4:
+			uint32_t length;
+			if(fp->read(key_start_off, &length) < 0)
+				goto fail;
+			key_start_off += sizeof(length);
+			if(length)
+			{
+				char string[length];
+				if(fp->read(key_start_off, string, length) != (ssize_t) length)
+					goto fail;
+				key_start_off += length;
+				cmp_name = istr(string, length);
+			}
+			/* fall through */
+		case 3:
 			ktype = (header.key_type == 3) ? dtype::STRING : dtype::BLOB;
 			if(key_size > 4)
 				goto fail;
@@ -323,46 +340,6 @@ void ustr_dtable::deinit()
 	}
 }
 
-ssize_t ustr_dtable::locate_string(const char ** array, ssize_t size, const char * string)
-{
-	/* binary search */
-	ssize_t min = 0, max = size - 1;
-	while(min <= max)
-	{
-		int c;
-		/* watch out for overflow! */
-		ssize_t index = min + (max - min) / 2;
-		c = strcmp(array[index], string);
-		if(c < 0)
-			min = index + 1;
-		else if(c > 0)
-			max = index - 1;
-		else
-			return index;
-	}
-	return -1;
-}
-
-ssize_t ustr_dtable::locate_blob(const blob * array, ssize_t size, const blob & blob)
-{
-	/* binary search */
-	ssize_t min = 0, max = size - 1;
-	while(min <= max)
-	{
-		int c;
-		/* watch out for overflow! */
-		ssize_t index = min + (max - min) / 2;
-		c = array[index].compare(blob);
-		if(c < 0)
-			min = index + 1;
-		else if(c > 0)
-			max = index - 1;
-		else
-			return index;
-	}
-	return -1;
-}
-
 size_t ustr_dtable::pack_size(const blob & source, const dtable_header & header, const char ** dups, ssize_t dup_count)
 {
 	size_t size = 0, escape = header.dup_escape_len + header.dup_index_size;
@@ -379,7 +356,7 @@ size_t ustr_dtable::pack_size(const blob & source, const dtable_header & header,
 			if(j > byte)
 			{
 				istr string(&source.index<char>(i + 1), byte);
-				ssize_t index = locate_string(dups, dup_count, string);
+				ssize_t index = istr::locate(dups, dup_count, string);
 				if(index >= 0)
 				{
 					size += escape;
@@ -419,7 +396,7 @@ blob ustr_dtable::pack_blob(const blob & source, const dtable_header & header, c
 			if(j > byte)
 			{
 				istr string(&source.index<char>(i + 1), byte);
-				ssize_t index = locate_string(dups, dup_count, string);
+				ssize_t index = istr::locate(dups, dup_count, string);
 				if(index >= 0)
 				{
 					for(size_t k = 0; k < header.dup_escape_len; k++)
@@ -461,9 +438,9 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	dtable_header header;
 	int r, size;
 	rwfile out;
-	if(shadow && shadow->key_type() != key_type)
+	if(!source_shadow_ok(source, shadow))
 		return -EINVAL;
-	if(key_type == dtype::STRING)
+	if(key_type == dtype::STRING || key_type == dtype::BLOB)
 	{
 		r = strings.init();
 		if(r < 0)
@@ -581,7 +558,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 						if(j > byte)
 						{
 							istr string(&value.index<char>(i + 1), byte);
-							ssize_t index = locate_string(dup_array, dups.size(), string);
+							ssize_t index = istr::locate(dup_array, dups.size(), string);
 							if(index >= 0)
 							{
 								i += byte;
@@ -657,6 +634,14 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 			r = -1;
 		goto out_strings;
 	}
+	if(key_type == dtype::BLOB)
+	{
+		const blob_comparator * blob_cmp = source->get_blob_cmp();
+		uint32_t length = blob_cmp ? strlen(blob_cmp->name) : 0;
+		out.append(&length);
+		if(length)
+			out.append(blob_cmp->name);
+	}
 	if(string_array)
 	{
 		r = stringtbl::create(&out, string_array, strings.size());
@@ -665,7 +650,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	}
 	else if(blob_array)
 	{
-		r = stringtbl::create(&out, blob_array, strings.blob_size());
+		r = stringtbl::create(&out, blob_array, strings.blob_size(), source->get_blob_cmp());
 		if(r < 0)
 			goto fail_unlink;
 	}
@@ -694,11 +679,11 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 				i += sizeof(double);
 				break;
 			case dtype::STRING:
-				max_key = locate_string(string_array, strings.size(), key.str);
+				max_key = istr::locate(string_array, strings.size(), key.str);
 				layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 			case dtype::BLOB:
-				max_key = locate_blob(blob_array, strings.blob_size(), key.blb);
+				max_key = blob::locate(blob_array, strings.blob_size(), key.blb);
 				layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 		}

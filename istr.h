@@ -120,7 +120,7 @@ public:
 		return *this;
 	}
 	
-	inline size_t length()
+	inline size_t length() const
 	{
 		return shared ? strlen(shared->string) : 0;
 	}
@@ -142,6 +142,9 @@ public:
 			free(shared);
 	}
 	
+	static ssize_t locate(const char ** array, ssize_t size, const char * string);
+	static ssize_t locate(const istr * array, ssize_t size, const istr & string);
+	
 private:
 	struct share
 	{
@@ -157,10 +160,8 @@ private:
 /* useful for std::map, etc. */
 struct strcmp_less
 {
-	inline bool operator()(const istr & a, const istr & b) const
-	{
-		return strcmp(a, b) < 0;
-	}
+	/* stick with const char * here to make sure we never try to make istr
+	 * instances out of const char * (which copies) just to compare them */
 	inline bool operator()(const char * a, const char * b) const
 	{
 		return strcmp(a, b) < 0;

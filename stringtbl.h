@@ -15,6 +15,7 @@
 #include "blob.h"
 #include "rofile.h"
 #include "rwfile.h"
+#include "blob_comparator.h"
 
 /* A string table is a section of a file which maintains a collection of unique
  * strings in sorted order. String tables are immutable once created. */
@@ -49,15 +50,15 @@ public:
 	const char * get(ssize_t index) const;
 	const blob & get_blob(ssize_t index) const;
 	ssize_t locate(const char * string) const;
-	ssize_t locate(const blob & search) const;
+	ssize_t locate(const blob & search, const blob_comparator * blob_cmp = NULL) const;
 	
 	static void array_sort(const char ** array, ssize_t count);
-	static void array_sort(blob * array, ssize_t count);
+	static void array_sort(blob * array, ssize_t count, const blob_comparator * blob_cmp);
 
 	/* these functions leave the input arrays sorted */
 	static int create(rwfile * fp, const char ** strings, ssize_t count);
 	/* makes a binary table */
-	static int create(rwfile * fp, blob * blobs, ssize_t count);
+	static int create(rwfile * fp, blob * blobs, ssize_t count, const blob_comparator * blob_cmp = NULL);
 
 private:
 	struct lru_ent

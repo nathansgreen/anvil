@@ -60,7 +60,7 @@ public:
 	inline virtual ~dtable() {}
 	
 	/* when using blob keys and a custom blob comparator, these will be necessary */
-	inline virtual const istr & blob_comparator_name() const { return istr::null; }
+	inline virtual const istr & blob_comparator_name() const { return cmp_name; }
 	inline virtual int blob_comparator_set(const blob_comparator * comparator)
 	{
 		if(blob_cmp)
@@ -84,9 +84,13 @@ public:
 	/* maintenance callback; does nothing by default */
 	inline virtual int maintain() { return 0; }
 	
+	const blob_comparator * get_blob_cmp() const { return blob_cmp; }
+	
 protected:
 	dtype::ctype ktype;
 	const blob_comparator * blob_cmp;
+	/* the required blob_comparator name, if any */
+	istr cmp_name;
 	
 	inline void deinit()
 	{
@@ -95,6 +99,27 @@ protected:
 			blob_cmp->release();
 			blob_cmp = NULL;
 		}
+		cmp_name = NULL;
+	}
+	
+	/* helper for create() methods: checks source and shadow to make sure they agree */
+	static inline bool source_shadow_ok(const dtable * source, const dtable * shadow)
+	{
+		if(!shadow)
+			return true;
+		if(source->ktype != shadow->ktype)
+			return false;
+		if(source->ktype == dtype::BLOB)
+		{
+			/* we don't require blob comparators to be the same
+			 * object, but both must either exist or not exist */
+			if(!source->blob_cmp != !shadow->blob_cmp)
+				return false;
+			/* and if they exist, they must have the same name */
+			if(source->blob_cmp && strcmp(source->blob_cmp->name, shadow->blob_cmp->name))
+				return false;
+		}
+		return true;
 	}
 };
 

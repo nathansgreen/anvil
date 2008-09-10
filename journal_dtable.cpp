@@ -319,83 +319,45 @@ void journal_dtable::deinit()
 		root = NULL;
 	}
 	dtable::deinit();
-	cmp_name = NULL;
 }
 
 journal_dtable::node * journal_dtable::find_node(const dtype & key) const
 {
+	int c;
 	node * node = root;
-	if(ktype == dtype::BLOB && blob_cmp)
-		while(node)
-		{
-			int cmp = blob_cmp->compare(node->key.blb, key.blb);
-			if(!cmp)
-				break;
-			node = (cmp < 0) ? node->right : node->left;
-		}
-	else
-		while(node && node->key != key)
-			node = (node->key < key) ? node->right : node->left;
+	while(node && (c = node->key.compare(key, blob_cmp)))
+		node = (c < 0) ? node->right : node->left;
 	return node;
 }
 
 journal_dtable::node * journal_dtable::find_node_next(const dtype & key, bool * found) const
 {
+	int c;
 	node * node = root;
 	if(!node)
 	{
 		*found = false;
 		return NULL;
 	}
-	if(ktype == dtype::BLOB && blob_cmp)
-	{
-		int cmp = blob_cmp->compare(node->key.blb, key.blb);
-		while(cmp)
+	while((c = node->key.compare(key, blob_cmp)))
+		if(c < 0)
 		{
-			if(cmp < 0)
+			if(!node->right)
 			{
-				if(!node->right)
-				{
-					next_node(&node);
-					*found = false;
-					return node;
-				}
-				node = node->right;
+				next_node(&node);
+				*found = false;
+				return node;
 			}
-			else
-			{
-				if(!node->left)
-				{
-					*found = false;
-					return node;
-				}
-				node = node->left;
-			}
-			cmp = blob_cmp->compare(node->key.blb, key.blb);
+			node = node->right;
 		}
-	}
-	else
-		while(node->key != key)
+		else
 		{
-			if(node->key < key)
+			if(!node->left)
 			{
-				if(!node->right)
-				{
-					next_node(&node);
-					*found = false;
-					return node;
-				}
-				node = node->right;
+				*found = false;
+				return node;
 			}
-			else
-			{
-				if(!node->left)
-				{
-					*found = false;
-					return node;
-				}
-				node = node->left;
-			}
+			node = node->left;
 		}
 	*found = true;
 	return node;
@@ -404,26 +366,16 @@ journal_dtable::node * journal_dtable::find_node_next(const dtype & key, bool * 
 /* a simple (unbalanced) binary tree for now */
 int journal_dtable::add_node(const dtype & key, const blob & value)
 {
+	int c;
 	node ** ptr = &root;
 	node * old = NULL;
 	node * node = *ptr;
-	if(ktype == dtype::BLOB && blob_cmp)
-		while(node)
-		{
-			int cmp = blob_cmp->compare(node->key.blb, key.blb);
-			if(!cmp)
-				break;
-			ptr = (cmp < 0) ? &node->right : &node->left;
-			old = node;
-			node = *ptr;
-		}
-	else
-		while(node && node->key != key)
-		{
-			ptr = (node->key < key) ? &node->right : &node->left;
-			old = node;
-			node = *ptr;
-		}
+	while(node && (c = node->key.compare(key, blob_cmp)))
+	{
+		ptr = (c < 0) ? &node->right : &node->left;
+		old = node;
+		node = *ptr;
+	}
 	if(node)
 	{
 		node->value = value;
@@ -488,7 +440,8 @@ void journal_dtable::kill_nodes(node * n)
 int journal_dtable::journal_replay(void *& entry, size_t length)
 {
 	if(cmp_name && !blob_cmp)
-		/* if we need a blob comparator and don't have one, then don't accept journal entries */
+		/* if we need a blob comparator and don't have
+		 * one yet, then don't accept journal entries */
 		return -EBUSY;
 	switch(*(uint8_t *) entry)
 	{

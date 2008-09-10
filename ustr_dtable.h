@@ -31,7 +31,7 @@
  * ::create() method. */
 
 #define USDTABLE_MAGIC 0xABB9D449
-#define USDTABLE_VERSION 0
+#define USDTABLE_VERSION 1
 
 class ustr_dtable : public dtable
 {
@@ -93,8 +93,6 @@ private:
 	blob get_value(size_t index) const;
 	
 	/* helpers for create() above */
-	static ssize_t locate_string(const char ** array, ssize_t size, const char * string);
-	static ssize_t locate_blob(const blob * array, ssize_t size, const blob & blob);
 	static size_t pack_size(const blob & source, const dtable_header & header, const char ** dups, ssize_t dup_count);
 	static blob pack_blob(const blob & source, const dtable_header & header, const char ** dups, ssize_t dup_count);
 	

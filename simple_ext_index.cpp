@@ -229,7 +229,7 @@ int simple_ext_index::find(const blob & b, const dtype & pri, uint32_t * idx, ui
 				dtype temp(b.index<const char *>(0, i + sizeof(uint32_t)), len);
 				if(set)
 					*set = temp;
-				if(set || pri == temp)
+				if(set || !pri.compare(temp))
 				{
 					*idx = i;
 					*next = i + sizeof(uint32_t) + len;

@@ -33,7 +33,6 @@ public:
 	virtual int append(const dtype & key, const blob & blob);
 	virtual int remove(const dtype & key);
 	
-	inline virtual const istr & blob_comparator_name() const { return cmp_name; }
 	inline virtual int blob_comparator_set(const blob_comparator * comparator)
 	{
 		/* we merely add this assertion, but it's important */
@@ -101,8 +100,6 @@ private:
 	node * root;
 	stringset strings;
 	uint32_t string_index;
-	/* the required blob_comparator name, if any */
-	istr cmp_name;
 };
 
 #endif /* __JOURNAL_DTABLE_H */

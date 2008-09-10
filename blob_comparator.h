@@ -7,9 +7,8 @@
 #error blob_comparator.h is a C++ header file
 #endif
 
-#include "istr.h"
 #include "blob.h"
-#include "dtype.h"
+#include "istr.h"
 
 /* a blob comparator compares blobs in a way other than just memcmp(), allowing
  * applications to sort dtables with blob keys in arbitrary ways */
@@ -18,11 +17,6 @@ class blob_comparator
 public:
 	/* compare() need not compare nonexistent blobs; they cannot be keys */
 	virtual int compare(const blob & a, const blob & b) const = 0;
-	inline int compare(const dtype & a, const dtype & b) const
-	{
-		assert(a.type == dtype::BLOB && b.type == dtype::BLOB);
-		return compare(a.blb, b.blb);
-	}
 	
 	/* a blob comparator has a name so that it can be stored into dtables
 	 * which are created using this comparator, and later the name can be
@@ -39,6 +33,22 @@ public:
 private:
 	bool stack;
 	mutable int usage;
+};
+
+/* this class can be used to wrap a blob comparator pointer so that it can be
+ * used for STL methods like std::sort() */
+class blob_comparator_object
+{
+public:
+	inline bool operator()(const blob & a, const blob & b) const
+	{
+		return blob_cmp->compare(a, b) < 0;
+	}
+	
+	inline blob_comparator_object(const blob_comparator * blob_cmp) : blob_cmp(blob_cmp) {}
+	
+private:
+	const blob_comparator * blob_cmp;
 };
 
 #endif /* __BLOB_COMPARATOR_H */

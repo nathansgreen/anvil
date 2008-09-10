@@ -18,6 +18,7 @@
 
 #include "blob.h"
 #include "istr.h"
+#include "blob_comparator.h"
 
 /* all data stored in toilet is wrapped by this type */
 
@@ -98,63 +99,53 @@ public:
 		}
 		return "unknown";
 	}
-	static inline const char * name(const dtype & value)
-	{
-		return name(value.type);
-	}
 	
-	inline bool operator==(const dtype & x) const
+	inline int compare(const dtype & x, const blob_comparator * blob_cmp = NULL) const
 	{
 		assert(type == x.type);
 		switch(type)
 		{
 			case UINT32:
-				return u32 == x.u32;
+				return (u32 < x.u32) ? -1 : u32 != x.u32;
 			case DOUBLE:
-				return dbl == x.dbl;
+				return (dbl < x.dbl) ? -1 : dbl != x.dbl;
 			case STRING:
-				return !strcmp(str, x.str);
+				return strcmp(str, x.str);
 			case BLOB:
-				return blb == x.blb;
+				return blob_cmp ? blob_cmp->compare(blb, x.blb) : blb.compare(x.blb);
 		}
 		abort();
 	}
 	
-	inline bool operator!=(const dtype & x) const
+	/* avoid constructing a second dtype if it is not necessary */
+	inline int compare(uint32_t x) const
 	{
-		return !(*this == x);
+		assert(type == UINT32);
+		return (u32 < x) ? -1 : u32 != x;
 	}
 	
-	inline bool operator<(const dtype & x) const
+	inline int compare(double x) const
 	{
-		assert(type == x.type);
-		switch(type)
-		{
-			case UINT32:
-				return u32 < x.u32;
-			case DOUBLE:
-				return dbl < x.dbl;
-			case STRING:
-				return strcmp(str, x.str) < 0;
-			case BLOB:
-				return blb < x.blb;
-		}
-		abort();
+		assert(type == DOUBLE);
+		return (dbl < x) ? -1 : dbl != x;
 	}
 	
-	inline bool operator<=(const dtype & x) const
+	inline int compare(const char * x) const
 	{
-		return !(x < *this);
+		assert(type == STRING);
+		return strcmp(str, x);
 	}
 	
-	inline bool operator>(const dtype & x) const
+	inline int compare(const istr & x) const
 	{
-		return x < *this;
+		assert(type == STRING);
+		return strcmp(str, x);
 	}
 	
-	inline bool operator>=(const dtype & x) const
+	inline int compare(const blob & x, const blob_comparator * blob_cmp = NULL) const
 	{
-		return !(*this < x);
+		assert(type == BLOB);
+		return blob_cmp ? blob_cmp->compare(blb, x) : blb.compare(x);
 	}
 };
 

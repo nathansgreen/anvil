@@ -724,28 +724,27 @@ static bool toilet_row_matches(t_gtable * gtable, t_row_id id, t_simple_query * 
 		case T_INT:
 			assert(value.type == dtype::UINT32);
 			if(!query->values[1])
-				return value == dtype(query->values[0]->v_int);
-			return dtype(query->values[0]->v_int) <= value && value <= dtype(query->values[1]->v_int);
+				return !value.compare(query->values[0]->v_int);
+			return 0 <= value.compare(query->values[0]->v_int) && value.compare(query->values[1]->v_int) <= 0;
 		case T_FLOAT:
 			assert(value.type == dtype::DOUBLE);
 			if(!query->values[1])
-				return value == dtype(query->values[0]->v_float);
-			return dtype(query->values[0]->v_float) <= value && value <= dtype(query->values[1]->v_float);
+				return !value.compare(query->values[0]->v_float);
+			return 0 <= value.compare(query->values[0]->v_float) && value.compare(query->values[1]->v_float) <= 0;
 		case T_STRING:
 			assert(value.type == dtype::STRING);
-			/* FIXME copies the strings just to compare them */
 			if(!query->values[1])
-				return value == dtype(query->values[0]->v_string);
-			return dtype(query->values[0]->v_string) <= value && value <= dtype(query->values[1]->v_string);
+				return !value.compare(query->values[0]->v_string);
+			return 0 <= value.compare(query->values[0]->v_string) && value.compare(query->values[1]->v_string) <= 0;
 		case T_BLOB:
 		{
 			assert(value.type == dtype::BLOB);
 			/* FIXME copies the blobs just to compare them */
 			blob b0(query->values[0]->v_blob.length, query->values[0]->v_blob.data), b1;
 			if(!query->values[1])
-				return value == dtype(b0);
+				return !value.compare(b0);
 			b1 = blob(query->values[1]->v_blob.length, query->values[1]->v_blob.data);
-			return dtype(b0) <= value && value <= dtype(b1);
+			return 0 <= value.compare(b0) && value.compare(b1) <= 0;
 		}
 	}
 	abort();

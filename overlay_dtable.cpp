@@ -59,6 +59,7 @@ bool overlay_dtable::iter::next()
 	
 	for(size_t i = 0; i < ovr_source->table_count; i++)
 	{
+		int c;
 		if(subs[i].empty && subs[i].valid)
 		{
 			/* fill in empty slots */
@@ -68,13 +69,13 @@ bool overlay_dtable::iter::next()
 		if(!subs[i].valid)
 			/* skip exhausted tables */
 			continue;
-		if(first || subs[i].iter->key() < min_key)
+		if(first || (c = subs[i].iter->key().compare(min_key)) < 0)
 		{
 			first = false;
 			next_index = i;
 			min_key = subs[i].iter->key();
 		}
-		else if(subs[i].iter->key() == min_key)
+		else if(!c)
 			/* skip shadowed entry */
 			subs[i].empty = true;
 	}
@@ -101,6 +102,7 @@ bool overlay_dtable::iter::prev()
 	
 	for(size_t i = 0; i < ovr_source->table_count; i++)
 	{
+		int c;
 		if(subs[i].empty && subs[i].valid)
 		{
 			/* fill in empty slots */
@@ -110,13 +112,13 @@ bool overlay_dtable::iter::prev()
 		if(!subs[i].valid)
 			/* skip exhausted tables */
 			continue;
-		if(first || subs[i].iter->key() > max_key)
+		if(first || (c = subs[i].iter->key().compare(max_key)) > 0)
 		{
 			first = false;
 			next_index = i;
 			max_key = subs[i].iter->key();
 		}
-		else if(subs[i].iter->key() == max_key)
+		else if(!c)
 			/* skip shadowed entry */
 			subs[i].empty = true;
 	}

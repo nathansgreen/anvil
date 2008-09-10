@@ -35,3 +35,22 @@ blob & blob::operator=(const blob & x)
 	return *this;
 }
 
+ssize_t blob::locate(const blob * array, ssize_t size, const blob & search)
+{
+	/* binary search */
+	ssize_t min = 0, max = size - 1;
+	while(min <= max)
+	{
+		int c;
+		/* watch out for overflow! */
+		ssize_t index = min + (max - min) / 2;
+		c = array[index].compare(search);
+		if(c < 0)
+			min = index + 1;
+		else if(c > 0)
+			max = index - 1;
+		else
+			return index;
+	}
+	return -1;
+}
