@@ -228,7 +228,7 @@ void stringtbl::array_sort(blob * array, ssize_t count, const blob_comparator * 
 		std::sort(array, &array[count], comparator);
 	}
 	else
-		std::sort(array, &array[count]);
+		std::sort(array, &array[count], blob_comparator_null());
 }
 
 int stringtbl::create(rwfile * fp, const char ** strings, ssize_t count)

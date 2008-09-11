@@ -17,6 +17,7 @@
 
 #include "istr.h"
 #include "blob.h"
+#include "blob_comparator.h"
 
 /* This class provides a simple wrapper around an std::map to get unique string
  * instances. The add() and lookup() methods return a reference to an internally
@@ -26,9 +27,9 @@
 class stringset
 {
 public:
-	inline stringset() : reverse(false), next_index(0) {}
+	inline stringset() : reverse(false), next_index(0), blob_cmp(NULL), blobs(blob_cmp) {}
 	
-	int init(bool keep_reverse = false);
+	int init(const blob_comparator * blob_cmp, bool keep_reverse = false);
 	
 	bool remove(const istr & string);
 	bool remove(const blob & string);
@@ -58,10 +59,11 @@ private:
 	/* /me dislikes std::map immensely */
 	typedef std::map<istr, uint32_t, strcmp_less> istr_map;
 	typedef std::map<uint32_t, istr> idx_map;
-	typedef std::set<blob> blob_set;
+	typedef std::set<blob, blob_comparator_refobject> blob_set;
 	
 	bool reverse;
 	uint32_t next_index;
+	const blob_comparator * blob_cmp;
 	istr_map string_map;
 	idx_map index_map;
 	blob_set blobs;

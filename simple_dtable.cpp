@@ -292,7 +292,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 		return -EINVAL;
 	if(key_type == dtype::STRING || key_type == dtype::BLOB)
 	{
-		r = strings.init();
+		r = strings.init(source->get_blob_cmp());
 		if(r < 0)
 			return r;
 	}

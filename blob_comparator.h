@@ -45,10 +45,36 @@ public:
 		return blob_cmp->compare(a, b) < 0;
 	}
 	
-	inline blob_comparator_object(const blob_comparator * blob_cmp) : blob_cmp(blob_cmp) {}
+	inline blob_comparator_object(const blob_comparator * blob_cmp = NULL) : blob_cmp(blob_cmp) {}
 	
 private:
 	const blob_comparator * blob_cmp;
+};
+
+/* this class can be used in place of a NULL blob comparator pointer */
+class blob_comparator_null
+{
+public:
+	inline bool operator()(const blob & a, const blob & b) const
+	{
+		return a.compare(b) < 0;
+	}
+};
+
+/* if it is necessary to change the comparator during the use of an STL
+ * container like std::set, then blob_comparator_refobject will help you out */
+class blob_comparator_refobject
+{
+public:
+	inline bool operator()(const blob & a, const blob & b) const
+	{
+		return (blob_cmp ? blob_cmp->compare(a, b) : a.compare(b)) < 0;
+	}
+	
+	inline blob_comparator_refobject(const blob_comparator *& blob_cmp) : blob_cmp(blob_cmp) {}
+	
+private:
+	const blob_comparator *& blob_cmp;
 };
 
 #endif /* __BLOB_COMPARATOR_H */

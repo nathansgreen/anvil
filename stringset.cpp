@@ -7,13 +7,14 @@
 
 #include "stringset.h"
 
-int stringset::init(bool keep_reverse)
+int stringset::init(const blob_comparator * blob_cmp, bool keep_reverse)
 {
+	reverse = keep_reverse;
+	next_index = 0;
+	this->blob_cmp = blob_cmp;
 	string_map.clear();
 	index_map.clear();
 	blobs.clear();
-	reverse = keep_reverse;
-	next_index = 0;
 	return 0;
 }
 
