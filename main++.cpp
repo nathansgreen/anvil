@@ -506,7 +506,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	
 	r = jdt.reinit(jid, false);
 	printf("jdt.reinit = %d\n", r);
-	printf("current expected comparator: %s\n", (const char *) jdt.blob_comparator_name());
+	printf("current expected comparator: %s\n", (const char *) jdt.get_cmp_name());
 	
 	run_iterator(&jdt);
 	
@@ -514,7 +514,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	printf("get_entries = %d (expect %d)\n", r, -EBUSY);
 	if(r == -EBUSY)
 	{
-		printf("expect comparator: %s\n", (const char *) jdt.blob_comparator_name());
+		printf("expect comparator: %s\n", (const char *) jdt.get_cmp_name());
 		jdt.blob_comparator_set(&reverse);
 		r = sys_journal::get_global_journal()->get_entries(&jdt);
 		printf("get_entries = %d\n", r);

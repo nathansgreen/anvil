@@ -45,7 +45,7 @@ public:
 		return blob_cmp->compare(a, b) < 0;
 	}
 	
-	inline blob_comparator_object(const blob_comparator * blob_cmp = NULL) : blob_cmp(blob_cmp) {}
+	inline blob_comparator_object(const blob_comparator * comparator = NULL) : blob_cmp(comparator) {}
 	
 private:
 	const blob_comparator * blob_cmp;
@@ -71,7 +71,7 @@ public:
 		return (blob_cmp ? blob_cmp->compare(a, b) : a.compare(b)) < 0;
 	}
 	
-	inline blob_comparator_refobject(const blob_comparator *& blob_cmp) : blob_cmp(blob_cmp) {}
+	inline blob_comparator_refobject(const blob_comparator *& comparator) : blob_cmp(comparator) {}
 	
 private:
 	const blob_comparator *& blob_cmp;

@@ -38,6 +38,7 @@ bool overlay_dtable::iter::next()
 {
 	bool first = true;
 	dtype min_key(0u);
+	const blob_comparator * blob_cmp = ovr_source->blob_cmp;
 	next_index = ovr_source->table_count;
 	
 	if(lastdir == BACKWARD)
@@ -69,7 +70,7 @@ bool overlay_dtable::iter::next()
 		if(!subs[i].valid)
 			/* skip exhausted tables */
 			continue;
-		if(first || (c = subs[i].iter->key().compare(min_key)) < 0)
+		if(first || (c = subs[i].iter->key().compare(min_key, blob_cmp)) < 0)
 		{
 			first = false;
 			next_index = i;
@@ -89,6 +90,7 @@ bool overlay_dtable::iter::prev()
 {
 	bool first = true;
 	dtype max_key(0u);
+	const blob_comparator * blob_cmp = ovr_source->blob_cmp;
 	next_index = ovr_source->table_count;
 	
 	if(lastdir == FORWARD)
@@ -112,7 +114,7 @@ bool overlay_dtable::iter::prev()
 		if(!subs[i].valid)
 			/* skip exhausted tables */
 			continue;
-		if(first || (c = subs[i].iter->key().compare(max_key)) > 0)
+		if(first || (c = subs[i].iter->key().compare(max_key, blob_cmp)) > 0)
 		{
 			first = false;
 			next_index = i;
@@ -258,4 +260,18 @@ void overlay_dtable::deinit()
 	delete[] tables;
 	tables = NULL;
 	table_count = 0;
+}
+
+int overlay_dtable::blob_comparator_set(const blob_comparator * comparator)
+{
+	int value;
+	comparator->retain();
+	if(blob_cmp)
+	{
+		blob_cmp->release();
+		blob_cmp = NULL;
+	}
+	value = dtable::blob_comparator_set(comparator);
+	comparator->release();
+	return value;
 }

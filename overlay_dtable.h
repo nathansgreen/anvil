@@ -15,6 +15,7 @@
 
 #include "blob.h"
 #include "dtable.h"
+#include "blob_comparator.h"
 
 /* The overlay dtable just combines underlying dtables in the order specified. */
 
@@ -33,6 +34,8 @@ public:
 		if(tables)
 			deinit();
 	}
+	
+	virtual int blob_comparator_set(const blob_comparator * comparator);
 	
 private:
 	class iter : public dtable::iter

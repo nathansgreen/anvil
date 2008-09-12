@@ -59,21 +59,12 @@ public:
 	inline dtable() : blob_cmp(NULL) {}
 	inline virtual ~dtable() {}
 	
-	/* when using blob keys and a custom blob comparator, these will be necessary */
-	inline virtual const istr & blob_comparator_name() const { return cmp_name; }
+	/* when using blob keys and a custom blob comparator, this will be necessary */
 	inline virtual int blob_comparator_set(const blob_comparator * comparator)
 	{
-		if(blob_cmp)
-		{
-			if(strcmp(blob_cmp->name, comparator->name))
-				return -EINVAL;
-		}
-		else
-		{
-			istr req = blob_comparator_name();
-			if(req && strcmp(req, comparator->name))
-				return -EINVAL;
-		}
+		const char * match = blob_cmp ? blob_cmp->name : cmp_name;
+		if(match && strcmp(match, comparator->name))
+			return -EINVAL;
 		comparator->retain();
 		if(blob_cmp)
 			blob_cmp->release();
@@ -84,7 +75,8 @@ public:
 	/* maintenance callback; does nothing by default */
 	inline virtual int maintain() { return 0; }
 	
-	const blob_comparator * get_blob_cmp() const { return blob_cmp; }
+	inline const blob_comparator * get_blob_cmp() const { return blob_cmp; }
+	inline const istr & get_cmp_name() const { return cmp_name; }
 	
 protected:
 	dtype::ctype ktype;
