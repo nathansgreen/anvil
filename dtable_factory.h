@@ -37,6 +37,8 @@ class dtable_factory
 public:
 	virtual dtable * open(int dfd, const char * name, const params & config) const = 0;
 	
+	/* create a new empty table with the given key type - this default implementation
+	 * will use the other version of create() and an empty_dtable for the source */
 	inline virtual int create(int dfd, const char * name, const params & config, dtype::ctype key_type) const
 	{
 		empty_dtable empty(key_type);

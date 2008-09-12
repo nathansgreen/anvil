@@ -16,13 +16,10 @@
 int managed_dtable::init(int dfd, const char * name, const params & config, sys_journal * sys_journal)
 {
 	int r = -1, meta;
-	bool query_journal;
 	if(md_dfd >= 0)
 		deinit();
 	base = dt_factory_registry::lookup(config, "base");
 	if(!base)
-		return -EINVAL;
-	if(!config.get("query_journal", &query_journal, true))
 		return -EINVAL;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
@@ -35,6 +32,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		r = meta;
 		goto fail_meta;
 	}
+	
 	if(read(meta, &header, sizeof(header)) != sizeof(header))
 		goto fail_header;
 	if(header.magic != MDTABLE_MAGIC || header.version != MDTABLE_VERSION)
@@ -56,6 +54,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		default:
 			goto fail_header;
 	}
+	
 	for(uint32_t i = 0; i < header.ddt_count; i++)
 	{
 		char name[32];
@@ -70,16 +69,22 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 			goto fail_disks;
 		disks.push_back(dtable_list_entry(source, ddt_value));
 	}
-	close(meta);
 	
 	journal = new journal_dtable;
 	journal->init(ktype, header.journal_id, sys_journal);
-	if(query_journal)
-	{
-		if(!sys_journal)
-			sys_journal = sys_journal::get_global_journal();
-		sys_journal->get_entries(journal);
-	}
+	if(!sys_journal)
+		sys_journal = sys_journal::get_global_journal();
+	r = sys_journal->get_entries(journal);
+	cmp_name = journal->get_cmp_name();
+	if(r == -EBUSY && cmp_name)
+		delayed_query = sys_journal;
+	else if(r >= 0)
+		delayed_query = NULL;
+	else
+		goto fail_query;
+	
+	/* no more failure possible */
+	close(meta);
 	
 	/* force array scope to end */
 	{
@@ -93,6 +98,8 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	}
 	return 0;
 	
+fail_query:
+	delete journal;
 fail_disks:
 	for(size_t i = 0; i < disks.size(); i++)
 		delete disks[i].first;
@@ -116,6 +123,40 @@ void managed_dtable::deinit()
 	disks.clear();
 	close(md_dfd);
 	md_dfd = -1;
+	dtable::deinit();
+}
+
+int managed_dtable::blob_comparator_set(const blob_comparator * comparator)
+{
+	int value;
+	const char * match;
+	if(md_dfd < 0)
+		return -EBUSY;
+	/* first check the journal's required comparator name */
+	match = journal->get_cmp_name();
+	if(match && strcmp(match, comparator->name))
+		return -EINVAL;
+	/* then try to set our own comparator */
+	value = dtable::blob_comparator_set(comparator);
+	if(value < 0)
+		return value;
+	/* if we get here, everything else should work fine */
+	value = journal->blob_comparator_set(comparator);
+	assert(value >= 0);
+	for(size_t i = 0; i < disks.size(); i++)
+	{
+		value = disks[i].first->blob_comparator_set(comparator);
+		assert(value >= 0);
+	}
+	if(delayed_query)
+	{
+		value = delayed_query->get_entries(journal);
+		/* not sure how that could fail at this point,
+		 * but if so don't clear delayed_query */
+		if(value >= 0)
+			delayed_query = NULL;
+	}
+	return value;
 }
 
 int managed_dtable::combine(size_t first, size_t last)
@@ -140,6 +181,8 @@ int managed_dtable::combine(size_t first, size_t last)
 			array[first - i - 1] = disks[i].first;
 		shadow = new overlay_dtable;
 		shadow->init(array, first);
+		if(blob_cmp)
+			shadow->blob_comparator_set(blob_cmp);
 	}
 	/* force array scope to end */
 	{
@@ -156,6 +199,8 @@ int managed_dtable::combine(size_t first, size_t last)
 				array[last - i + reset_journal] = disks[i].first;
 		source = new overlay_dtable;
 		source->init(array, count);
+		if(blob_cmp)
+			source->blob_comparator_set(blob_cmp);
 	}
 	
 	pid = patchgroup_create(0);
@@ -193,6 +238,8 @@ int managed_dtable::combine(size_t first, size_t last)
 		unlinkat(md_dfd, name, 0);
 		return -1;
 	}
+	if(blob_cmp)
+		result->blob_comparator_set(blob_cmp);
 	for(size_t i = 0; i < first; i++)
 		copy.push_back(disks[i]);
 	copy.push_back(dtable_list_entry(result, header.ddt_next));
@@ -257,9 +304,15 @@ int managed_dtable::combine(size_t first, size_t last)
 			array[header.ddt_count - i] = disks[i].first;
 		array[0] = journal;
 		overlay->init(array, header.ddt_count + 1);
+		if(blob_cmp)
+			overlay->blob_comparator_set(blob_cmp);
 	}
 	if(reset_journal)
+	{
 		journal->reinit(header.journal_id);
+		if(blob_cmp)
+			journal->blob_comparator_set(blob_cmp);
+	}
 	return 0;
 }
 

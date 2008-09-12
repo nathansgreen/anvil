@@ -69,8 +69,8 @@ public:
 	 * one being the journal dtable; disk_dtables() returns the number of
 	 * non-journal dtables, so the journal's index is the value returned by
 	 * disk_dtables() (the journal dtable being the "newest") */
-	/* there is always a journal dtable - if it is combined, a new one is
-	 * created to take its place */
+	/* note that there is always a journal dtable - if it is combined, a new
+	 * one is created to take its place */
 	int combine(size_t first, size_t last);
 	
 	/* combine the last count dtables into two new ones: a combined disk
@@ -104,6 +104,8 @@ public:
 			deinit();
 	}
 	
+	virtual int blob_comparator_set(const blob_comparator * comparator);
+	
 private:
 	struct mdtable_header
 	{
@@ -129,6 +131,10 @@ private:
 	journal_dtable * journal;
 	const dtable_factory * base;
 	params base_config;
+	/* in case a blob comparator is needed for the journal, it may return
+	 * -EBUSY and we will need to query it later when the blob comparator is
+	 *  set; we set delayed_query when this case is detected in init() */
+	sys_journal * delayed_query;
 };
 
 #endif /* __MANAGED_DTABLE_H */

@@ -337,6 +337,7 @@ void ustr_dtable::deinit()
 			st.deinit();
 		delete fp;
 		fp = NULL;
+		dtable::deinit();
 	}
 }
 

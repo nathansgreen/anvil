@@ -260,18 +260,5 @@ void overlay_dtable::deinit()
 	delete[] tables;
 	tables = NULL;
 	table_count = 0;
-}
-
-int overlay_dtable::blob_comparator_set(const blob_comparator * comparator)
-{
-	int value;
-	comparator->retain();
-	if(blob_cmp)
-	{
-		blob_cmp->release();
-		blob_cmp = NULL;
-	}
-	value = dtable::blob_comparator_set(comparator);
-	comparator->release();
-	return value;
+	dtable::deinit();
 }
