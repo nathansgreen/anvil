@@ -33,11 +33,11 @@ public:
 	virtual int append(const dtype & key, const blob & blob);
 	virtual int remove(const dtype & key);
 	
-	inline virtual int blob_comparator_set(const blob_comparator * comparator)
+	inline virtual int set_blob_cmp(const blob_comparator * cmp)
 	{
 		/* we merely add this assertion, but it's important */
 		assert(!root);
-		return dtable::blob_comparator_set(comparator);
+		return dtable::set_blob_cmp(cmp);
 	}
 	
 	inline journal_dtable() : root(NULL), string_index(0) {}

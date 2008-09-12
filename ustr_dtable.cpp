@@ -148,7 +148,7 @@ int ustr_dtable::find_key(const dtype & key, size_t * data_length, off_t * data_
 {
 	/* binary search */
 	ssize_t min = 0, max = key_count - 1;
-	assert(!cmp_name == !blob_cmp);
+	assert(ktype != dtype::BLOB || !cmp_name == !blob_cmp);
 	while(min <= max)
 	{
 		/* watch out for overflow! */

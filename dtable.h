@@ -60,15 +60,15 @@ public:
 	inline virtual ~dtable() {}
 	
 	/* when using blob keys and a custom blob comparator, this will be necessary */
-	inline virtual int blob_comparator_set(const blob_comparator * comparator)
+	inline virtual int set_blob_cmp(const blob_comparator * cmp)
 	{
 		const char * match = blob_cmp ? blob_cmp->name : cmp_name;
-		if(match && strcmp(match, comparator->name))
+		if(match && strcmp(match, cmp->name))
 			return -EINVAL;
-		comparator->retain();
+		cmp->retain();
 		if(blob_cmp)
 			blob_cmp->release();
-		blob_cmp = comparator;
+		blob_cmp = cmp;
 		return 0;
 	}
 	

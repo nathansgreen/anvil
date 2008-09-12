@@ -51,11 +51,16 @@ public:
 			deinit();
 	}
 	
-	virtual int maintain()
+	inline virtual int maintain()
 	{
 		int r = dt_meta->maintain();
 		r |= ct_data->maintain();
 		return (r < 0) ? -1 : 0;
+	}
+	
+	inline virtual int set_blob_cmp(const blob_comparator * cmp)
+	{
+		return ct_data->set_blob_cmp(cmp);
 	}
 	
 	static int create(int dfd, const char * name, const params & config, dtype::ctype key_type);

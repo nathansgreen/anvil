@@ -57,6 +57,11 @@ public:
 		return wdt_source ? wdt_source->maintain() : 0;
 	}
 	
+	inline virtual int set_blob_cmp(const blob_comparator * cmp)
+	{
+		return wdt_source ? wdt_source->set_blob_cmp(cmp) : -EINVAL;
+	}
+	
 private:
 	class iter : public ctable::iter
 	{

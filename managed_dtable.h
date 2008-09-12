@@ -104,7 +104,7 @@ public:
 			deinit();
 	}
 	
-	virtual int blob_comparator_set(const blob_comparator * comparator);
+	virtual int set_blob_cmp(const blob_comparator * cmp);
 	
 private:
 	struct mdtable_header

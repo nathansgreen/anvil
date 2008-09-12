@@ -193,7 +193,7 @@ template<class T> inline int journal_dtable::log(T * entry, const blob & blob, s
 
 int journal_dtable::log(const dtype & key, const blob & blob)
 {
-	if(blob_cmp && !cmp_name)
+	if(ktype == dtype::BLOB && blob_cmp && !cmp_name)
 	{
 		/* not logged yet, so log it now */
 		int value = log_blob_cmp();

@@ -11,6 +11,7 @@
 
 #include "blob.h"
 #include "dtable.h"
+#include "blob_comparator.h"
 
 /* column tables */
 
@@ -50,6 +51,8 @@ public:
 	
 	/* maintenance callback; does nothing by default */
 	inline virtual int maintain() { return 0; }
+	
+	inline virtual int set_blob_cmp(const blob_comparator * cmp) { return -ENOSYS; }
 	
 protected:
 	const dtable * dt_source;

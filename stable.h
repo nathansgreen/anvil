@@ -12,6 +12,7 @@
 #include "dtype.h"
 #include "dtable.h"
 #include "ext_index.h"
+#include "blob_comparator.h"
 
 /* schema tables, like typed ctables (similar to old gtable) */
 
@@ -77,6 +78,8 @@ public:
 	
 	/* maintenance callback; does nothing by default */
 	inline virtual int maintain() { return 0; }
+	
+	inline virtual int set_blob_cmp(const blob_comparator * cmp) { return -ENOSYS; }
 	
 	virtual dtype::ctype key_type() const = 0;
 	inline virtual ~stable() {}

@@ -126,7 +126,7 @@ void managed_dtable::deinit()
 	dtable::deinit();
 }
 
-int managed_dtable::blob_comparator_set(const blob_comparator * comparator)
+int managed_dtable::set_blob_cmp(const blob_comparator * cmp)
 {
 	int value;
 	const char * match;
@@ -134,18 +134,18 @@ int managed_dtable::blob_comparator_set(const blob_comparator * comparator)
 		return -EBUSY;
 	/* first check the journal's required comparator name */
 	match = journal->get_cmp_name();
-	if(match && strcmp(match, comparator->name))
+	if(match && strcmp(match, cmp->name))
 		return -EINVAL;
 	/* then try to set our own comparator */
-	value = dtable::blob_comparator_set(comparator);
+	value = dtable::set_blob_cmp(cmp);
 	if(value < 0)
 		return value;
 	/* if we get here, everything else should work fine */
-	value = journal->blob_comparator_set(comparator);
+	value = journal->set_blob_cmp(cmp);
 	assert(value >= 0);
 	for(size_t i = 0; i < disks.size(); i++)
 	{
-		value = disks[i].first->blob_comparator_set(comparator);
+		value = disks[i].first->set_blob_cmp(cmp);
 		assert(value >= 0);
 	}
 	if(delayed_query)
@@ -182,7 +182,7 @@ int managed_dtable::combine(size_t first, size_t last)
 		shadow = new overlay_dtable;
 		shadow->init(array, first);
 		if(blob_cmp)
-			shadow->blob_comparator_set(blob_cmp);
+			shadow->set_blob_cmp(blob_cmp);
 	}
 	/* force array scope to end */
 	{
@@ -200,7 +200,7 @@ int managed_dtable::combine(size_t first, size_t last)
 		source = new overlay_dtable;
 		source->init(array, count);
 		if(blob_cmp)
-			source->blob_comparator_set(blob_cmp);
+			source->set_blob_cmp(blob_cmp);
 	}
 	
 	pid = patchgroup_create(0);
@@ -239,7 +239,7 @@ int managed_dtable::combine(size_t first, size_t last)
 		return -1;
 	}
 	if(blob_cmp)
-		result->blob_comparator_set(blob_cmp);
+		result->set_blob_cmp(blob_cmp);
 	for(size_t i = 0; i < first; i++)
 		copy.push_back(disks[i]);
 	copy.push_back(dtable_list_entry(result, header.ddt_next));
@@ -305,13 +305,13 @@ int managed_dtable::combine(size_t first, size_t last)
 		array[0] = journal;
 		overlay->init(array, header.ddt_count + 1);
 		if(blob_cmp)
-			overlay->blob_comparator_set(blob_cmp);
+			overlay->set_blob_cmp(blob_cmp);
 	}
 	if(reset_journal)
 	{
 		journal->reinit(header.journal_id);
 		if(blob_cmp)
-			journal->blob_comparator_set(blob_cmp);
+			journal->set_blob_cmp(blob_cmp);
 	}
 	return 0;
 }

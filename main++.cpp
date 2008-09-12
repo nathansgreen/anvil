@@ -489,8 +489,8 @@ int command_blob_cmp(int argc, const char * argv[])
 		return -EBUSY;
 	r = jdt.init(dtype::BLOB, jid, NULL);
 	printf("jdt.init = %d\n", r);
-	r = jdt.blob_comparator_set(&reverse);
-	printf("jdt.comparator_set = %d\n", r);
+	r = jdt.set_blob_cmp(&reverse);
+	printf("jdt.set_blob_cmp = %d\n", r);
 	for(int i = 0; i < 10; i++)
 	{
 		uint32_t keydata = rand();
@@ -515,7 +515,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	if(r == -EBUSY)
 	{
 		printf("expect comparator: %s\n", (const char *) jdt.get_cmp_name());
-		jdt.blob_comparator_set(&reverse);
+		jdt.set_blob_cmp(&reverse);
 		r = sys_journal::get_global_journal()->get_entries(&jdt);
 		printf("get_entries = %d\n", r);
 	}
