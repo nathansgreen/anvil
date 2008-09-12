@@ -26,7 +26,7 @@ endif
 #endif
 endif
 
-CFLAGS:=-Wall -Ifstitch/include $(CFLAGS)
+CFLAGS:=-Wall -Ifstitch/include -fpic $(CFLAGS)
 LDFLAGS:=-Lfstitch/obj/kernel/lib -lpatchgroup -Wl,-R,$(PWD)/fstitch/obj/kernel/lib $(LDFLAGS)
 
 all: tags main

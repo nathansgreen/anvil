@@ -35,7 +35,7 @@ int command_performance(int argc, const char * argv[]);
 
 static int journal_process(void * data, size_t length, void * param)
 {
-	printf("Journal entry: %s (length %d)\n", (char *) data, length - 1);
+	printf("Journal entry: %s (length %zu)\n", (char *) data, length - 1);
 	return 0;
 }
 
@@ -121,7 +121,7 @@ static void print(dtype x)
 			break;
 		case dtype::BLOB:
 			size_t size = x.blb.size();
-			printf("%u[", size);
+			printf("%zu[", size);
 			for(size_t i = 0; i < size && i < 8; i++)
 				printf("%02X%s", x.blb[i], (i < size - 1) ? " " : "");
 			printf((size > 8) ? "...]" : "]");
@@ -229,7 +229,7 @@ static void run_iterator(stable * table)
 			printf("columns->next() returned false, but columns->valid() says there is more!\n");
 			break;
 		}
-		printf("%s:\t%s (%d row%s)\n", (const char *) columns->name(), type, rows, (rows == 1) ? "" : "s");
+		printf("%s:\t%s (%zu row%s)\n", (const char *) columns->name(), type, rows, (rows == 1) ? "" : "s");
 		more = columns->next();
 	}
 	delete columns;
@@ -277,7 +277,7 @@ int command_dtable(int argc, const char * argv[])
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, "managed_dtable", config);
-	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
+	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	r = tx_start();
 	printf("tx_start = %d\n", r);
 	r = mdt->append(4u, blob(5, "hello"));
@@ -292,7 +292,7 @@ int command_dtable(int argc, const char * argv[])
 	mdt = new managed_dtable;
 	/* pass true to recover journal in this case */
 	r = mdt->init(AT_FDCWD, "managed_dtable", query);
-	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
+	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -305,7 +305,7 @@ int command_dtable(int argc, const char * argv[])
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, "managed_dtable", config);
-	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
+	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -323,7 +323,7 @@ int command_dtable(int argc, const char * argv[])
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, "managed_dtable", config);
-	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
+	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -336,7 +336,7 @@ int command_dtable(int argc, const char * argv[])
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, "managed_dtable", config);
-	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
+	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	delete mdt;
 	
@@ -362,7 +362,7 @@ int command_ctable(int argc, const char * argv[])
 	mdt = new managed_dtable;
 	sct = new simple_ctable;
 	r = mdt->init(AT_FDCWD, "managed_ctable", config);
-	printf("mdt->init = %d, %d disk dtables\n", r, mdt->disk_dtables());
+	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	r = sct->init(mdt);
 	printf("sct->init = %d\n", r);
 	r = tx_start();

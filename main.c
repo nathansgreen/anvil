@@ -285,7 +285,7 @@ static void print_value(t_type type, const t_value * value)
 			printf("%s\n", value->v_string);
 			break;
 		case T_BLOB:
-			printf("(blob:%u)\n", value->v_blob.length);
+			printf("(blob:%zu)\n", value->v_blob.length);
 			break;
 	}
 }
@@ -320,7 +320,7 @@ static int command_list(int argc, const char * argv[])
 				const char * name = toilet_columns_name(columns);
 				const char * type = toilet_name_type(toilet_columns_type(columns));
 				size_t count = toilet_columns_row_count(columns);
-				printf("%-12s  %-9s  %11u\n", name, type, count);
+				printf("%-12s  %-9s  %11zu\n", name, type, count);
 				toilet_columns_next(columns);
 			}
 			toilet_put_columns(columns);
@@ -338,7 +338,7 @@ static int command_list(int argc, const char * argv[])
 			for(i = 0; i < max; i++)
 				printf(ROW_FORMAT "\n", toilet_rowset_row(rows, i));
 			toilet_put_rowset(rows);
-			printf("gtable %s holds %d row%s\n", toilet_gtable_name(open_gtable), i, (i == 1) ? "" : "s");
+			printf("gtable %s holds %zu row%s\n", toilet_gtable_name(open_gtable), i, (i == 1) ? "" : "s");
 		}
 	}
 	else if(!strcmp(argv[1], "keys"))
@@ -532,7 +532,7 @@ static int command_query(int argc, const char * argv[])
 							for(i = 0; i < max; i++)
 								printf(ROW_FORMAT "\n", toilet_rowset_row(rows, i));
 							toilet_put_rowset(rows);
-							printf("%d row%s matched\n", i, (i == 1) ? "" : "s");
+							printf("%zu row%s matched\n", i, (i == 1) ? "" : "s");
 						}
 					}
 				}
