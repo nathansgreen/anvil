@@ -17,6 +17,7 @@ OBJECTS=$(COBJECTS) $(CPPOBJECTS)
 
 ifeq ($(findstring -pg,$(CFLAGS)),-pg)
 ifeq ($(findstring -pg,$(LDFLAGS)),)
+# Add -pg to LDFLAGS if it's in CFLAGS and not LDFLAGS
 LDFLAGS:=-pg $(LDFLAGS)
 endif
 # We can't actually do this without a small change to openat.c;
@@ -26,7 +27,12 @@ endif
 #endif
 endif
 
-CFLAGS:=-Wall -Ifstitch/include -fpic $(CFLAGS)
+# On 64-bit architectures, -fpic is required
+ifeq ($(findstring 64,$(shell uname -m)),64)
+CFLAGS:=-fpic $(CFLAGS)
+endif
+
+CFLAGS:=-Wall -Ifstitch/include $(CFLAGS)
 LDFLAGS:=-Lfstitch/obj/kernel/lib -lpatchgroup -Wl,-R,$(PWD)/fstitch/obj/kernel/lib $(LDFLAGS)
 
 all: tags main
@@ -50,6 +56,7 @@ libtoilet.a: libtoilet.o
 	ar csr $@ $<
 
 ifeq ($(findstring -pg,$(CFLAGS)),-pg)
+# Link statically if we are profiling; gprof won't profile shared library code
 main: libtoilet.a main.o main++.o
 	g++ -o $@ main.o main++.o libtoilet.a -lreadline -ltermcap $(LDFLAGS)
 else
@@ -73,7 +80,7 @@ php:
 	if [ -f php/Makefile ]; then make -C php; else php/compile; fi
 
 .depend: $(SOURCES) $(HEADERS) main.c
-	g++ -MM $(CFLAGS) *.c *.cpp > .depend
+	g++ -MM $(CFLAGS) $(CPPFLAGS) *.c *.cpp > .depend
 
 tags: $(SOURCES) main.c $(HEADERS)
 	ctags -R

@@ -284,6 +284,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	dtype::ctype key_type = source->key_type();
 	const char ** string_array = NULL;
 	blob * blob_array = NULL;
+	const blob_comparator * blob_cmp = source->get_blob_cmp();
 	size_t key_count = 0, max_data_size = 0, total_data_size = 0;
 	uint32_t max_key = 0;
 	dtable_header header;
@@ -293,7 +294,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 		return -EINVAL;
 	if(key_type == dtype::STRING || key_type == dtype::BLOB)
 	{
-		r = strings.init(source->get_blob_cmp());
+		r = strings.init(blob_cmp);
 		if(r < 0)
 			return r;
 	}
@@ -363,7 +364,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 			break;
 		case dtype::BLOB:
 			header.key_type = 4;
-			header.key_size = byte_size(strings.size() - 1);
+			header.key_size = byte_size(strings.blob_size() - 1);
 			break;
 	}
 	/* we reserve size 0 for non-existent entries, so add 1 */
@@ -386,7 +387,6 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	}
 	if(key_type == dtype::BLOB)
 	{
-		const blob_comparator * blob_cmp = source->get_blob_cmp();
 		uint32_t length = blob_cmp ? strlen(blob_cmp->name) : 0;
 		out.append(&length);
 		if(length)
@@ -400,7 +400,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	}
 	else if(blob_array)
 	{
-		r = stringtbl::create(&out, blob_array, strings.blob_size(), source->get_blob_cmp());
+		r = stringtbl::create(&out, blob_array, strings.blob_size(), blob_cmp);
 		if(r < 0)
 			goto fail_unlink;
 	}
@@ -433,7 +433,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 				layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 			case dtype::BLOB:
-				max_key = blob::locate(blob_array, strings.blob_size(), key.blb);
+				max_key = blob::locate(blob_array, strings.blob_size(), key.blb, blob_cmp);
 				layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 		}

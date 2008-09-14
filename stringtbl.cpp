@@ -154,10 +154,10 @@ const blob & stringtbl::get_blob(ssize_t index) const
 	offset += start;
 	/* now we have the length and offset */
 	blob_buffer data(length);
+	data.set_size(length, false);
 	i = fp->read(offset, &data[0], length);
 	if(i != length)
 		return blob::dne;
-	data.set_size(length, false);
 	i = lru_next;
 	lru[i].index = index;
 	if(lru[i].string)

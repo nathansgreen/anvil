@@ -254,7 +254,7 @@ int journal_dtable::append(const dtype & key, const blob & blob)
 {
 	int r;
 	node * node;
-	if(key.type != ktype)
+	if(key.type != ktype || (ktype == dtype::BLOB && !key.blb.exists()))
 		return -EINVAL;
 	r = log(key, blob);
 	if(r < 0)

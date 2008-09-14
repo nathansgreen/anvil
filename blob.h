@@ -18,6 +18,8 @@
 
 /* blobs, the storage units of dtables */
 
+class blob_comparator;
+
 class blob
 {
 public:
@@ -31,7 +33,7 @@ public:
 	blob(const blob & x);
 	blob & operator=(const blob & x);
 	
-	static ssize_t locate(const blob * array, ssize_t size, const blob & blob);
+	static ssize_t locate(const blob * array, ssize_t size, const blob & blob, const blob_comparator * blob_cmp = NULL);
 	
 	inline ~blob()
 	{
@@ -80,7 +82,7 @@ public:
 			return internal ? 1 : -1;
 		min = (internal->size < x.internal->size) ? internal->size : x.internal->size;
 		r = memcmp(internal->bytes, x.internal->bytes, min);
-		return r ? r : (internal->size < x.internal->size) ? -1 : 1;
+		return r ? r : (internal->size < x.internal->size) ? -1 : internal->size > x.internal->size;
 	}
 	
 private:
