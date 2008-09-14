@@ -529,7 +529,122 @@ int command_blob_cmp(int argc, const char * argv[])
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
-	return 0;
+	/* now do a test with stables */
+	simple_stable * sst;
+	params config, meta_config, data_config;
+	istr column("sum");
+	uint32_t sum = 0;
+	dtype old_key(0u);
+	bool first = true;
+	stable::iter * iter;
+	
+	meta_config.set("digest_interval", 2);
+	meta_config.set("combine_interval", 2 * 3);
+	meta_config.set("combine_count", 3 + 1);
+	data_config = meta_config;
+	meta_config.set_class("base", simple_dtable);
+	data_config.set_class("base", ustr_dtable);
+	config.set("meta_config", meta_config);
+	config.set("data_config", data_config);
+	config.set_class("meta", managed_dtable);
+	config.set_class("data", managed_dtable);
+	config.set_class("columns", simple_ctable);
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = simple_stable::create(AT_FDCWD, "cmptest", config, dtype::BLOB);
+	printf("stable::create = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	sst = new simple_stable;
+	r = sst->init(AT_FDCWD, "cmptest", config);
+	printf("sst->init = %d\n", r);
+	r = sst->set_blob_cmp(&reverse);
+	printf("sst->set_blob_cmp = %d\n", r);
+	
+	for(uint32_t i = 0; i < 1000000; i++)
+	{
+		uint32_t keydata = rand();
+		blob key(sizeof(keydata), &keydata);
+		dtype current(0u);
+		if(!(i % 1000))
+		{
+			r = tx_start();
+			if(r < 0)
+				goto fail_tx_start;
+		}
+		if(sst->find(key, column, &current))
+			current.u32 += i;
+		else
+			current.u32 = i;
+		r = sst->append(key, column, current);
+		if(r < 0)
+			goto fail_append;
+		if((i % 100000) == 99999)
+			printf("%d%% done.\n", (i + 1) / 10000);
+		if((i % 10000) == 9999)
+		{
+			r = sst->maintain();
+			if(r < 0)
+				goto fail_maintain;
+		}
+		if((i % 1000) == 999)
+		{
+			r = tx_end(0);
+			assert(r >= 0);
+		}
+		/* this will overflow, but that's OK */
+		sum += i;
+	}
+	
+	delete sst;
+	
+	sst = new simple_stable;
+	r = sst->init(AT_FDCWD, "cmptest", config);
+	printf("sst->init = %d\n", r);
+	r = sst->set_blob_cmp(&reverse);
+	printf("sst->set_blob_cmp = %d\n", r);
+	
+	printf("Verifying writes... ");
+	fflush(stdout);
+	iter = sst->iterator();
+	while(iter->valid())
+	{
+		dtype key = iter->key();
+		dtype value = iter->value();
+		if(!first)
+		{
+			if(key.compare(old_key) >= 0)
+			{
+				printf("key does not decrease (");
+				print(key);
+				printf(" >= ");
+				print(old_key);
+				printf(") ");
+				break;
+			}
+			old_key = key;
+			first = false;
+		}
+		sum -= value.u32;
+		iter->next();
+	}
+	delete iter;
+	if(!sum)
+		printf("OK!\n");
+	else
+		printf("failed!\n");
+	
+	delete sst;
+	return sum ? -1 : 0;
+	
+fail_maintain:
+fail_append:
+	tx_end(0);
+fail_tx_start:
+	delete sst;
+	return r;
 }
 
 #define ROW_COUNT 20000
