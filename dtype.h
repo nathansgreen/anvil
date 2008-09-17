@@ -149,4 +149,36 @@ public:
 	}
 };
 
+/* this class can be used to wrap a blob comparator pointer so that it can be
+ * used for STL methods like std::sort() when you have dtypes and not blobs */
+class dtype_comparator_object
+{
+public:
+	inline bool operator()(const dtype & a, const dtype & b) const
+	{
+		return a.compare(b, blob_cmp) < 0;
+	}
+	
+	inline dtype_comparator_object(const blob_comparator * comparator = NULL) : blob_cmp(comparator) {}
+	
+private:
+	const blob_comparator * blob_cmp;
+};
+
+/* if it is necessary to change the comparator during the use of an STL
+ * container like std::set, then dtype_comparator_refobject will help you out */
+class dtype_comparator_refobject
+{
+public:
+	inline bool operator()(const dtype & a, const dtype & b) const
+	{
+		return a.compare(b, blob_cmp) < 0;
+	}
+	
+	inline dtype_comparator_refobject(const blob_comparator *& comparator) : blob_cmp(comparator) {}
+	
+private:
+	const blob_comparator *& blob_cmp;
+};
+
 #endif /* __DTYPE_H */

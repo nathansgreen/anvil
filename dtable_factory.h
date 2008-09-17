@@ -59,9 +59,9 @@ public:
 		dt_factory_registry::remove(name, this);
 	}
 	
-protected:
-	istr name;
+	const istr name;
 	
+protected:
 	inline dtable_factory(const istr & class_name)
 		: name(class_name)
 	{
@@ -115,7 +115,36 @@ public:
 	}
 };
 
-/* for dtables which can only be opened; wrappers around other dtables */
+template<class T>
+class dtable_wrap_factory : public dtable_open_factory<T>
+{
+public:
+	inline dtable_wrap_factory(const istr & class_name) : dtable_open_factory<T>(class_name) {}
+	
+	inline virtual int create(int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow) const
+	{
+		params base_config;
+		const dtable_factory * base = dt_factory_registry::lookup(config, "base");
+		if(!base)
+			return -EINVAL;
+		if(!config.get("base_config", &base_config, params()))
+			return -EINVAL;
+		return base->create(dfd, name, base_config, source, shadow);
+	}
+	
+	inline virtual int create(int dfd, const char * name, const params & config, dtype::ctype key_type) const
+	{
+		params base_config;
+		const dtable_factory * base = dt_factory_registry::lookup(config, "base");
+		if(!base)
+			return -EINVAL;
+		if(!config.get("base_config", &base_config, params()))
+			return -EINVAL;
+		return base->create(dfd, name, base_config, key_type);
+	}
+};
+
+/* for dtables which can only be opened, perhaps data from some external source */
 #define DECLARE_OPEN_FACTORY(class_name) static const dtable_open_factory<class_name> factory
 #define DEFINE_OPEN_FACTORY(class_name) const dtable_open_factory<class_name> class_name::factory(#class_name)
 
@@ -126,5 +155,9 @@ public:
 /* for dtables which generally are created empty and then populated */
 #define DECLARE_RW_FACTORY(class_name) static const dtable_rw_factory<class_name> factory
 #define DEFINE_RW_FACTORY(class_name) const dtable_rw_factory<class_name> class_name::factory(#class_name)
+
+/* for dtables which wrap other dtables at runtime but not on disk */
+#define DECLARE_WRAP_FACTORY(class_name) static const dtable_wrap_factory<class_name> factory
+#define DEFINE_WRAP_FACTORY(class_name) const dtable_wrap_factory<class_name> class_name::factory(#class_name)
 
 #endif /* __DTABLE_FACTORY_H */

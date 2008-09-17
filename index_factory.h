@@ -42,9 +42,9 @@ public:
 		ei_factory_registry::remove(name, this);
 	}
 	
-protected:
-	istr name;
+	const istr name;
 	
+protected:
 	inline index_factory(const istr & class_name)
 		: name(class_name)
 	{
