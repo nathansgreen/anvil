@@ -27,7 +27,7 @@ class journal_dtable : public dtable, public sys_journal::journal_listener
 {
 public:
 	virtual iter * iterator() const;
-	virtual blob lookup(const dtype & key, const dtable ** source) const;
+	virtual blob lookup(const dtype & key, bool * found) const;
 	
 	inline virtual bool writable() const { return true; }
 	virtual int append(const dtype & key, const blob & blob);

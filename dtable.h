@@ -50,8 +50,8 @@ public:
 	};
 	
 	virtual iter * iterator() const = 0;
-	virtual blob lookup(const dtype & key, const dtable ** source) const = 0;
-	inline blob find(const dtype & key) const { const dtable * source; return lookup(key, &source); }
+	virtual blob lookup(const dtype & key, bool * found) const = 0;
+	inline blob find(const dtype & key) const { bool found; return lookup(key, &found); }
 	inline virtual bool writable() const { return false; }
 	inline virtual int append(const dtype & key, const blob & blob) { return -ENOSYS; }
 	inline virtual int remove(const dtype & key) { return -ENOSYS; }

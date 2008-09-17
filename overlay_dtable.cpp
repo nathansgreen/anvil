@@ -187,16 +187,16 @@ dtable::iter * overlay_dtable::iterator() const
 	return new iter(this);
 }
 
-blob overlay_dtable::lookup(const dtype & key, const dtable ** source) const
+blob overlay_dtable::lookup(const dtype & key, bool * found) const
 {
 	size_t i;
 	for(i = 0; i < table_count; i++)
 	{
-		blob value = tables[i]->lookup(key, source);
-		if(*source)
+		blob value = tables[i]->lookup(key, found);
+		if(*found)
 			return value;
 	}
-	*source = NULL;
+	*found = false;
 	return blob();
 }
 

@@ -37,9 +37,9 @@ public:
 	{
 		return overlay->iterator();
 	}
-	inline virtual blob lookup(const dtype & key, const dtable ** source) const
+	inline virtual blob lookup(const dtype & key, bool * found) const
 	{
-		return overlay->lookup(key, source);
+		return overlay->lookup(key, found);
 	}
 	
 	inline virtual bool writable() const { return true; }

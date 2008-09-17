@@ -37,7 +37,7 @@ class ustr_dtable : public dtable
 {
 public:
 	virtual iter * iterator() const;
-	virtual blob lookup(const dtype & key, const dtable ** source) const;
+	virtual blob lookup(const dtype & key, bool * found) const;
 	
 	inline ustr_dtable() : fp(NULL) {}
 	int init(int dfd, const char * file, const params & config);

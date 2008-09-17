@@ -36,7 +36,7 @@ class simple_dtable : public dtable
 {
 public:
 	virtual iter * iterator() const;
-	virtual blob lookup(const dtype & key, const dtable ** source) const;
+	virtual blob lookup(const dtype & key, bool * found) const;
 	
 	inline simple_dtable() : fp(NULL) {}
 	int init(int dfd, const char * file, const params & config);

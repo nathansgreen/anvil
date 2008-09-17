@@ -97,7 +97,7 @@ class dtable_ro_factory : public dtable_open_factory<T>
 public:
 	dtable_ro_factory(const istr & class_name) : dtable_open_factory<T>(class_name) {}
 	
-	virtual int create(int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow) const
+	inline virtual int create(int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow) const
 	{
 		return T::create(dfd, name, config, source, shadow);
 	}
@@ -115,10 +115,16 @@ public:
 	}
 };
 
-#define DECLARE_RO_FACTORY(class_name) static const dtable_ro_factory<class_name> factory;
-#define DEFINE_RO_FACTORY(class_name) const dtable_ro_factory<class_name> class_name::factory(#class_name);
+/* for dtables which can only be opened; wrappers around other dtables */
+#define DECLARE_OPEN_FACTORY(class_name) static const dtable_open_factory<class_name> factory
+#define DEFINE_OPEN_FACTORY(class_name) const dtable_open_factory<class_name> class_name::factory(#class_name)
 
-#define DECLARE_RW_FACTORY(class_name) static const dtable_rw_factory<class_name> factory;
-#define DEFINE_RW_FACTORY(class_name) const dtable_rw_factory<class_name> class_name::factory(#class_name);
+/* for dtables which must be created with all the data they will ever contain */
+#define DECLARE_RO_FACTORY(class_name) static const dtable_ro_factory<class_name> factory
+#define DEFINE_RO_FACTORY(class_name) const dtable_ro_factory<class_name> class_name::factory(#class_name)
+
+/* for dtables which generally are created empty and then populated */
+#define DECLARE_RW_FACTORY(class_name) static const dtable_rw_factory<class_name> factory
+#define DEFINE_RW_FACTORY(class_name) const dtable_rw_factory<class_name> class_name::factory(#class_name)
 
 #endif /* __DTABLE_FACTORY_H */

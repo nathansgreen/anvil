@@ -73,15 +73,15 @@ dtable::iter * journal_dtable::iterator() const
 	return new iter(node, this);
 }
 
-blob journal_dtable::lookup(const dtype & key, const dtable ** source) const
+blob journal_dtable::lookup(const dtype & key, bool * found) const
 {
 	node * node = find_node(key);
 	if(node)
 	{
-		*source = this;
+		*found = true;
 		return node->value;
 	}
-	*source = NULL;
+	*found = false;
 	return blob();
 }
 

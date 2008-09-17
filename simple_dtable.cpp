@@ -182,17 +182,17 @@ blob simple_dtable::get_value(size_t index) const
 	return (data_length != (size_t) -1) ? get_value(index, data_length, data_offset) : blob();
 }
 
-blob simple_dtable::lookup(const dtype & key, const dtable ** source) const
+blob simple_dtable::lookup(const dtype & key, bool * found) const
 {
 	size_t data_length, index;
 	off_t data_offset;
 	int r = find_key(key, &data_length, &data_offset, &index);
 	if(r < 0)
 	{
-		*source = NULL;
+		*found = false;
 		return blob();
 	}
-	*source = this;
+	*found = true;
 	if(data_length == (size_t) -1)
 		return blob();
 	return get_value(index, data_length, data_offset);
