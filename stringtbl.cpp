@@ -231,14 +231,15 @@ void stringtbl::array_sort(blob * array, ssize_t count, const blob_comparator * 
 		std::sort(array, &array[count], blob_comparator_null());
 }
 
-int stringtbl::create(rwfile * fp, const char ** strings, ssize_t count)
+int stringtbl::create(rwfile * fp, const char ** strings, ssize_t count, bool need_sort)
 {
 	st_header header = {STRINGTBL_VERSION, 0, {4, 1}, count};
 	size_t size = 0, max = 0;
 	ssize_t i;
 	int r;
 	/* the strings must be sorted */
-	array_sort(strings, count);
+	if(need_sort)
+		array_sort(strings, count);
 	for(i = 0; i < count; i++)
 	{
 		size_t length = strlen(strings[i]);
@@ -310,13 +311,12 @@ int stringtbl::create(rwfile * fp, const char ** strings, ssize_t count)
 	return 0;
 }
 
-int stringtbl::create(rwfile * fp, blob * blobs, ssize_t count, const blob_comparator * blob_cmp)
+int stringtbl::create(rwfile * fp, blob * blobs, ssize_t count, const blob_comparator * blob_cmp, bool need_sort)
 {
 	st_header header = {STRINGTBL_VERSION, 1, {4, 1}, count};
 	size_t size = 0, max = 0;
-	ssize_t i;
 	int r;
-	for(i = 0; i < count; i++)
+	for(ssize_t i = 0; i < count; i++)
 	{
 		size_t length = blobs[i].size();
 		size += length;
@@ -324,7 +324,8 @@ int stringtbl::create(rwfile * fp, blob * blobs, ssize_t count, const blob_compa
 			max = length;
 	}
 	/* the blobs must be sorted */
-	array_sort(blobs, count, blob_cmp);
+	if(need_sort)
+		array_sort(blobs, count, blob_cmp);
 	/* figure out the correct size of the length field */
 	if(max < 0x100)
 		header.bytes[0] = 1;
@@ -333,7 +334,7 @@ int stringtbl::create(rwfile * fp, blob * blobs, ssize_t count, const blob_compa
 	else if(max < 0x1000000)
 		header.bytes[0] = 3;
 	/* figure out the correct size of the offset field */
-	for(i = 0; i < 3; i++)
+	for(ssize_t i = 0; i < 3; i++)
 	{
 		max = sizeof(header) + (header.bytes[0] + header.bytes[1]) * count + size;
 		if(max < 0x100)
@@ -352,7 +353,7 @@ int stringtbl::create(rwfile * fp, blob * blobs, ssize_t count, const blob_compa
 	/* start of blobs */
 	max = sizeof(header) + (header.bytes[0] + header.bytes[1]) * count;
 	/* write the length/offset table */
-	for(i = 0; i < count; i++)
+	for(ssize_t i = 0; i < count; i++)
 	{
 		int j, bc = 0;
 		uint8_t buffer[8];
@@ -379,7 +380,7 @@ int stringtbl::create(rwfile * fp, blob * blobs, ssize_t count, const blob_compa
 			return (r < 0) ? r : -1;
 	}
 	/* write the blobs */
-	for(i = 0; i < count; i++)
+	for(ssize_t i = 0; i < count; i++)
 	{
 		size = blobs[i].size();
 		r = fp->append(&blobs[i][0], size);

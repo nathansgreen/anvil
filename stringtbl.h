@@ -56,9 +56,9 @@ public:
 	static void array_sort(blob * array, ssize_t count, const blob_comparator * blob_cmp);
 
 	/* these functions leave the input arrays sorted */
-	static int create(rwfile * fp, const char ** strings, ssize_t count);
+	static int create(rwfile * fp, const char ** strings, ssize_t count, bool need_sort = false);
 	/* makes a binary table */
-	static int create(rwfile * fp, blob * blobs, ssize_t count, const blob_comparator * blob_cmp = NULL);
+	static int create(rwfile * fp, blob * blobs, ssize_t count, const blob_comparator * blob_cmp = NULL, bool need_sort = false);
 
 private:
 	struct lru_ent
