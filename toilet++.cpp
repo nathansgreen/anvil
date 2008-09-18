@@ -222,7 +222,7 @@ const char * toilet_gtables_name(t_toilet * toilet, size_t index)
 static int toilet_new_gtable_type(t_toilet * toilet, const char * name, dtype::ctype type)
 {
 	int r;
-	params config, base_config;
+	params config;
 	
 	/* already exists and in hash? */
 	if(toilet->gtables.count(name))
@@ -232,11 +232,28 @@ static int toilet_new_gtable_type(t_toilet * toilet, const char * name, dtype::c
 	if(!*name || *name == '=')
 		return -EINVAL;
 	
-	base_config.set_class("base", simple_dtable);
-	config.set("meta_config", base_config);
-	config.set("data_config", base_config);
-	config.set_class("meta", managed_dtable);
-	config.set_class("data", managed_dtable);
+	r = params::parse(LITERAL(
+	config [
+		"meta" class(dt) cache_dtable
+		"meta_config" config [
+			"cache_size" int 40000
+			"base" class(dt) managed_dtable
+			"base_config" config [
+				"base" class(dt) simple_dtable
+			]
+		]
+		"data" class(dt) cache_dtable
+		"data_config" config [
+			"cache_size" int 40000
+			"base" class(dt) managed_dtable
+			"base_config" config [
+				"base" class ustr_dtable
+			]
+		]
+		"columns" class(ct) simple_ctable
+	]), &config);
+	if(r < 0)
+		return -EILSEQ;
 	r = tx_start_r();
 	if(r < 0)
 		return r;
@@ -270,7 +287,7 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	int r;
 	t_gtable * gtable;
 	simple_stable * sst;
-	params config, base_config;
+	params config;
 	
 	if(toilet->gtables.count(name))
 	{
@@ -278,6 +295,29 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 		gtable->out_count++;
 		return gtable;
 	}
+	
+	r = params::parse(LITERAL(
+	config [
+		"meta" class(dt) cache_dtable
+		"meta_config" config [
+			"cache_size" int 40000
+			"base" class(dt) managed_dtable
+			"base_config" config [
+				"base" class(dt) simple_dtable
+			]
+		]
+		"data" class(dt) cache_dtable
+		"data_config" config [
+			"cache_size" int 40000
+			"base" class(dt) managed_dtable
+			"base_config" config [
+				"base" class ustr_dtable
+			]
+		]
+		"columns" class(ct) simple_ctable
+	]), &config);
+	if(r < 0)
+		return NULL;
 	
 	gtable = new t_gtable;
 	if(!gtable)
@@ -288,12 +328,6 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 		goto fail_table;
 	gtable->toilet = toilet;
 	
-	base_config.set_class("base", simple_dtable);
-	config.set("meta_config", base_config);
-	config.set("data_config", base_config);
-	config.set_class("meta", managed_dtable);
-	config.set_class("data", managed_dtable);
-	config.set_class("columns", simple_ctable);
 	r = tx_start_r();
 	if(r < 0)
 		goto fail_open;

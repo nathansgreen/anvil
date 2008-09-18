@@ -16,12 +16,15 @@ void cache_dtable::add_cache(const dtype & key, const blob & value, bool found) 
 	/* FIXME: this is a very simple eviction algorithm: evict
 	 * the oldest item, regardless of when it has been used */
 	assert(!cache.count(key));
-	if(cache.size() == cache_size)
+	if(cache_size)
 	{
-		cache.erase(order.front());
-		order.pop();
+		if(cache.size() == cache_size)
+		{
+			cache.erase(order.front());
+			order.pop();
+		}
+		assert(cache.size() < cache_size);
 	}
-	assert(cache.size() < cache_size);
 	cache[key] = (entry) {value, found};
 	order.push(key);
 	assert(cache.size() == order.size());
