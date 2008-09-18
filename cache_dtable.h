@@ -14,6 +14,7 @@
 #endif
 
 #include <map>
+#include <queue>
 
 #include "blob.h"
 #include "dtable.h"
@@ -67,7 +68,9 @@ private:
 	typedef std::map<dtype, entry, dtype_comparator_refobject> blob_map;
 	
 	dtable * base;
+	size_t cache_size;
 	mutable blob_map cache;
+	mutable std::queue<dtype> order;
 };
 
 #endif /* __CACHE_DTABLE_H */

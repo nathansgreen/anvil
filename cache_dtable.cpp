@@ -13,9 +13,18 @@ dtable::iter * cache_dtable::iterator() const
 
 void cache_dtable::add_cache(const dtype & key, const blob & value, bool found) const
 {
+	/* FIXME: this is a very simple eviction algorithm: evict
+	 * the oldest item, regardless of when it has been used */
 	assert(!cache.count(key));
-	/* XXX FIXME this has no limit to how much it will cache... */
+	if(cache.size() == cache_size)
+	{
+		cache.erase(order.front());
+		order.pop();
+	}
+	assert(cache.size() < cache_size);
 	cache[key] = (entry) {value, found};
+	order.push(key);
+	assert(cache.size() == order.size());
 }
 
 blob cache_dtable::lookup(const dtype & key, bool * found) const
@@ -67,10 +76,14 @@ int cache_dtable::remove(const dtype & key)
 
 int cache_dtable::init(int dfd, const char * file, const params & config)
 {
+	int r;
 	const dtable_factory * factory;
 	params base_config;
 	if(base)
 		deinit();
+	if(!config.get("cache_size", &r, 0) || r < 0)
+		return -EINVAL;
+	cache_size = r;
 	factory = dt_factory_registry::lookup(config, "base");
 	if(!factory)
 		return -EINVAL;
@@ -88,6 +101,8 @@ void cache_dtable::deinit()
 	if(base)
 	{
 		cache.clear();
+		while(!order.empty())
+			order.pop();
 		delete base;
 		base = NULL;
 		dtable::deinit();

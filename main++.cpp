@@ -408,6 +408,7 @@ int command_stable(int argc, const char * argv[])
 	config [
 		"meta" class(dt) cache_dtable
 		"meta_config" config [
+			"cache_size" int 40000
 			"base" class(dt) managed_dtable
 			"base_config" config [
 				"base" class(dt) simple_dtable
@@ -416,6 +417,7 @@ int command_stable(int argc, const char * argv[])
 		]
 		"data" class(dt) cache_dtable
 		"data_config" config [
+			"cache_size" int 40000
 			"base" class(dt) managed_dtable
 			"base_config" config [
 				"base" class ustr_dtable
@@ -559,6 +561,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	config [
 		"meta" class(dt) cache_dtable
 		"meta_config" config [
+			"cache_size" int 40000
 			"base" class(dt) managed_dtable
 			"base_config" config [
 				"base" class(dt) simple_dtable
@@ -569,6 +572,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		]
 		"data" class(dt) cache_dtable
 		"data_config" config [
+			"cache_size" int 40000
 			"base" class(dt) managed_dtable
 			"base_config" config [
 				"base" class ustr_dtable
@@ -695,6 +699,7 @@ int command_performance(int argc, const char * argv[])
 	config [
 		"meta" class(dt) cache_dtable
 		"meta_config" config [
+			"cache_size" int 40000
 			"base" class(dt) managed_dtable
 			"base_config" config [
 				"base" class(dt) simple_dtable
@@ -705,6 +710,7 @@ int command_performance(int argc, const char * argv[])
 		]
 		"data" class(dt) cache_dtable
 		"data_config" config [
+			"cache_size" int 40000
 			"base" class(dt) managed_dtable
 			"base_config" config [
 				"base" class ustr_dtable
