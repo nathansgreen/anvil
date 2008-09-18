@@ -16,6 +16,7 @@
 
 #include <map>
 #include "istr.h"
+#include "token_stream.h"
 
 class params
 {
@@ -45,7 +46,17 @@ public:
 		values.clear();
 	}
 	
+	/* just for debugging; prints to stdout, with no newline */
+	void print() const;
+	
+	/* on error, returns the negative of the line number causing the error */
+	static int parse(const char * input, params * result);
+	
 private:
+	enum keyword { ERROR, BOOL, INT, FLOAT, STRING, CLASS, CLASS_DT, CLASS_CT, CLASS_IDX, CONFIG };
+	static inline enum keyword parse_type(const char * type);
+	static int parse(token_stream * tokens, params * result);
+	
 	/* can't be defined until later */
 	struct param;
 	
@@ -56,9 +67,12 @@ private:
 	value_map values;
 };
 
+/* this macro can be used with params::parse() to help do multi-line input strings */
+#define LITERAL(x) #x
+
 struct params::param
 {
-	enum { BOOL = 2, INT, FLT, STR, PRM } type;
+	enum { BOOL, INT, FLT, STR, PRM } type;
 	union
 	{
 		bool b;

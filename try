@@ -79,6 +79,10 @@ then
 	# Filter the system journal
 	true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $SYSJ_TRACE exec $VALGRIND '"$WD/toilet"')
 	ls -l /mnt/test/sys_journal*
+	
+	# If we comment out all the commands above, we
+	# need something here so bash doesn't complain
+	true
 fi
 
 echo "Unloading Featherstitch..."

@@ -17,6 +17,7 @@
 #include "ctable.h"
 #include "stable.h"
 #include "sys_journal.h"
+#include "cache_dtable.h"
 #include "simple_dtable.h"
 #include "managed_dtable.h"
 #include "ustr_dtable.h"
@@ -266,11 +267,10 @@ int command_dtable(int argc, const char * argv[])
 	
 	params config;
 	config.set_class("base", simple_dtable);
-	params query(config);
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = managed_dtable::create(AT_FDCWD, "managed_dtable", params(), dtype::UINT32);
+	r = managed_dtable::create(AT_FDCWD, "managed_dtable", config, dtype::UINT32);
 	printf("dtable::create = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
@@ -290,8 +290,7 @@ int command_dtable(int argc, const char * argv[])
 	delete mdt;
 	
 	mdt = new managed_dtable;
-	/* pass true to recover journal in this case */
-	r = mdt->init(AT_FDCWD, "managed_dtable", query);
+	r = mdt->init(AT_FDCWD, "managed_dtable", config);
 	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
@@ -403,15 +402,31 @@ int command_stable(int argc, const char * argv[])
 {
 	int r;
 	simple_stable * sst;
-	params config, base_config;
+	params config;
 	
-	base_config.set_class("base", ustr_dtable);
-	base_config.set("digest_interval", 2);
-	config.set("meta_config", base_config);
-	config.set("data_config", base_config);
-	config.set_class("meta", managed_dtable);
-	config.set_class("data", managed_dtable);
-	config.set_class("columns", simple_ctable);
+	r = params::parse(LITERAL(
+	config [
+		"meta" class(dt) cache_dtable
+		"meta_config" config [
+			"base" class(dt) managed_dtable
+			"base_config" config [
+				"base" class(dt) simple_dtable
+				"digest_interval" int 2
+			]
+		]
+		"data" class(dt) cache_dtable
+		"data_config" config [
+			"base" class(dt) managed_dtable
+			"base_config" config [
+				"base" class ustr_dtable
+				"digest_interval" int 2
+			]
+		]
+		"columns" class(ct) simple_ctable
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -472,6 +487,8 @@ int command_stable(int argc, const char * argv[])
 	return 0;
 }
 
+#define ROW_COUNT 40000
+
 int command_blob_cmp(int argc, const char * argv[])
 {
 	int r;
@@ -531,24 +548,40 @@ int command_blob_cmp(int argc, const char * argv[])
 	
 	/* now do a test with stables */
 	simple_stable * sst;
-	params config, meta_config, data_config;
+	params config;
 	istr column("sum");
 	uint32_t sum = 0;
 	dtype old_key(0u);
 	bool first = true;
 	stable::iter * iter;
 	
-	meta_config.set("digest_interval", 2);
-	meta_config.set("combine_interval", 2 * 3);
-	meta_config.set("combine_count", 3 + 1);
-	data_config = meta_config;
-	meta_config.set_class("base", simple_dtable);
-	data_config.set_class("base", ustr_dtable);
-	config.set("meta_config", meta_config);
-	config.set("data_config", data_config);
-	config.set_class("meta", managed_dtable);
-	config.set_class("data", managed_dtable);
-	config.set_class("columns", simple_ctable);
+	r = params::parse(LITERAL(
+	config [
+		"meta" class(dt) cache_dtable
+		"meta_config" config [
+			"base" class(dt) managed_dtable
+			"base_config" config [
+				"base" class(dt) simple_dtable
+				"digest_interval" int 2
+				"combine_interval" int 6
+				"combine_count" int 4
+			]
+		]
+		"data" class(dt) cache_dtable
+		"data_config" config [
+			"base" class(dt) managed_dtable
+			"base_config" config [
+				"base" class ustr_dtable
+				"digest_interval" int 2
+				"combine_interval" int 8
+				"combine_count" int 5
+			]
+		]
+		"columns" class(ct) simple_ctable
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -565,7 +598,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	
 	for(uint32_t i = 0; i < 1000000; i++)
 	{
-		uint32_t keydata = rand();
+		uint32_t keydata = rand() % ROW_COUNT;
 		blob key(sizeof(keydata), &keydata);
 		dtype current(0u);
 		if(!(i % 1000))
@@ -647,7 +680,6 @@ fail_tx_start:
 	return r;
 }
 
-#define ROW_COUNT 20000
 static const istr column_names[] = {"c_one", "c_two", "c_three", "c_four", "c_five"};
 #define COLUMN_NAMES (sizeof(column_names) / sizeof(column_names[0]))
 
@@ -657,19 +689,35 @@ int command_performance(int argc, const char * argv[])
 	simple_stable * sst;
 	struct timeval start, end;
 	uint32_t table_copy[ROW_COUNT][COLUMN_NAMES];
-	params config, meta_config, data_config;
+	params config;
 	
-	meta_config.set("digest_interval", 2);
-	meta_config.set("combine_interval", 2 * 4);
-	meta_config.set("combine_count", 4 + 1);
-	data_config = meta_config;
-	meta_config.set_class("base", simple_dtable);
-	data_config.set_class("base", ustr_dtable);
-	config.set("meta_config", meta_config);
-	config.set("data_config", data_config);
-	config.set_class("meta", managed_dtable);
-	config.set_class("data", managed_dtable);
-	config.set_class("columns", simple_ctable);
+	r = params::parse(LITERAL(
+	config [
+		"meta" class(dt) cache_dtable
+		"meta_config" config [
+			"base" class(dt) managed_dtable
+			"base_config" config [
+				"base" class(dt) simple_dtable
+				"digest_interval" int 2
+				"combine_interval" int 8
+				"combine_count" int 5
+			]
+		]
+		"data" class(dt) cache_dtable
+		"data_config" config [
+			"base" class(dt) managed_dtable
+			"base_config" config [
+				"base" class ustr_dtable
+				"digest_interval" int 2
+				"combine_interval" int 8
+				"combine_count" int 5
+			]
+		]
+		"columns" class(ct) simple_ctable
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -686,7 +734,7 @@ int command_performance(int argc, const char * argv[])
 		for(uint32_t j = 0; j < COLUMN_NAMES; j++)
 			table_copy[i][j] = (uint32_t) -1;
 	
-	printf("Start timing! (2000000 appends)\n");
+	printf("Start timing! (2000000 appends to %d rows)\n", ROW_COUNT);
 	gettimeofday(&start, NULL);
 	
 	for(int i = 0; i < 2000000; i++)
