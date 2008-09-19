@@ -24,11 +24,15 @@ const dtable_factory * dt_factory_registry::lookup(const istr & class_name)
 	return NULL;
 }
 
-const dtable_factory * dt_factory_registry::lookup(const params & config, const istr & config_name)
+const dtable_factory * dt_factory_registry::lookup(const params & config, const istr & config_name, const istr & alt_name)
 {
 	istr class_name;
 	if(!config.get(config_name, &class_name))
 		return NULL;
+	/* if it wasn't there, try the alternate config name */
+	if(!class_name && alt_name)
+		if(!config.get(alt_name, &class_name))
+			return NULL;
 	return lookup(class_name);
 }
 

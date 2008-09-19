@@ -71,7 +71,7 @@ public:
 	 * disk_dtables() (the journal dtable being the "newest") */
 	/* note that there is always a journal dtable - if it is combined, a new
 	 * one is created to take its place */
-	int combine(size_t first, size_t last);
+	int combine(size_t first, size_t last, bool use_fastbase = false);
 	
 	/* combine the last count dtables into two new ones: a combined disk
 	 * dtable, and a new journal dtable */
@@ -83,10 +83,10 @@ public:
 	}
 	
 	/* digests the journal dtable into a new disk dtable */
-	inline int digest()
+	inline int digest(bool use_fastbase = true)
 	{
 		size_t journal = disk_dtables();
-		return combine(journal, journal);
+		return combine(journal, journal, use_fastbase);
 	}
 	
 	/* do maintenance based on parameters */
@@ -120,7 +120,26 @@ private:
 		time_t combine_interval, combined;
 	} __attribute__((packed));
 	
-	typedef std::pair<dtable *, uint32_t> dtable_list_entry;
+	struct mdtable_entry
+	{
+		uint32_t ddt_number;
+		uint8_t is_fastbase;
+	} __attribute__((packed));
+	
+	struct dtable_list_entry
+	{
+		dtable * first;
+		uint32_t second;
+		bool third;
+		inline dtable_list_entry(dtable * dtable, const mdtable_entry & entry)
+			: first(dtable), second(entry.ddt_number), third(entry.is_fastbase)
+		{
+		}
+		inline dtable_list_entry(dtable * dtable, uint32_t number, bool fastbase)
+			: first(dtable), second(number), third(fastbase)
+		{
+		}
+	};
 	typedef std::vector<dtable_list_entry> dtable_list;
 	
 	int md_dfd;
@@ -130,7 +149,8 @@ private:
 	overlay_dtable * overlay;
 	journal_dtable * journal;
 	const dtable_factory * base;
-	params base_config;
+	const dtable_factory * fastbase;
+	params base_config, fastbase_config;
 	/* in case a blob comparator is needed for the journal, it may return
 	 * -EBUSY and we will need to query it later when the blob comparator is
 	 *  set; we set delayed_query when this case is detected in init() */

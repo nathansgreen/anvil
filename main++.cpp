@@ -421,6 +421,7 @@ int command_stable(int argc, const char * argv[])
 			"base" class(dt) managed_dtable
 			"base_config" config [
 				"base" class ustr_dtable
+				"fastbase" class simple_dtable
 				"digest_interval" int 2
 			]
 		]
@@ -576,6 +577,7 @@ int command_blob_cmp(int argc, const char * argv[])
 			"base" class(dt) managed_dtable
 			"base_config" config [
 				"base" class ustr_dtable
+				"fastbase" class simple_dtable
 				"digest_interval" int 2
 				"combine_interval" int 8
 				"combine_count" int 5
@@ -714,6 +716,7 @@ int command_performance(int argc, const char * argv[])
 			"base" class(dt) managed_dtable
 			"base_config" config [
 				"base" class ustr_dtable
+				"fastbase" class simple_dtable
 				"digest_interval" int 2
 				"combine_interval" int 8
 				"combine_count" int 5

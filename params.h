@@ -41,6 +41,11 @@ public:
 	bool get(const istr & name, istr * value, const istr & dfl = NULL) const;
 	bool get(const istr & name, params * value, const params & dfl = params()) const;
 	
+	inline bool contains(const istr & name) const
+	{
+		return values.count(name) > 0;
+	}
+	
 	inline void reset()
 	{
 		values.clear();

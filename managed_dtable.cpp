@@ -15,13 +15,21 @@
 
 int managed_dtable::init(int dfd, const char * name, const params & config, sys_journal * sys_journal)
 {
+	istr fast_config = "fastbase_config";
 	int r = -1, meta;
 	if(md_dfd >= 0)
 		deinit();
 	base = dt_factory_registry::lookup(config, "base");
 	if(!base)
 		return -EINVAL;
+	fastbase = dt_factory_registry::lookup(config, "fastbase", "base");
+	if(!fastbase)
+		return -EINVAL;
 	if(!config.get("base_config", &base_config, params()))
+		return -EINVAL;
+	if(!config.contains(fast_config))
+		fast_config = "base_config";
+	if(!config.get(fast_config, &fastbase_config, params()))
 		return -EINVAL;
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
@@ -59,15 +67,18 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	{
 		char name[32];
 		dtable * source;
-		uint32_t ddt_value;
-		r = read(meta, &ddt_value, sizeof(ddt_value));
-		if(r != sizeof(ddt_value))
+		mdtable_entry ddt;
+		r = read(meta, &ddt, sizeof(ddt));
+		if(r != sizeof(ddt))
 			goto fail_disks;
-		sprintf(name, "md_data.%u", ddt_value);
-		source = base->open(md_dfd, name, base_config);
+		sprintf(name, "md_data.%u", ddt.ddt_number);
+		if(ddt.is_fastbase)
+			source = fastbase->open(md_dfd, name, fastbase_config);
+		else
+			source = base->open(md_dfd, name, base_config);
 		if(!source)
 			goto fail_disks;
-		disks.push_back(dtable_list_entry(source, ddt_value));
+		disks.push_back(dtable_list_entry(source, ddt));
 	}
 	
 	journal = new journal_dtable;
@@ -159,7 +170,7 @@ int managed_dtable::set_blob_cmp(const blob_comparator * cmp)
 	return value;
 }
 
-int managed_dtable::combine(size_t first, size_t last)
+int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 {
 	sys_journal::listener_id old_id = sys_journal::NO_ID;
 	overlay_dtable * shadow = NULL;
@@ -211,7 +222,10 @@ int managed_dtable::combine(size_t first, size_t last)
 	r = patchgroup_engage(pid);
 	assert(r >= 0);
 	sprintf(name, "md_data.%u", header.ddt_next);
-	r = base->create(md_dfd, name, base_config, source, shadow);
+	if(use_fastbase)
+		r = fastbase->create(md_dfd, name, fastbase_config, source, shadow);
+	else
+		r = base->create(md_dfd, name, base_config, source, shadow);
 	{
 		int r2 = patchgroup_disengage(pid);
 		assert(r2 >= 0);
@@ -232,7 +246,10 @@ int managed_dtable::combine(size_t first, size_t last)
 	
 	/* now we've created the file, but we can still delete it easily if something fails */
 	
-	result = base->open(md_dfd, name, base_config);
+	if(use_fastbase)
+		result = fastbase->open(md_dfd, name, fastbase_config);
+	else
+		result = base->open(md_dfd, name, base_config);
 	if(!result)
 	{
 		unlinkat(md_dfd, name, 0);
@@ -242,7 +259,7 @@ int managed_dtable::combine(size_t first, size_t last)
 		result->set_blob_cmp(blob_cmp);
 	for(size_t i = 0; i < first; i++)
 		copy.push_back(disks[i]);
-	copy.push_back(dtable_list_entry(result, header.ddt_next));
+	copy.push_back(dtable_list_entry(result, header.ddt_next, use_fastbase));
 	for(size_t i = last + 1; i < disks.size(); i++)
 		copy.push_back(disks[i]);
 	
@@ -273,9 +290,12 @@ int managed_dtable::combine(size_t first, size_t last)
 	}
 	/* force array scope to end */
 	{
-		uint32_t array[header.ddt_count];
+		mdtable_entry array[header.ddt_count];
 		for(uint32_t i = 0; i < header.ddt_count; i++)
-			array[i] = copy[i].second;
+		{
+			array[i].ddt_number = copy[i].second;
+			array[i].is_fastbase = copy[i].third;
+		}
 		/* hmm... would sizeof(array) work here? */
 		r = tx_write(fd, array, header.ddt_count * sizeof(array[0]), sizeof(header));
 		if(r < 0)

@@ -23,7 +23,7 @@ class dt_factory_registry
 public:
 	static int add(const istr & class_name, const dtable_factory * factory);
 	static const dtable_factory * lookup(const istr & class_name);
-	static const dtable_factory * lookup(const params & config, const istr & config_name);
+	static const dtable_factory * lookup(const params & config, const istr & config_name, const istr & alt_name = NULL);
 	static void remove(const istr & class_name, const dtable_factory * factory);
 	
 private:
