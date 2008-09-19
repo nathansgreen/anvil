@@ -183,6 +183,9 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 	tx_fd fd;
 	int r;
 	
+	/* can't do combining if we don't have the requisite comparator */
+	if(cmp_name && !blob_cmp)
+		return -EBUSY;
 	if(last < first || last > disks.size())
 		return -EINVAL;
 	if(first)
