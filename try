@@ -36,12 +36,6 @@ sudo chown `whoami` /mnt/test
 [ "$JOURNAL" ] && dd if=/dev/zero of=/mnt/test/.journal bs=1M count=64 2> /dev/null
 cp demo /mnt/test
 cat > /mnt/test/tests << EOF
-journal create tj
-journal append record1
-journal append record2
-journal commit
-journal playback
-journal erase
 tx
 dtable
 ctable

@@ -589,7 +589,6 @@ static int command_tx(int argc, const char * argv[])
 	return 0;
 }
 
-int command_journal(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
@@ -616,7 +615,6 @@ struct {
 	{"help", "Displays help.", command_help},
 	{"quit", "Quits the program.", command_quit},
 	{"script", "Run a toilet script.", command_script},
-	{"journal", "Test journal functionality: create, append, commit, playback, erase.", command_journal},
 	{"tx", "Test transaction functionality.", command_tx},
 	{"dtable", "Test dtable functionality.", command_dtable},
 	{"ctable", "Test ctable functionality.", command_ctable},

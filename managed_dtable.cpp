@@ -102,7 +102,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		size_t count = header.ddt_count;
 		const dtable * array[count + 1];
 		for(size_t i = 0; i < count; i++)
-			array[count - i] = disks[i].first;
+			array[count - i] = disks[i].disk;
 		array[0] = journal;
 		overlay = new overlay_dtable;
 		overlay->init(array, count + 1);
@@ -113,7 +113,7 @@ fail_query:
 	delete journal;
 fail_disks:
 	for(size_t i = 0; i < disks.size(); i++)
-		delete disks[i].first;
+		delete disks[i].disk;
 	disks.clear();
 fail_header:
 	close(meta);
@@ -130,7 +130,7 @@ void managed_dtable::deinit()
 	delete overlay;
 	delete journal;
 	for(size_t i = 0; i < disks.size(); i++)
-		delete disks[i].first;
+		delete disks[i].disk;
 	disks.clear();
 	close(md_dfd);
 	md_dfd = -1;
@@ -158,7 +158,7 @@ int managed_dtable::set_blob_cmp(const blob_comparator * cmp)
 	assert(value >= 0);
 	for(size_t i = 0; i < disks.size(); i++)
 	{
-		value = disks[i].first->set_blob_cmp(cmp);
+		value = disks[i].disk->set_blob_cmp(cmp);
 		assert(value >= 0);
 	}
 	if(delayed_query)
@@ -194,7 +194,7 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 	{
 		const dtable * array[first];
 		for(size_t i = 0; i < first; i++)
-			array[first - i - 1] = disks[i].first;
+			array[first - i - 1] = disks[i].disk;
 		shadow = new overlay_dtable;
 		shadow->init(array, first);
 		if(blob_cmp)
@@ -212,7 +212,7 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 		}
 		if(last != (size_t) -1)
 			for(size_t i = first; i <= last; i++)
-				array[last - i + reset_journal] = disks[i].first;
+				array[last - i + reset_journal] = disks[i].disk;
 		source = new overlay_dtable;
 		source->init(array, count);
 		if(blob_cmp)
@@ -298,8 +298,8 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 		mdtable_entry array[header.ddt_count];
 		for(uint32_t i = 0; i < header.ddt_count; i++)
 		{
-			array[i].ddt_number = copy[i].second;
-			array[i].is_fastbase = copy[i].third;
+			array[i].ddt_number = copy[i].ddt_number;
+			array[i].is_fastbase = copy[i].is_fastbase;
 		}
 		/* hmm... would sizeof(array) work here? */
 		r = tx_write(fd, array, header.ddt_count * sizeof(array[0]), sizeof(header));
@@ -318,15 +318,15 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 	if(last != (size_t) -1)
 		for(size_t i = first; i <= last; i++)
 		{
-			delete copy[i].first;
-			sprintf(name, "md_data.%u", copy[i].second);
+			delete copy[i].disk;
+			sprintf(name, "md_data.%u", copy[i].ddt_number);
 			tx_unlink(md_dfd, name);
 		}
 	/* force array scope to end */
 	{
 		const dtable * array[header.ddt_count + 1];
 		for(uint32_t i = 0; i < header.ddt_count; i++)
-			array[header.ddt_count - i] = disks[i].first;
+			array[header.ddt_count - i] = disks[i].disk;
 		array[0] = journal;
 		overlay->init(array, header.ddt_count + 1);
 		if(blob_cmp)
@@ -348,7 +348,7 @@ int managed_dtable::maintain()
 	int r = journal->maintain();
 	for(size_t i = 0; i < disks.size(); i++)
 		/* ditto on these theoretically read-only dtables */
-		r |= disks[i].first->maintain();
+		r |= disks[i].disk->maintain();
 	if(r < 0)
 		return -1;
 	if(header.digested + header.digest_interval <= now)

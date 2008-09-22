@@ -128,15 +128,15 @@ private:
 	
 	struct dtable_list_entry
 	{
-		dtable * first;
-		uint32_t second;
-		bool third;
+		dtable * disk;
+		uint32_t ddt_number;
+		bool is_fastbase;
 		inline dtable_list_entry(dtable * dtable, const mdtable_entry & entry)
-			: first(dtable), second(entry.ddt_number), third(entry.is_fastbase)
+			: disk(dtable), ddt_number(entry.ddt_number), is_fastbase(entry.is_fastbase)
 		{
 		}
 		inline dtable_list_entry(dtable * dtable, uint32_t number, bool fastbase)
-			: first(dtable), second(number), third(fastbase)
+			: disk(dtable), ddt_number(number), is_fastbase(fastbase)
 		{
 		}
 	};
