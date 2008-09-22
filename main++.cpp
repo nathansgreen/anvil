@@ -490,11 +490,12 @@ int command_stable(int argc, const char * argv[])
 	return 0;
 }
 
-#define ROW_COUNT 40000
+#define ROW_COUNT 50000
 
 int command_blob_cmp(int argc, const char * argv[])
 {
 	int r;
+	struct timeval start, end;
 	reverse_blob_comparator reverse;
 	sys_journal::listener_id jid;
 	journal_dtable jdt;
@@ -553,7 +554,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	simple_stable * sst;
 	params config;
 	istr column("sum");
-	uint32_t sum = 0;
+	uint32_t sum = 0, check = 0;
 	dtype old_key(0u);
 	bool first = true;
 	stable::iter * iter;
@@ -602,7 +603,10 @@ int command_blob_cmp(int argc, const char * argv[])
 	r = sst->set_blob_cmp(&reverse);
 	printf("sst->set_blob_cmp = %d\n", r);
 	
-	for(uint32_t i = 0; i < 1000000; i++)
+	printf("Start timing! (400000 reverse blob key appends to %d rows)\n", ROW_COUNT);
+	gettimeofday(&start, NULL);
+	
+	for(uint32_t i = 0; i < 400000; i++)
 	{
 		uint32_t keydata = rand() % ROW_COUNT;
 		blob key(sizeof(keydata), &keydata);
@@ -620,8 +624,18 @@ int command_blob_cmp(int argc, const char * argv[])
 		r = sst->append(key, column, current);
 		if(r < 0)
 			goto fail_append;
-		if((i % 100000) == 99999)
-			printf("%d%% done.\n", (i + 1) / 10000);
+		if((i % 40000) == 39999)
+		{
+			gettimeofday(&end, NULL);
+			end.tv_sec -= start.tv_sec;
+			if(end.tv_usec < start.tv_usec)
+			{
+				end.tv_usec += 1000000;
+				end.tv_sec--;
+			}
+			end.tv_usec -= start.tv_usec;
+			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 4000, (int) end.tv_sec, (int) end.tv_usec);
+		}
 		if((i % 10000) == 9999)
 		{
 			r = sst->maintain();
@@ -637,6 +651,16 @@ int command_blob_cmp(int argc, const char * argv[])
 		sum += i;
 	}
 	
+	gettimeofday(&end, NULL);
+	end.tv_sec -= start.tv_sec;
+	if(end.tv_usec < start.tv_usec)
+	{
+		end.tv_usec += 1000000;
+		end.tv_sec--;
+	}
+	end.tv_usec -= start.tv_usec;
+	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
+	
 	delete sst;
 	
 	sst = new simple_stable;
@@ -644,6 +668,8 @@ int command_blob_cmp(int argc, const char * argv[])
 	printf("sst->init = %d\n", r);
 	r = sst->set_blob_cmp(&reverse);
 	printf("sst->set_blob_cmp = %d\n", r);
+	r = sst->maintain();
+	printf("sst->maintain = %d\n", r);
 	
 	printf("Verifying writes... ");
 	fflush(stdout);
@@ -663,20 +689,21 @@ int command_blob_cmp(int argc, const char * argv[])
 				printf(") ");
 				break;
 			}
-			old_key = key;
-			first = false;
 		}
-		sum -= value.u32;
+		else
+			first = false;
+		old_key = key;
+		check += value.u32;
 		iter->next();
 	}
 	delete iter;
-	if(!sum)
+	if(sum == check)
 		printf("OK!\n");
 	else
-		printf("failed!\n");
+		printf("failed! (sum = %u, check = %u)\n", sum, check);
 	
 	delete sst;
-	return sum ? -1 : 0;
+	return (sum == check) ? 0 : -1;
 	
 fail_maintain:
 fail_append:

@@ -152,6 +152,8 @@ int managed_dtable::set_blob_cmp(const blob_comparator * cmp)
 	if(value < 0)
 		return value;
 	/* if we get here, everything else should work fine */
+	value = overlay->set_blob_cmp(cmp);
+	assert(value >= 0);
 	value = journal->set_blob_cmp(cmp);
 	assert(value >= 0);
 	for(size_t i = 0; i < disks.size(); i++)
