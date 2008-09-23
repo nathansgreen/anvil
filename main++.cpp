@@ -732,6 +732,12 @@ int command_performance(int argc, const char * argv[])
 			if(r < 0)
 				goto fail_maintain;
 		}
+		if((i % 500000) == 499999)
+		{
+			r = sys_journal::get_global_journal()->filter();
+			if(r < 0)
+				goto fail_maintain;
+		}
 		if((i % 1000) == 999)
 		{
 			r = tx_end(0);
