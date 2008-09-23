@@ -113,6 +113,33 @@ void params::print() const
 	}
 }
 
+void params::print_classes()
+{
+	size_t count;
+	const istr * names;
+	
+	count = dt_factory_registry::list(&names);
+	printf("%zu available dtable%s:", count, (count == 1) ? "" : "s");
+	for(size_t i = 0; i < count; i++)
+		printf(" %s", (const char *) names[i]);
+	printf("\n");
+	delete[] names;
+	
+	count = ct_factory_registry::list(&names);
+	printf("%zu available ctable%s:", count, (count == 1) ? "" : "s");
+	for(size_t i = 0; i < count; i++)
+		printf(" %s", (const char *) names[i]);
+	printf("\n");
+	delete[] names;
+	
+	count = ei_factory_registry::list(&names);
+	printf("%zu available ind%s:", count, (count == 1) ? "ex" : "ices");
+	for(size_t i = 0; i < count; i++)
+		printf(" %s", (const char *) names[i]);
+	printf("\n");
+	delete[] names;
+}
+
 int params::parse(const char * input, params * result)
 {
 	token_stream tokens(input);

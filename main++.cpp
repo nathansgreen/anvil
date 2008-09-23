@@ -25,6 +25,7 @@
 #include "reverse_blob_comparator.h"
 
 extern "C" {
+int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
@@ -183,6 +184,12 @@ static void run_iterator(stable * table)
 		more = iter->next();
 	}
 	delete iter;
+}
+
+int command_info(int argc, const char * argv[])
+{
+	params::print_classes();
+	return 0;
 }
 
 int command_dtable(int argc, const char * argv[])
