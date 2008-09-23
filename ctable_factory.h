@@ -22,8 +22,9 @@ class ct_factory_registry
 public:
 	static int add(const istr & class_name, const ctable_factory * factory);
 	static const ctable_factory * lookup(const istr & class_name);
-	static const ctable_factory * lookup(const params & config, const istr & config_name);
+	static const ctable_factory * lookup(const params & config, const istr & config_name, const istr & alt_name = NULL);
 	static void remove(const istr & class_name, const ctable_factory * factory);
+	static size_t list(const istr ** names);
 	
 private:
 	typedef std::map<istr, const ctable_factory *, strcmp_less> factory_map;

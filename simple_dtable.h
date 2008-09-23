@@ -25,9 +25,9 @@
  * dtables are read-only once they are created with the ::create() method. */
 
 /* Custom versions of this class are definitely expected, to store the data more
- * efficiently given knowledge of what it will probably be. It is considered bad
- * form to have such a custom class outright reject data that it does not know
- * how to store conveniently, however. */
+ * efficiently given knowledge of what it will probably be. It is advised that
+ * such a custom class should not outright reject data that it does not know how
+ * to store conveniently; however, this behavior is not required. */
 
 #define SDTABLE_MAGIC 0xF029DDE3
 #define SDTABLE_VERSION 1

@@ -37,6 +37,7 @@ sudo chown `whoami` /mnt/test
 cp demo /mnt/test
 cat > /mnt/test/tests << EOF
 tx
+info
 dtable
 ctable
 stable

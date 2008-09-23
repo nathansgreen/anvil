@@ -13,7 +13,6 @@
 #error cache_dtable.h is a C++ header file
 #endif
 
-#include <map>
 #include <ext/hash_map>
 #include <queue>
 

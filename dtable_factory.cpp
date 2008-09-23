@@ -48,3 +48,20 @@ void dt_factory_registry::remove(const istr & class_name, const dtable_factory *
 	else
 		fprintf(stderr, "Warning: attempt to remove nonexistent dtable factory \"%s\"\n", (const char *) class_name);
 }
+
+size_t dt_factory_registry::list(const istr ** names)
+{
+	if(names)
+	{
+		factory_map::iterator iter = factories.begin();
+		size_t i = 0, size = factories.size();
+		istr * array = new istr[size];
+		while(iter != factories.end())
+		{
+			array[i++] = (*iter).first;
+			++iter;
+		}
+		*names = array;
+	}
+	return factories.size();
+}

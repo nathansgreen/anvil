@@ -24,11 +24,15 @@ const ctable_factory * ct_factory_registry::lookup(const istr & class_name)
 	return NULL;
 }
 
-const ctable_factory * ct_factory_registry::lookup(const params & config, const istr & config_name)
+const ctable_factory * ct_factory_registry::lookup(const params & config, const istr & config_name, const istr & alt_name)
 {
 	istr class_name;
 	if(!config.get(config_name, &class_name))
 		return NULL;
+	/* if it wasn't there, try the alternate config name */
+	if(!class_name && alt_name)
+		if(!config.get(alt_name, &class_name))
+			return NULL;
 	return lookup(class_name);
 }
 
@@ -43,4 +47,21 @@ void ct_factory_registry::remove(const istr & class_name, const ctable_factory *
 	}
 	else
 		fprintf(stderr, "Warning: attempt to remove nonexistent ctable factory \"%s\"\n", (const char *) class_name);
+}
+
+size_t ct_factory_registry::list(const istr ** names)
+{
+	if(names)
+	{
+		factory_map::iterator iter = factories.begin();
+		size_t i = 0, size = factories.size();
+		istr * array = new istr[size];
+		while(iter != factories.end())
+		{
+			array[i++] = (*iter).first;
+			++iter;
+		}
+		*names = array;
+	}
+	return factories.size();
 }

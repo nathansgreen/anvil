@@ -53,6 +53,8 @@ public:
 	
 	/* just for debugging; prints to stdout, with no newline */
 	void print() const;
+	/* just for debugging; prints the available classes to stdout */
+	static void print_classes();
 	
 	/* on error, returns the negative of the line number causing the error */
 	static int parse(const char * input, params * result);

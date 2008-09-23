@@ -589,6 +589,7 @@ static int command_tx(int argc, const char * argv[])
 	return 0;
 }
 
+int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
@@ -616,6 +617,7 @@ struct {
 	{"quit", "Quits the program.", command_quit},
 	{"script", "Run a toilet script.", command_script},
 	{"tx", "Test transaction functionality.", command_tx},
+	{"info", "Print some information about toilet.", command_info},
 	{"dtable", "Test dtable functionality.", command_dtable},
 	{"ctable", "Test ctable functionality.", command_ctable},
 	{"stable", "Test stable functionality.", command_stable},
