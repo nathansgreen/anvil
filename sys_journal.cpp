@@ -407,7 +407,7 @@ int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing
 int sys_journal::playback(journal_listener * target, bool fail_missing)
 {
 	/* playback */
-	std::set<listener_id> missing, failed;
+	__gnu_cxx::hash_set<listener_id> missing, failed;
 	off_t offset = sizeof(data_header);
 	SYSJ_DEBUG("%d, %d", target ? target->id() : 0, fail_missing);
 	assert(data_size >= offset);
@@ -511,7 +511,7 @@ void sys_journal::deinit()
 }
 
 sys_journal sys_journal::global_journal;
-std::map<sys_journal::listener_id, sys_journal::journal_listener *> sys_journal::listener_map;
+__gnu_cxx::hash_map<sys_journal::listener_id, sys_journal::journal_listener *> sys_journal::listener_map;
 
 sys_journal::journal_listener * sys_journal::lookup_listener(listener_id id)
 {

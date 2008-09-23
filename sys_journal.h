@@ -22,8 +22,8 @@ extern "C" {
 #include <patchgroup.h>
 }
 
-#include <map>
-#include <set>
+#include <ext/hash_set>
+#include <ext/hash_map>
 
 #include "istr.h"
 #include "rwfile.h"
@@ -128,10 +128,10 @@ private:
 	patchgroup_id_t pid;
 	tx_pre_end handle;
 	
-	std::set<listener_id> discarded;
+	__gnu_cxx::hash_set<listener_id> discarded;
 	
 	static sys_journal global_journal;
-	static std::map<listener_id, journal_listener *> listener_map;
+	static __gnu_cxx::hash_map<listener_id, journal_listener *> listener_map;
 	
 	struct unique_id
 	{
