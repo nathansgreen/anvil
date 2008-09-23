@@ -184,9 +184,8 @@ private:
 	const blob_comparator *& blob_cmp;
 };
 
-/* if it is necessary to change the comparator during the use of an STL
- * container like hash_map, then dtype_comparator_refobject will help you out */
-class dtype_comparator_eqrefobject
+/* good for hash_map; has an equality operator and a hash operator */
+class dtype_hashing_comparator
 {
 public:
 	inline bool operator()(const dtype & a, const dtype & b) const
@@ -194,14 +193,6 @@ public:
 		return !a.compare(b, blob_cmp);
 	}
 	
-	inline dtype_comparator_eqrefobject(const blob_comparator *& comparator) : blob_cmp(comparator) {}
-	
-private:
-	const blob_comparator *& blob_cmp;
-};
-
-struct dtype_hash
-{
 	size_t operator()(const dtype& dt) const
 	{
 		switch(dt.type)
@@ -220,6 +211,9 @@ struct dtype_hash
 				return __gnu_cxx::hash<const char *>()((const char *)dt.str);
 			case dtype::BLOB:
 			{
+				if(blob_cmp)
+					return blob_cmp->hash(dt.blb);
+
 				/* uses FNV hash taken from stl::tr1::hash */
 				size_t r = static_cast<size_t>(2166136261UL);
 				size_t length = dt.blb.size();
@@ -233,7 +227,11 @@ struct dtype_hash
 		}
 		abort();
 	}
-
+	
+	inline dtype_hashing_comparator(const blob_comparator *& comparator) : blob_cmp(comparator) {}
+	
+private:
+	const blob_comparator *& blob_cmp;
 };
 
 #endif /* __DTYPE_H */

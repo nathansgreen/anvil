@@ -43,7 +43,7 @@ public:
 		return value;
 	}
 	
-	inline cache_dtable() : base(NULL), cache(10, dtype_hash(), blob_cmp) {}
+	inline cache_dtable() : base(NULL), cache(10, blob_cmp, blob_cmp) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
 	inline virtual ~cache_dtable()
@@ -65,7 +65,7 @@ private:
 	
 	void add_cache(const dtype & key, const blob & value, bool found) const;
 	
-	typedef __gnu_cxx::hash_map<dtype, entry, dtype_hash, dtype_comparator_eqrefobject> blob_map;
+	typedef __gnu_cxx::hash_map<dtype, entry, dtype_hashing_comparator, dtype_hashing_comparator> blob_map;
 	
 	dtable * base;
 	size_t cache_size;
