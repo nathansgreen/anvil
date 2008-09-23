@@ -16,6 +16,9 @@
 #error dtype.h is a C++ header file
 #endif
 
+#include <string>
+#include <ext/hash_map>
+
 #include "blob.h"
 #include "istr.h"
 #include "blob_comparator.h"
@@ -179,6 +182,58 @@ public:
 	
 private:
 	const blob_comparator *& blob_cmp;
+};
+
+/* if it is necessary to change the comparator during the use of an STL
+ * container like hash_map, then dtype_comparator_refobject will help you out */
+class dtype_comparator_eqrefobject
+{
+public:
+	inline bool operator()(const dtype & a, const dtype & b) const
+	{
+		return !a.compare(b, blob_cmp);
+	}
+	
+	inline dtype_comparator_eqrefobject(const blob_comparator *& comparator) : blob_cmp(comparator) {}
+	
+private:
+	const blob_comparator *& blob_cmp;
+};
+
+struct dtype_hash
+{
+	size_t operator()(const dtype& dt) const
+	{
+		switch(dt.type)
+		{
+			case dtype::UINT32:
+				return __gnu_cxx::hash<uint32_t>()(dt.u32);
+			case dtype::DOUBLE:
+			{
+				size_t r = 0;
+				// 0 and -0 both hash to zero.
+				if (dt.dbl != 0.0)
+					r = __gnu_cxx::hash<const char *>()(reinterpret_cast<const char*>(&dt.dbl));
+				return r;
+			}
+			case dtype::STRING:
+				return __gnu_cxx::hash<const char *>()((const char *)dt.str);
+			case dtype::BLOB:
+			{
+				/* uses FNV hash taken from stl::tr1::hash */
+				size_t r = static_cast<size_t>(2166136261UL);
+				size_t length = dt.blb.size();
+				for (size_t i = 0; i < length; ++i)
+				{
+					r ^= static_cast<size_t>(dt.blb[i]);
+					r *= static_cast<size_t>(16777619UL);
+				}
+				return r;
+			}
+		}
+		abort();
+	}
+
 };
 
 #endif /* __DTYPE_H */
