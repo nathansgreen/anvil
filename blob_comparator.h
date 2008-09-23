@@ -18,17 +18,17 @@ public:
 	/* compare() need not compare nonexistent blobs; they cannot be keys */
 	virtual int compare(const blob & a, const blob & b) const = 0;
 
-	/* hash() should be overwritten if you compare non-identical blobs as
-	 * equal if not you can just use this without needing to write your own */
-	virtual size_t hash(const blob & a) const
+	/* hash() should be overridden if you compare non-identical blobs as
+	 * equal; if not, you can just use this default implementation */
+	inline virtual size_t hash(const blob & blob) const
 	{
 		/* uses FNV hash taken from stl::tr1::hash */
-		size_t r = static_cast<size_t>(2166136261UL);
-		size_t length = a.size();
-		for (size_t i = 0; i < length; ++i)
+		size_t r = 2166136261u;
+		size_t length = blob.size();
+		for(size_t i = 0; i < length; i++)
 		{
-			r ^= static_cast<size_t>(a[i]);
-			r *= static_cast<size_t>(16777619UL);
+			r ^= blob[i];
+			r *= 16777619u;
 		}
 		return r;
 	}
