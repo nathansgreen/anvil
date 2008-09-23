@@ -192,7 +192,7 @@ public:
 		return !a.compare(b, blob_cmp);
 	}
 	
-	size_t operator()(const dtype & dt) const
+	inline size_t operator()(const dtype & dt) const
 	{
 		switch(dt.type)
 		{
