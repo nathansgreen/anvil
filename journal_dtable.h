@@ -57,8 +57,7 @@ public:
 	virtual int journal_replay(void *& entry, size_t length);
 	
 private:
-	/* will reuse an existing node if possible */
-	int add_node(const dtype & key, const blob & value);
+	inline int add_node(const dtype & key, const blob & value);
 	
 	typedef std::map<const dtype, blob, dtype_comparator_refobject> journal_dtable_map;
 	class iter : public dtable::iter

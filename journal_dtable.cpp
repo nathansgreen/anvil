@@ -309,7 +309,6 @@ void journal_dtable::deinit()
 	dtable::deinit();
 }
 
-/* a simple (unbalanced) binary tree for now */
 int journal_dtable::add_node(const dtype & key, const blob & value)
 {
 	jdt_map[key] = value;
