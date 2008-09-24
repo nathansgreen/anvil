@@ -658,6 +658,7 @@ int command_performance(int argc, const char * argv[])
 {
 	int r;
 	simple_stable * sst;
+	stable::iter * iter;
 	struct timeval start, end;
 	uint32_t table_copy[ROW_COUNT][COLUMN_NAMES];
 	params config;
@@ -792,9 +793,62 @@ int command_performance(int argc, const char * argv[])
 		}
 	printf("OK!\n");
 	
+	if(argc > 1 && !strcmp(argv[1], "seek"))
+	{
+		printf("Checking seeking (100000 seeks)... ");
+		fflush(stdout);
+		iter = sst->iterator();
+		for(int i = 0; i < 100000; i++)
+		{
+			uint32_t row = rand() % ROW_COUNT;
+			bool found = iter->seek(row);
+			uint32_t expected_sum = 0;
+			int expected_count = 0;
+			for(uint32_t col = 0; col < COLUMN_NAMES; col++)
+				if(table_copy[row][col] != (uint32_t) -1)
+				{
+					expected_count++;
+					expected_sum += table_copy[row][col];
+				}
+			if(found == !expected_count)
+				goto fail_iter;
+			if(found)
+			{
+				if(!iter->valid())
+					goto fail_iter;
+				dtype key = iter->key();
+				if(key.type != dtype::UINT32 || key.u32 != row)
+					goto fail_iter;
+				while(key.u32 == row)
+				{
+					dtype value = iter->value();
+					if(value.type != dtype::UINT32)
+						goto fail_iter;
+					expected_count--;
+					expected_sum -= value.u32;
+					if(!iter->next())
+						break;
+					assert(iter->valid());
+					key = iter->key();
+				}
+				if(expected_count || expected_sum)
+					goto fail_iter;
+			}
+			else if(iter->valid())
+			{
+				dtype key = iter->key();
+				if(key.type != dtype::UINT32 || key.u32 == row)
+					goto fail_iter;
+			}
+		}
+		printf("OK!\n");
+	}
+	
 	delete sst;
 	return 0;
 	
+fail_iter:
+	delete iter;
 fail_verify:
 	printf("failed!\n");
 	delete sst;

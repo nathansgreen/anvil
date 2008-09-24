@@ -54,7 +54,7 @@ sudo mount /mnt/test
 echo "done."
 
 # Run the performance test
-echo "performance" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $PERF_TRACE exec $VALGRIND '"$WD/toilet"')
+echo "performance seek" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $PERF_TRACE exec $VALGRIND '"$WD/toilet"')
 ls -lR /mnt/test
 
 if [ ! -f /mnt/test/core -a ! -f /mnt/test/gmon.out ]
