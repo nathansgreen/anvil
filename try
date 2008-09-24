@@ -59,25 +59,32 @@ ls -lR /mnt/test
 
 if [ ! -f /mnt/test/core -a ! -f /mnt/test/gmon.out ]
 then
-	# Run some tests
-	#echo "script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $TEST_TRACE exec $VALGRIND '"$WD/toilet"')
-	#ls -lR /mnt/test
+	# Run the blob_cmp performance test
+	echo "blob_cmp perf" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $PERF_TRACE exec $VALGRIND '"$WD/toilet"')
+	ls -lR /mnt/test
 	
-	# Run the old demo
-	#echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $DEMO_TRACE exec $VALGRIND '"$WD/toilet"')
-	#ls -lR /mnt/test
-	
-	# Allow custom commands
-	#(WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $HAND_TRACE exec $VALGRIND '"$WD/toilet"')
-	#ls -lR /mnt/test
-	
-	# Filter the system journal
-	true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $SYSJ_TRACE exec $VALGRIND '"$WD/toilet"')
-	ls -l /mnt/test/sys_journal*
-	
-	# If we comment out all the commands above, we
-	# need something here so bash doesn't complain
-	true
+	if [ ! -f /mnt/test/core -a ! -f /mnt/test/gmon.out ]
+	then
+		# Run some tests
+		echo "script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $TEST_TRACE exec $VALGRIND '"$WD/toilet"')
+		ls -lR /mnt/test
+		
+		# Run the old demo
+		#echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $DEMO_TRACE exec $VALGRIND '"$WD/toilet"')
+		#ls -lR /mnt/test
+		
+		# Allow custom commands
+		#(WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $HAND_TRACE exec $VALGRIND '"$WD/toilet"')
+		#ls -lR /mnt/test
+		
+		# Filter the system journal
+		true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $SYSJ_TRACE exec $VALGRIND '"$WD/toilet"')
+		ls -l /mnt/test/sys_journal*
+		
+		# If we comment out all the commands above, we
+		# need something here so bash doesn't complain
+		true
+	fi
 fi
 
 echo "Unloading Featherstitch..."

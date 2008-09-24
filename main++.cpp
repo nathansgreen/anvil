@@ -482,6 +482,12 @@ int command_blob_cmp(int argc, const char * argv[])
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
+	if(argc < 2 || strcmp(argv[1], "perf"))
+	{
+		printf("Skipping blob_cmp semi-performance test.\n");
+		return 0;
+	}
+	
 	/* now do a test with stables */
 	simple_stable * sst;
 	params config;
