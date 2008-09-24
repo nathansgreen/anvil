@@ -9,6 +9,7 @@
 #include "blob_comparator.h"
 
 const blob blob::dne;
+const blob blob::empty(0, NULL);
 
 blob::blob(size_t size, const void * data)
 {
