@@ -8,56 +8,47 @@
 
 bool journal_dtable::iter::valid() const
 {
-	return jdt_node != NULL;
+	return jit != jdt_source->jdt_map.end();
 }
 
 bool journal_dtable::iter::next()
 {
-	next_node(&jdt_node);
-	return jdt_node != NULL;
+	++jit;
+	return jit != jdt_source->jdt_map.end();
 }
 
 bool journal_dtable::iter::prev()
 {
-	node * node;
-	if(jdt_node)
-	{
-		node = jdt_node;
-		prev_node(&node);
-	}
-	else
-		for(node = jdt_source->root; node && node->right; node = node->right);
-	if(node)
-		jdt_node = node;
-	return node != NULL;
+	--jit;
+	return jit != jdt_source->jdt_map.end();
 }
 
 bool journal_dtable::iter::last()
 {
-	for(jdt_node = jdt_source->root; jdt_node && jdt_node->right; jdt_node = jdt_node->right);
-	return jdt_node != NULL;
+	jit = jdt_source->jdt_map.end();
+	--jit;
+	return jit != jdt_source->jdt_map.end();
 }
 
 dtype journal_dtable::iter::key() const
 {
-	return jdt_node->key;
+	return jit->first;
 }
 
 bool journal_dtable::iter::seek(const dtype & key)
 {
-	bool found;
-	jdt_node = jdt_source->find_node_next(key, &found);
-	return found;
+	jit = jdt_source->jdt_map.lower_bound(key);
+	return jit != jdt_source->jdt_map.end();
 }
 
 metablob journal_dtable::iter::meta() const
 {
-	return jdt_node->value;
+	return jit->second;
 }
 
 blob journal_dtable::iter::value() const
 {
-	return jdt_node->value;
+	return jit->second;
 }
 
 const dtable * journal_dtable::iter::source() const
@@ -67,20 +58,18 @@ const dtable * journal_dtable::iter::source() const
 
 dtable::iter * journal_dtable::iterator() const
 {
-	node * node;
-	/* find first node */
-	for(node = root; node && node->left; node = node->left);
-	return new iter(node, this);
+	return new iter(this);
 }
 
 blob journal_dtable::lookup(const dtype & key, bool * found) const
 {
-	node * node = find_node(key);
-	if(node)
+	journal_dtable_map::const_iterator it = jdt_map.find(key);
+	if(it != jdt_map.end())
 	{
 		*found = true;
-		return node->value;
+		return it->second;
 	}
+	assert((it == jdt_map.end()));
 	*found = false;
 	return blob();
 }
@@ -253,16 +242,15 @@ int journal_dtable::log(const dtype & key, const blob & blob)
 int journal_dtable::append(const dtype & key, const blob & blob)
 {
 	int r;
-	node * node;
 	if(key.type != ktype || (ktype == dtype::BLOB && !key.blb.exists()))
 		return -EINVAL;
 	r = log(key, blob);
 	if(r < 0)
 		return r;
-	node = find_node(key);
-	if(node)
+	journal_dtable_map::iterator it = jdt_map.find(key);
+	if(it != jdt_map.end())
 	{
-		node->value = blob;
+		it->second = blob;
 		return 0;
 	}
 	return add_node(key, blob);
@@ -278,7 +266,7 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sy
 	int r;
 	if(id() != sys_journal::NO_ID)
 		deinit();
-	assert(!root);
+	assert(jdt_map.empty());
 	assert(!cmp_name);
 	ktype = key_type;
 	/* the stringset is not used for blob keys in journal_dtable,
@@ -317,128 +305,15 @@ void journal_dtable::deinit()
 	set_id(sys_journal::NO_ID);
 	/* no explicit deinitialization, so reinitialize empty */
 	strings.init(NULL);
-	if(root)
-	{
-		kill_nodes(root);
-		root = NULL;
-	}
+	jdt_map.clear();
 	dtable::deinit();
-}
-
-journal_dtable::node * journal_dtable::find_node(const dtype & key) const
-{
-	int c;
-	node * node = root;
-	while(node && (c = node->key.compare(key, blob_cmp)))
-		node = (c < 0) ? node->right : node->left;
-	return node;
-}
-
-journal_dtable::node * journal_dtable::find_node_next(const dtype & key, bool * found) const
-{
-	int c;
-	node * node = root;
-	if(!node)
-	{
-		*found = false;
-		return NULL;
-	}
-	while((c = node->key.compare(key, blob_cmp)))
-		if(c < 0)
-		{
-			if(!node->right)
-			{
-				next_node(&node);
-				*found = false;
-				return node;
-			}
-			node = node->right;
-		}
-		else
-		{
-			if(!node->left)
-			{
-				*found = false;
-				return node;
-			}
-			node = node->left;
-		}
-	*found = true;
-	return node;
 }
 
 /* a simple (unbalanced) binary tree for now */
 int journal_dtable::add_node(const dtype & key, const blob & value)
 {
-	int c;
-	node ** ptr = &root;
-	node * old = NULL;
-	node * node = *ptr;
-	while(node && (c = node->key.compare(key, blob_cmp)))
-	{
-		ptr = (c < 0) ? &node->right : &node->left;
-		old = node;
-		node = *ptr;
-	}
-	if(node)
-	{
-		node->value = value;
-		return 0;
-	}
-	node = new struct node(key);
-	if(!node)
-		return -ENOMEM;
-	node->value = value;
-	node->up = old;
-	node->left = NULL;
-	node->right = NULL;
-	*ptr = node;
+	jdt_map[key] = value;
 	return 0;
-}
-
-void journal_dtable::next_node(node ** n)
-{
-	node * node = *n;
-	if(node->right)
-	{
-		node = node->right;
-		while(node->left)
-			node = node->left;
-	}
-	else
-	{
-		while(node->up && node->up->right == node)
-			node = node->up;
-		node = node->up;
-	}
-	*n = node;
-}
-
-void journal_dtable::prev_node(node ** n)
-{
-	node * node = *n;
-	if(node->left)
-	{
-		node = node->left;
-		while(node->right)
-			node = node->right;
-	}
-	else
-	{
-		while(node->up && node->up->left == node)
-			node = node->up;
-		node = node->up;
-	}
-	*n = node;
-}
-
-void journal_dtable::kill_nodes(node * n)
-{
-	if(n->left)
-		kill_nodes(n->left);
-	if(n->right)
-		kill_nodes(n->right);
-	delete n;
 }
 
 int journal_dtable::journal_replay(void *& entry, size_t length)

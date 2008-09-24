@@ -13,6 +13,8 @@
 #error journal_dtable.h is a C++ header file
 #endif
 
+#include <map>
+
 #include "blob.h"
 #include "istr.h"
 #include "dtable.h"
@@ -36,11 +38,11 @@ public:
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
 	{
 		/* we merely add this assertion, but it's important */
-		assert(!root);
+		assert(jdt_map.empty());
 		return dtable::set_blob_cmp(cmp);
 	}
 	
-	inline journal_dtable() : root(NULL), string_index(0) {}
+	inline journal_dtable() : string_index(0), jdt_map(blob_cmp){}
 	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL);
 	/* reinitialize, optionally discarding the old entries from the journal */
 	/* NOTE: also clears and releases the blob comparator, if one has been set */
@@ -55,24 +57,10 @@ public:
 	virtual int journal_replay(void *& entry, size_t length);
 	
 private:
-	struct node
-	{
-		const dtype key;
-		blob value;
-		node * up;
-		node * left;
-		node * right;
-		inline node(const dtype & key) : key(key) {}
-	};
-	
-	node * find_node(const dtype & key) const;
-	node * find_node_next(const dtype & key, bool * found) const;
 	/* will reuse an existing node if possible */
 	int add_node(const dtype & key, const blob & value);
-	static void next_node(node ** n);
-	static void prev_node(node ** n);
-	static void kill_nodes(node * n);
 	
+	typedef std::map<const dtype, blob, dtype_comparator_refobject> journal_dtable_map;
 	class iter : public dtable::iter
 	{
 	public:
@@ -85,11 +73,11 @@ private:
 		virtual metablob meta() const;
 		virtual blob value() const;
 		virtual const dtable * source() const;
-		inline iter(node * start, const journal_dtable * source) : jdt_node(start), jdt_source(source) {}
+		inline iter(const journal_dtable * source) : jdt_source(source), jit(source->jdt_map.begin()) {}
 		virtual ~iter() {}
 	private:
-		node * jdt_node;
 		const journal_dtable * jdt_source;
+		journal_dtable_map::const_iterator jit;
 	};
 	
 	int add_string(const istr & string, uint32_t * index);
@@ -97,9 +85,10 @@ private:
 	template<class T> inline int log(T * entry, const blob & blob, size_t offset = 0);
 	int log(const dtype & key, const blob & blob);
 	
-	node * root;
 	stringset strings;
 	uint32_t string_index;
+	journal_dtable_map jdt_map;
+
 };
 
 #endif /* __JOURNAL_DTABLE_H */
