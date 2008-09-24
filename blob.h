@@ -25,6 +25,8 @@ class blob
 public:
 	/* the nonexistent blob, for returning as an error from methods that return blob & */
 	static const blob dne;
+	/* the empty blob, which exists but has zero size */
+	static const blob empty;
 	
 	/* non-existent blob constructor */
 	inline blob() : internal(NULL) {}
