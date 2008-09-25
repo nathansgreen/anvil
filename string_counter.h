@@ -2,14 +2,14 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#ifndef __COUNTED_STRINGSET_H
-#define __COUNTED_STRINGSET_H
+#ifndef __STRING_COUNTER_H
+#define __STRING_COUNTER_H
 
 #include <stdint.h>
 #include <string.h>
 
 #ifndef __cplusplus
-#error counted_stringset.h is a C++ header file
+#error string_counter.h is a C++ header file
 #endif
 
 #include <map>
@@ -18,15 +18,18 @@
 
 #include "istr.h"
 
-/* This class provides a simple wrapper around an std::map to get unique string
- * instances. The add() and lookup() methods return a reference to an internally
- * maintained istr instance; subsequent calls with equivalent strings will
- * return the same reference. */
+/* This class provides a simple way to get a list of "frequent" strings from
+ * some set of input strings. It will not find exactly the most frequent
+ * strings; this would require potentially linear space. Instead, a running
+ * list of the most popular strings so far is kept, and once the size of that
+ * list exceeds a set threshold, no new strings are added. There are obvious
+ * inputs that will cause this approach to fail horribly, so a better approach
+ * may be needed at some point. */
 
-class counted_stringset
+class string_counter
 {
 public:
-	inline counted_stringset() : max(0) {}
+	inline string_counter() : max(0) {}
 	
 	void init(size_t max_strings = 0);
 	
@@ -78,4 +81,4 @@ private:
 	count_set counts;
 };
 
-#endif /* __COUNTED_STRINGSET_H */
+#endif /* __STRING_COUNTER_H */

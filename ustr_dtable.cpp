@@ -16,7 +16,7 @@
 
 #include "rwfile.h"
 #include "stringset.h"
-#include "counted_stringset.h"
+#include "string_counter.h"
 #include "blob_buffer.h"
 #include "ustr_dtable.h"
 
@@ -432,7 +432,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 {
 	std::vector<istr> strings;
 	std::vector<blob> blobs;
-	counted_stringset dups;
+	string_counter dups;
 	std::vector<istr> dup_vector;
 	dtable::iter * iter;
 	dtype::ctype key_type = source->key_type();

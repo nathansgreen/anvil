@@ -4,16 +4,16 @@
 
 #include <stdlib.h>
 
-#include "counted_stringset.h"
+#include "string_counter.h"
 
-void counted_stringset::init(size_t max_strings)
+void string_counter::init(size_t max_strings)
 {
 	strings.clear();
 	counts.clear();
 	max = max_strings;
 }
 
-size_t counted_stringset::add(const istr & string)
+size_t string_counter::add(const istr & string)
 {
 	string_map::iterator iter = strings.find(string);
 	if(iter == strings.end())
@@ -38,7 +38,7 @@ size_t counted_stringset::add(const istr & string)
 	return (*iter).second;
 }
 
-size_t counted_stringset::lookup(const istr & string) const
+size_t string_counter::lookup(const istr & string) const
 {
 	string_map::const_iterator iter = strings.find(string);
 	if(iter == strings.end())
@@ -46,7 +46,7 @@ size_t counted_stringset::lookup(const istr & string) const
 	return (*iter).second;
 }
 
-void counted_stringset::ignore(size_t min)
+void string_counter::ignore(size_t min)
 {
 	count_set::iterator count = counts.begin();
 	while(counts.size() && *count < min)
@@ -57,7 +57,7 @@ void counted_stringset::ignore(size_t min)
 	}
 }
 
-void counted_stringset::vector(std::vector<istr> * vector) const
+void string_counter::vector(std::vector<istr> * vector) const
 {
 	string_map::const_iterator iter = strings.begin();
 	string_map::const_iterator end = strings.end();
