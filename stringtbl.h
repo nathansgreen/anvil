@@ -12,6 +12,8 @@
 #error stringtbl.h is a C++ header file
 #endif
 
+#include <vector>
+
 #include "blob.h"
 #include "rofile.h"
 #include "rwfile.h"
@@ -52,14 +54,11 @@ public:
 	ssize_t locate(const char * string) const;
 	ssize_t locate(const blob & search, const blob_comparator * blob_cmp = NULL) const;
 	
-	static void array_sort(const char ** array, ssize_t count);
-	static void array_sort(blob * array, ssize_t count, const blob_comparator * blob_cmp);
-
-	/* these functions leave the input arrays sorted */
-	static int create(rwfile * fp, const char ** strings, ssize_t count, bool need_sort = false);
+	/* these functions assume the input is sorted */
+	static int create(rwfile * fp, const std::vector<istr> & strings);
 	/* makes a binary table */
-	static int create(rwfile * fp, blob * blobs, ssize_t count, const blob_comparator * blob_cmp = NULL, bool need_sort = false);
-
+	static int create(rwfile * fp, const std::vector<blob> & blobs);
+	
 private:
 	struct lru_ent
 	{

@@ -16,6 +16,8 @@
 #error blob.h is a C++ header file
 #endif
 
+#include <vector>
+
 /* blobs, the storage units of dtables */
 
 class blob_comparator;
@@ -35,7 +37,7 @@ public:
 	blob(const blob & x);
 	blob & operator=(const blob & x);
 	
-	static ssize_t locate(const blob * array, ssize_t size, const blob & blob, const blob_comparator * blob_cmp = NULL);
+	static ssize_t locate(const std::vector<blob> & array, const blob & blob, const blob_comparator * blob_cmp = NULL);
 	
 	inline ~blob()
 	{

@@ -15,6 +15,8 @@
 #error ustr_dtable.h is a C++ header file
 #endif
 
+#include <vector>
+
 #include "blob.h"
 #include "dtable.h"
 #include "dtable_factory.h"
@@ -93,8 +95,8 @@ private:
 	blob get_value(size_t index) const;
 	
 	/* helpers for create() above */
-	static size_t pack_size(const blob & source, const dtable_header & header, const char ** dups, ssize_t dup_count);
-	static blob pack_blob(const blob & source, const dtable_header & header, const char ** dups, ssize_t dup_count);
+	static size_t pack_size(const blob & source, const dtable_header & header, const std::vector<istr> & dups);
+	static blob pack_blob(const blob & source, const dtable_header & header, const std::vector<istr> & dups);
 	
 	rofile * fp;
 	size_t key_count;

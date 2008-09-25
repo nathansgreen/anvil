@@ -11,6 +11,9 @@
 
 #include "openat.h"
 
+#include <vector>
+#include <algorithm>
+
 #include "rwfile.h"
 #include "stringset.h"
 #include "counted_stringset.h"
@@ -341,7 +344,7 @@ void ustr_dtable::deinit()
 	}
 }
 
-size_t ustr_dtable::pack_size(const blob & source, const dtable_header & header, const char ** dups, ssize_t dup_count)
+size_t ustr_dtable::pack_size(const blob & source, const dtable_header & header, const std::vector<istr> & dups)
 {
 	size_t size = 0, escape = header.dup_escape_len + header.dup_index_size;
 	for(size_t i = 0; i < source.size(); i++)
@@ -357,7 +360,7 @@ size_t ustr_dtable::pack_size(const blob & source, const dtable_header & header,
 			if(j > byte)
 			{
 				istr string(&source.index<char>(i + 1), byte);
-				ssize_t index = istr::locate(dups, dup_count, string);
+				ssize_t index = istr::locate(dups, string);
 				if(index >= 0)
 				{
 					size += escape;
@@ -379,10 +382,10 @@ size_t ustr_dtable::pack_size(const blob & source, const dtable_header & header,
 	return size;
 }
 
-blob ustr_dtable::pack_blob(const blob & source, const dtable_header & header, const char ** dups, ssize_t dup_count)
+blob ustr_dtable::pack_blob(const blob & source, const dtable_header & header, const std::vector<istr> & dups)
 {
 	size_t escape = header.dup_escape_len + header.dup_index_size;
-	size_t packed_size = pack_size(source, header, dups, dup_count);
+	size_t packed_size = pack_size(source, header, dups);
 	blob_buffer buffer(packed_size);
 	for(size_t i = 0; i < source.size(); i++)
 	{
@@ -397,7 +400,7 @@ blob ustr_dtable::pack_blob(const blob & source, const dtable_header & header, c
 			if(j > byte)
 			{
 				istr string(&source.index<char>(i + 1), byte);
-				ssize_t index = istr::locate(dups, dup_count, string);
+				ssize_t index = istr::locate(dups, string);
 				if(index >= 0)
 				{
 					for(size_t k = 0; k < header.dup_escape_len; k++)
@@ -427,13 +430,12 @@ blob ustr_dtable::pack_blob(const blob & source, const dtable_header & header, c
 
 int ustr_dtable::create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow)
 {
-	stringset strings;
+	std::vector<istr> strings;
+	std::vector<blob> blobs;
 	counted_stringset dups;
+	std::vector<istr> dup_vector;
 	dtable::iter * iter;
 	dtype::ctype key_type = source->key_type();
-	const char ** string_array = NULL;
-	blob * blob_array = NULL;
-	const char ** dup_array = NULL;
 	const blob_comparator * blob_cmp = source->get_blob_cmp();
 	size_t key_count = 0, max_data_size = 0, total_data_size = 0;
 	uint32_t max_key = 0;
@@ -442,12 +444,6 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	rwfile out;
 	if(!source_shadow_ok(source, shadow))
 		return -EINVAL;
-	if(key_type == dtype::STRING || key_type == dtype::BLOB)
-	{
-		r = strings.init(blob_cmp);
-		if(r < 0)
-			return r;
-	}
 	/* reserve one duplicate string index for the escape sequence itself */
 	dups.init(255);
 	iter = source->iterator();
@@ -473,10 +469,10 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 				/* nothing to do */
 				break;
 			case dtype::STRING:
-				strings.add(key.str);
+				strings.push_back(key.str);
 				break;
 			case dtype::BLOB:
-				strings.add(key.blb);
+				blobs.push_back(key.blb);
 				break;
 		}
 		if(blob_size)
@@ -504,18 +500,6 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 		}
 	}
 	delete iter;
-	if(key_type == dtype::STRING)
-	{
-		string_array = strings.array();
-		if(!string_array)
-			return -ENOMEM;
-	}
-	else if(key_type == dtype::BLOB)
-	{
-		blob_array = strings.blob_array();
-		if(!blob_array)
-			return -ENOMEM;
-	}
 	
 	/* duplicate string table setup */
 	dups.ignore();
@@ -523,8 +507,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	{
 		uint8_t escape;
 		uint32_t byte_counts[256];
-		dup_array = dups.array();
-		stringtbl::array_sort(dup_array, dups.size());
+		dups.vector(&dup_vector);
 		
 		/* hardcode these for a while */
 		header.dup_index_size = 1;
@@ -560,7 +543,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 						if(j > byte)
 						{
 							istr string(&value.index<char>(i + 1), byte);
-							ssize_t index = istr::locate(dup_array, dups.size(), string);
+							ssize_t index = istr::locate(dup_vector, string);
 							if(index >= 0)
 							{
 								i += byte;
@@ -615,7 +598,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 			break;
 		case dtype::BLOB:
 			header.key_type = 4;
-			header.key_size = byte_size(strings.blob_size() - 1);
+			header.key_size = byte_size(blobs.size() - 1);
 			break;
 	}
 	/* we reserve size 0 for non-existent entries, so add 1 */
@@ -625,17 +608,10 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	
 	r = out.create(dfd, file);
 	if(r < 0)
-		goto out_strings;
+		return r;
 	r = out.append(&header);
 	if(r < 0)
-	{
-	fail_unlink:
-		out.close();
-		unlinkat(dfd, file, 0);
-		if(r >= 0)
-			r = -1;
-		goto out_strings;
-	}
+		goto fail_unlink;
 	if(key_type == dtype::BLOB)
 	{
 		uint32_t length = blob_cmp ? strlen(blob_cmp->name) : 0;
@@ -643,15 +619,15 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 		if(length)
 			out.append(blob_cmp->name);
 	}
-	if(string_array)
+	if(key_type == dtype::STRING)
 	{
-		r = stringtbl::create(&out, string_array, strings.size());
+		r = stringtbl::create(&out, strings);
 		if(r < 0)
 			goto fail_unlink;
 	}
-	else if(blob_array)
+	else if(key_type == dtype::BLOB)
 	{
-		r = stringtbl::create(&out, blob_array, strings.blob_size(), blob_cmp);
+		r = stringtbl::create(&out, blobs);
 		if(r < 0)
 			goto fail_unlink;
 	}
@@ -680,11 +656,11 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 				i += sizeof(double);
 				break;
 			case dtype::STRING:
-				max_key = istr::locate(string_array, strings.size(), key.str);
+				max_key = istr::locate(strings, key.str);
 				layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 			case dtype::BLOB:
-				max_key = blob::locate(blob_array, strings.blob_size(), key.blb, blob_cmp);
+				max_key = blob::locate(blobs, key.blb, blob_cmp);
 				layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 		}
@@ -697,8 +673,8 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 			goto fail_unlink;
 		}
 		/* with a duplicate string table, total_data_size should be the compressed size here */
-		if(dup_array)
-			total_data_size += pack_size(value, header, dup_array, dups.size());
+		if(dups.size())
+			total_data_size += pack_size(value, header, dup_vector);
 		else
 			total_data_size += value.size();
 	}
@@ -712,8 +688,8 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 		iter->next();
 		if(!value.exists())
 			continue;
-		if(dup_array)
-			value = pack_blob(value, header, dup_array, dups.size());
+		if(dups.size())
+			value = pack_blob(value, header, dup_vector);
 		r = out.append(&value[0], value.size());
 		if(r != (int) value.size())
 		{
@@ -724,9 +700,9 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	delete iter;
 	
 	/* the duplicate string table */
-	if(dup_array)
+	if(dups.size())
 	{
-		r = stringtbl::create(&out, dup_array, dups.size());
+		r = stringtbl::create(&out, dup_vector);
 		if(r < 0)
 			goto fail_unlink;
 	}
@@ -734,7 +710,6 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	r = out.close();
 	if(r < 0)
 		goto fail_unlink;
-	r = 0;
 	
 #if DEBUG_USTR
 	{
@@ -767,7 +742,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 			printf("%s: ERROR: key type mismatch\n", __PRETTY_FUNCTION__);
 			break;
 		}
-		if(key != new_key)
+		if(key.compare(new_key, blob_cmp))
 		{
 			printf("%s: ERROR: key mismatch\n", __PRETTY_FUNCTION__);
 			break;
@@ -791,7 +766,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 			printf("\nNew value:\n");
 			for(i = 0; i < new_value.size(); i++)
 				printf("%02x[%c] %c", new_value[i], isprint(new_value[i]) ? new_value[i] : '.', ((i % 16) == 15) ? '\n' : ' ');
-			value = pack_blob(value, header, dup_array, dups.size());
+			value = pack_blob(value, header, dup_vector);
 			printf("\nPacked as:\n");
 			for(i = 0; i < value.size(); i++)
 				printf("%02x[%c] %c", value[i], isprint(value[i]) ? value[i] : '.', ((i % 16) == 15) ? '\n' : ' ');
@@ -808,7 +783,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	{
 		printf("Duplicate strings:\n");
 		for(size_t i = 0; i < dups.size(); i++)
-			printf("#%02d: %s\n", i, dup_array[i]);
+			printf("#%02d: %s\n", i, (const char *) dup_vector[i]);
 		printf("Escape character: 0x%02x\n", header.dup_escape[0]);
 	}
 	delete iter;
@@ -817,14 +792,12 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	}
 #endif
 	
-out_strings:
-	if(dup_array)
-		free(dup_array);
-	if(string_array)
-		free(string_array);
-	else if(blob_array)
-		delete[] blob_array;
-	return r;
+	return 0;
+	
+fail_unlink:
+	out.close();
+	unlinkat(dfd, file, 0);
+	return (r < 0) ? r : -1;
 }
 
 DEFINE_RO_FACTORY(ustr_dtable);

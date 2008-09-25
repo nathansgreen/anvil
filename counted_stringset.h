@@ -14,6 +14,7 @@
 
 #include <map>
 #include <set>
+#include <vector>
 
 #include "istr.h"
 
@@ -32,11 +33,13 @@ public:
 	/* returns the number of times this string has been added */
 	size_t add(const istr & string);
 	size_t lookup(const istr & string) const;
+	
 	/* drop all entries with counts less than min */
 	void ignore(size_t min = 2);
-	/* returns an array of the strings; the array must be free()d, but the
-	 * strings must be left alone */
-	const char ** array() const;
+	
+	/* fills a vector with the strings; it will be in sorted order */
+	void vector(std::vector<istr> * vector) const;
+	
 	inline size_t size() const
 	{
 		return strings.size();

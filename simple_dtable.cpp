@@ -11,8 +11,9 @@
 
 #include "openat.h"
 
+#include <vector>
+
 #include "rwfile.h"
-#include "stringset.h"
 #include "blob_buffer.h"
 #include "simple_dtable.h"
 
@@ -279,11 +280,10 @@ void simple_dtable::deinit()
 
 int simple_dtable::create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow)
 {
-	stringset strings;
+	std::vector<istr> strings;
+	std::vector<blob> blobs;
 	dtable::iter * iter;
 	dtype::ctype key_type = source->key_type();
-	const char ** string_array = NULL;
-	blob * blob_array = NULL;
 	const blob_comparator * blob_cmp = source->get_blob_cmp();
 	size_t key_count = 0, max_data_size = 0, total_data_size = 0;
 	uint32_t max_key = 0;
@@ -292,12 +292,6 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	rwfile out;
 	if(!source_shadow_ok(source, shadow))
 		return -EINVAL;
-	if(key_type == dtype::STRING || key_type == dtype::BLOB)
-	{
-		r = strings.init(blob_cmp);
-		if(r < 0)
-			return r;
-	}
 	iter = source->iterator();
 	while(iter->valid())
 	{
@@ -320,10 +314,10 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 				/* nothing to do */
 				break;
 			case dtype::STRING:
-				strings.add(key.str);
+				strings.push_back(key.str);
 				break;
 			case dtype::BLOB:
-				strings.add(key.blb);
+				blobs.push_back(key.blb);
 				break;
 		}
 		if(meta.size() > max_data_size)
@@ -331,18 +325,6 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 		total_data_size += meta.size();
 	}
 	delete iter;
-	if(key_type == dtype::STRING)
-	{
-		string_array = strings.array();
-		if(!string_array)
-			return -ENOMEM;
-	}
-	else if(key_type == dtype::BLOB)
-	{
-		blob_array = strings.blob_array();
-		if(!blob_array)
-			return -ENOMEM;
-	}
 	
 	/* now write the file */
 	header.magic = SDTABLE_MAGIC;
@@ -364,7 +346,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 			break;
 		case dtype::BLOB:
 			header.key_type = 4;
-			header.key_size = byte_size(strings.blob_size() - 1);
+			header.key_size = byte_size(blobs.size() - 1);
 			break;
 	}
 	/* we reserve size 0 for non-existent entries, so add 1 */
@@ -374,17 +356,10 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	
 	r = out.create(dfd, file);
 	if(r < 0)
-		goto out_strings;
+		return r;
 	r = out.append(&header);
 	if(r < 0)
-	{
-	fail_unlink:
-		out.close();
-		unlinkat(dfd, file, 0);
-		if(r >= 0)
-			r = -1;
-		goto out_strings;
-	}
+		goto fail_unlink;
 	if(key_type == dtype::BLOB)
 	{
 		uint32_t length = blob_cmp ? strlen(blob_cmp->name) : 0;
@@ -392,15 +367,15 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 		if(length)
 			out.append(blob_cmp->name);
 	}
-	if(string_array)
+	if(key_type == dtype::STRING)
 	{
-		r = stringtbl::create(&out, string_array, strings.size());
+		r = stringtbl::create(&out, strings);
 		if(r < 0)
 			goto fail_unlink;
 	}
-	else if(blob_array)
+	else if(key_type == dtype::BLOB)
 	{
-		r = stringtbl::create(&out, blob_array, strings.blob_size(), blob_cmp);
+		r = stringtbl::create(&out, blobs);
 		if(r < 0)
 			goto fail_unlink;
 	}
@@ -429,11 +404,11 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 				i += sizeof(double);
 				break;
 			case dtype::STRING:
-				max_key = istr::locate(string_array, strings.size(), key.str);
+				max_key = istr::locate(strings, key.str);
 				layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 			case dtype::BLOB:
-				max_key = blob::locate(blob_array, strings.blob_size(), key.blb, blob_cmp);
+				max_key = blob::locate(blobs, key.blb, blob_cmp);
 				layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 		}
@@ -469,14 +444,12 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	r = out.close();
 	if(r < 0)
 		goto fail_unlink;
-	r = 0;
+	return 0;
 	
-out_strings:
-	if(string_array)
-		free(string_array);
-	else if(blob_array)
-		delete[] blob_array;
-	return r;
+fail_unlink:
+	out.close();
+	unlinkat(dfd, file, 0);
+	return (r < 0) ? r : -1;
 }
 
 DEFINE_RO_FACTORY(simple_dtable);

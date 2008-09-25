@@ -57,20 +57,14 @@ void counted_stringset::ignore(size_t min)
 	}
 }
 
-const char ** counted_stringset::array() const
+void counted_stringset::vector(std::vector<istr> * vector) const
 {
-	string_map::const_iterator iter, end;
-	size_t i = 0, count = strings.size();
-	const char ** array = (const char **) malloc(sizeof(*array) * count);
-	if(!array)
-		return NULL;
-	iter = strings.begin();
-	end = strings.end();
+	string_map::const_iterator iter = strings.begin();
+	string_map::const_iterator end = strings.end();
+	vector->clear();
 	while(iter != end)
 	{
-		array[i++] = (const char *) (*iter).first;
+		vector->push_back((*iter).first);
 		++iter;
 	}
-	assert(i == count);
-	return array;
 }

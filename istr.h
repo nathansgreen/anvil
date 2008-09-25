@@ -14,6 +14,8 @@
 
 #include "blob.h"
 
+#include <vector>
+
 /* This class is meant to replace uses of "const char *", but nothing more. In
  * particular, it is not a generic string class supporting a full library of
  * string manipulations, or even comparisons. The only thing it does is
@@ -142,8 +144,7 @@ public:
 			free(shared);
 	}
 	
-	static ssize_t locate(const char ** array, ssize_t size, const char * string);
-	static ssize_t locate(const istr * array, ssize_t size, const istr & string);
+	static ssize_t locate(const std::vector<istr> & array, const istr & string);
 	
 private:
 	struct share

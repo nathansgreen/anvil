@@ -6,8 +6,6 @@
 #include <string.h>
 #include <errno.h>
 
-#include <algorithm>
-
 #include "blob_buffer.h"
 #include "stringtbl.h"
 
@@ -215,31 +213,13 @@ ssize_t stringtbl::locate(const blob & search, const blob_comparator * blob_cmp)
 	return -1;
 }
 
-void stringtbl::array_sort(const char ** array, ssize_t count)
+int stringtbl::create(rwfile * fp, const std::vector<istr> & strings)
 {
-	std::sort(array, &array[count], strcmp_less());
-}
-
-void stringtbl::array_sort(blob * array, ssize_t count, const blob_comparator * blob_cmp)
-{
-	if(blob_cmp)
-	{
-		blob_comparator_object comparator(blob_cmp);
-		std::sort(array, &array[count], comparator);
-	}
-	else
-		std::sort(array, &array[count], blob_comparator_null());
-}
-
-int stringtbl::create(rwfile * fp, const char ** strings, ssize_t count, bool need_sort)
-{
+	const ssize_t count = strings.size();
 	st_header header = {STRINGTBL_VERSION, 0, {4, 1}, count};
 	size_t size = 0, max = 0;
 	ssize_t i;
 	int r;
-	/* the strings must be sorted */
-	if(need_sort)
-		array_sort(strings, count);
 	for(i = 0; i < count; i++)
 	{
 		size_t length = strlen(strings[i]);
@@ -311,8 +291,9 @@ int stringtbl::create(rwfile * fp, const char ** strings, ssize_t count, bool ne
 	return 0;
 }
 
-int stringtbl::create(rwfile * fp, blob * blobs, ssize_t count, const blob_comparator * blob_cmp, bool need_sort)
+int stringtbl::create(rwfile * fp, const std::vector<blob> & blobs)
 {
+	const ssize_t count = blobs.size();
 	st_header header = {STRINGTBL_VERSION, 1, {4, 1}, count};
 	size_t size = 0, max = 0;
 	int r;
@@ -323,9 +304,6 @@ int stringtbl::create(rwfile * fp, blob * blobs, ssize_t count, const blob_compa
 		if(length > max)
 			max = length;
 	}
-	/* the blobs must be sorted */
-	if(need_sort)
-		array_sort(blobs, count, blob_cmp);
 	/* figure out the correct size of the length field */
 	if(max < 0x100)
 		header.bytes[0] = 1;

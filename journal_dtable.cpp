@@ -269,9 +269,7 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sy
 	assert(jdt_map.empty());
 	assert(!cmp_name);
 	ktype = key_type;
-	/* the stringset is not used for blob keys in journal_dtable,
-	 * so no blob comparator is needed (that's the NULL) */
-	r = strings.init(NULL, true);
+	r = strings.init(true);
 	if(r < 0)
 		return r;
 	string_index = 0;
@@ -290,9 +288,7 @@ int journal_dtable::reinit(sys_journal::listener_id lid, bool discard)
 	if(discard)
 		journal_discard();
 	deinit();
-	/* the stringset is not used for blob keys in journal_dtable,
-	 * so no blob comparator is needed (that's the NULL) */
-	r = strings.init(NULL, true);
+	r = strings.init(true);
 	if(r < 0)
 		return r;
 	string_index = 0;
@@ -304,7 +300,7 @@ void journal_dtable::deinit()
 {
 	set_id(sys_journal::NO_ID);
 	/* no explicit deinitialization, so reinitialize empty */
-	strings.init(NULL);
+	strings.init();
 	jdt_map.clear();
 	dtable::deinit();
 }

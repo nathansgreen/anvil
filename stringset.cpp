@@ -7,14 +7,12 @@
 
 #include "stringset.h"
 
-int stringset::init(const blob_comparator * blob_cmp, bool keep_reverse)
+int stringset::init(bool keep_reverse)
 {
 	reverse = keep_reverse;
 	next_index = 0;
-	this->blob_cmp = blob_cmp;
 	string_map.clear();
 	index_map.clear();
-	blobs.clear();
 	return 0;
 }
 
@@ -35,15 +33,6 @@ bool stringset::remove(const istr & string)
 	return true;
 }
 
-bool stringset::remove(const blob & blob)
-{
-	assert(!reverse);
-	if(!blobs.count(blob))
-		return false;
-	blobs.erase(blob);
-	return true;
-}
-
 const istr & stringset::add(const istr & string, uint32_t * index)
 {
 	istr_map::iterator iter = string_map.find(string);
@@ -59,18 +48,6 @@ const istr & stringset::add(const istr & string, uint32_t * index)
 	return (*iter).first;
 }
 
-const blob & stringset::add(const blob & blob)
-{
-	blob_set::iterator iter = blobs.find(blob);
-	assert(!reverse);
-	if(iter == blobs.end())
-	{
-		blobs.insert(blob);
-		iter = blobs.find(blob);
-	}
-	return *iter;
-}
-
 const istr & stringset::lookup(const istr & string, uint32_t * index) const
 {
 	istr_map::const_iterator iter = string_map.find(string);
@@ -79,15 +56,6 @@ const istr & stringset::lookup(const istr & string, uint32_t * index) const
 	if(index)
 		*index = (*iter).second;
 	return (*iter).first;
-}
-
-const blob & stringset::lookup(const blob & blob) const
-{
-	blob_set::const_iterator iter = blobs.find(blob);
-	assert(!reverse);
-	if(iter == blobs.end())
-		return blob::dne;
-	return *iter;
 }
 
 const istr & stringset::lookup(uint32_t index) const
@@ -100,38 +68,14 @@ const istr & stringset::lookup(uint32_t index) const
 	return (*iter).second;
 }
 
-const char ** stringset::array() const
+void stringset::vector(std::vector<istr> * vector) const
 {
-	istr_map::const_iterator iter, end;
-	size_t i = 0, count = string_map.size();
-	const char ** array = (const char **) malloc(sizeof(*array) * count);
-	if(!array)
-		return NULL;
-	iter = string_map.begin();
-	end = string_map.end();
+	istr_map::const_iterator iter = string_map.begin();
+	istr_map::const_iterator end = string_map.end();
+	vector->clear();
 	while(iter != end)
 	{
-		array[i++] = (const char *) (*iter).first;
+		vector->push_back((*iter).first);
 		++iter;
 	}
-	assert(i == count);
-	return array;
-}
-
-blob * stringset::blob_array() const
-{
-	blob_set::const_iterator iter, end;
-	size_t i = 0, count = blobs.size();
-	blob * array = new blob[count];
-	if(!array)
-		return NULL;
-	iter = blobs.begin();
-	end = blobs.end();
-	while(iter != end)
-	{
-		array[i++] = *iter;
-		++iter;
-	}
-	assert(i == count);
-	return array;
 }

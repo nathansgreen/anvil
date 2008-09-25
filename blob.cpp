@@ -37,10 +37,10 @@ blob & blob::operator=(const blob & x)
 	return *this;
 }
 
-ssize_t blob::locate(const blob * array, ssize_t size, const blob & search, const blob_comparator * blob_cmp)
+ssize_t blob::locate(const std::vector<blob> & array, const blob & search, const blob_comparator * blob_cmp)
 {
 	/* binary search */
-	ssize_t min = 0, max = size - 1;
+	ssize_t min = 0, max = array.size() - 1;
 	while(min <= max)
 	{
 		int c;
