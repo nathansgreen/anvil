@@ -63,13 +63,12 @@ dtable::iter * journal_dtable::iterator() const
 
 blob journal_dtable::lookup(const dtype & key, bool * found) const
 {
-	journal_dtable_map::const_iterator it = jdt_map.find(key);
-	if(it != jdt_map.end())
+	journal_dtable_hash::const_iterator it = jdt_hash.find(key);
+	if(it != jdt_hash.end())
 	{
 		*found = true;
-		return it->second;
+		return *(it->second);
 	}
-	assert((it == jdt_map.end()));
 	*found = false;
 	return blob();
 }
@@ -247,10 +246,10 @@ int journal_dtable::append(const dtype & key, const blob & blob)
 	r = log(key, blob);
 	if(r < 0)
 		return r;
-	journal_dtable_map::iterator it = jdt_map.find(key);
-	if(it != jdt_map.end())
+	journal_dtable_hash::iterator it = jdt_hash.find(key);
+	if(it != jdt_hash.end())
 	{
-		it->second = blob;
+		*(it->second) = blob;
 		return 0;
 	}
 	return add_node(key, blob);
@@ -267,6 +266,7 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sy
 	if(id() != sys_journal::NO_ID)
 		deinit();
 	assert(jdt_map.empty());
+	assert(jdt_hash.empty());
 	assert(!cmp_name);
 	ktype = key_type;
 	r = strings.init(true);
@@ -301,13 +301,16 @@ void journal_dtable::deinit()
 	set_id(sys_journal::NO_ID);
 	/* no explicit deinitialization, so reinitialize empty */
 	strings.init();
+	jdt_hash.clear();
 	jdt_map.clear();
 	dtable::deinit();
 }
 
 int journal_dtable::add_node(const dtype & key, const blob & value)
 {
-	jdt_map[key] = value;
+	blob & map_value = jdt_map[key];
+	map_value = value;
+	jdt_hash[key] = &map_value;
 	return 0;
 }
 

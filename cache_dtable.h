@@ -13,8 +13,8 @@
 #error cache_dtable.h is a C++ header file
 #endif
 
-#include <ext/hash_map>
 #include <queue>
+#include <ext/hash_map>
 
 #include "blob.h"
 #include "dtable.h"
@@ -64,7 +64,7 @@ private:
 	
 	void add_cache(const dtype & key, const blob & value, bool found) const;
 	
-	typedef __gnu_cxx::hash_map<dtype, entry, dtype_hashing_comparator, dtype_hashing_comparator> blob_map;
+	typedef __gnu_cxx::hash_map<const dtype, entry, dtype_hashing_comparator, dtype_hashing_comparator> blob_map;
 	
 	dtable * base;
 	size_t cache_size;

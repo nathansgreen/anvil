@@ -13,6 +13,7 @@
 #error journal_dtable.h is a C++ header file
 #endif
 
+#include <ext/hash_map>
 #include <map>
 
 #include "blob.h"
@@ -42,7 +43,7 @@ public:
 		return dtable::set_blob_cmp(cmp);
 	}
 	
-	inline journal_dtable() : string_index(0), jdt_map(blob_cmp){}
+	inline journal_dtable() : string_index(0), jdt_map(blob_cmp), jdt_hash(10, blob_cmp, blob_cmp) {}
 	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL);
 	/* reinitialize, optionally discarding the old entries from the journal */
 	/* NOTE: also clears and releases the blob comparator, if one has been set */
@@ -60,6 +61,8 @@ private:
 	inline int add_node(const dtype & key, const blob & value);
 	
 	typedef std::map<const dtype, blob, dtype_comparator_refobject> journal_dtable_map;
+	typedef __gnu_cxx::hash_map<const dtype, blob *, dtype_hashing_comparator, dtype_hashing_comparator> journal_dtable_hash;
+	
 	class iter : public dtable::iter
 	{
 	public:
@@ -87,7 +90,7 @@ private:
 	stringset strings;
 	uint32_t string_index;
 	journal_dtable_map jdt_map;
-
+	journal_dtable_hash jdt_hash;
 };
 
 #endif /* __JOURNAL_DTABLE_H */
