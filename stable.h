@@ -76,10 +76,12 @@ public:
 	/* remove the whole row */
 	virtual int remove(const dtype & key) = 0;
 	
+	inline virtual int set_blob_cmp(const blob_comparator * cmp) { return -ENOSYS; }
+	inline virtual const blob_comparator * get_blob_cmp() const { return NULL; }
+	inline virtual const istr & get_cmp_name() const { return istr::null; }
+	
 	/* maintenance callback; does nothing by default */
 	inline virtual int maintain() { return 0; }
-	
-	inline virtual int set_blob_cmp(const blob_comparator * cmp) { return -ENOSYS; }
 	
 	virtual dtype::ctype key_type() const = 0;
 	inline virtual ~stable() {}

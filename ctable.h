@@ -49,10 +49,12 @@ public:
 	inline ctable() : dt_source(NULL) {}
 	inline virtual ~ctable() {}
 	
+	inline virtual int set_blob_cmp(const blob_comparator * cmp) { return -ENOSYS; }
+	inline virtual const blob_comparator * get_blob_cmp() const { return dt_source->get_blob_cmp(); }
+	inline virtual const istr & get_cmp_name() const { return dt_source->get_cmp_name(); }
+	
 	/* maintenance callback; does nothing by default */
 	inline virtual int maintain() { return 0; }
-	
-	inline virtual int set_blob_cmp(const blob_comparator * cmp) { return -ENOSYS; }
 	
 protected:
 	const dtable * dt_source;

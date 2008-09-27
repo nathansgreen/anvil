@@ -71,12 +71,11 @@ public:
 		blob_cmp = cmp;
 		return 0;
 	}
+	inline const blob_comparator * get_blob_cmp() const { return blob_cmp; }
+	inline const istr & get_cmp_name() const { return cmp_name; }
 	
 	/* maintenance callback; does nothing by default */
 	inline virtual int maintain() { return 0; }
-	
-	inline const blob_comparator * get_blob_cmp() const { return blob_cmp; }
-	inline const istr & get_cmp_name() const { return cmp_name; }
 	
 protected:
 	dtype::ctype ktype;

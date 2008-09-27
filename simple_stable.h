@@ -51,16 +51,24 @@ public:
 			deinit();
 	}
 	
+	inline virtual int set_blob_cmp(const blob_comparator * cmp)
+	{
+		return ct_data->set_blob_cmp(cmp);
+	}
+	inline virtual const blob_comparator * get_blob_cmp() const
+	{
+		return ct_data->get_blob_cmp();
+	}
+	inline virtual const istr & get_cmp_name() const
+	{
+		return ct_data->get_cmp_name();
+	}
+	
 	inline virtual int maintain()
 	{
 		int r = dt_meta->maintain();
 		r |= ct_data->maintain();
 		return (r < 0) ? -1 : 0;
-	}
-	
-	inline virtual int set_blob_cmp(const blob_comparator * cmp)
-	{
-		return ct_data->set_blob_cmp(cmp);
 	}
 	
 	static int create(int dfd, const char * name, const params & config, dtype::ctype key_type);

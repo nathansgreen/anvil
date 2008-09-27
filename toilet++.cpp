@@ -248,6 +248,7 @@ static int toilet_new_gtable_type(t_toilet * toilet, const char * name, dtype::c
 			"base" class(dt) managed_dtable
 			"base_config" config [
 				"base" class ustr_dtable
+				"fastbase" class simple_dtable
 			]
 		]
 		"columns" class(ct) simple_ctable
@@ -312,6 +313,7 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 			"base" class(dt) managed_dtable
 			"base_config" config [
 				"base" class ustr_dtable
+				"fastbase" class simple_dtable
 			]
 		]
 		"columns" class(ct) simple_ctable
@@ -358,6 +360,24 @@ bool toilet_gtable_blobkey(t_gtable * gtable)
 	return gtable->table->key_type() == dtype::BLOB;
 }
 
+const char * toilet_gtable_blobcmp_name(t_gtable * gtable)
+{
+	return gtable->table->get_cmp_name();
+}
+
+int toilet_gtable_set_blobcmp(t_gtable * gtable, t_blobcmp * blobcmp)
+{
+	int value = gtable->table->set_blob_cmp(blobcmp);
+	if(value >= 0)
+	{
+		if(gtable->blobcmp)
+			gtable->blobcmp->release();
+		gtable->blobcmp = blobcmp;
+		/* don't need to retain it; it was passed retained already */
+	}
+	return value;
+}
+
 int toilet_gtable_maintain(t_gtable * gtable)
 {
 	int r = tx_start_r();
@@ -374,6 +394,8 @@ void toilet_put_gtable(t_gtable * gtable)
 	{
 		gtable->toilet->gtables.erase(gtable->name);
 		delete gtable->table;
+		if(gtable->blobcmp)
+			gtable->blobcmp->release();
 		toilet_close(gtable->toilet);
 		delete gtable;
 	}
@@ -916,4 +938,39 @@ void toilet_put_rowset(t_rowset * rowset)
 	if(!--rowset->out_count)
 		/* just IDs in rowsets, nothing to put() */
 		delete rowset;
+}
+
+t_blobcmp * toilet_new_blobcmp(const char * name, blobcmp_func cmp, void * user, blobcmp_free kill)
+{
+	t_blobcmp * blobcmp = new t_blobcmp(name);
+	blobcmp->cmp = cmp;
+	blobcmp->kill = kill;
+	blobcmp->user = user;
+	return blobcmp;
+}
+
+t_blobcmp * toilet_new_blobcmp_copy(const char * name, blobcmp_func cmp, const void * user, size_t size, blobcmp_free kill)
+{
+	t_blobcmp * blobcmp = new t_blobcmp(name);
+	blobcmp->cmp = cmp;
+	blobcmp->kill = kill;
+	blobcmp->user = malloc(size);
+	memcpy(blobcmp->user, user, size);
+	return blobcmp;
+}
+
+const char * toilet_blobcmp_name(const t_blobcmp * blobcmp)
+{
+	return blobcmp->name;
+}
+
+void toilet_blobcmp_retain(t_blobcmp * blobcmp)
+{
+	blobcmp->retain();
+}
+
+void toilet_blobcmp_release(t_blobcmp ** blobcmp)
+{
+	(*blobcmp)->release();
+	*blobcmp = NULL;
 }

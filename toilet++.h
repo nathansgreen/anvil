@@ -67,6 +67,13 @@ typedef struct t_cursor t_cursor;
 struct t_rowset;
 typedef struct t_rowset t_rowset;
 
+struct t_blobcmp;
+typedef struct t_blobcmp t_blobcmp;
+
+/* C blob comparator function */
+typedef int (*blobcmp_func)(const void * b1, size_t s1, const void * b2, size_t s2, void * user);
+typedef void (*blobcmp_free)(void * user);
+
 /* NOTE: To use this union for strings, just cast the char * to a t_value *. */
 union t_value
 {
@@ -114,6 +121,9 @@ int toilet_drop_gtable(t_gtable * gtable);
 t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name);
 const char * toilet_gtable_name(t_gtable * gtable);
 bool toilet_gtable_blobkey(t_gtable * gtable);
+const char * toilet_gtable_blobcmp_name(t_gtable * gtable);
+/* on success, will release the blobcmp when it is done with it */
+int toilet_gtable_set_blobcmp(t_gtable * gtable, t_blobcmp * blobcmp);
 int toilet_gtable_maintain(t_gtable * gtable);
 void toilet_put_gtable(t_gtable * gtable);
 
@@ -179,6 +189,14 @@ t_row_id toilet_rowset_row(t_rowset * rowset, size_t index);
 bool toilet_rowset_contains(t_rowset * rowset, t_row_id id);
 void toilet_put_rowset(t_rowset * rowset);
 
+/* blob comparators */
+
+t_blobcmp * toilet_new_blobcmp(const char * name, blobcmp_func cmp, void * user, blobcmp_free kill);
+t_blobcmp * toilet_new_blobcmp_copy(const char * name, blobcmp_func cmp, const void * user, size_t size, blobcmp_free kill);
+const char * toilet_blobcmp_name(const t_blobcmp * blobcmp);
+void toilet_blobcmp_retain(t_blobcmp * blobcmp);
+void toilet_blobcmp_release(t_blobcmp ** blobcmp);
+
 #ifdef __cplusplus
 }
 
@@ -198,8 +216,9 @@ struct t_gtable
 	istr name;
 	stable * table;
 	t_toilet * toilet;
+	t_blobcmp * blobcmp;
 	int out_count;
-	inline t_gtable() : out_count(1) {}
+	inline t_gtable() : blobcmp(NULL), out_count(1) {}
 };
 
 /* t_columns is really just stable::column_iter */
@@ -265,6 +284,31 @@ struct t_rowset
 	std::set<t_row_id> ids;
 	int out_count;
 	inline t_rowset() : out_count(1) {}
+};
+
+struct t_blobcmp : public blob_comparator
+{
+	blobcmp_func cmp;
+	blobcmp_free kill;
+	void * user;
+	
+	virtual int compare(const blob & a, const blob & b) const
+	{
+		return cmp(&a[0], a.size(), &b[0], b.size(), user);
+	}
+	
+	inline virtual size_t hash(const blob & blob) const
+	{
+		/* do we need something better here? */
+		return blob_comparator::hash(blob);
+	}
+	
+	inline t_blobcmp(const istr & name) : blob_comparator(name) {}
+	inline virtual ~t_blobcmp()
+	{
+		if(kill)
+			kill(user);
+	}
 };
 
 #endif
