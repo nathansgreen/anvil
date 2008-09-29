@@ -59,27 +59,27 @@ echo "done."
 
 # Run the performance test
 echo "performance seek" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $PERF_TRACE exec $VALGRIND '"$WD/toilet"')
-ls -lR /mnt/test
+find /mnt/test -type f -print0 | xargs -0 ls -l
 
 if [ ! -f /mnt/test/core -a ! -f /mnt/test/gmon.out ]
 then
 	# Run the blob_cmp performance test
 	echo "blob_cmp perf" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $BLOB_TRACE exec $VALGRIND '"$WD/toilet"')
-	ls -lR /mnt/test
+	find /mnt/test -type f -print0 | xargs -0 ls -l
 	
 	if [ ! -f /mnt/test/core -a ! -f /mnt/test/gmon.out ]
 	then
 		# Run some tests
 		echo "script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $TEST_TRACE exec $VALGRIND '"$WD/toilet"')
-		ls -lR /mnt/test
+		find /mnt/test -type f -print0 | xargs -0 ls -l
 		
 		# Run the old demo
 		#echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $DEMO_TRACE exec $VALGRIND '"$WD/toilet"')
-		#ls -lR /mnt/test
+		#find /mnt/test -type f -print0 | xargs -0 ls -l
 		
 		# Allow custom commands
 		#(WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $HAND_TRACE exec $VALGRIND '"$WD/toilet"')
-		#ls -lR /mnt/test
+		#find /mnt/test -type f -print0 | xargs -0 ls -l
 		
 		# Filter the system journal
 		true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $SYSJ_TRACE exec $VALGRIND '"$WD/toilet"')
