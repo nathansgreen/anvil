@@ -17,6 +17,9 @@ CFLAGS="-ggdb $CFLAGS" make || exit $?
 #HAND_TRACE="PATCHGROUP_TRACE=hand.pgt"
 #SYSJ_TRACE="PATCHGROUP_TRACE=sysj.pgt"
 
+# Uncomment to enable oprofile
+#OPROF="LD_LIBRARY_PATH=/usr/lib/debug"
+
 # Uncomment to use Featherstitch journal mode
 #JOURNAL=use_journal=1
 
@@ -36,7 +39,7 @@ fi
 echo -n "Creating file system... "
 sudo mke2fs -m 0 -b 4096 /dev/sdb1 &> /dev/null
 sudo mount /dev/sdb1 /mnt/test -t ext2
-sudo chown `whoami` /mnt/test
+sudo chown -R `whoami` /mnt/test
 [ "$JOURNAL" ] && dd if=/dev/zero of=/mnt/test/.journal bs=1M count=64 2> /dev/null
 cp demo /mnt/test
 cat > /mnt/test/tests << EOF
@@ -57,32 +60,48 @@ sudo insmod fstitch/kfstitchd.ko device=/dev/sdb $JOURNAL
 sudo mount /mnt/test
 echo "done."
 
+if [ "$OPROF" ]
+then
+	sudo opcontrol --init
+	sudo opcontrol "--vmlinux=/usr/src/linux-`uname -r`/vmlinux"
+	sudo opcontrol --start
+fi
+
 # Run the performance test
-echo "performance seek" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $PERF_TRACE exec $VALGRIND '"$WD/toilet"')
+echo "performance seek" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $PERF_TRACE exec $VALGRIND '"$WD/toilet"')
 find /mnt/test -type f -print0 | xargs -0 ls -l
+
+if [ "$OPROF" ]
+then
+	sudo opcontrol --shutdown
+	sudo opcontrol --deinit
+	opreport --symbols main > oprofile
+else
+	rm -f oprofile
+fi
 
 if [ ! -f /mnt/test/core -a ! -f /mnt/test/gmon.out ]
 then
 	# Run the blob_cmp performance test
-	echo "blob_cmp perf" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $BLOB_TRACE exec $VALGRIND '"$WD/toilet"')
+	echo "blob_cmp perf" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $BLOB_TRACE exec $VALGRIND '"$WD/toilet"')
 	find /mnt/test -type f -print0 | xargs -0 ls -l
 	
 	if [ ! -f /mnt/test/core -a ! -f /mnt/test/gmon.out ]
 	then
 		# Run some tests
-		echo "script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $TEST_TRACE exec $VALGRIND '"$WD/toilet"')
+		echo "script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $TEST_TRACE exec $VALGRIND '"$WD/toilet"')
 		find /mnt/test -type f -print0 | xargs -0 ls -l
 		
 		# Run the old demo
-		#echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $DEMO_TRACE exec $VALGRIND '"$WD/toilet"')
+		#echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $DEMO_TRACE exec $VALGRIND '"$WD/toilet"')
 		#find /mnt/test -type f -print0 | xargs -0 ls -l
 		
 		# Allow custom commands
-		#(WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $HAND_TRACE exec $VALGRIND '"$WD/toilet"')
+		#(WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $HAND_TRACE exec $VALGRIND '"$WD/toilet"')
 		#find /mnt/test -type f -print0 | xargs -0 ls -l
 		
 		# Filter the system journal
-		true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $SYSJ_TRACE exec $VALGRIND '"$WD/toilet"')
+		true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $SYSJ_TRACE exec $VALGRIND '"$WD/toilet"')
 		ls -l /mnt/test/sys_journal*
 		
 		# If we comment out all the commands above, we
