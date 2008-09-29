@@ -3,6 +3,7 @@
 .depend
 libtoilet.so
 libtoilet.a
+io_count.so
 fstitch
 main
 tags

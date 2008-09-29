@@ -35,7 +35,7 @@ endif
 CFLAGS:=-Wall -Ifstitch/include $(CFLAGS)
 LDFLAGS:=-Lfstitch/obj/kernel/lib -lpatchgroup -Wl,-R,$(PWD)/fstitch/obj/kernel/lib $(LDFLAGS)
 
-all: tags main
+all: tags main io_count.so
 
 %.o: %.c
 	gcc -c $< -O2 $(CFLAGS)
@@ -63,6 +63,9 @@ else
 main: libtoilet.so main.o main++.o
 	g++ -o $@ main.o main++.o -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
 endif
+
+io_count.so: io_count.o
+	gcc -shared -o $@ $< -ldl $(LDFLAGS)
 
 clean:
 	rm -f main libtoilet.so libtoilet.a *.o .depend tags

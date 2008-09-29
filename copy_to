@@ -31,6 +31,6 @@ rsync --rsh=ssh -vaSz --exclude=*.o \
 	--exclude=/tags --exclude=/php/ \
 	--exclude=/fstitch --exclude=/.depend \
 	--exclude=/.toilet_history \
-	--exclude=/libtoilet.so \
+	--exclude=/libtoilet.so --exclude=/io_count.so \
 	--exclude=.*.swp --exclude=.*.swo --exclude=.*.swn \
 	. $MACHINE:$TARGET/
