@@ -73,14 +73,14 @@ public:
 				if(!load_buffer(offset))
 					return size - left; /* 0 */
 		}
-		if(buffers[last_buffer].use(&offset, &data, &left))
+		if(buffers[last_buffer].use(&offset, &data, &left, ++lru_count))
 			return size - left;
-		/* we still need a second buffer */
+		/* we need a second buffer */
 		if(!find_not_last(offset))
 			/* cache it */
 			if(!load_buffer(offset))
 				return size - left;
-		bool done = buffers[last_buffer].use(&offset, &data, &left);
+		bool done = buffers[last_buffer].use(&offset, &data, &left, ++lru_count);
 		assert(done);
 		return size - left;
 	}
@@ -90,6 +90,7 @@ private:
 	{
 		off_t offset;
 		ssize_t size;
+		int lru_index;
 		/* this is the only place we use buffer_size directly */
 		uint8_t data[buffer_size * 1024];
 		
@@ -100,7 +101,7 @@ private:
 		}
 		
 		/* returns true if no more can/should be read */
-		bool use(off_t * byte, void ** target, ssize_t * left)
+		bool use(off_t * byte, void ** target, ssize_t * left, int lru_count)
 		{
 			ssize_t start = *byte - offset;
 			ssize_t total = size - start;
@@ -112,11 +113,12 @@ private:
 			/* can't use void * in arithmetic... */
 			*target = &((uint8_t *) *target)[total];
 			*left -= total;
+			lru_index = lru_count;
 			return !*left || size < (ssize_t) sizeof(data);
 		}
 		
 		/* reload this buffer from file to contain the given offset */
-		inline bool load(int fd, off_t byte)
+		inline bool load(int fd, off_t byte, int lru_count)
 		{
 			offset = byte - (byte % sizeof(data));
 			size = pread(fd, data, sizeof(data), offset);
@@ -126,19 +128,23 @@ private:
 				size = 0;
 				return false;
 			}
+			lru_index = lru_count;
 			return byte - offset < size;
 		}
 	};
 	
+	mutable int lru_count;
 	mutable buffer buffers[buffer_count];
 	
 	virtual void reset()
 	{
+		lru_count = 0;
 		last_buffer = 0;
 		for(size_t i = 0; i < buffer_count; i++)
 		{
 			buffers[i].offset = -1;
 			buffers[i].size = 0;
+			buffers[i].lru_index = 0;
 		}
 	}
 	
@@ -158,14 +164,29 @@ private:
 	/* load a buffer from file containing the given offset, and set last_buffer to its index */
 	bool load_buffer(off_t offset) const
 	{
+		size_t max_idx = 0;
+		int max_age = lru_count - buffers[0].lru_index;
 		if(offset >= f_size)
 			return false;
 		/* pick a buffer to reload */
-		/* TODO we can do a better job than this! */
-		size_t i = rand() % buffer_count;
-		bool ok = buffers[i].load(fd, offset);
+		for(size_t i = 1; i < buffer_count; i++)
+		{
+			int age;
+			if(!buffers[i].size)
+			{
+				max_idx = i;
+				break;
+			}
+			age = lru_count - buffers[i].lru_index;
+			if(age > max_age)
+			{
+				max_idx = i;
+				max_age = age;
+			}
+		}
+		bool ok = buffers[max_idx].load(fd, offset, lru_count);
 		if(ok)
-			last_buffer = i;
+			last_buffer = max_idx;
 		return ok;
 	}
 };

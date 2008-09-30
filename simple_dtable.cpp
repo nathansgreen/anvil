@@ -205,8 +205,8 @@ int simple_dtable::init(int dfd, const char * file, const params & config)
 	struct dtable_header header;
 	if(fp)
 		deinit();
-	/* the larger the buffers, the more memory we use but the fewer read() system calls we'll make... */
-	fp = rofile::open<16, 12>(dfd, file);
+	/* the larger the buffers, the more memory we use but the fewer pread() system calls we'll make... */
+	fp = rofile::open<16, 24>(dfd, file);
 	if(!fp)
 		return -1;
 	if(fp->read(0, &header) < 0)
