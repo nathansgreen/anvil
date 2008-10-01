@@ -12,7 +12,7 @@ ei_factory_registry::factory_map ei_factory_registry::factories;
 int ei_factory_registry::add(const istr & class_name, const index_factory * factory)
 {
 	if(factories.count(class_name) > 0)
-		fprintf(stderr, "Warning: replacing existing ctable factory \"%s\"\n", (const char *) class_name);
+		fprintf(stderr, "Warning: replacing existing index factory \"%s\"\n", (const char *) class_name);
 	factories[class_name] = factory;
 	return 0;
 }
@@ -41,12 +41,12 @@ void ei_factory_registry::remove(const istr & class_name, const index_factory * 
 	if(factories.count(class_name) > 0)
 	{
 		if(factories[class_name] != factory)
-			fprintf(stderr, "Warning: attempt to remove mismatched ctable factory \"%s\"\n", (const char *) class_name);
+			fprintf(stderr, "Warning: attempt to remove mismatched index factory \"%s\"\n", (const char *) class_name);
 		else
 			factories.erase(class_name);
 	}
 	else
-		fprintf(stderr, "Warning: attempt to remove nonexistent ctable factory \"%s\"\n", (const char *) class_name);
+		fprintf(stderr, "Warning: attempt to remove nonexistent index factory \"%s\"\n", (const char *) class_name);
 }
 
 size_t ei_factory_registry::list(const istr ** names)

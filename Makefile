@@ -68,7 +68,7 @@ io_count.so: io_count.o
 	gcc -shared -o $@ $< -ldl $(LDFLAGS)
 
 clean:
-	rm -f main libtoilet.so libtoilet.a *.o .depend tags
+	rm -f main libtoilet.so libtoilet.a io_count.so *.o .depend tags
 
 clean-all: clean
 	php/clean
