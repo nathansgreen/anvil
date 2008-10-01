@@ -541,10 +541,10 @@ int command_blob_cmp(int argc, const char * argv[])
 	r = sst->set_blob_cmp(&reverse);
 	printf("sst->set_blob_cmp = %d\n", r);
 	
-	printf("Start timing! (1000000 reverse blob key appends to %d rows)\n", ROW_COUNT);
+	printf("Start timing! (2000000 reverse blob key appends to %d rows)\n", ROW_COUNT);
 	gettimeofday(&start, NULL);
 	
-	for(uint32_t i = 0; i < 1000000; i++)
+	for(uint32_t i = 0; i < 2000000; i++)
 	{
 		uint32_t keydata = rand() % ROW_COUNT;
 		blob key(sizeof(keydata), &keydata);
@@ -562,7 +562,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		r = sst->append(key, column, current);
 		if(r < 0)
 			goto fail_append;
-		if((i % 100000) == 99999)
+		if((i % 200000) == 199999)
 		{
 			gettimeofday(&end, NULL);
 			end.tv_sec -= start.tv_sec;
@@ -572,7 +572,7 @@ int command_blob_cmp(int argc, const char * argv[])
 				end.tv_sec--;
 			}
 			end.tv_usec -= start.tv_usec;
-			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 10000, (int) end.tv_sec, (int) end.tv_usec);
+			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 20000, (int) end.tv_sec, (int) end.tv_usec);
 		}
 		if((i % 10000) == 9999)
 		{
@@ -598,6 +598,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	}
 	end.tv_usec -= start.tv_usec;
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
+	printf("Average: %llu appends/second\n", 2000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
 	delete sst;
 	
@@ -768,6 +769,7 @@ int command_performance(int argc, const char * argv[])
 	}
 	end.tv_usec -= start.tv_usec;
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
+	printf("Average: %llu appends/second\n", 2000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
 	delete sst;
 	

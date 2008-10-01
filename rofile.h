@@ -16,7 +16,9 @@
 
 /* This class provides a stdio-like wrapper around a read-only file descriptor,
  * keeping track of several buffers for file data preread from different parts
- * of the file but not yet requested by the rest of the application. */
+ * of the file but not yet requested by the rest of the application. We expect
+ * the file system buffer cache to do most of the real caching work; this class
+ * just amortizes the cost of system calls over many small read requests. */
 
 class rofile
 {
