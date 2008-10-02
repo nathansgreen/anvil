@@ -1,9 +1,11 @@
 #define _GNU_SOURCE
+#define __STDC_FORMAT_MACROS
 
 #include <stdio.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include <dlfcn.h>
 
 static int is_setup = 0;
@@ -20,21 +22,21 @@ static void print_stats(void)
 {
 	uint64_t total;
 	if(read_calls)
-		printf("read() total: %llu (%u.%uM) calls: %llu\n", read_total, MEGS_FRAC(read_total), read_calls);
+		printf("read() total: %"PRIu64" (%u.%uM) calls: %"PRIu64"\n", read_total, MEGS_FRAC(read_total), read_calls);
 	if(write_calls)
-		printf("write() total: %llu (%u.%uM) calls: %llu\n", write_total, MEGS_FRAC(write_total), write_calls);
+		printf("write() total: %"PRIu64" (%u.%uM) calls: %"PRIu64"\n", write_total, MEGS_FRAC(write_total), write_calls);
 	if(pread_calls)
-		printf("pread() total: %llu (%u.%uM) calls: %llu\n", pread_total, MEGS_FRAC(pread_total), pread_calls);
+		printf("pread() total: %"PRIu64" (%u.%uM) calls: %"PRIu64"\n", pread_total, MEGS_FRAC(pread_total), pread_calls);
 	if(pwrite_calls)
-		printf("pwrite() total: %llu (%u.%uM) calls: %llu\n", pwrite_total, MEGS_FRAC(pwrite_total), pwrite_calls);
+		printf("pwrite() total: %"PRIu64" (%u.%uM) calls: %"PRIu64"\n", pwrite_total, MEGS_FRAC(pwrite_total), pwrite_calls);
 	if(fread_calls)
-		printf("fread() total: %llu (%u.%uM) calls: %llu\n", fread_total, MEGS_FRAC(fread_total), fread_calls);
+		printf("fread() total: %"PRIu64" (%u.%uM) calls: %"PRIu64"\n", fread_total, MEGS_FRAC(fread_total), fread_calls);
 	if(fwrite_calls)
-		printf("fwrite() total: %llu (%u.%uM) calls: %llu\n", fwrite_total, MEGS_FRAC(fwrite_total), fwrite_calls);
+		printf("fwrite() total: %"PRIu64" (%u.%uM) calls: %"PRIu64"\n", fwrite_total, MEGS_FRAC(fwrite_total), fwrite_calls);
 	total = read_total + pread_total + fread_total;
-	printf("Read total: %llu (%u.%uM) calls: %llu\n", total, MEGS_FRAC(total), read_calls + pread_calls + fread_calls);
+	printf("Read total: %"PRIu64" (%u.%uM) calls: %"PRIu64"\n", total, MEGS_FRAC(total), read_calls + pread_calls + fread_calls);
 	total = write_total + pwrite_total + fwrite_total;
-	printf("Write total: %llu (%u.%uM) calls: %llu\n", total, MEGS_FRAC(total), write_calls + pwrite_calls + fwrite_calls);
+	printf("Write total: %"PRIu64" (%u.%uM) calls: %"PRIu64"\n", total, MEGS_FRAC(total), write_calls + pwrite_calls + fwrite_calls);
 }
 
 ssize_t __read(int, void *, size_t);

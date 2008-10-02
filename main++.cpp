@@ -3,10 +3,12 @@
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
 #define _ATFILE_SOURCE
+#define __STDC_FORMAT_MACROS
 
 #include <time.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <inttypes.h>
 #include <sys/time.h>
 
 #include "openat.h"
@@ -598,7 +600,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	}
 	end.tv_usec -= start.tv_usec;
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
-	printf("Average: %llu appends/second\n", 2000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
+	printf("Average: %"PRIu64" appends/second\n", 2000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
 	delete sst;
 	
@@ -769,7 +771,7 @@ int command_performance(int argc, const char * argv[])
 	}
 	end.tv_usec -= start.tv_usec;
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
-	printf("Average: %llu appends/second\n", 2000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
+	printf("Average: %"PRIu64" appends/second\n", 2000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
 	delete sst;
 	
