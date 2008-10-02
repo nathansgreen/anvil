@@ -17,6 +17,7 @@
 
 #include "blob.h"
 #include "dtype.h"
+#include "util.h"
 
 class blob_buffer
 {
@@ -107,7 +108,7 @@ public:
 	{
 		int index = 0;
 		uint8_t array[4];
-		layout_bytes(array, &index, value, size);
+		util::layout_bytes(array, &index, value, size);
 		return append(array, size);
 	}
 	

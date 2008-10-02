@@ -1,5 +1,4 @@
 #define _GNU_SOURCE
-#define __STDC_FORMAT_MACROS
 
 #include <stdio.h>
 #include <unistd.h>

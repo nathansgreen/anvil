@@ -13,6 +13,7 @@
 
 #include <vector>
 
+#include "util.h"
 #include "rwfile.h"
 #include "blob_buffer.h"
 #include "simple_dtable.h"
@@ -115,14 +116,14 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 	
 	if(data_length)
 		/* all data lengths are stored incremented by 1, to free up 0 for non-existent entries */
-		*data_length = read_bytes(bytes, key_size, length_size) - 1;
+		*data_length = util::read_bytes(bytes, key_size, length_size) - 1;
 	if(data_offset)
-		*data_offset = read_bytes(bytes, key_size + length_size, offset_size);
+		*data_offset = util::read_bytes(bytes, key_size + length_size, offset_size);
 	
 	switch(ktype)
 	{
 		case dtype::UINT32:
-			return dtype(read_bytes(bytes, 0, key_size));
+			return dtype(util::read_bytes(bytes, 0, key_size));
 		case dtype::DOUBLE:
 		{
 			double value;
@@ -130,9 +131,9 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 			return dtype(value);
 		}
 		case dtype::STRING:
-			return dtype(st.get(read_bytes(bytes, 0, key_size)));
+			return dtype(st.get(util::read_bytes(bytes, 0, key_size)));
 		case dtype::BLOB:
-			return dtype(st.get_blob(read_bytes(bytes, 0, key_size)));
+			return dtype(st.get_blob(util::read_bytes(bytes, 0, key_size)));
 	}
 	abort();
 }
@@ -202,7 +203,7 @@ blob simple_dtable::lookup(const dtype & key, bool * found) const
 int simple_dtable::init(int dfd, const char * file, const params & config)
 {
 	int r = -1;
-	struct dtable_header header;
+	dtable_header header;
 	if(fp)
 		deinit();
 	/* the larger the buffers, the more memory we use but the fewer pread() system calls we'll make... */
@@ -334,7 +335,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	{
 		case dtype::UINT32:
 			header.key_type = 1;
-			header.key_size = byte_size(max_key);
+			header.key_size = util::byte_size(max_key);
 			break;
 		case dtype::DOUBLE:
 			header.key_type = 2;
@@ -342,16 +343,16 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 			break;
 		case dtype::STRING:
 			header.key_type = 3;
-			header.key_size = byte_size(strings.size() - 1);
+			header.key_size = util::byte_size(strings.size() - 1);
 			break;
 		case dtype::BLOB:
 			header.key_type = 4;
-			header.key_size = byte_size(blobs.size() - 1);
+			header.key_size = util::byte_size(blobs.size() - 1);
 			break;
 	}
 	/* we reserve size 0 for non-existent entries, so add 1 */
-	header.length_size = byte_size(max_data_size + 1);
-	header.offset_size = byte_size(total_data_size);
+	header.length_size = util::byte_size(max_data_size + 1);
+	header.offset_size = util::byte_size(total_data_size);
 	size = header.key_size + header.length_size + header.offset_size;
 	
 	r = out.create(dfd, file);
@@ -397,23 +398,23 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 		switch(key.type)
 		{
 			case dtype::UINT32:
-				layout_bytes(bytes, &i, key.u32, header.key_size);
+				util::layout_bytes(bytes, &i, key.u32, header.key_size);
 				break;
 			case dtype::DOUBLE:
-				memcpy(bytes, &key.dbl, sizeof(double));
+				util::memcpy(bytes, &key.dbl, sizeof(double));
 				i += sizeof(double);
 				break;
 			case dtype::STRING:
 				max_key = istr::locate(strings, key.str);
-				layout_bytes(bytes, &i, max_key, header.key_size);
+				util::layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 			case dtype::BLOB:
 				max_key = blob::locate(blobs, key.blb, blob_cmp);
-				layout_bytes(bytes, &i, max_key, header.key_size);
+				util::layout_bytes(bytes, &i, max_key, header.key_size);
 				break;
 		}
-		layout_bytes(bytes, &i, meta.exists() ? meta.size() + 1 : 0, header.length_size);
-		layout_bytes(bytes, &i, total_data_size, header.offset_size);
+		util::layout_bytes(bytes, &i, meta.exists() ? meta.size() + 1 : 0, header.length_size);
+		util::layout_bytes(bytes, &i, total_data_size, header.offset_size);
 		r = out.append(bytes, i);
 		if(r != i)
 		{

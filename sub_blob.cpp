@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <assert.h>
 
+#include "util.h"
 #include "blob_buffer.h"
 #include "sub_blob.h"
 
@@ -83,7 +84,7 @@ blob sub_blob::extract(const istr & column) const
 	uint8_t length_size = base[0];
 	while(offset + length_size + 1 < base.size())
 	{
-		size_t length = read_bytes(&base[0], &offset, length_size);
+		size_t length = util::read_bytes(&base[0], &offset, length_size);
 		size_t label = base[offset++];
 		if(label != size || memcmp(&base[offset], column, label))
 		{
@@ -160,7 +161,7 @@ blob sub_blob::flatten() const
 		if(scan->value.size() > max_length)
 			max_length = scan->value.size();
 	}
-	length_size = byte_size(max_length);
+	length_size = util::byte_size(max_length);
 	total_size += count * (length_size + 1);
 	
 	blob_buffer flat(total_size);
@@ -194,7 +195,7 @@ void sub_blob::populate() const
 	uint8_t length_size = base[0];
 	while(offset + length_size + 1 < base.size())
 	{
-		size_t length = read_bytes(&base[0], &offset, length_size);
+		size_t length = util::read_bytes(&base[0], &offset, length_size);
 		size_t label = base[offset++];
 		istr name(&base.index<char>(offset), label);
 		

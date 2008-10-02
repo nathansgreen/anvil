@@ -14,6 +14,8 @@
 #error rofile.h is a C++ header file
 #endif
 
+#include "util.h"
+
 /* This class provides a stdio-like wrapper around a read-only file descriptor,
  * keeping track of several buffers for file data preread from different parts
  * of the file but not yet requested by the rest of the application. We expect
@@ -110,7 +112,7 @@ private:
 			assert(contains(*byte));
 			if(*left < total)
 				total = *left;
-			memcpy(*target, &data[start], total);
+			util::memcpy(*target, &data[start], total);
 			*byte += total;
 			/* can't use void * in arithmetic... */
 			*target = &((uint8_t *) *target)[total];
