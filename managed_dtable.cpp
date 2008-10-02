@@ -19,10 +19,10 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	int r = -1, meta;
 	if(md_dfd >= 0)
 		deinit();
-	base = dt_factory_registry::lookup(config, "base");
+	base = dtable_factory::lookup(config, "base");
 	if(!base)
 		return -EINVAL;
-	fastbase = dt_factory_registry::lookup(config, "fastbase", "base");
+	fastbase = dtable_factory::lookup(config, "fastbase", "base");
 	if(!fastbase)
 		return -EINVAL;
 	if(!config.get("base_config", &base_config, params()))

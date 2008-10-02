@@ -9,31 +9,14 @@
 #error dtable_factory.h is a C++ header file
 #endif
 
-#include <map>
 #include "istr.h"
-#include "dtable.h"
 #include "params.h"
+#include "factory.h"
+#include "dtable.h"
 #include "empty_dtable.h"
-#include "blob_comparator.h"
-
-class dtable_factory;
-
-class dt_factory_registry
-{
-public:
-	static int add(const istr & class_name, const dtable_factory * factory);
-	static const dtable_factory * lookup(const istr & class_name);
-	static const dtable_factory * lookup(const params & config, const istr & config_name, const istr & alt_name = NULL);
-	static void remove(const istr & class_name, const dtable_factory * factory);
-	static size_t list(const istr ** names);
-	
-private:
-	typedef std::map<istr, const dtable_factory *, strcmp_less> factory_map;
-	static factory_map factories;
-};
 
 /* override one or both create() methods in subclasses */
-class dtable_factory
+class dtable_factory_base
 {
 public:
 	virtual dtable * open(int dfd, const char * name, const params & config) const = 0;
@@ -55,20 +38,10 @@ public:
 		return -ENOSYS;
 	}
 	
-	virtual ~dtable_factory()
-	{
-		dt_factory_registry::remove(name, this);
-	}
-	
-	const istr name;
-	
-protected:
-	inline dtable_factory(const istr & class_name)
-		: name(class_name)
-	{
-		dt_factory_registry::add(name, this);
-	}
+	virtual ~dtable_factory_base() {}
 };
+
+typedef factory<dtable_factory_base> dtable_factory;
 
 template<class T>
 class dtable_open_factory : public dtable_factory
@@ -125,7 +98,7 @@ public:
 	inline virtual int create(int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow) const
 	{
 		params base_config;
-		const dtable_factory * base = dt_factory_registry::lookup(config, "base");
+		const dtable_factory * base = dtable_factory::lookup(config, "base");
 		if(!base)
 			return -EINVAL;
 		if(!config.get("base_config", &base_config, params()))
@@ -136,7 +109,7 @@ public:
 	inline virtual int create(int dfd, const char * name, const params & config, dtype::ctype key_type) const
 	{
 		params base_config;
-		const dtable_factory * base = dt_factory_registry::lookup(config, "base");
+		const dtable_factory * base = dtable_factory::lookup(config, "base");
 		if(!base)
 			return -EINVAL;
 		if(!config.get("base_config", &base_config, params()))

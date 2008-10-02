@@ -9,51 +9,24 @@
 #error ctable_factory.h is a C++ header file
 #endif
 
-#include <map>
 #include "istr.h"
-#include "dtable.h"
-#include "ctable.h"
 #include "params.h"
-
-class ctable_factory;
-
-class ct_factory_registry
-{
-public:
-	static int add(const istr & class_name, const ctable_factory * factory);
-	static const ctable_factory * lookup(const istr & class_name);
-	static const ctable_factory * lookup(const params & config, const istr & config_name, const istr & alt_name = NULL);
-	static void remove(const istr & class_name, const ctable_factory * factory);
-	static size_t list(const istr ** names);
-	
-private:
-	typedef std::map<istr, const ctable_factory *, strcmp_less> factory_map;
-	static factory_map factories;
-};
+#include "factory.h"
+#include "ctable.h"
 
 /* although ctable itself does not suggest that it be implemented on top of dtables,
  * ctable_factory basically does require that for any ctables built via factories */
-class ctable_factory
+class ctable_factory_base
 {
 public:
 	//virtual ctable * open(int dfd, const char * name, const params & config) const = 0;
 	virtual ctable * open(const dtable * dt_source, const params & config) const = 0;
 	virtual ctable * open(dtable * dt_source, const params & config) const = 0;
 	
-	virtual ~ctable_factory()
-	{
-		ct_factory_registry::remove(name, this);
-	}
-	
-	const istr name;
-	
-protected:
-	inline ctable_factory(const istr & class_name)
-		: name(class_name)
-	{
-		ct_factory_registry::add(name, this);
-	}
+	virtual ~ctable_factory_base() {}
 };
+
+typedef factory<ctable_factory_base> ctable_factory;
 
 template<class T>
 class ctable_static_factory : public ctable_factory

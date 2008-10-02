@@ -9,49 +9,23 @@
 #error index_factory.h is a C++ header file
 #endif
 
-#include <map>
 #include "istr.h"
-#include "ext_index.h"
 #include "params.h"
-
-class index_factory;
-
-class ei_factory_registry
-{
-public:
-	static int add(const istr & class_name, const index_factory * factory);
-	static const index_factory * lookup(const istr & class_name);
-	static const index_factory * lookup(const params & config, const istr & config_name, const istr & alt_name = NULL);
-	static void remove(const istr & class_name, const index_factory * factory);
-	static size_t list(const istr ** names);
-	
-private:
-	typedef std::map<istr, const index_factory *, strcmp_less> factory_map;
-	static factory_map factories;
-};
+#include "factory.h"
+#include "ext_index.h"
 
 /* although ext_index itself does not suggest that it be implemented on top of dtables,
  * index_factory basically does require that for any ext_indexes built via factories */
-class index_factory
+class index_factory_base
 {
 public:
 	virtual ext_index * open(const dtable * store, dtype::ctype pri_key_type, const params & config) const = 0;
 	virtual ext_index * open(dtable * store, dtype::ctype pri_key_type, const params & config) const = 0;
 	
-	virtual ~index_factory()
-	{
-		ei_factory_registry::remove(name, this);
-	}
-	
-	const istr name;
-	
-protected:
-	inline index_factory(const istr & class_name)
-		: name(class_name)
-	{
-		ei_factory_registry::add(name, this);
-	}
+	virtual ~index_factory_base() {}
 };
+
+typedef factory<index_factory_base> index_factory;
 
 template<class T>
 class index_static_factory : public index_factory

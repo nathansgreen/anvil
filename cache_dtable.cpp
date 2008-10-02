@@ -87,7 +87,7 @@ int cache_dtable::init(int dfd, const char * file, const params & config)
 	if(!config.get("cache_size", &r, 0) || r < 0)
 		return -EINVAL;
 	cache_size = r;
-	factory = dt_factory_registry::lookup(config, "base");
+	factory = dtable_factory::lookup(config, "base");
 	if(!factory)
 		return -EINVAL;
 	if(!config.get("base_config", &base_config, params()))

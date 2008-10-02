@@ -118,21 +118,21 @@ void params::print_classes()
 	size_t count;
 	const istr * names;
 	
-	count = dt_factory_registry::list(&names);
+	count = dtable_factory::list(&names);
 	printf("%zu available dtable%s:", count, (count == 1) ? "" : "s");
 	for(size_t i = 0; i < count; i++)
 		printf(" %s", (const char *) names[i]);
 	printf("\n");
 	delete[] names;
 	
-	count = ct_factory_registry::list(&names);
+	count = ctable_factory::list(&names);
 	printf("%zu available ctable%s:", count, (count == 1) ? "" : "s");
 	for(size_t i = 0; i < count; i++)
 		printf(" %s", (const char *) names[i]);
 	printf("\n");
 	delete[] names;
 	
-	count = ei_factory_registry::list(&names);
+	count = index_factory::list(&names);
 	printf("%zu available ind%s:", count, (count == 1) ? "ex" : "ices");
 	for(size_t i = 0; i < count; i++)
 		printf(" %s", (const char *) names[i]);
@@ -264,11 +264,11 @@ int params::parse(token_stream * tokens, params * result)
 							return -1;
 						}
 					}
-					if(type == CLASS_DT && !dt_factory_registry::lookup(cppclass))
+					if(type == CLASS_DT && !dtable_factory::lookup(cppclass))
 						return -1;
-					if(type == CLASS_CT && !ct_factory_registry::lookup(cppclass))
+					if(type == CLASS_CT && !ctable_factory::lookup(cppclass))
 						return -1;
-					if(type == CLASS_IDX && !ei_factory_registry::lookup(cppclass))
+					if(type == CLASS_IDX && !index_factory::lookup(cppclass))
 						return -1;
 					result->set(name, cppclass);
 					break;
