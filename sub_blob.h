@@ -69,9 +69,9 @@ private:
 	
 	struct override
 	{
-		/* must be first see named_iter::prev() */
-		override ** pprev;
+		/* must be first; see named_iter::prev() */
 		override * next;
+		override ** pprev;
 		istr name;
 		blob value;
 		
