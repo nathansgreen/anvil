@@ -431,62 +431,62 @@ int command_blob_cmp(int argc, const char * argv[])
 	int r;
 	struct timeval start, end;
 	reverse_blob_comparator reverse;
-	sys_journal::listener_id jid;
-	journal_dtable jdt;
 	
 	/* let reverse know it's on the stack */
 	reverse.on_stack();
 	
-	r = tx_start();
-	printf("tx_start = %d\n", r);
-	jid = sys_journal::get_unique_id();
-	if(jid == sys_journal::NO_ID)
-		return -EBUSY;
-	r = jdt.init(dtype::BLOB, jid, NULL);
-	printf("jdt.init = %d\n", r);
-	r = jdt.set_blob_cmp(&reverse);
-	printf("jdt.set_blob_cmp = %d\n", r);
-	for(int i = 0; i < 10; i++)
-	{
-		uint32_t keydata = rand();
-		uint8_t valuedata = i;
-		blob key(sizeof(keydata), &keydata);
-		blob value(sizeof(valuedata), &valuedata);
-		jdt.append(dtype(key), value);
-	}
-	r = tx_end(0);
-	printf("tx_end = %d\n", r);
-	
-	run_iterator(&jdt);
-	
-	r = jdt.reinit(jid, false);
-	printf("jdt.reinit = %d\n", r);
-	printf("current expected comparator: %s\n", (const char *) jdt.get_cmp_name());
-	
-	run_iterator(&jdt);
-	
-	r = sys_journal::get_global_journal()->get_entries(&jdt);
-	printf("get_entries = %d (expect %d)\n", r, -EBUSY);
-	if(r == -EBUSY)
-	{
-		printf("expect comparator: %s\n", (const char *) jdt.get_cmp_name());
-		jdt.set_blob_cmp(&reverse);
-		r = sys_journal::get_global_journal()->get_entries(&jdt);
-		printf("get_entries = %d\n", r);
-	}
-	
-	run_iterator(&jdt);
-	
-	r = tx_start();
-	printf("tx_start = %d\n", r);
-	r = jdt.reinit(jid);
-	printf("jdt.reinit = %d\n", r);
-	r = tx_end(0);
-	printf("tx_end = %d\n", r);
-	
 	if(argc < 2 || strcmp(argv[1], "perf"))
 	{
-		printf("Skipping blob_cmp semi-performance test.\n");
+		sys_journal::listener_id jid;
+		journal_dtable jdt;
+		
+		r = tx_start();
+		printf("tx_start = %d\n", r);
+		jid = sys_journal::get_unique_id();
+		if(jid == sys_journal::NO_ID)
+			return -EBUSY;
+		r = jdt.init(dtype::BLOB, jid, NULL);
+		printf("jdt.init = %d\n", r);
+		r = jdt.set_blob_cmp(&reverse);
+		printf("jdt.set_blob_cmp = %d\n", r);
+		for(int i = 0; i < 10; i++)
+		{
+			uint32_t keydata = rand();
+			uint8_t valuedata = i;
+			blob key(sizeof(keydata), &keydata);
+			blob value(sizeof(valuedata), &valuedata);
+			jdt.append(dtype(key), value);
+		}
+		r = tx_end(0);
+		printf("tx_end = %d\n", r);
+		
+		run_iterator(&jdt);
+		
+		r = jdt.reinit(jid, false);
+		printf("jdt.reinit = %d\n", r);
+		printf("current expected comparator: %s\n", (const char *) jdt.get_cmp_name());
+		
+		run_iterator(&jdt);
+		
+		r = sys_journal::get_global_journal()->get_entries(&jdt);
+		printf("get_entries = %d (expect %d)\n", r, -EBUSY);
+		if(r == -EBUSY)
+		{
+			printf("expect comparator: %s\n", (const char *) jdt.get_cmp_name());
+			jdt.set_blob_cmp(&reverse);
+			r = sys_journal::get_global_journal()->get_entries(&jdt);
+			printf("get_entries = %d\n", r);
+		}
+		
+		run_iterator(&jdt);
+		
+		r = tx_start();
+		printf("tx_start = %d\n", r);
+		r = jdt.reinit(jid);
+		printf("jdt.reinit = %d\n", r);
+		r = tx_end(0);
+		printf("tx_end = %d\n", r);
+		
 		return 0;
 	}
 	
@@ -575,6 +575,7 @@ int command_blob_cmp(int argc, const char * argv[])
 			}
 			end.tv_usec -= start.tv_usec;
 			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 20000, (int) end.tv_sec, (int) end.tv_usec);
+			fflush(stdout);
 		}
 		if((i % 10000) == 9999)
 		{
@@ -742,6 +743,7 @@ int command_performance(int argc, const char * argv[])
 			}
 			end.tv_usec -= start.tv_usec;
 			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 20000, (int) end.tv_sec, (int) end.tv_usec);
+			fflush(stdout);
 		}
 		if((i % 10000) == 9999)
 		{

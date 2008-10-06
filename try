@@ -24,7 +24,7 @@ CFLAGS="-ggdb $CFLAGS" make || exit $?
 #JOURNAL=use_journal=1
 
 HOST="`hostname`"
-if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" ]
+if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" -a "$HOST" != "butters" ]
 then
 	echo "Not running on a kudos-* test machine, won't overwrite your file systems."
 	exit 1

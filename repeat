@@ -1,0 +1,90 @@
+#!/bin/bash
+
+CFLAGS="-DNDEBUG $CFLAGS" make || exit $?
+
+# Uncomment to use Featherstitch journal mode
+#JOURNAL=use_journal=1
+
+HOST="`hostname`"
+if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" -a "$HOST" != "butters" ]
+then
+	echo "Not running on a kudos-* test machine, won't overwrite your file systems."
+	exit 1
+fi
+
+if mount | grep -q "on /mnt/test"
+then
+	echo "/mnt/test is mounted; unmount before running this script."
+	exit 1
+fi
+
+rm -f try.fdb gmon.out gmon.sum
+
+function create_fs() {
+	echo -n "Creating file system... "
+	sudo mke2fs -m 0 -b 4096 /dev/sdb1 &> /dev/null
+	sudo mount /dev/sdb1 /mnt/test -t ext2
+	sudo chown -R `whoami` /mnt/test
+	[ "$JOURNAL" ] && dd if=/dev/zero of=/mnt/test/.journal bs=1M count=64 2> /dev/null
+	mkdir /mnt/test/journals
+	sudo umount /mnt/test
+	echo "done."
+}
+
+function load_fstitch() {
+	echo -n "Loading Featherstitch... "
+	sudo insmod fstitch/kfstitchd.ko device=/dev/sdb $JOURNAL
+	if [ -f /proc/kfstitchd_debug ]
+	then
+		echo "Featherstitch is compiled with debugging enabled. Bailing out..." >&2
+		return 1
+	fi
+	sudo mount /mnt/test
+	echo "done."
+	return 0
+}
+
+function unload_fstitch() {
+	echo "Unloading Featherstitch..."
+	sudo umount /mnt/test
+	time sudo rmmod kfstitchd
+}
+
+function run_test() {
+	for i in `seq 1 ${2:-1}`
+	do
+		create_fs
+		load_fstitch
+		echo "$1" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec "$WD/toilet")
+		unload_fstitch
+	done
+}
+
+function summarize() {
+	echo "Summary for $1:"
+	TIMES="`grep "^Timing finished" "$1" | awk '{ print $3 }'`"
+	RATES="`grep "^Average:" "$1" | awk '{ print $2 }'`"
+	UNLOADS="`grep "^real" "$1" | awk '{ print $2 }' | sed -e 's/m/*60+/;s/s//' | bc -lq`"
+	NR_TIMES=`echo "$TIMES" | wc -l`
+	NR_RATES=`echo "$RATES" | wc -l`
+	NR_UNLOADS=`echo "$UNLOADS" | wc -l`
+	TIME_AVG=`(echo "scale=6;($TIMES" | tr \\\\012 +; echo "0)/$NR_TIMES") | bc -q`
+	RATE_AVG=`(echo "scale=1;($RATES" | tr \\\\012 +; echo "0)/$NR_RATES") | bc -q`
+	UNLOAD_AVG=`(echo "scale=4;($UNLOADS" | tr \\\\012 +; echo "0)/$NR_UNLOADS") | bc -q`
+	RATE_UNLOAD=`echo "scale=6;($TIME_AVG*$RATE_AVG)/($TIME_AVG+$UNLOAD_AVG)" | bc -q`
+	echo "  Average time over $NR_TIMES runs: $TIME_AVG"
+	echo "  Average rate over $NR_RATES runs: $RATE_AVG"
+	echo "  Average unload time over $NR_UNLOADS runs: $UNLOAD_AVG"
+	echo "  Average rate including unloads: $RATE_UNLOAD"
+}
+
+# Run the performance test
+run_test "performance" 5 2>&1 | tee performance.log
+
+# Run the blob_cmp performance test
+run_test "blob_cmp perf" 5 2>&1 | tee blob_cmp.log
+
+summarize performance.log
+summarize blob_cmp.log
+
+echo -ne \\007
