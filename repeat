@@ -62,29 +62,38 @@ function run_test() {
 
 function summarize() {
 	echo "Summary for $1:"
+	# Extract the times and rates
 	TIMES="`grep "^Timing finished" "$1" | awk '{ print $3 }'`"
 	RATES="`grep "^Average:" "$1" | awk '{ print $2 }'`"
 	UNLOADS="`grep "^real" "$1" | awk '{ print $2 }' | sed -e 's/m/*60+/;s/s//' | bc -lq`"
+	# Figure out how many of each we are dealing with
 	NR_TIMES=`echo "$TIMES" | wc -l`
 	NR_RATES=`echo "$RATES" | wc -l`
 	NR_UNLOADS=`echo "$UNLOADS" | wc -l`
+	# Calculate the averages
 	TIME_AVG=`(echo "scale=6;($TIMES" | tr \\\\012 +; echo "0)/$NR_TIMES") | bc -q`
 	RATE_AVG=`(echo "scale=1;($RATES" | tr \\\\012 +; echo "0)/$NR_RATES") | bc -q`
 	UNLOAD_AVG=`(echo "scale=4;($UNLOADS" | tr \\\\012 +; echo "0)/$NR_UNLOADS") | bc -q`
+	# Factor in the unload time for another rate
 	RATE_UNLOAD=`echo "scale=6;($TIME_AVG*$RATE_AVG)/($TIME_AVG+$UNLOAD_AVG)" | bc -q`
+	# Display everything
 	echo "  Average time over $NR_TIMES runs: $TIME_AVG"
 	echo "  Average rate over $NR_RATES runs: $RATE_AVG"
 	echo "  Average unload time over $NR_UNLOADS runs: $UNLOAD_AVG"
 	echo "  Average rate including unloads: $RATE_UNLOAD"
 }
 
-# Run the performance test
-run_test "performance" 5 2>&1 | tee performance.log
+if [ "$1" != "-s" ]
+then
+	# Run the performance test
+	run_test "performance" 5 2>&1 | tee performance.log
+	
+	# Run the blob_cmp performance test
+	run_test "blob_cmp perf" 5 2>&1 | tee blob_cmp.log
+	
+	# Notify the user that the test is done
+	echo -ne \\007
+fi
 
-# Run the blob_cmp performance test
-run_test "blob_cmp perf" 5 2>&1 | tee blob_cmp.log
-
-summarize performance.log
-summarize blob_cmp.log
-
-echo -ne \\007
+[ -r performance.log ] && summarize performance.log
+[ -r blob_cmp.log ] && summarize blob_cmp.log
