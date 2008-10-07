@@ -13,20 +13,23 @@ bool journal_dtable::iter::valid() const
 
 bool journal_dtable::iter::next()
 {
-	++jit;
+	if(jit != jdt_source->jdt_map.end())
+		++jit;
 	return jit != jdt_source->jdt_map.end();
 }
 
 bool journal_dtable::iter::prev()
 {
-	--jit;
+	if(jit != jdt_source->jdt_map.begin())
+		--jit;
 	return jit != jdt_source->jdt_map.end();
 }
 
 bool journal_dtable::iter::last()
 {
 	jit = jdt_source->jdt_map.end();
-	--jit;
+	if(jit != jdt_source->jdt_map.begin())
+		--jit;
 	return jit != jdt_source->jdt_map.end();
 }
 
@@ -38,7 +41,9 @@ dtype journal_dtable::iter::key() const
 bool journal_dtable::iter::seek(const dtype & key)
 {
 	jit = jdt_source->jdt_map.lower_bound(key);
-	return jit != jdt_source->jdt_map.end();
+	if(jit == jdt_source->jdt_map.end())
+		return false;
+	return !jdt_source->jdt_map.key_comp()(key, jit->first);
 }
 
 metablob journal_dtable::iter::meta() const
