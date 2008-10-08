@@ -95,6 +95,7 @@ int cache_dtable::init(int dfd, const char * file, const params & config)
 	base = factory->open(dfd, file, base_config);
 	if(!base)
 		return -1;
+	ktype = base->key_type();
 	cmp_name = base->get_cmp_name();
 	return 0;
 }

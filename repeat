@@ -53,6 +53,7 @@ function unload_fstitch() {
 function run_test() {
 	for i in `seq 1 ${2:-1}`
 	do
+		echo "Starting run $i/${2:-1} of test \"$1\"..."
 		create_fs
 		load_fstitch
 		echo "$1" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; exec "$WD/toilet")
