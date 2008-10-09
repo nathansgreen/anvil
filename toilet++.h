@@ -171,6 +171,7 @@ int toilet_cursor_valid(t_cursor * cursor);
 /* these return true if they found an exact match, false otherwise */
 bool toilet_cursor_seek(t_cursor * cursor, t_row_id id);
 bool toilet_cursor_seek_blobkey(t_cursor * cursor, const void * key, size_t key_size);
+bool toilet_cursor_seek_magic(t_cursor * cursor, int (*magic)(const void *, size_t, void *), void * user);
 int toilet_cursor_next(t_cursor * cursor);
 int toilet_cursor_prev(t_cursor * cursor);
 int toilet_cursor_last(t_cursor * cursor);

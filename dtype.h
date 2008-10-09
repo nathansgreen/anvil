@@ -20,6 +20,7 @@
 
 #include "blob.h"
 #include "istr.h"
+#include "magic_test.h"
 #include "blob_comparator.h"
 
 /* all data stored in toilet is wrapped by this type */
@@ -229,5 +230,7 @@ public:
 private:
 	const blob_comparator *& blob_cmp;
 };
+
+typedef magic_test<dtype> dtype_test;
 
 #endif /* __DTYPE_H */

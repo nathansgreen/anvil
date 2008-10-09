@@ -38,6 +38,7 @@ public:
 		 * requested key is not present. Returns true if the requested key was
 		 * found, and false otherwise. */
 		virtual bool seek(const dtype & key) = 0;
+		virtual bool seek(const dtype_test & test) = 0;
 		virtual ~key_iter() {}
 	};
 	class iter : public key_iter

@@ -27,7 +27,7 @@ class rofile
 {
 public:
 	inline rofile() : fd(-1) {}
-	virtual inline ~rofile()
+	inline virtual ~rofile()
 	{
 		if(fd >= 0)
 			close();

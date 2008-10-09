@@ -60,7 +60,7 @@ public:
 private:
 	inline int add_node(const dtype & key, const blob & value);
 	
-	typedef std::map<const dtype, blob, dtype_comparator_refobject> journal_dtable_map;
+	typedef std::map<dtype, blob, dtype_comparator_refobject> journal_dtable_map;
 	typedef __gnu_cxx::hash_map<const dtype, blob *, dtype_hashing_comparator, dtype_hashing_comparator> journal_dtable_hash;
 	
 	class iter : public dtable::iter
@@ -72,6 +72,7 @@ private:
 		virtual bool last();
 		virtual dtype key() const;
 		virtual bool seek(const dtype & key);
+		virtual bool seek(const dtype_test & test);
 		virtual metablob meta() const;
 		virtual blob value() const;
 		virtual const dtable * source() const;

@@ -717,6 +717,29 @@ bool toilet_cursor_seek_blobkey(t_cursor * cursor, const void * key, size_t key_
 	return safer.iter->seek(dtype(blob(key_size, key)));
 }
 
+bool toilet_cursor_seek_magic(t_cursor * cursor, int (*magic)(const void *, size_t, void *), void * user)
+{
+	class local : public dtype_test
+	{
+	public:
+		typedef int (*test_fnp)(const void * key, size_t key_size, void * user);
+		
+		virtual int operator()(const dtype & key) const
+		{
+			assert(key.type == dtype::BLOB);
+			return test(&key.blb[0], key.blb.size(), user);
+		}
+		
+		local(test_fnp test, void * user) : test(test), user(user) {}
+	private:
+		test_fnp test;
+		void * user;
+	} test(magic, user);
+	t_cursor_union safer;
+	safer.cursor = cursor;
+	return safer.iter->seek(test);
+}
+
 int toilet_cursor_next(t_cursor * cursor)
 {
 	t_cursor_union safer;

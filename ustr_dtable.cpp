@@ -92,6 +92,11 @@ bool ustr_dtable::iter::seek(const dtype & key)
 	return udt_source->find_key(key, NULL, NULL, &index) >= 0;
 }
 
+bool ustr_dtable::iter::seek(const dtype_test & test)
+{
+	return udt_source->find_key(test, &index) >= 0;
+}
+
 metablob ustr_dtable::iter::meta() const
 {
 	size_t data_length;
@@ -159,6 +164,33 @@ int ustr_dtable::find_key(const dtype & key, size_t * data_length, off_t * data_
 		ssize_t mid = min + (max - min) / 2;
 		dtype value = get_key(mid, data_length, data_offset);
 		int c = value.compare(key, blob_cmp);
+		if(c < 0)
+			min = mid + 1;
+		else if(c > 0)
+			max = mid - 1;
+		else
+		{
+			if(index)
+				*index = mid;
+			return 0;
+		}
+	}
+	if(index)
+		*index = min;
+	return -ENOENT;
+}
+
+int ustr_dtable::find_key(const dtype_test & test, size_t * index) const
+{
+	/* binary search */
+	ssize_t min = 0, max = key_count - 1;
+	assert(ktype != dtype::BLOB || !cmp_name == !blob_cmp);
+	while(min <= max)
+	{
+		/* watch out for overflow! */
+		ssize_t mid = min + (max - min) / 2;
+		dtype value = get_key(mid);
+		int c = test(value);
 		if(c < 0)
 			min = mid + 1;
 		else if(c > 0)

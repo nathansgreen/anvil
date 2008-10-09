@@ -4,6 +4,7 @@
 
 #include <errno.h>
 
+#include "hack_map.h"
 #include "journal_dtable.h"
 
 bool journal_dtable::iter::valid() const
@@ -44,6 +45,14 @@ bool journal_dtable::iter::seek(const dtype & key)
 	if(jit == jdt_source->jdt_map.end())
 		return false;
 	return !jdt_source->jdt_map.key_comp()(key, jit->first);
+}
+
+bool journal_dtable::iter::seek(const dtype_test & test)
+{
+	jit = lower_bound(jdt_source->jdt_map, test);
+	if(jit == jdt_source->jdt_map.end())
+		return false;
+	return !test(jit->first);
 }
 
 metablob journal_dtable::iter::meta() const

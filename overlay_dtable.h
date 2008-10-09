@@ -46,6 +46,7 @@ private:
 		virtual bool last();
 		virtual dtype key() const;
 		virtual bool seek(const dtype & key);
+		virtual bool seek(const dtype_test & test);
 		virtual metablob meta() const;
 		virtual blob value() const;
 		virtual const dtable * source() const;
