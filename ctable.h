@@ -29,6 +29,7 @@ public:
 		/* can't call key() or seek() if you got this iterator via iterator(key) */
 		virtual dtype key() const = 0;
 		virtual bool seek(const dtype & key) = 0;
+		virtual bool seek(const dtype_test & test) = 0;
 		virtual const istr & column() const = 0;
 		virtual blob value() const = 0;
 		virtual ~iter() {}

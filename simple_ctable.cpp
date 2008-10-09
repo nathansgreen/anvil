@@ -8,20 +8,7 @@
 simple_ctable::iter::iter(dtable::iter * src)
 	: source(src), columns(NULL)
 {
-	while(source->valid())
-	{
-		blob value = source->value();
-		if(value.exists())
-		{
-			row = sub_blob(value);
-			columns = row.iterator();
-			if(columns->valid())
-				break;
-			delete columns;
-			columns = NULL;
-		}
-		source->next();
-	}
+	advance();
 }
 
 simple_ctable::iter::iter(const blob & value)
@@ -134,20 +121,20 @@ bool simple_ctable::iter::seek(const dtype & key)
 		columns = NULL;
 	}
 	found = source->seek(key);
-	while(source->valid())
+	advance();
+	return found;
+}
+
+bool simple_ctable::iter::seek(const dtype_test & test)
+{
+	bool found;
+	if(columns)
 	{
-		blob value = source->value();
-		if(value.exists())
-		{
-			row = sub_blob(value);
-			columns = row.iterator();
-			if(columns->valid())
-				break;
-			delete columns;
-			columns = NULL;
-		}
-		source->next();
+		delete columns;
+		columns = NULL;
 	}
+	found = source->seek(test);
+	advance();
 	return found;
 }
 

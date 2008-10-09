@@ -72,6 +72,7 @@ private:
 		virtual bool last();
 		virtual dtype key() const;
 		virtual bool seek(const dtype & key);
+		virtual bool seek(const dtype_test & test);
 		virtual const istr & column() const;
 		virtual blob value() const;
 		inline iter(dtable::iter * src);
@@ -85,6 +86,24 @@ private:
 		}
 		
 	private:
+		inline void advance()
+		{
+			while(source->valid())
+			{
+				blob value = source->value();
+				if(value.exists())
+				{
+					row = sub_blob(value);
+					columns = row.iterator();
+					if(columns->valid())
+						break;
+					delete columns;
+					columns = NULL;
+				}
+				source->next();
+			}
+		}
+		
 		dtable::iter * source;
 		/* need to keep the row around so its iterator will work */
 		sub_blob row;
