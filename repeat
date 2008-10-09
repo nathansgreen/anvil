@@ -84,6 +84,7 @@ function summarize() {
 	echo "  Average rate including unloads: $RATE_UNLOAD"
 }
 
+unset PRE
 if [ "$1" != "-s" ]
 then
 	# Run the performance test
@@ -94,7 +95,9 @@ then
 	
 	# Notify the user that the test is done
 	echo -ne \\007
+else
+	[ "$2" ] && PRE="$2/"
 fi
 
-[ -r performance.log ] && summarize performance.log
-[ -r blob_cmp.log ] && summarize blob_cmp.log
+[ -r performance.log ] && summarize ${PRE}performance.log
+[ -r blob_cmp.log ] && summarize ${PRE}blob_cmp.log
