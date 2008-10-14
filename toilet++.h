@@ -192,7 +192,7 @@ void toilet_put_rowset(t_rowset * rowset);
 
 /* blob comparators */
 
-t_blobcmp * toilet_new_blobcmp(const char * name, blobcmp_func cmp, void * user, blobcmp_free kill);
+t_blobcmp * toilet_new_blobcmp(const char * name, blobcmp_func cmp, void * user, blobcmp_free kill, bool free_user);
 t_blobcmp * toilet_new_blobcmp_copy(const char * name, blobcmp_func cmp, const void * user, size_t size, blobcmp_free kill);
 const char * toilet_blobcmp_name(const t_blobcmp * blobcmp);
 void toilet_blobcmp_retain(t_blobcmp * blobcmp);
@@ -291,6 +291,7 @@ struct t_blobcmp : public blob_comparator
 {
 	blobcmp_func cmp;
 	blobcmp_free kill;
+	bool copied;
 	void * user;
 	
 	virtual int compare(const blob & a, const blob & b) const
@@ -309,6 +310,8 @@ struct t_blobcmp : public blob_comparator
 	{
 		if(kill)
 			kill(user);
+		if(copied)
+			free(user);
 	}
 };
 

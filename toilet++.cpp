@@ -963,11 +963,12 @@ void toilet_put_rowset(t_rowset * rowset)
 		delete rowset;
 }
 
-t_blobcmp * toilet_new_blobcmp(const char * name, blobcmp_func cmp, void * user, blobcmp_free kill)
+t_blobcmp * toilet_new_blobcmp(const char * name, blobcmp_func cmp, void * user, blobcmp_free kill, bool free_user)
 {
 	t_blobcmp * blobcmp = new t_blobcmp(name);
 	blobcmp->cmp = cmp;
 	blobcmp->kill = kill;
+	blobcmp->copied = free_user;
 	blobcmp->user = user;
 	return blobcmp;
 }
@@ -977,6 +978,7 @@ t_blobcmp * toilet_new_blobcmp_copy(const char * name, blobcmp_func cmp, const v
 	t_blobcmp * blobcmp = new t_blobcmp(name);
 	blobcmp->cmp = cmp;
 	blobcmp->kill = kill;
+	blobcmp->copied = true;
 	blobcmp->user = malloc(size);
 	memcpy(blobcmp->user, user, size);
 	return blobcmp;
