@@ -483,10 +483,17 @@ int journal::reopen(int dfd, const istr & path, journal ** pj, journal * prev)
 	offset = j->init_crfd();
 	if(offset < 0)
 		goto error;
-	r = pread(j->crfd, &j->prev_cr, sizeof(j->prev_cr), offset - sizeof(j->prev_cr));
+
+	r = pread(j->crfd, &j->prev_cr, sizeof(j->prev_cr), offset);
+	/* opening an empty journal file */
+	if(offset == 0 && r == 0)
+	{
+		j->commits = 0;
+		return 0;
+	}
 	if(r != (int) sizeof(j->prev_cr))
 		return (r < 0) ? r : -1;
-	j->commits = offset / sizeof(j->prev_cr);
+	j->commits = (offset / sizeof(j->prev_cr)) + 1;
 	/* get rid of any uncommited records that might be in the journal */
 	r = j->data_file.open(dfd, path, j->prev_cr.offset + j->prev_cr.length);
 	if(r < 0 || (r = j->verify()) <= 0)
