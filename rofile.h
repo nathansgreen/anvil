@@ -54,9 +54,9 @@ public:
 	/* buffer_size is in KiB */
 	template<ssize_t buffer_size, int buffer_count>
 	static rofile * open_mmap(int dfd, const char * file);
-
+	
 	/* size of file in bytes */
-	off_t size() const { return f_size; }
+	inline off_t size() const { return f_size; }
 	
 protected:
 	/* reset all buffers */

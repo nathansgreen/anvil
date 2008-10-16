@@ -483,12 +483,13 @@ int journal::reopen(int dfd, const istr & path, journal ** pj, journal * prev)
 	offset = j->init_crfd();
 	if(offset < 0)
 		goto error;
-
+	
 	r = pread(j->crfd, &j->prev_cr, sizeof(j->prev_cr), offset);
 	/* opening an empty journal file */
-	if(offset == 0 && r == 0)
+	if(!offset && !r)
 	{
 		j->commits = 0;
+		*pj = j;
 		return 0;
 	}
 	if(r != (int) sizeof(j->prev_cr))
