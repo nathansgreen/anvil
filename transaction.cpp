@@ -582,6 +582,14 @@ tx_fd tx_open(int dfd, const char * name, int flags, ...)
 		/* already open */
 		return fd;
 	}
+	if((flags & O_WRONLY) && !(flags & O_RDWR))
+	{
+		/* we may want to read from this file descriptor later, before
+		 * the transaction is over, but we'll cache this one to use then
+		 * so make it O_RDWR even though O_WRONLY was requested */
+		flags &= ~O_WRONLY;
+		flags |= O_RDWR;
+	}
 	if(flags & O_CREAT)
 	{
 		va_list ap;

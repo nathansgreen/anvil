@@ -16,7 +16,9 @@
 int managed_dtable::init(int dfd, const char * name, const params & config, sys_journal * sys_journal)
 {
 	istr fast_config = "fastbase_config";
-	int r = -1, meta;
+	tx_fd meta;
+	off_t meta_off;
+	int r = -1;
 	if(md_dfd >= 0)
 		deinit();
 	base = dtable_factory::lookup(config, "base");
@@ -34,15 +36,16 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
 		return md_dfd;
-	meta = openat(md_dfd, "md_meta", O_RDONLY);
+	meta = tx_open(md_dfd, "md_meta", O_RDONLY);
 	if(meta < 0)
 	{
 		r = meta;
 		goto fail_meta;
 	}
 	
-	if(read(meta, &header, sizeof(header)) != sizeof(header))
+	if(tx_read(meta, &header, sizeof(header), 0) != sizeof(header))
 		goto fail_header;
+	meta_off = sizeof(header);
 	if(header.magic != MDTABLE_MAGIC || header.version != MDTABLE_VERSION)
 		goto fail_header;
 	switch(header.key_type)
@@ -68,9 +71,10 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		char name[32];
 		dtable * source;
 		mdtable_entry ddt;
-		r = read(meta, &ddt, sizeof(ddt));
+		r = tx_read(meta, &ddt, sizeof(ddt), meta_off);
 		if(r != sizeof(ddt))
 			goto fail_disks;
+		meta_off += sizeof(ddt);
 		sprintf(name, "md_data.%u", ddt.ddt_number);
 		if(ddt.is_fastbase)
 			source = fastbase->open(md_dfd, name, fastbase_config);
@@ -95,7 +99,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		goto fail_query;
 	
 	/* no more failure possible */
-	close(meta);
+	tx_close(meta);
 	
 	/* force array scope to end */
 	{
