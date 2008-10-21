@@ -63,6 +63,7 @@ echo "done."
 if [ "$OPROF" ]
 then
 	sudo opcontrol --init
+	sudo opcontrol --reset
 	sudo opcontrol "--vmlinux=/usr/src/linux-`uname -r`/vmlinux"
 	sudo opcontrol --start
 fi
