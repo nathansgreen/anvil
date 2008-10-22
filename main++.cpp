@@ -214,10 +214,10 @@ int command_dtable(int argc, const char * argv[])
 	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = mdt->append(4u, blob(5, "hello"));
-	printf("mdt->append = %d\n", r);
-	r = mdt->append(2u, blob(5, "world"));
-	printf("mdt->append = %d\n", r);
+	r = mdt->insert(4u, blob(5, "hello"));
+	printf("mdt->insert = %d\n", r);
+	r = mdt->insert(2u, blob(5, "world"));
+	printf("mdt->insert = %d\n", r);
 	run_iterator(mdt);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
@@ -242,10 +242,10 @@ int command_dtable(int argc, const char * argv[])
 	run_iterator(mdt);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = mdt->append(6u, blob(7, "icanhas"));
-	printf("mdt->append = %d\n", r);
-	r = mdt->append(0u, blob(11, "cheezburger"));
-	printf("mdt->append = %d\n", r);
+	r = mdt->insert(6u, blob(7, "icanhas"));
+	printf("mdt->insert = %d\n", r);
+	r = mdt->insert(0u, blob(11, "cheezburger"));
+	printf("mdt->insert = %d\n", r);
 	run_iterator(mdt);
 	r = mdt->digest();
 	printf("mdt->digest = %d\n", r);
@@ -300,11 +300,11 @@ int command_ctable(int argc, const char * argv[])
 	printf("sct->init = %d\n", r);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = sct->append(8u, "hello", blob(7, "icanhas"));
-	printf("sct->append(8, hello) = %d\n", r);
+	r = sct->insert(8u, "hello", blob(7, "icanhas"));
+	printf("sct->insert(8, hello) = %d\n", r);
 	run_iterator(sct);
-	r = sct->append(8u, "world", blob(11, "cheezburger"));
-	printf("sct->append(8, world) = %d\n", r);
+	r = sct->insert(8u, "world", blob(11, "cheezburger"));
+	printf("sct->insert(8, world) = %d\n", r);
 	run_iterator(sct);
 	r = mdt->combine();
 	printf("mdt->combine() = %d\n", r);
@@ -312,14 +312,14 @@ int command_ctable(int argc, const char * argv[])
 	r = sct->remove(8u, "hello");
 	printf("sct->remove(8, hello) = %d\n", r);
 	run_iterator(sct);
-	r = sct->append(10u, "foo", blob(3, "bar"));
-	printf("sct->append(10, foo) = %d\n", r);
+	r = sct->insert(10u, "foo", blob(3, "bar"));
+	printf("sct->insert(10, foo) = %d\n", r);
 	run_iterator(sct);
 	r = sct->remove(8u);
 	printf("sct->remove(8) = %d\n", r);
 	run_iterator(sct);
-	r = sct->append(12u, "foo", blob(3, "zot"));
-	printf("sct->append(10, foo) = %d\n", r);
+	r = sct->insert(12u, "foo", blob(3, "zot"));
+	printf("sct->insert(10, foo) = %d\n", r);
 	run_iterator(sct);
 	r = mdt->combine();
 	printf("mdt->combine() = %d\n", r);
@@ -378,11 +378,11 @@ int command_stable(int argc, const char * argv[])
 	r = tx_start();
 	printf("tx_start = %d\n", r);
 	run_iterator(sst);
-	r = sst->append(5u, "twice", 10u);
-	printf("sst->append(5, twice) = %d\n", r);
+	r = sst->insert(5u, "twice", 10u);
+	printf("sst->insert(5, twice) = %d\n", r);
 	run_iterator(sst);
-	r = sst->append(6u, "funky", "face");
-	printf("sst->append(6, funky) = %d\n", r);
+	r = sst->insert(6u, "funky", "face");
+	printf("sst->insert(6, funky) = %d\n", r);
 	run_iterator(sst);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
@@ -394,11 +394,11 @@ int command_stable(int argc, const char * argv[])
 	r = tx_start();
 	printf("tx_start = %d\n", r);
 	run_iterator(sst);
-	r = sst->append(6u, "twice", 12u);
-	printf("sst->append(5, twice) = %d\n", r);
+	r = sst->insert(6u, "twice", 12u);
+	printf("sst->insert(5, twice) = %d\n", r);
 	run_iterator(sst);
-	r = sst->append(5u, "zapf", "dingbats");
-	printf("sst->append(6, zapf) = %d\n", r);
+	r = sst->insert(5u, "zapf", "dingbats");
+	printf("sst->insert(6, zapf) = %d\n", r);
 	run_iterator(sst);
 	r = sst->remove(6u);
 	printf("sst->remove(6) = %d\n", r);
@@ -455,7 +455,7 @@ int command_blob_cmp(int argc, const char * argv[])
 			uint8_t valuedata = i;
 			blob key(sizeof(keydata), &keydata);
 			blob value(sizeof(valuedata), &valuedata);
-			jdt.append(dtype(key), value);
+			jdt.insert(dtype(key), value);
 		}
 		r = tx_end(0);
 		printf("tx_end = %d\n", r);
@@ -543,7 +543,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	r = sst->set_blob_cmp(&reverse);
 	printf("sst->set_blob_cmp = %d\n", r);
 	
-	printf("Start timing! (2000000 reverse blob key appends to %d rows)\n", ROW_COUNT);
+	printf("Start timing! (2000000 reverse blob key inserts to %d rows)\n", ROW_COUNT);
 	gettimeofday(&start, NULL);
 	
 	for(uint32_t i = 0; i < 2000000; i++)
@@ -561,9 +561,9 @@ int command_blob_cmp(int argc, const char * argv[])
 			current.u32 += i;
 		else
 			current.u32 = i;
-		r = sst->append(key, column, current);
+		r = sst->insert(key, column, current);
 		if(r < 0)
-			goto fail_append;
+			goto fail_insert;
 		if((i % 200000) == 199999)
 		{
 			gettimeofday(&end, NULL);
@@ -607,7 +607,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	}
 	end.tv_usec -= start.tv_usec;
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
-	printf("Average: %"PRIu64" appends/second\n", 2000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
+	printf("Average: %"PRIu64" inserts/second\n", 2000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
 	delete sst;
 	
@@ -654,7 +654,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	return (sum == check) ? 0 : -1;
 	
 fail_maintain:
-fail_append:
+fail_insert:
 	tx_end(0);
 fail_tx_start:
 	delete sst;
@@ -719,7 +719,7 @@ int command_performance(int argc, const char * argv[])
 		for(uint32_t j = 0; j < COLUMN_NAMES; j++)
 			table_copy[i][j] = (uint32_t) -1;
 	
-	printf("Start timing! (2000000 appends to %d rows)\n", ROW_COUNT);
+	printf("Start timing! (2000000 inserts to %d rows)\n", ROW_COUNT);
 	gettimeofday(&start, NULL);
 	
 	for(int i = 0; i < 2000000; i++)
@@ -735,9 +735,9 @@ int command_performance(int argc, const char * argv[])
 		do {
 			table_copy[row][column] = rand();
 		} while(table_copy[row][column] == (uint32_t) -1);
-		r = sst->append(row, column_names[column], table_copy[row][column]);
+		r = sst->insert(row, column_names[column], table_copy[row][column]);
 		if(r < 0)
-			goto fail_append;
+			goto fail_insert;
 		if((i % 200000) == 199999)
 		{
 			gettimeofday(&end, NULL);
@@ -779,7 +779,7 @@ int command_performance(int argc, const char * argv[])
 	}
 	end.tv_usec -= start.tv_usec;
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
-	printf("Average: %"PRIu64" appends/second\n", 2000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
+	printf("Average: %"PRIu64" inserts/second\n", 2000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
 	delete sst;
 	
@@ -867,7 +867,7 @@ fail_verify:
 	return -1;
 	
 fail_maintain:
-fail_append:
+fail_insert:
 	tx_end(0);
 fail_tx_start:
 	delete sst;

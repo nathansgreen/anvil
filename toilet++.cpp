@@ -624,27 +624,27 @@ int toilet_row_set_value(t_row * row, const char * key, t_type type, const t_val
 	{
 		case T_INT:
 			if(row->gtable->table->key_type() == dtype::BLOB)
-				r = row->gtable->table->append(row->blobkey, key, value->v_int);
+				r = row->gtable->table->insert(row->blobkey, key, value->v_int);
 			else
-				r = row->gtable->table->append(row->id, key, value->v_int);
+				r = row->gtable->table->insert(row->id, key, value->v_int);
 			if(r >= 0 && row->values.count(key))
 				row->values[key]->v_int = value->v_int;
 			tx_end_r();
 			return r;
 		case T_FLOAT:
 			if(row->gtable->table->key_type() == dtype::BLOB)
-				r = row->gtable->table->append(row->blobkey, key, value->v_float);
+				r = row->gtable->table->insert(row->blobkey, key, value->v_float);
 			else
-				r = row->gtable->table->append(row->id, key, value->v_float);
+				r = row->gtable->table->insert(row->id, key, value->v_float);
 			if(r >= 0 && row->values.count(key))
 				row->values[key]->v_float = value->v_float;
 			tx_end_r();
 			return r;
 		case T_STRING:
 			if(row->gtable->table->key_type() == dtype::BLOB)
-				r = row->gtable->table->append(row->blobkey, key, value->v_string);
+				r = row->gtable->table->insert(row->blobkey, key, value->v_string);
 			else
-				r = row->gtable->table->append(row->id, key, value->v_string);
+				r = row->gtable->table->insert(row->id, key, value->v_string);
 			if(r >= 0 && row->values.count(key))
 			{
 				free(row->values[key]);
@@ -656,9 +656,9 @@ int toilet_row_set_value(t_row * row, const char * key, t_type type, const t_val
 		{
 			blob b(value->v_blob.length, value->v_blob.data);
 			if(row->gtable->table->key_type() == dtype::BLOB)
-				r = row->gtable->table->append(row->blobkey, key, b);
+				r = row->gtable->table->insert(row->blobkey, key, b);
 			else
-				r = row->gtable->table->append(row->id, key, b);
+				r = row->gtable->table->insert(row->id, key, b);
 			if(r >= 0 && row->values.count(key))
 			{
 				t_value * cache = row->values[key];

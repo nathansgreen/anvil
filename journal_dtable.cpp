@@ -252,7 +252,7 @@ int journal_dtable::log(const dtype & key, const blob & blob)
 	abort();
 }
 
-int journal_dtable::append(const dtype & key, const blob & blob)
+int journal_dtable::insert(const dtype & key, const blob & blob)
 {
 	int r;
 	if(key.type != ktype || (ktype == dtype::BLOB && !key.blb.exists()))
@@ -271,7 +271,7 @@ int journal_dtable::append(const dtype & key, const blob & blob)
 
 int journal_dtable::remove(const dtype & key)
 {
-	return append(key, blob());
+	return insert(key, blob());
 }
 
 int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal)

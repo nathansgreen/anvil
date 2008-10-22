@@ -54,7 +54,7 @@ public:
 	virtual blob lookup(const dtype & key, bool * found) const = 0;
 	inline blob find(const dtype & key) const { bool found; return lookup(key, &found); }
 	inline virtual bool writable() const { return false; }
-	inline virtual int append(const dtype & key, const blob & blob) { return -ENOSYS; }
+	inline virtual int insert(const dtype & key, const blob & blob) { return -ENOSYS; }
 	inline virtual int remove(const dtype & key) { return -ENOSYS; }
 	inline dtype::ctype key_type() const { return ktype; }
 	inline dtable() : blob_cmp(NULL) {}

@@ -102,7 +102,7 @@ int simple_ext_index::set(const dtype & key, const dtype & pri)
 	/* for unique: set the pri for this key, even if it does not yet exist */
 	assert(is_unique);
 	if(rw_store)
-		return rw_store->append(key, pri.flatten());
+		return rw_store->insert(key, pri.flatten());
 	return -1;
 }
 
@@ -127,7 +127,7 @@ int simple_ext_index::add(const dtype & key, const dtype & pri)
 		return -1;
 	if(ref_key_type == dtype::STRING)
 		old << strlen(pri.str);
-	return rw_store->append(key, old << pri);
+	return rw_store->insert(key, old << pri);
 }
 
 int simple_ext_index::update(const dtype & key, const dtype & old_pri, const dtype & new_pri)
@@ -148,7 +148,7 @@ int simple_ext_index::update(const dtype & key, const dtype & old_pri, const dty
 	r = data.overwrite(start, new_pri);
 	if(r < 0)
 		return r;
-	return rw_store->append(key, data);
+	return rw_store->insert(key, data);
 }
 
 int simple_ext_index::remove(const dtype & key, const dtype & pri)
@@ -180,7 +180,7 @@ int simple_ext_index::remove(const dtype & key, const dtype & pri)
 	
 	if(r < 0)
 		return r;
-	return rw_store->append(key, data);
+	return rw_store->insert(key, data);
 }
 
 int simple_ext_index::init(const dtable * store, dtype::ctype pri_key_type, const params & config)

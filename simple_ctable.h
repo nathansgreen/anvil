@@ -27,7 +27,7 @@ public:
 		return wdt_source ? wdt_source->writable() : false;
 	}
 	
-	virtual int append(const dtype & key, const istr & column, const blob & value);
+	virtual int insert(const dtype & key, const istr & column, const blob & value);
 	virtual int remove(const dtype & key, const istr & column);
 	inline virtual int remove(const dtype & key)
 	{

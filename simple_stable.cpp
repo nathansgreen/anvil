@@ -313,7 +313,7 @@ int simple_stable::adjust_column(const istr & column, ssize_t delta, dtype::ctyp
 				break;
 		}
 		/* and write it */
-		r = dt_meta->append(column, meta);
+		r = dt_meta->insert(column, meta);
 	}
 	else
 		r = dt_meta->remove(column);
@@ -333,7 +333,7 @@ int simple_stable::adjust_column(const istr & column, ssize_t delta, dtype::ctyp
 	return r;
 }
 
-int simple_stable::append(const dtype & key, const istr & column, const dtype & value)
+int simple_stable::insert(const dtype & key, const istr & column, const dtype & value)
 {
 	int r;
 	bool increment = !ct_data->find(key, column).exists();
@@ -346,7 +346,7 @@ int simple_stable::append(const dtype & key, const istr & column, const dtype & 
 	}
 	else if(column_type(column) != value.type)
 		return -EINVAL;
-	r = ct_data->append(key, column, value.flatten());
+	r = ct_data->insert(key, column, value.flatten());
 	if(r < 0 && increment)
 		adjust_column(column, -1, value.type);
 	return r;

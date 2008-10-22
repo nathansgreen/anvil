@@ -71,7 +71,7 @@ public:
 	
 	virtual bool writable() const = 0;
 	
-	virtual int append(const dtype & key, const istr & column, const dtype & value) = 0;
+	virtual int insert(const dtype & key, const istr & column, const dtype & value) = 0;
 	/* remove just a column */
 	virtual int remove(const dtype & key, const istr & column) = 0;
 	/* remove the whole row */

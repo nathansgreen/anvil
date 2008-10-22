@@ -43,10 +43,10 @@ blob cache_dtable::lookup(const dtype & key, bool * found) const
 	return value;
 }
 
-int cache_dtable::append(const dtype & key, const blob & blob)
+int cache_dtable::insert(const dtype & key, const blob & blob)
 {
 	blob_map::iterator iter;
-	int value = base->append(key, blob);
+	int value = base->insert(key, blob);
 	if(value < 0)
 		return value;
 	iter = cache.find(key);

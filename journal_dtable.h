@@ -33,7 +33,7 @@ public:
 	virtual blob lookup(const dtype & key, bool * found) const;
 	
 	inline virtual bool writable() const { return true; }
-	virtual int append(const dtype & key, const blob & blob);
+	virtual int insert(const dtype & key, const blob & blob);
 	virtual int remove(const dtype & key);
 	
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
