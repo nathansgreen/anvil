@@ -179,15 +179,16 @@ bool simple_ctable::contains(const dtype & key) const
 }
 
 /* if we made a better find(), this could avoid flattening every time */
-int simple_ctable::insert(const dtype & key, const istr & column, const blob & value)
+int simple_ctable::insert(const dtype & key, const istr & column, const blob & value, bool append)
 {
 	int r = 0;
+	/* TODO: improve this... it is probably killing us */
 	blob row = wdt_source->find(key);
 	if(row.exists() || value.exists())
 	{
 		sub_blob columns(row);
 		columns.set(column, value);
-		r = wdt_source->insert(key, columns.flatten());
+		r = wdt_source->insert(key, columns.flatten(), append);
 	}
 	return r;
 }
@@ -197,7 +198,7 @@ int simple_ctable::remove(const dtype & key, const istr & column)
 	int r = insert(key, column, blob());
 	if(r >= 0)
 	{
-		/* TODO: improve this... */
+		/* TODO: improve this... it is probably killing us */
 		blob row = wdt_source->find(key);
 		sub_blob columns(row);
 		sub_blob::iter * iter = columns.iterator();

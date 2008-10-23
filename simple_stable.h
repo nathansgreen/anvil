@@ -36,7 +36,7 @@ public:
 	
 	virtual bool writable() const;
 	
-	virtual int insert(const dtype & key, const istr & column, const dtype & value);
+	virtual int insert(const dtype & key, const istr & column, const dtype & value, bool append = false);
 	virtual int remove(const dtype & key, const istr & column);
 	virtual int remove(const dtype & key);
 	

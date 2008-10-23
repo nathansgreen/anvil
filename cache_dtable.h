@@ -28,7 +28,7 @@ public:
 	virtual iter * iterator() const;
 	virtual blob lookup(const dtype & key, bool * found) const;
 	inline virtual bool writable() const { return base->writable(); }
-	virtual int insert(const dtype & key, const blob & blob);
+	virtual int insert(const dtype & key, const blob & blob, bool append = false);
 	virtual int remove(const dtype & key);
 	
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
@@ -64,11 +64,11 @@ private:
 	
 	void add_cache(const dtype & key, const blob & value, bool found) const;
 	
-	typedef __gnu_cxx::hash_map<const dtype, entry, dtype_hashing_comparator, dtype_hashing_comparator> blob_map;
+	typedef __gnu_cxx::hash_map<const dtype, entry, dtype_hashing_comparator, dtype_hashing_comparator> cache_map;
 	
 	dtable * base;
 	size_t cache_size;
-	mutable blob_map cache;
+	mutable cache_map cache;
 	mutable std::queue<dtype> order;
 };
 

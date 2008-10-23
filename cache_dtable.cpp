@@ -32,7 +32,7 @@ void cache_dtable::add_cache(const dtype & key, const blob & value, bool found) 
 
 blob cache_dtable::lookup(const dtype & key, bool * found) const
 {
-	blob_map::const_iterator iter = cache.find(key);
+	cache_map::const_iterator iter = cache.find(key);
 	if(iter != cache.end())
 	{
 		*found = (*iter).second.found;
@@ -43,10 +43,10 @@ blob cache_dtable::lookup(const dtype & key, bool * found) const
 	return value;
 }
 
-int cache_dtable::insert(const dtype & key, const blob & blob)
+int cache_dtable::insert(const dtype & key, const blob & blob, bool append)
 {
-	blob_map::iterator iter;
-	int value = base->insert(key, blob);
+	cache_map::iterator iter;
+	int value = base->insert(key, blob, append);
 	if(value < 0)
 		return value;
 	iter = cache.find(key);
@@ -62,7 +62,7 @@ int cache_dtable::insert(const dtype & key, const blob & blob)
 
 int cache_dtable::remove(const dtype & key)
 {
-	blob_map::iterator iter;
+	cache_map::iterator iter;
 	int value = base->remove(key);
 	if(value < 0)
 		return value;

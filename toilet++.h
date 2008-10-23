@@ -160,7 +160,9 @@ const t_value * toilet_row_value(t_row * row, const char * key, t_type type);
 const t_value * toilet_row_value_type(t_row * row, const char * key, t_type * type);
 
 /* set the value (it will be copied) */
-int toilet_row_set_value(t_row * row, const char * key, t_type type, const t_value * value);
+#define toilet_row_set_value(row, key, type, value) toilet_row_set_value_hint(row, key, type, value, false)
+/* set the value, with a hint as to whether this is an append or not */
+int toilet_row_set_value_hint(t_row * row, const char * key, t_type type, const t_value * value, bool append);
 /* remove the key and its value */
 int toilet_row_remove_key(t_row * row, const char * key);
 

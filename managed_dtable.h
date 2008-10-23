@@ -45,11 +45,11 @@ public:
 	inline virtual bool writable() const { return true; }
 	
 	/* send to journal_dtable */
-	inline virtual int insert(const dtype & key, const blob & blob)
+	inline virtual int insert(const dtype & key, const blob & blob, bool append = false)
 	{
 		if(!blob.exists() && !find(key).exists())
 			return 0;
-		return journal->insert(key, blob);
+		return journal->insert(key, blob, append);
 	}
 	inline virtual int remove(const dtype & key)
 	{

@@ -33,7 +33,7 @@ public:
 	virtual blob lookup(const dtype & key, bool * found) const;
 	
 	inline virtual bool writable() const { return true; }
-	virtual int insert(const dtype & key, const blob & blob);
+	virtual int insert(const dtype & key, const blob & blob, bool append = false);
 	virtual int remove(const dtype & key);
 	
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
@@ -58,10 +58,11 @@ public:
 	virtual int journal_replay(void *& entry, size_t length);
 	
 private:
-	inline int add_node(const dtype & key, const blob & value);
-	
 	typedef std::map<dtype, blob, dtype_comparator_refobject> journal_dtable_map;
 	typedef __gnu_cxx::hash_map<const dtype, blob *, dtype_hashing_comparator, dtype_hashing_comparator> journal_dtable_hash;
+	
+	inline int add_node(const dtype & key, const blob & value);
+	inline int add_node(const dtype & key, const blob & value, const journal_dtable_map::iterator & end);
 	
 	class iter : public dtable::iter
 	{

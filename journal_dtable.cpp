@@ -252,7 +252,7 @@ int journal_dtable::log(const dtype & key, const blob & blob)
 	abort();
 }
 
-int journal_dtable::insert(const dtype & key, const blob & blob)
+int journal_dtable::insert(const dtype & key, const blob & blob, bool append)
 {
 	int r;
 	if(key.type != ktype || (ktype == dtype::BLOB && !key.blb.exists()))
@@ -260,6 +260,23 @@ int journal_dtable::insert(const dtype & key, const blob & blob)
 	r = log(key, blob);
 	if(r < 0)
 		return r;
+	/* empty hash table? just add it */
+	if(!jdt_hash.size())
+		return add_node(key, blob);
+	if(append)
+	{
+		journal_dtable_map::iterator end = jdt_map.end();
+		journal_dtable_map::iterator last = end;
+		int c = (--last)->first.compare(key, blob_cmp);
+		/* this is the expected case, if the hint was correct */
+		if(c < 0)
+			return add_node(key, blob, end);
+		if(!c)
+		{
+			last->second = blob;
+			return 0;
+		}
+	}
 	journal_dtable_hash::iterator it = jdt_hash.find(key);
 	if(it != jdt_hash.end())
 	{
@@ -325,6 +342,14 @@ int journal_dtable::add_node(const dtype & key, const blob & value)
 	blob & map_value = jdt_map[key];
 	map_value = value;
 	jdt_hash[key] = &map_value;
+	return 0;
+}
+
+int journal_dtable::add_node(const dtype & key, const blob & value, const journal_dtable_map::iterator & end)
+{
+	journal_dtable_map::value_type pair(key, value);
+	journal_dtable_map::iterator it = jdt_map.insert(end, pair);
+	jdt_hash[key] = &(it->second);
 	return 0;
 }
 

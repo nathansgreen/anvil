@@ -41,7 +41,7 @@ public:
 	virtual blob find(const dtype & key, const istr & column) const = 0;
 	virtual bool contains(const dtype & key) const = 0;
 	virtual bool writable() const = 0;
-	virtual int insert(const dtype & key, const istr & column, const blob & value) = 0;
+	virtual int insert(const dtype & key, const istr & column, const blob & value, bool append = false) = 0;
 	/* remove just a column */
 	virtual int remove(const dtype & key, const istr & column) = 0;
 	/* remove the whole row */
