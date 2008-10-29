@@ -256,7 +256,7 @@ struct t_row
 
 #define T_ID_SIZE 16
 
-#define RECENT_GTABLES 2
+#define RECENT_GTABLES 4
 struct t_toilet
 {
 	uint8_t id[T_ID_SIZE];
