@@ -221,7 +221,8 @@ struct t_gtable
 	t_toilet * toilet;
 	t_blobcmp * blobcmp;
 	int out_count;
-	inline t_gtable() : blobcmp(NULL), out_count(1) {}
+	int recent_gtable_index;
+	inline t_gtable() : blobcmp(NULL), out_count(1), recent_gtable_index(0) {}
 };
 
 /* t_columns is really just stable::column_iter */
@@ -255,6 +256,7 @@ struct t_row
 
 #define T_ID_SIZE 16
 
+#define RECENT_GTABLES 2
 struct t_toilet
 {
 	uint8_t id[T_ID_SIZE];
@@ -268,10 +270,12 @@ struct t_toilet
 	std::vector<istr> gtable_names;
 	/* cache of gtables currently out */
 	std::map<istr, t_gtable *, strcmp_less> gtables;
+	t_gtable * recent_gtable[RECENT_GTABLES];
+	int recent_gtables, recent_gtable_next;
 	/* cache of rows currently out */
 	std::map<t_row_id, t_row *> rows;
 	int out_count;
-	inline t_toilet() : out_count(1) {}
+	inline t_toilet() : next_row(0), recent_gtables(0), recent_gtable_next(0), out_count(1) {}
 };
 
 /* t_cursor is really just dtable::key_iter */

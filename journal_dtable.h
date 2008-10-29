@@ -39,7 +39,7 @@ public:
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
 	{
 		/* we merely add this assertion, but it's important */
-		assert(jdt_map.empty());
+		assert(jdt_map.empty() || blob_cmp);
 		return dtable::set_blob_cmp(cmp);
 	}
 	

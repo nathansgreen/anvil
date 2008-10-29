@@ -130,10 +130,11 @@ t_toilet * toilet_open(const char * path, FILE * errors)
 	if(!toilet)
 		goto fail_new;
 	memset(&toilet->id, 0, sizeof(toilet->id));
-	toilet->next_row = 0;
 	toilet->path = path;
 	toilet->path_fd = dir_fd;
 	toilet->errors = errors ? errors : stderr;
+	for(int i = 0; i < RECENT_GTABLES; i++)
+		toilet->recent_gtable[i] = NULL;
 	
 	/* check the version */
 	version_file = fopenat(dir_fd, "=toilet-version", "r");
@@ -206,6 +207,11 @@ int toilet_close(t_toilet * toilet)
 		tx_close(toilet->row_fd);
 		delete toilet;
 	}
+	else if(toilet->out_count <= toilet->recent_gtables)
+		for(int i = 0; i < RECENT_GTABLES; i++)
+			if(toilet->recent_gtable[i])
+				/* this will end up calling toilet_close() recursively */
+				toilet_put_gtable(toilet->recent_gtable[i]);
 	return 0;
 }
 
@@ -294,6 +300,21 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	{
 		gtable = toilet->gtables[name];
 		gtable->out_count++;
+		if(gtable != toilet->recent_gtable[gtable->recent_gtable_index])
+		{
+			if(toilet->recent_gtable[toilet->recent_gtable_next])
+			{
+				assert(toilet->recent_gtable[toilet->recent_gtable_next]->recent_gtable_index == toilet->recent_gtable_next);
+				toilet_put_gtable(toilet->recent_gtable[toilet->recent_gtable_next]);
+			}
+			else
+				toilet->recent_gtables++;
+			gtable->out_count++;
+			gtable->recent_gtable_index = toilet->recent_gtable_next;
+			toilet->recent_gtable[toilet->recent_gtable_next++] = gtable;
+			if(toilet->recent_gtable_next == RECENT_GTABLES)
+				toilet->recent_gtable_next = 0;
+		}
 		return gtable;
 	}
 	
@@ -341,6 +362,15 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	toilet->gtables[gtable->name] = gtable;
 	toilet->out_count++;
 	
+	if(toilet->recent_gtable[toilet->recent_gtable_next])
+		toilet_put_gtable(toilet->recent_gtable[toilet->recent_gtable_next]);
+	else
+		toilet->recent_gtables++;
+	gtable->out_count++;
+	gtable->recent_gtable_index = toilet->recent_gtable_next;
+	toilet->recent_gtable[toilet->recent_gtable_next++] = gtable;
+	if(toilet->recent_gtable_next == RECENT_GTABLES)
+		toilet->recent_gtable_next = 0;
 	return gtable;
 	
 fail_open:
@@ -392,6 +422,11 @@ void toilet_put_gtable(t_gtable * gtable)
 {
 	if(--gtable->out_count <= 0)
 	{
+		if(gtable->toilet->recent_gtable[gtable->recent_gtable_index] == gtable)
+		{
+			gtable->toilet->recent_gtable[gtable->recent_gtable_index] = NULL;
+			gtable->toilet->recent_gtables--;
+		}
 		gtable->toilet->gtables.erase(gtable->name);
 		delete gtable->table;
 		if(gtable->blobcmp)
