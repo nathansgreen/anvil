@@ -176,6 +176,7 @@ bool toilet_cursor_seek_blobkey(t_cursor * cursor, const void * key, size_t key_
 bool toilet_cursor_seek_magic(t_cursor * cursor, int (*magic)(const void *, size_t, void *), void * user);
 int toilet_cursor_next(t_cursor * cursor);
 int toilet_cursor_prev(t_cursor * cursor);
+int toilet_cursor_first(t_cursor * cursor);
 int toilet_cursor_last(t_cursor * cursor);
 t_row_id toilet_cursor_row_id(t_cursor * cursor);
 const void * toilet_cursor_row_blobkey(t_cursor * cursor, size_t * key_size);

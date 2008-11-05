@@ -21,17 +21,25 @@ bool journal_dtable::iter::next()
 
 bool journal_dtable::iter::prev()
 {
-	if(jit != jdt_source->jdt_map.begin())
-		--jit;
+	if(jit == jdt_source->jdt_map.begin())
+		return false;
+	--jit;
+	return true;
+}
+
+bool journal_dtable::iter::first()
+{
+	jit = jdt_source->jdt_map.begin();
 	return jit != jdt_source->jdt_map.end();
 }
 
 bool journal_dtable::iter::last()
 {
 	jit = jdt_source->jdt_map.end();
-	if(jit != jdt_source->jdt_map.begin())
-		--jit;
-	return jit != jdt_source->jdt_map.end();
+	if(jit == jdt_source->jdt_map.begin())
+		return false;
+	--jit;
+	return true;
 }
 
 dtype journal_dtable::iter::key() const

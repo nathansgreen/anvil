@@ -64,6 +64,14 @@ bool simple_dtable::iter::prev()
 	return true;
 }
 
+bool simple_dtable::iter::first()
+{
+	if(!sdt_source->key_count)
+		return false;
+	index = 0;
+	return true;
+}
+
 bool simple_dtable::iter::last()
 {
 	if(!sdt_source->key_count)

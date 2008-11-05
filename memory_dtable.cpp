@@ -21,17 +21,25 @@ bool memory_dtable::iter::next()
 
 bool memory_dtable::iter::prev()
 {
-	if(mit != mdt_source->mdt_map.begin())
-		--mit;
+	if(mit == mdt_source->mdt_map.begin())
+		return false;
+	--mit;
+	return true;
+}
+
+bool memory_dtable::iter::first()
+{
+	mit = mdt_source->mdt_map.begin();
 	return mit != mdt_source->mdt_map.end();
 }
 
 bool memory_dtable::iter::last()
 {
 	mit = mdt_source->mdt_map.end();
-	if(mit != mdt_source->mdt_map.begin())
-		--mit;
-	return mit != mdt_source->mdt_map.end();
+	if(mit == mdt_source->mdt_map.begin())
+		return false;
+	--mit;
+	return true;
 }
 
 dtype memory_dtable::iter::key() const

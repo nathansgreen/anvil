@@ -8,7 +8,7 @@
 #include "overlay_dtable.h"
 
 overlay_dtable::iter::iter(const overlay_dtable * source)
-	: ovr_source(source), lastdir(FORWARD)
+	: ovr_source(source), lastdir(FORWARD), past_beginning(false)
 {
 	subs = new sub[source->table_count];
 	for(size_t i = 0; i < source->table_count; i++)
@@ -29,25 +29,26 @@ overlay_dtable::iter::~iter()
 
 bool overlay_dtable::iter::valid() const
 {
-	return next_index < ovr_source->table_count;
+	return current_index < ovr_source->table_count;
 }
 
-/* this will let non-existent blobs shadow positive ones just like we want
+/* this will let non-existent blobs shadow extant ones just like we want
  * without any special handling, since next() and valid() still return true */
 bool overlay_dtable::iter::next()
 {
 	bool first = true;
 	dtype min_key(0u);
 	const blob_comparator * blob_cmp = ovr_source->blob_cmp;
-	next_index = ovr_source->table_count;
+	current_index = ovr_source->table_count;
 	
 	if(lastdir == BACKWARD)
+	{
 		for(size_t i = 0; i < ovr_source->table_count; i++)
 		{
-			assert(!(!subs[i].empty && !subs[i].valid));
+			assert(subs[i].empty || subs[i].valid);
 			if(subs[i].empty && !subs[i].valid)
 			{
-				subs[i].empty = !(subs[i].iter->valid());
+				subs[i].empty = !subs[i].iter->valid();
 				subs[i].valid = subs[i].iter->valid();
 			}
 			else
@@ -56,7 +57,13 @@ bool overlay_dtable::iter::next()
 				subs[i].valid = true;
 			}
 		}
-	lastdir = FORWARD;
+		lastdir = FORWARD;
+		if(past_beginning)
+		{
+			past_beginning = false;
+			next();
+		}
+	}
 	
 	for(size_t i = 0; i < ovr_source->table_count; i++)
 	{
@@ -64,8 +71,8 @@ bool overlay_dtable::iter::next()
 		if(subs[i].empty && subs[i].valid)
 		{
 			/* fill in empty slots */
-			subs[i].empty = false;
 			subs[i].valid = subs[i].iter->next();
+			subs[i].empty = !subs[i].valid;
 		}
 		if(!subs[i].valid)
 			/* skip exhausted tables */
@@ -73,16 +80,16 @@ bool overlay_dtable::iter::next()
 		if(first || (c = subs[i].iter->key().compare(min_key, blob_cmp)) < 0)
 		{
 			first = false;
-			next_index = i;
+			current_index = i;
 			min_key = subs[i].iter->key();
 		}
 		else if(!c)
 			/* skip shadowed entry */
 			subs[i].empty = true;
 	}
-	if(next_index == ovr_source->table_count)
+	if(current_index == ovr_source->table_count)
 		return false;
-	subs[next_index].empty = true;
+	subs[current_index].empty = true;
 	return true;
 }
 
@@ -91,16 +98,18 @@ bool overlay_dtable::iter::prev()
 	bool first = true;
 	dtype max_key(0u);
 	const blob_comparator * blob_cmp = ovr_source->blob_cmp;
-	next_index = ovr_source->table_count;
+	size_t next_index = ovr_source->table_count;
 	
 	if(lastdir == FORWARD)
+	{
 		for(size_t i = 0; i < ovr_source->table_count; i++)
 		{
-			assert(!(!subs[i].empty && !subs[i].valid));
+			assert(subs[i].empty || subs[i].valid);
 			subs[i].empty = true;
 			subs[i].valid = true;
 		}
-	lastdir = BACKWARD;
+		lastdir = BACKWARD;
+	}
 	
 	for(size_t i = 0; i < ovr_source->table_count; i++)
 	{
@@ -108,8 +117,8 @@ bool overlay_dtable::iter::prev()
 		if(subs[i].empty && subs[i].valid)
 		{
 			/* fill in empty slots */
-			subs[i].empty = false;
 			subs[i].valid = subs[i].iter->prev();
+			subs[i].empty = !subs[i].valid;
 		}
 		if(!subs[i].valid)
 			/* skip exhausted tables */
@@ -125,9 +134,29 @@ bool overlay_dtable::iter::prev()
 			subs[i].empty = true;
 	}
 	if(next_index == ovr_source->table_count)
+	{
+		/* we have gone "past the beginning" and when we reverse direction
+		 * again, we'll find the first element rather than the second as we
+		 * should (since we're supposed to stay at the first element)... so,
+		 * set the past_beginning flag so we'll know to fix it up later */
+		past_beginning = true;
 		return false;
-	subs[next_index].empty = true;
+	}
+	current_index = next_index;
+	subs[current_index].empty = true;
 	return true;
+}
+
+bool overlay_dtable::iter::first()
+{
+	for(size_t i = 0; i < ovr_source->table_count; i++)
+	{
+		subs[i].iter->first();
+		subs[i].empty = !subs[i].iter->valid();
+		subs[i].valid = subs[i].iter->valid();
+	}
+	lastdir = FORWARD;
+	return next();
 }
 
 bool overlay_dtable::iter::last()
@@ -150,7 +179,7 @@ bool overlay_dtable::iter::last()
 
 dtype overlay_dtable::iter::key() const
 {
-	return subs[next_index].iter->key();
+	return subs[current_index].iter->key();
 }
 
 bool overlay_dtable::iter::seek(const dtype & key)
@@ -183,17 +212,17 @@ bool overlay_dtable::iter::seek(const dtype_test & test)
 
 metablob overlay_dtable::iter::meta() const
 {
-	return subs[next_index].iter->meta();
+	return subs[current_index].iter->meta();
 }
 
 blob overlay_dtable::iter::value() const
 {
-	return subs[next_index].iter->value();
+	return subs[current_index].iter->value();
 }
 
 const dtable * overlay_dtable::iter::source() const
 {
-	return subs[next_index].iter->source();
+	return subs[current_index].iter->source();
 }
 
 dtable::iter * overlay_dtable::iterator() const

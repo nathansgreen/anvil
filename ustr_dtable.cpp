@@ -74,6 +74,14 @@ bool ustr_dtable::iter::prev()
 	return true;
 }
 
+bool ustr_dtable::iter::first()
+{
+	if(!udt_source->key_count)
+		return false;
+	index = 0;
+	return true;
+}
+
 bool ustr_dtable::iter::last()
 {
 	if(!udt_source->key_count)

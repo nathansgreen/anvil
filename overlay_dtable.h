@@ -43,6 +43,7 @@ private:
 		virtual bool valid() const;
 		virtual bool next();
 		virtual bool prev();
+		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
 		virtual bool seek(const dtype & key);
@@ -61,9 +62,10 @@ private:
 		};
 		
 		sub * subs;
-		size_t next_index;
+		size_t current_index;
 		const overlay_dtable * ovr_source;
 		enum direction {FORWARD, BACKWARD} lastdir;
+		bool past_beginning;
 	};
 	
 	const dtable ** tables;

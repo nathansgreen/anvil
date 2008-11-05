@@ -789,6 +789,13 @@ int toilet_cursor_prev(t_cursor * cursor)
 	return safer.iter->prev();
 }
 
+int toilet_cursor_first(t_cursor * cursor)
+{
+	t_cursor_union safer;
+	safer.cursor = cursor;
+	return safer.iter->first();
+}
+
 int toilet_cursor_last(t_cursor * cursor)
 {
 	t_cursor_union safer;

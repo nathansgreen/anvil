@@ -22,23 +22,45 @@ class dtable
 public:
 	class key_iter
 	{
-	public:
-		virtual bool valid() const = 0;
 		/* Since these iterators are virtual, we will have a pointer to them
-		 * rather than an actual instance when we're using them. As a result, it
-		 * is not as useful to override operators, because we'd have to
+		 * rather than an actual instance when we're using them. As a result,
+		 * it is not as useful to override operators, because we'd have to
 		 * dereference the local variable in order to use the overloaded
 		 * operators. In particular we'd need ++*it instead of just ++it, yet
-		 * both would compile without error. So, we use next() here. */
+		 * both would compile without error. So, we use next() etc. here. */
+		
+	public:
+		/* Iterators may point at any valid entry, or a single "invalid" entry
+		 * which is immediately after the last valid entry. In the case of an
+		 * empty dtable, the invalid entry is the only entry. */
+		
+		/* Returns true if the iterator currently points at a valid entry. */
+		virtual bool valid() const = 0;
+		
+		/* next() and prev() return true if the iterator is moved forward or
+		 * backward, respectively, to a valid entry - note that prev() will
+		 * not move past the first entry, but will return false when called
+		 * when the cursor already points at the first entry. */
 		virtual bool next() = 0;
 		virtual bool prev() = 0;
+		
+		/* first() and last() return true if the iterator is left pointing at
+		 * the first or last entry, which (excepting errors) can only fail if
+		 * the dtable itself is empty and thus has no valid entries. */
+		virtual bool first() = 0;
 		virtual bool last() = 0;
+		
+		/* Returns the key the iterator currently points at, or calls abort()
+		 * if the iterator does not point at a valid entry. */
 		virtual dtype key() const = 0;
+		
 		/* Seeks this iterator to the requested key, or the next key if the
 		 * requested key is not present. Returns true if the requested key was
-		 * found, and false otherwise. */
+		 * found, and false otherwise. In the latter case valid() should be
+		 * called to check whether the iterator points at a valid entry. */
 		virtual bool seek(const dtype & key) = 0;
 		virtual bool seek(const dtype_test & test) = 0;
+		
 		virtual ~key_iter() {}
 	};
 	class iter : public key_iter
