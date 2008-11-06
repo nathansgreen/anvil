@@ -48,6 +48,7 @@ info
 dtable
 ctable
 stable
+iterator
 blob_cmp
 EOF
 mkdir /mnt/test/journals

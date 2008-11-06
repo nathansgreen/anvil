@@ -34,6 +34,7 @@ public:
 	inline blob() : internal(NULL) {}
 	/* other constructors */
 	blob(size_t size, const void * data);
+	blob(const char * string);
 	blob(const blob & x);
 	blob & operator=(const blob & x);
 	

@@ -20,6 +20,16 @@ blob::blob(size_t size, const void * data)
 	memcpy(internal->bytes, data, size);
 }
 
+blob::blob(const char * string)
+{
+	size_t size = strlen(string);
+	internal = (blob_internal *) malloc(sizeof(*internal) + size);
+	assert(internal);
+	internal->size = size;
+	internal->shares = 1;
+	memcpy(internal->bytes, string, size);
+}
+
 blob::blob(const blob & x)
 {
 	if((internal = x.internal))

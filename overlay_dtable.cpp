@@ -16,6 +16,7 @@ overlay_dtable::iter::iter(const overlay_dtable * source)
 		subs[i].iter = source->tables[i]->iterator();
 		subs[i].empty = !subs[i].iter->valid();
 		subs[i].valid = subs[i].iter->valid();
+		subs[i].shadow = false;
 	}
 	next();
 }
@@ -56,6 +57,7 @@ bool overlay_dtable::iter::next()
 				subs[i].empty = true;
 				subs[i].valid = true;
 			}
+			subs[i].shadow = false;
 		}
 		lastdir = FORWARD;
 		if(past_beginning)
@@ -74,8 +76,8 @@ bool overlay_dtable::iter::next()
 			subs[i].valid = subs[i].iter->next();
 			subs[i].empty = !subs[i].valid;
 		}
-		if(!subs[i].valid)
-			/* skip exhausted tables */
+		if(!subs[i].valid || subs[i].shadow)
+			/* skip exhausted and shadowed tables */
 			continue;
 		if(first || (c = subs[i].iter->key().compare(min_key, blob_cmp)) < 0)
 		{
@@ -84,12 +86,19 @@ bool overlay_dtable::iter::next()
 			min_key = subs[i].iter->key();
 		}
 		else if(!c)
-			/* skip shadowed entry */
-			subs[i].empty = true;
+			/* shadow this entry */
+			subs[i].shadow = true;
 	}
 	if(current_index == ovr_source->table_count)
 		return false;
 	subs[current_index].empty = true;
+	for(size_t i = current_index + 1; i < ovr_source->table_count; i++)
+		if(subs[i].shadow)
+		{
+			/* skip shadowed entry */
+			subs[i].empty = true;
+			subs[i].shadow = false;
+		}
 	return true;
 }
 
@@ -107,6 +116,7 @@ bool overlay_dtable::iter::prev()
 			assert(subs[i].empty || subs[i].valid);
 			subs[i].empty = true;
 			subs[i].valid = true;
+			subs[i].shadow = false;
 		}
 		lastdir = BACKWARD;
 	}
@@ -120,8 +130,8 @@ bool overlay_dtable::iter::prev()
 			subs[i].valid = subs[i].iter->prev();
 			subs[i].empty = !subs[i].valid;
 		}
-		if(!subs[i].valid)
-			/* skip exhausted tables */
+		if(!subs[i].valid || subs[i].shadow)
+			/* skip exhausted and shadowed tables */
 			continue;
 		if(first || (c = subs[i].iter->key().compare(max_key, blob_cmp)) > 0)
 		{
@@ -130,8 +140,8 @@ bool overlay_dtable::iter::prev()
 			max_key = subs[i].iter->key();
 		}
 		else if(!c)
-			/* skip shadowed entry */
-			subs[i].empty = true;
+			/* shadow this entry */
+			subs[i].shadow = true;
 	}
 	if(next_index == ovr_source->table_count)
 	{
@@ -144,6 +154,13 @@ bool overlay_dtable::iter::prev()
 	}
 	current_index = next_index;
 	subs[current_index].empty = true;
+	for(size_t i = current_index + 1; i < ovr_source->table_count; i++)
+		if(subs[i].shadow)
+		{
+			/* skip shadowed entry */
+			subs[i].empty = true;
+			subs[i].shadow = false;
+		}
 	return true;
 }
 
@@ -154,8 +171,10 @@ bool overlay_dtable::iter::first()
 		subs[i].iter->first();
 		subs[i].empty = !subs[i].iter->valid();
 		subs[i].valid = subs[i].iter->valid();
+		subs[i].shadow = false;
 	}
 	lastdir = FORWARD;
+	past_beginning = false;
 	return next();
 }
 
@@ -165,15 +184,13 @@ bool overlay_dtable::iter::last()
 	{
 		subs[i].iter->last();
 		if(subs[i].iter->valid())
-		{
 			subs[i].iter->next();
-			subs[i].valid = true;
-		}
-		else
-			subs[i].valid = false;
+		subs[i].valid = false;
 		subs[i].empty = true;
+		subs[i].shadow = false;
 	}
 	lastdir = FORWARD;
+	past_beginning = false;
 	return prev();
 }
 
@@ -191,7 +208,10 @@ bool overlay_dtable::iter::seek(const dtype & key)
 			found = true;
 		subs[i].empty = !subs[i].iter->valid();
 		subs[i].valid = subs[i].iter->valid();
+		subs[i].shadow = false;
 	}
+	lastdir = FORWARD;
+	past_beginning = false;
 	next();
 	return found;
 }
@@ -205,7 +225,10 @@ bool overlay_dtable::iter::seek(const dtype_test & test)
 			found = true;
 		subs[i].empty = !subs[i].iter->valid();
 		subs[i].valid = subs[i].iter->valid();
+		subs[i].shadow = false;
 	}
+	lastdir = FORWARD;
+	past_beginning = false;
 	next();
 	return found;
 }

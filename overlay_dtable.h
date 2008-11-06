@@ -58,7 +58,7 @@ private:
 		struct sub
 		{
 			dtable::iter * iter;
-			bool empty, valid;
+			bool empty, valid, shadow;
 		};
 		
 		sub * subs;
