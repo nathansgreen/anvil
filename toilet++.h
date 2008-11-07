@@ -124,6 +124,7 @@ bool toilet_gtable_blobkey(t_gtable * gtable);
 const char * toilet_gtable_blobcmp_name(t_gtable * gtable);
 /* on success, will release the blobcmp when it is done with it */
 int toilet_gtable_set_blobcmp(t_gtable * gtable, t_blobcmp * blobcmp);
+/* invalidates all cursors for this gtable */
 int toilet_gtable_maintain(t_gtable * gtable);
 void toilet_put_gtable(t_gtable * gtable);
 
@@ -221,9 +222,11 @@ struct t_gtable
 	stable * table;
 	t_toilet * toilet;
 	t_blobcmp * blobcmp;
+	/* a "closed" cursor that can be reused */
+	t_cursor * cursor;
 	int out_count;
 	int recent_gtable_index;
-	inline t_gtable() : blobcmp(NULL), out_count(1), recent_gtable_index(0) {}
+	inline t_gtable() : blobcmp(NULL), cursor(NULL), out_count(1), recent_gtable_index(0) {}
 };
 
 /* t_columns is really just stable::column_iter */
@@ -279,11 +282,12 @@ struct t_toilet
 	inline t_toilet() : next_row(0), recent_gtables(0), recent_gtable_next(0), out_count(1) {}
 };
 
-/* t_cursor is really just dtable::key_iter */
-union t_cursor_union
+struct t_cursor
 {
-	t_cursor * cursor;
 	dtable::key_iter * iter;
+	t_gtable * gtable;
+	inline t_cursor() : iter(NULL) {}
+	inline ~t_cursor() { if(iter) delete iter; }
 };
 
 struct t_rowset

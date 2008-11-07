@@ -413,6 +413,11 @@ int toilet_gtable_maintain(t_gtable * gtable)
 	int r = tx_start_r();
 	if(r < 0)
 		return r;
+	if(gtable->cursor)
+	{
+		delete gtable->cursor;
+		gtable->cursor = NULL;
+	}
 	r = gtable->table->maintain();
 	tx_end_r();
 	return r;
@@ -428,6 +433,8 @@ void toilet_put_gtable(t_gtable * gtable)
 			gtable->toilet->recent_gtables--;
 		}
 		gtable->toilet->gtables.erase(gtable->name);
+		if(gtable->cursor)
+			delete gtable->cursor;
 		delete gtable->table;
 		if(gtable->blobcmp)
 			gtable->blobcmp->release();
@@ -726,30 +733,34 @@ int toilet_row_remove_key(t_row * row, const char * key)
 
 t_cursor * toilet_gtable_cursor(t_gtable * gtable)
 {
-	t_cursor_union safer;
-	safer.iter = gtable->table->keys();
-	return safer.cursor;
+	t_cursor * cursor;
+	if(gtable->cursor)
+	{
+		cursor = gtable->cursor;
+		assert(cursor->gtable == gtable);
+		gtable->cursor = NULL;
+		cursor->iter->first();
+		return cursor;
+	}
+	cursor = new t_cursor;
+	cursor->iter = gtable->table->keys();
+	cursor->gtable = gtable;
+	return cursor;
 }
 
 int toilet_cursor_valid(t_cursor * cursor)
 {
-	t_cursor_union safer;
-	safer.cursor = cursor;
-	return safer.iter->valid();
+	return cursor->iter->valid();
 }
 
 bool toilet_cursor_seek(t_cursor * cursor, t_row_id id)
 {
-	t_cursor_union safer;
-	safer.cursor = cursor;
-	return safer.iter->seek(id);
+	return cursor->iter->seek(id);
 }
 
 bool toilet_cursor_seek_blobkey(t_cursor * cursor, const void * key, size_t key_size)
 {
-	t_cursor_union safer;
-	safer.cursor = cursor;
-	return safer.iter->seek(dtype(blob(key_size, key)));
+	return cursor->iter->seek(dtype(blob(key_size, key)));
 }
 
 bool toilet_cursor_seek_magic(t_cursor * cursor, int (*magic)(const void *, size_t, void *), void * user)
@@ -770,53 +781,39 @@ bool toilet_cursor_seek_magic(t_cursor * cursor, int (*magic)(const void *, size
 		test_fnp test;
 		void * user;
 	} test(magic, user);
-	t_cursor_union safer;
-	safer.cursor = cursor;
-	return safer.iter->seek(test);
+	return cursor->iter->seek(test);
 }
 
 int toilet_cursor_next(t_cursor * cursor)
 {
-	t_cursor_union safer;
-	safer.cursor = cursor;
-	return safer.iter->next();
+	return cursor->iter->next();
 }
 
 int toilet_cursor_prev(t_cursor * cursor)
 {
-	t_cursor_union safer;
-	safer.cursor = cursor;
-	return safer.iter->prev();
+	return cursor->iter->prev();
 }
 
 int toilet_cursor_first(t_cursor * cursor)
 {
-	t_cursor_union safer;
-	safer.cursor = cursor;
-	return safer.iter->first();
+	return cursor->iter->first();
 }
 
 int toilet_cursor_last(t_cursor * cursor)
 {
-	t_cursor_union safer;
-	safer.cursor = cursor;
-	return safer.iter->last();
+	return cursor->iter->last();
 }
 
 t_row_id toilet_cursor_row_id(t_cursor * cursor)
 {
-	t_cursor_union safer;
-	safer.cursor = cursor;
-	dtype key = safer.iter->key();
+	dtype key = cursor->iter->key();
 	assert(key.type == dtype::UINT32);
 	return key.u32;
 }
 
 const void * toilet_cursor_row_blobkey(t_cursor * cursor, size_t * key_size)
 {
-	t_cursor_union safer;
-	safer.cursor = cursor;
-	dtype key = safer.iter->key();
+	dtype key = cursor->iter->key();
 	assert(key.type == dtype::BLOB);
 	*key_size = key.blb.size();
 	return &key.blb[0];
@@ -824,9 +821,10 @@ const void * toilet_cursor_row_blobkey(t_cursor * cursor, size_t * key_size)
 
 void toilet_close_cursor(t_cursor * cursor)
 {
-	t_cursor_union safer;
-	safer.cursor = cursor;
-	delete safer.iter;
+	if(cursor->gtable->cursor)
+		delete cursor;
+	else
+		cursor->gtable->cursor = cursor;
 }
 
 static bool toilet_row_matches(t_gtable * gtable, t_row_id id, t_simple_query * query)
