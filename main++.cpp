@@ -477,7 +477,7 @@ int command_iterator(int argc, const char * argv[])
 		{
 			uint32_t key = *value - '0';
 			char content[16];
-			snprintf(content, sizeof(content), "L%d-K%d", i, key * 2);
+			snprintf(content, sizeof(content), "L%zu-K%u", i, key * 2);
 			values[key] = blob(content);
 			r = mdt->insert(key * 2, values[key]);
 			printf("mdt->insert(%d, %s) = %d\n", key, content, r);
@@ -610,7 +610,7 @@ int command_iterator(int argc, const char * argv[])
 	if(verbose)
 		printf(" ");
 	if(ok)
-		printf("%u operations OK!\n", count);
+		printf("%zu operations OK!\n", count);
 	else
 		printf("failed!\n");
 	delete it;
