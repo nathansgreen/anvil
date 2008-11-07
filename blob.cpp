@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include "util.h"
 #include "blob.h"
 #include "blob_comparator.h"
 
@@ -17,7 +18,7 @@ blob::blob(size_t size, const void * data)
 	assert(internal);
 	internal->size = size;
 	internal->shares = 1;
-	memcpy(internal->bytes, data, size);
+	util::memcpy(internal->bytes, data, size);
 }
 
 blob::blob(const char * string)
@@ -27,7 +28,7 @@ blob::blob(const char * string)
 	assert(internal);
 	internal->size = size;
 	internal->shares = 1;
-	memcpy(internal->bytes, string, size);
+	util::memcpy(internal->bytes, string, size);
 }
 
 blob::blob(const blob & x)
