@@ -20,12 +20,34 @@
 #include "simple_ctable.h"
 #include "simple_stable.h"
 
+static void rename_gmon_out(void)
+{
+	struct stat gmon;
+	int r = stat("gmon.out", &gmon);
+	if(r >= 0)
+	{
+		char name[sizeof("gmon.out.") + 12];
+		for(uint32_t seq = 0; seq != (uint32_t) -1; seq++)
+		{
+			snprintf(name, sizeof(name), "gmon.out.%u", seq);
+			r = stat(name, &gmon);
+			if(r < 0)
+			{
+				fprintf(stderr, "%s() renaming gmon.out to %s\n", __FUNCTION__, name);
+				rename("gmon.out", name);
+				break;
+			}
+		}
+	}
+}
+
 int toilet_init(const char * path)
 {
 	int r, fd = open(path, 0);
 	if(fd < 0)
 		return fd;
 	params config;
+	rename_gmon_out();
 	/* make maximum log size 4MB */
 	config.set<int>("log_size", 4194304);
 	r = tx_init(fd, config);
