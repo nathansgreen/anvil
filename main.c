@@ -15,7 +15,7 @@
 
 #include "openat.h"
 #include "transaction.h"
-#include "toilet++.h"
+#include "toilet.h"
 
 static t_toilet * open_toilet = NULL;
 static t_gtable * open_gtable = NULL;

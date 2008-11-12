@@ -5,7 +5,7 @@
 #ifndef PHP_TOILET_H
 #define PHP_TOILET_H 1
 
-#include <toilet++.h>
+#include <toilet.h>
 
 #define PHP_TOILET_VERSION "0.2"
 #define PHP_TOILET_EXTNAME "toilet"

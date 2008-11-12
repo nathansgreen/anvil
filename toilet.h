@@ -2,8 +2,8 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#ifndef __TOILETPP_H
-#define __TOILETPP_H
+#ifndef __TOILET_H
+#define __TOILET_H
 
 /* This is the main C header file for toilet. */
 
@@ -328,4 +328,4 @@ struct t_blobcmp : public blob_comparator
 
 #endif
 
-#endif /* __TOILETPP_H */
+#endif /* __TOILET_H */
