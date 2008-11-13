@@ -97,6 +97,7 @@ private:
 		virtual bool valid() const;
 		virtual bool next();
 		virtual bool prev();
+		virtual bool first();
 		virtual bool last();
 		virtual const istr & name() const;
 		virtual size_t row_count() const;
@@ -115,6 +116,7 @@ private:
 		virtual bool valid() const;
 		virtual bool next();
 		virtual bool prev();
+		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
 		virtual bool seek(const dtype & key);

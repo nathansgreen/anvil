@@ -27,6 +27,8 @@ public:
 		/* see the note about dtable::iter in dtable.h */
 		virtual bool next() = 0;
 		virtual bool prev() = 0;
+		virtual bool first() = 0;
+		virtual bool last() = 0;
 		virtual const istr & name() const = 0;
 		virtual size_t row_count() const = 0;
 		virtual dtype::ctype type() const = 0;
@@ -42,6 +44,8 @@ public:
 		/* see the note about dtable::iter in dtable.h */
 		virtual bool next() = 0;
 		virtual bool prev() = 0;
+		virtual bool first() = 0;
+		virtual bool last() = 0;
 		/* can't call key() or seek() if you got this iterator via iterator(key) */
 		virtual dtype key() const = 0;
 		virtual bool seek(const dtype & key) = 0;
