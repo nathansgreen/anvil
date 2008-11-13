@@ -83,6 +83,39 @@ bool simple_ctable::iter::prev()
 	}
 }
 
+void simple_ctable::iter::advance()
+{
+	while(source->valid())
+	{
+		blob value = source->value();
+		if(value.exists())
+		{
+			row = sub_blob(value);
+			columns = row.iterator();
+			if(columns->valid())
+				break;
+			delete columns;
+			columns = NULL;
+		}
+		source->next();
+	}
+}
+
+bool simple_ctable::iter::first()
+{
+	if(!source)
+		return false;
+	if(columns)
+	{
+		delete columns;
+		columns = NULL;
+	}
+	if(!source->first())
+		return false;
+	advance();
+	return columns ? columns->valid() : false;
+}
+
 bool simple_ctable::iter::last()
 {
 	if(!source)

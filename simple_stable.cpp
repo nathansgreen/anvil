@@ -26,21 +26,25 @@ bool simple_stable::citer::next()
 
 bool simple_stable::citer::prev()
 {
-	if(meta != columns->begin())
-	{
-		--meta;
-		return true;
-	}
-	else
+	if(meta == columns->begin())
 		return false;
+	--meta;
+	return true;
+}
+
+bool simple_stable::citer::first()
+{
+	meta = columns->begin();
+	return meta != columns->end();
 }
 
 bool simple_stable::citer::last()
 {
 	meta = columns->end();
-	if(--meta != columns->end())
-		return true;
-	return false;
+	if(meta == columns->end())
+		return false;
+	--meta;
+	return true;
 }
 
 const istr & simple_stable::citer::name() const
@@ -76,6 +80,11 @@ bool simple_stable::siter::next()
 bool simple_stable::siter::prev()
 {
 	return data->prev();
+}
+
+bool simple_stable::siter::first()
+{
+	return data->first();
 }
 
 bool simple_stable::siter::last()
