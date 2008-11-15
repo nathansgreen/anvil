@@ -5,7 +5,7 @@
 #include "index_factory.h"
 #include "params.h"
 
-bool params::hate_std_map_get(const istr & name, const param ** p) const
+bool params::simple_find(const istr & name, const param ** p) const
 {
 	value_map::const_iterator elt = values.find(name);
 	if(elt == values.end())
@@ -17,7 +17,7 @@ bool params::hate_std_map_get(const istr & name, const param ** p) const
 bool params::get(const istr & name, bool * value, bool dfl) const
 {
 	const param * p;
-	if(!hate_std_map_get(name, &p))
+	if(!simple_find(name, &p))
 	{
 		*value = dfl;
 		return true;
@@ -31,7 +31,7 @@ bool params::get(const istr & name, bool * value, bool dfl) const
 bool params::get(const istr & name, int * value, int dfl) const
 {
 	const param * p;
-	if(!hate_std_map_get(name, &p))
+	if(!simple_find(name, &p))
 	{
 		*value = dfl;
 		return true;
@@ -45,7 +45,7 @@ bool params::get(const istr & name, int * value, int dfl) const
 bool params::get(const istr & name, float * value, float dfl) const
 {
 	const param * p;
-	if(!hate_std_map_get(name, &p))
+	if(!simple_find(name, &p))
 	{
 		*value = dfl;
 		return true;
@@ -59,7 +59,7 @@ bool params::get(const istr & name, float * value, float dfl) const
 bool params::get(const istr & name, istr * value, const istr & dfl) const
 {
 	const param * p;
-	if(!hate_std_map_get(name, &p))
+	if(!simple_find(name, &p))
 	{
 		*value = dfl;
 		return true;
@@ -73,7 +73,7 @@ bool params::get(const istr & name, istr * value, const istr & dfl) const
 bool params::get(const istr & name, params * value, const params & dfl) const
 {
 	const param * p;
-	if(!hate_std_map_get(name, &p))
+	if(!simple_find(name, &p))
 	{
 		*value = dfl;
 		return true;

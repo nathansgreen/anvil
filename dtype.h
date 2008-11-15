@@ -12,9 +12,18 @@
 #include <string.h>
 #include <stdlib.h>
 
-#ifndef __cplusplus
-#error dtype.h is a C++ header file
-#endif
+/* this enum is available to C code */
+enum dtype_ctype
+{
+	/* we want this 0 so that a zeroed out dtype will be
+	 * correctly initialized, and the integer zero even */
+	DT_UINT32 = 0,
+	DT_DOUBLE,
+	DT_STRING,
+	DT_BLOB
+};
+
+#ifdef __cplusplus
 
 #include <ext/hash_map>
 
@@ -28,7 +37,13 @@
 class dtype
 {
 public:
-	enum ctype {UINT32, DOUBLE, STRING, BLOB};
+	enum ctype
+	{
+		UINT32 = DT_UINT32,
+		DOUBLE = DT_DOUBLE,
+		STRING = DT_STRING,
+		BLOB = DT_BLOB
+	};
 	ctype type;
 	
 	union
@@ -232,5 +247,7 @@ private:
 };
 
 typedef magic_test<dtype> dtype_test;
+
+#endif /* __cplusplus */
 
 #endif /* __DTYPE_H */

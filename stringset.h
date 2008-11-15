@@ -44,7 +44,6 @@ public:
 	}
 	
 private:
-	/* /me dislikes std::map immensely */
 	typedef std::map<istr, uint32_t, strcmp_less> istr_map;
 	typedef std::map<uint32_t, istr> idx_map;
 	

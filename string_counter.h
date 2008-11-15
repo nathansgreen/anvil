@@ -72,7 +72,6 @@ private:
 			istr string;
 	};
 	
-	/* /me dislikes std::map immensely */
 	typedef std::map<istr, size_t, strcmp_less> string_map;
 	typedef std::set<count_istr> count_set;
 	

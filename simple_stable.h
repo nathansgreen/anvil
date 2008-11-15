@@ -81,7 +81,6 @@ private:
 		ext_index * index;
 	};
 	
-	/* /me dislikes std::map immensely */
 	typedef std::map<istr, column_info, strcmp_less> std_column_map;
 	typedef std_column_map::const_iterator column_map_iter;
 	typedef std_column_map::iterator column_map_full_iter;

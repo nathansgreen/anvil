@@ -7,3 +7,15 @@
 
 /* force the template to instantiate */
 template class factory<index_factory_base>;
+
+ext_index * index_factory_base::load(const istr & type, const dtable * dt_source, dtype::ctype pri_key_type, const params & config)
+{
+	const index_factory * factory = index_factory::lookup(type);
+	return factory ? factory->open(dt_source, pri_key_type, config) : NULL;
+}
+
+ext_index * index_factory_base::load(const istr & type, dtable * dt_source, dtype::ctype pri_key_type, const params & config)
+{
+	const index_factory * factory = index_factory::lookup(type);
+	return factory ? factory->open(dt_source, pri_key_type, config) : NULL;
+}

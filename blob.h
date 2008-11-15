@@ -61,6 +61,11 @@ public:
 		return *(T *) &internal->bytes[off + i * sizeof(T)];
 	}
 	
+	inline const void * data() const
+	{
+		return internal ? &internal->bytes : NULL;
+	}
+	
 	inline size_t size() const
 	{
 		return internal ? internal->size : 0;

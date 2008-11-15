@@ -24,6 +24,10 @@ public:
 	virtual ctable * open(dtable * dt_source, const params & config) const = 0;
 	
 	virtual ~ctable_factory_base() {}
+	
+	/* wrappers for open() that do lookup() */
+	static ctable * load(const istr & type, const dtable * dt_source, const params & config);
+	static ctable * load(const istr & type, dtable * dt_source, const params & config);
 };
 
 typedef factory<ctable_factory_base> ctable_factory;

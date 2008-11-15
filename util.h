@@ -91,6 +91,35 @@ public:
 				::memcpy(dst, src, size);
 		}
 	}
+	
+	/* a library call to memset() can be expensive, especially for small buffers */
+	static inline void memset(void * dst, int value, size_t size)
+	{
+		uint8_t * dstb = (uint8_t *) dst;
+		switch(size)
+		{
+			case 8:
+				dstb[7] = value;
+			case 7:
+				dstb[6] = value;
+			case 6:
+				dstb[5] = value;
+			case 5:
+				dstb[4] = value;
+			case 4:
+				dstb[3] = value;
+			case 3:
+				dstb[2] = value;
+			case 2:
+				dstb[1] = value;
+			case 1:
+				dstb[0] = value;
+			case 0:
+				break;
+			default:
+				::memset(dst, value, size);
+		}
+	}
 };
 
 #endif /* __UTIL_H */

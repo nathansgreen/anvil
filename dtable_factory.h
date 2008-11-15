@@ -39,6 +39,12 @@ public:
 	}
 	
 	virtual ~dtable_factory_base() {}
+	
+	/* wrapper for open() that does lookup() */
+	static dtable * load(const istr & type, int dfd, const char * name, const params & config);
+	/* wrappers for create() that do lookup() */
+	static int setup(const istr & type, int dfd, const char * name, const params & config, dtype::ctype key_type);
+	static int setup(const istr & type, int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow);
 };
 
 typedef factory<dtable_factory_base> dtable_factory;

@@ -67,8 +67,7 @@ private:
 	/* can't be defined until later */
 	struct param;
 	
-	/* /me dislikes std::map immensely */
-	bool hate_std_map_get(const istr & name, const param ** p) const;
+	bool simple_find(const istr & name, const param ** p) const;
 	
 	typedef std::map<istr, param, strcmp_less> value_map;
 	value_map values;

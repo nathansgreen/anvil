@@ -5,7 +5,8 @@
 #ifndef __TOILET_H
 #define __TOILET_H
 
-/* This is the main C header file for toilet. */
+/* This is the old C header file for toilet. */
+/* It provides the original, weird toilet C API using the new toilet backend. */
 
 #include <errno.h>
 #include <stdio.h>
@@ -236,7 +237,6 @@ union t_columns_union
 	stable::column_iter * iter;
 };
 
-/* /me dislikes std::map immensely */
 typedef std::map<istr, t_value *, strcmp_less> value_map;
 
 struct t_row

@@ -23,6 +23,10 @@ public:
 	virtual ext_index * open(dtable * store, dtype::ctype pri_key_type, const params & config) const = 0;
 	
 	virtual ~index_factory_base() {}
+	
+	/* wrappers for open() that do lookup() */
+	static ext_index * load(const istr & type, const dtable * dt_source, dtype::ctype pri_key_type, const params & config);
+	static ext_index * load(const istr & type, dtable * dt_source, dtype::ctype pri_key_type, const params & config);
 };
 
 typedef factory<index_factory_base> index_factory;

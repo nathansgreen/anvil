@@ -7,3 +7,15 @@
 
 /* force the template to instantiate */
 template class factory<ctable_factory_base>;
+
+ctable * ctable_factory_base::load(const istr & type, const dtable * dt_source, const params & config)
+{
+	const ctable_factory * factory = ctable_factory::lookup(type);
+	return factory ? factory->open(dt_source, config) : NULL;
+}
+
+ctable * ctable_factory_base::load(const istr & type, dtable * dt_source, const params & config)
+{
+	const ctable_factory * factory = ctable_factory::lookup(type);
+	return factory ? factory->open(dt_source, config) : NULL;
+}
