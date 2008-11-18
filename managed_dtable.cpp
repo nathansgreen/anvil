@@ -182,7 +182,6 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 	overlay_dtable * shadow = NULL;
 	overlay_dtable * source;
 	bool reset_journal = false;
-	patchgroup_id_t pid;
 	dtable_list copy;
 	dtable * result;
 	char name[32];
@@ -223,30 +222,16 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 			source->set_blob_cmp(blob_cmp);
 	}
 	
-	pid = patchgroup_create(0);
-	if(pid <= 0)
-		return pid ? (int) pid : -1;
-	r = patchgroup_release(pid);
-	assert(r >= 0);
-	r = patchgroup_engage(pid);
-	assert(r >= 0);
+	/* make the transaction (which modifies the metadata below) depend on having written the new file */
+	r = tx_start_external();
+	if(r < 0)
+		return r;
 	sprintf(name, "md_data.%u", header.ddt_next);
 	if(use_fastbase)
 		r = fastbase->create(md_dfd, name, fastbase_config, source, shadow);
 	else
 		r = base->create(md_dfd, name, base_config, source, shadow);
-	{
-		int r2 = patchgroup_disengage(pid);
-		assert(r2 >= 0);
-		/* make the transaction (which modifies the metadata below) depend on having written the new file */
-		if(r >= 0)
-		{
-			r2 = tx_add_depend(pid);
-			assert(r2 >= 0);
-		}
-		r2 = patchgroup_abandon(pid);
-		assert(r2 >= 0);
-	}
+	tx_end_external(r >= 0);
 	delete source;
 	if(shadow)
 		delete shadow;

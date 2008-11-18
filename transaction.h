@@ -36,6 +36,10 @@ int tx_start(void);
 void tx_register_pre_end(struct tx_pre_end * handle);
 /* adds a patchgroup dependency this transaction, so it will commit only after the patchgroup */
 int tx_add_depend(patchgroup_id_t pid);
+/* tx_start_external() causes subsequent file operations until tx_end_external()
+ * to become dependencies of this transaction, as in tx_add_depend() above */
+int tx_start_external(void);
+int tx_end_external(int success);
 tx_id tx_end(int assign_id);
 
 int tx_sync(tx_id id);
