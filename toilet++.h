@@ -52,7 +52,8 @@ typedef enum dtype_ctype tpp_dtype_type;
 struct tpp_dtype
 {
 	/* sizeof(dtype) */
-	uint8_t _space[sizeof(tpp_dtype_type) + sizeof(double) + 2 * sizeof(void *)];
+	/* use long instead of tpp_dtype_type for correct 64-bit alignment */
+	uint8_t _space[sizeof(long) + sizeof(double) + 2 * sizeof(void *)];
 };
 typedef struct tpp_dtype tpp_dtype;
 
