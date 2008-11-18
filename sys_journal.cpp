@@ -24,7 +24,7 @@ struct meta_journal
 	uint32_t magic;
 	uint32_t version;
 	uint32_t seq;
-	off_t size;
+	size_t size;
 } __attribute__((packed));
 
 struct data_header
@@ -188,10 +188,10 @@ int sys_journal::filter()
 	return r;
 }
 
-int sys_journal::filter(int dfd, const char * file, off_t * new_size)
+int sys_journal::filter(int dfd, const char * file, size_t * new_size)
 {
 	rwfile out;
-	off_t offset;
+	size_t offset;
 	data_header header;
 	entry_header entry;
 	SYSJ_DEBUG("%d, %s", dfd, file);
@@ -408,7 +408,7 @@ int sys_journal::playback(journal_listener * target, bool fail_missing)
 {
 	/* playback */
 	__gnu_cxx::hash_set<listener_id> missing, failed;
-	off_t offset = sizeof(data_header);
+	size_t offset = sizeof(data_header);
 	SYSJ_DEBUG("%d, %d", target ? target->id() : 0, fail_missing);
 	assert(data_size >= offset);
 	assert(data.end() == data_size);

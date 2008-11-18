@@ -82,7 +82,7 @@ static int journal_dir = -1;
 static journal * last_journal = NULL;
 static journal * current_journal = NULL;
 static uint32_t tx_recursion = 0;
-static int log_size = 0;
+static size_t tx_log_size = 0;
 
 static tx_id last_tx_id = -1;
 typedef std::map<tx_id, journal *> tx_map_t;
@@ -160,7 +160,7 @@ static int recover_hook(void * param)
 }
 
 /* scans journal dir, recovers transactions */
-int tx_init(int dfd, const params & config)
+int tx_init(int dfd, size_t log_size)
 {
 	DIR * dir;
 	int copy, error = -1;
@@ -236,11 +236,7 @@ int tx_init(int dfd, const params & config)
 		current_journal = NULL;
 	}
 	
-	if(!config.get("log_size", &log_size, 0))
-	{
-		error = -EINVAL;
-		goto fail;
-	}
+	tx_log_size = log_size;
 
 	tx_map = new tx_map_t;
 	if(!tx_map)
@@ -346,7 +342,7 @@ tx_id tx_end(int assign_id)
 	if(r < 0)
 		/* not clear how to uncommit the journal... */
 		goto fail;
-	if(current_journal->size() >= log_size)
+	if(current_journal->size() >= tx_log_size)
 	{
 		r = switch_journal();
 		if(r < 0)

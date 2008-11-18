@@ -123,7 +123,7 @@ private:
 	
 	rwfile data;
 	tx_fd meta_fd;
-	off_t data_size;
+	size_t data_size;
 	uint32_t sequence;
 	patchgroup_id_t pid;
 	tx_pre_end handle;
@@ -149,7 +149,7 @@ private:
 	/* if no listener provided, all listeners, via global registry */
 	int playback(journal_listener * target = NULL, bool fail_missing = false);
 	/* copy the entries in this journal to a new one, omitting the discarded entries */
-	int filter(int dfd, const char * file, off_t * new_size);
+	int filter(int dfd, const char * file, size_t * new_size);
 	/* tx_add_depend()s the patchgroup and tx_write()s the meta file */
 	int flush_tx();
 	/* actual function used for tx_register_pre_end */

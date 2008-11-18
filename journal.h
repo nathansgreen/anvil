@@ -74,7 +74,7 @@ public:
 	static int reopen(int dfd, const istr & path, journal ** pj, journal * prev);
 	
 	/* number of bytes currently occupied by the journal */
-	inline int size() const { return data_file.end() + (commits * sizeof(commit_record));}
+	inline size_t size() const { return data_file.end() + (commits * sizeof(commit_record));}
 	
 private:
 	/* a commit record */

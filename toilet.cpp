@@ -47,11 +47,9 @@ int toilet_init(const char * path)
 	int r, fd = open(path, 0);
 	if(fd < 0)
 		return fd;
-	params config;
 	rename_gmon_out();
 	/* make maximum log size 4MB */
-	config.set<int>("log_size", 4194304);
-	r = tx_init(fd, config);
+	r = tx_init(fd, 4194304);
 	if(r >= 0)
 	{
 		r = tx_start_r();

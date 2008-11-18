@@ -293,4 +293,4 @@ struct tpp_blobcmp : public blob_comparator
 
 #endif
 
-#endif /* __TOILET_H */
+#endif /* __TOILETPP_H */

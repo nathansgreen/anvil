@@ -71,7 +71,7 @@ public:
 	}
 	
 	/* return the current idea of the end of the file */
-	inline off_t end() const
+	inline size_t end() const
 	{
 		return write_mode ? (write_offset + filled) : write_offset;
 	}
