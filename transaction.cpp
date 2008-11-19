@@ -21,6 +21,12 @@
 #include "journal.h"
 #include "transaction.h"
 
+extern "C" {
+/* Featherstitch does not know about C++ so we include
+ * its header file inside an extern "C" block. */
+#include <patchgroup.h>
+}
+
 #include "istr.h"
 #include "params.h"
 
@@ -303,13 +309,6 @@ void tx_register_pre_end(struct tx_pre_end * handle)
 	pre_end_handlers = handle;
 }
 
-int tx_add_depend(patchgroup_id_t pid)
-{
-	if(!current_journal)
-		return -ENOENT;
-	return current_journal->add_depend(pid);
-}
-
 int tx_start_external(void)
 {
 	if(!tx_external_count)
@@ -371,7 +370,7 @@ tx_id tx_end(int assign_id)
 	{
 		if(tx_external_success)
 		{
-			r = tx_add_depend(tx_external);
+			r = current_journal->add_depend(tx_external);
 			assert(r >= 0);
 		}
 		r = patchgroup_abandon(tx_external);
