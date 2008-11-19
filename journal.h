@@ -87,9 +87,9 @@ private:
 	} __attribute__((packed));
 	
 	inline journal(const istr & path, int dfd, journal * prev)
-		: path(path), dfd(dfd), crfd(-1), records(0), future(0), last_commit(0),
-		  finished(0), erasure(0), prev(prev), commits(0), playbacks(0), usage(1),
-		  external_count(0), external_success(false), external(0)
+		: path(path), dfd(dfd), crfd(-1), records(0), last_commit(0),
+		  finished(0), erasure(0), prev(prev), commits(0), playbacks(0),
+		  usage(1), external_count(0), external_success(false), external(0)
 	{
 		prev_cr.offset = 0;
 		prev_cr.length = 0;
@@ -107,9 +107,6 @@ private:
 	rwfile data_file;
 	/* the records in this journal */
 	patchgroup_id_t records;
-	/* what will be the next commit record */
-	/* TODO: we can get rid of this now */
-	patchgroup_id_t future;
 	/* the most recent commit record */
 	patchgroup_id_t last_commit;
 	/* depends on all the playbacks; will be the erasure */

@@ -172,14 +172,9 @@ int journal::commit()
 	cr.length = data_file.end() - cr.offset;
 	if(checksum(cr.offset, cr.offset + cr.length, cr.checksum) < 0)
 		return -1;
-	if(!future)
-	{
-		commit = patchgroup_create(0);
-		if(commit <= 0)
-			return -1;
-	}
-	else
-		commit = future;
+	commit = patchgroup_create(0);
+	if(commit <= 0)
+		return -1;
 	patchgroup_label(commit, "commit");
 	
 	/* add the external dependency, if any */
@@ -197,11 +192,8 @@ int journal::commit()
 	{
 	fail:
 		data_file.set_pid(records);
-		if(commit != future)
-		{
-			patchgroup_release(commit);
-			patchgroup_abandon(commit);
-		}
+		patchgroup_release(commit);
+		patchgroup_abandon(commit);
 		return -1;
 	}
 	if(last_commit > 0 && patchgroup_add_depend(commit, last_commit) < 0)
@@ -228,7 +220,6 @@ int journal::commit()
 		return -1;
 	}
 	patchgroup_disengage(commit);
-	future = 0;
 	patchgroup_abandon(records);
 	records = 0;
 	if(last_commit)
@@ -345,7 +336,7 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 int journal::erase()
 {
 	int r;
-	if(records || future)
+	if(records || external)
 		return -EBUSY;
 	if(commits > playbacks)
 		/* must play back previous commit first */
@@ -404,7 +395,7 @@ int journal::release()
 	if(--usage > 0)
 		return 0;
 	assert(!records);
-	assert(!future);
+	assert(!external);
 	if(last_commit)
 		patchgroup_abandon(last_commit);
 	patchgroup_abandon(erasure);
