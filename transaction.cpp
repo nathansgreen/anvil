@@ -21,12 +21,6 @@
 #include "journal.h"
 #include "transaction.h"
 
-extern "C" {
-/* Featherstitch does not know about C++ so we include
- * its header file inside an extern "C" block. */
-#include <patchgroup.h>
-}
-
 #include "istr.h"
 #include "params.h"
 
@@ -89,8 +83,6 @@ static journal * last_journal = NULL;
 static journal * current_journal = NULL;
 static uint32_t tx_recursion = 0;
 static size_t tx_log_size = 0;
-static int tx_external_count = 0, tx_external_success = 0;
-static patchgroup_id_t tx_external = 0;
 
 static tx_id last_tx_id = -1;
 typedef std::map<tx_id, journal *> tx_map_t;
@@ -311,35 +303,16 @@ void tx_register_pre_end(struct tx_pre_end * handle)
 
 int tx_start_external(void)
 {
-	if(!tx_external_count)
-	{
-		int r;
-		if(tx_external <= 0)
-		{
-			tx_external = patchgroup_create(0);
-			if(tx_external <= 0)
-				return -ENOMEM;
-			r = patchgroup_release(tx_external);
-			assert(r >= 0);
-			tx_external_success = 0;
-		}
-		r = patchgroup_engage(tx_external);
-		assert(r >= 0);
-	}
-	tx_external_count++;
-	return 0;
+	if(!current_journal)
+		return -EINVAL;
+	return current_journal->start_external();
 }
 
 int tx_end_external(int success)
 {
-	assert(tx_external_count > 0);
-	tx_external_success |= success;
-	if(!--tx_external_count)
-	{
-		int r = patchgroup_disengage(tx_external);
-		assert(r >= 0);
-	}
-	return 0;
+	if(!current_journal)
+		return -EINVAL;
+	return current_journal->end_external(success != 0);
 }
 
 static int switch_journal(void)
@@ -363,19 +336,6 @@ tx_id tx_end(int assign_id)
 	{
 		pre_end_handlers->handle(pre_end_handlers->data);
 		pre_end_handlers = pre_end_handlers->_next;
-	}
-	/* after the pre-end handlers, attach the external dependencies */
-	assert(!tx_external_count);
-	if(tx_external > 0)
-	{
-		if(tx_external_success)
-		{
-			r = current_journal->add_depend(tx_external);
-			assert(r >= 0);
-		}
-		r = patchgroup_abandon(tx_external);
-		assert(r >= 0);
-		tx_external = 0;
 	}
 	if(assign_id)
 		if(!tx_map->insert(std::make_pair(last_tx_id, current_journal)).second)

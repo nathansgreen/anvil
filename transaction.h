@@ -31,7 +31,7 @@ int tx_start(void);
 /* adds a pre-end handler to the current transaction */
 void tx_register_pre_end(struct tx_pre_end * handle);
 /* tx_start_external() causes subsequent file operations until tx_end_external()
- * to become dependencies of this transaction, as in tx_add_depend() above */
+ * to become dependencies of this transaction - see journal::start_external() */
 int tx_start_external(void);
 int tx_end_external(int success);
 tx_id tx_end(int assign_id);

@@ -89,19 +89,38 @@ int journal::appendv(const struct ovec * ovp, size_t count)
 	return 0;
 }
 
-int journal::add_depend(patchgroup_id_t pid)
+int journal::start_external()
 {
-	if(erasure)
-		return -EINVAL;
-	if(!future)
+	if(!external_count)
 	{
-		future = patchgroup_create(0);
-		if(future <= 0)
-			return -1;
-		patchgroup_label(future, "future");
-		patchgroup_label(pid, "external dependency");
+		int r;
+		if(external <= 0)
+		{
+			external = patchgroup_create(0);
+			if(external <= 0)
+				return -ENOMEM;
+			patchgroup_label(external, "external dependency");
+			r = patchgroup_release(external);
+			assert(r >= 0);
+			external_success = false;
+		}
+		r = patchgroup_engage(external);
+		assert(r >= 0);
 	}
-	return patchgroup_add_depend(future, pid);
+	external_count++;
+	return 0;
+}
+
+int journal::end_external(bool success)
+{
+	assert(external_count > 0);
+	external_success |= success;
+	if(!--external_count)
+	{
+		int r = patchgroup_disengage(external);
+		assert(r >= 0);
+	}
+	return 0;
 }
 
 int journal::checksum(off_t start, off_t end, uint8_t * checksum)
@@ -163,13 +182,26 @@ int journal::commit()
 		commit = future;
 	patchgroup_label(commit, "commit");
 	
+	/* add the external dependency, if any */
+	assert(!external_count);
+	if(external > 0)
+	{
+		if(external_success && patchgroup_add_depend(commit, external) < 0)
+			goto fail;
+		patchgroup_abandon(external);
+		external = 0;
+	}
+	
 	data_file.set_pid(0);
 	if(patchgroup_add_depend(commit, records) < 0)
 	{
 	fail:
 		data_file.set_pid(records);
-		patchgroup_release(commit);
-		patchgroup_abandon(commit);
+		if(commit != future)
+		{
+			patchgroup_release(commit);
+			patchgroup_abandon(commit);
+		}
 		return -1;
 	}
 	if(last_commit > 0 && patchgroup_add_depend(commit, last_commit) < 0)
