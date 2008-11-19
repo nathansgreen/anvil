@@ -16,12 +16,6 @@
 #error journal++.h is a C++ header file
 #endif
 
-extern "C" {
-/* Featherstitch does not know about C++ so we include
- * its header file inside an extern "C" block. */
-#include <patchgroup.h>
-}
-
 #include <ext/hash_set>
 #include <ext/hash_map>
 
@@ -98,7 +92,7 @@ public:
 	/* remove any discarded entries from this journal */
 	int filter();
 	
-	inline sys_journal() : meta_dfd(-1), meta_fd(-1), pid(0) { handle.data = this; handle.handle = flush_tx_static; }
+	inline sys_journal() : meta_dfd(-1), meta_fd(-1), dirty(false) { handle.data = this; handle.handle = flush_tx_static; }
 	int init(int dfd, const char * file, bool create = false, bool fail_missing = false);
 	void deinit();
 	inline ~sys_journal()
@@ -123,9 +117,9 @@ private:
 	
 	rwfile data;
 	tx_fd meta_fd;
+	bool dirty;
 	size_t data_size;
 	uint32_t sequence;
-	patchgroup_id_t pid;
 	tx_pre_end handle;
 	
 	__gnu_cxx::hash_set<listener_id> discarded;
@@ -150,7 +144,7 @@ private:
 	int playback(journal_listener * target = NULL, bool fail_missing = false);
 	/* copy the entries in this journal to a new one, omitting the discarded entries */
 	int filter(int dfd, const char * file, size_t * new_size);
-	/* tx_add_depend()s the patchgroup and tx_write()s the meta file */
+	/* flushes the data file and tx_write()s the meta file */
 	int flush_tx();
 	/* actual function used for tx_register_pre_end */
 	static void flush_tx_static(void * data);

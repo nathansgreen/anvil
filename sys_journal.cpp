@@ -61,18 +61,12 @@ int sys_journal::append(journal_listener * listener, void * entry, size_t length
 	header.length = length;
 	
 	assert(data.end() == data_size);
-	if(pid <= 0)
+	if(!dirty)
 	{
-		pid = patchgroup_create(0);
-		if(pid <= 0)
-			return pid ? (int) pid : -1;
-		r = patchgroup_release(pid);
-		assert(r >= 0);
-		r = data.set_pid(pid);
-		assert(r >= 0);
+		/* FIXME: might this cause problems if handle is already registered? */
 		tx_register_pre_end(&handle);
+		dirty = true;
 	}
-	assert(data.get_pid() == pid);
 	r = data.append(&header);
 	if(r < 0)
 		return r;
@@ -99,16 +93,11 @@ int sys_journal::discard(journal_listener * listener)
 	header.length = (size_t) -1;
 	
 	assert(data.end() == data_size);
-	if(pid <= 0)
+	if(!dirty)
 	{
-		pid = patchgroup_create(0);
-		if(pid <= 0)
-			return pid ? (int) pid : -1;
-		r = patchgroup_release(pid);
-		assert(r >= 0);
-		r = data.set_pid(pid);
-		assert(r >= 0);
+		/* FIXME: might this cause problems if handle is already registered? */
 		tx_register_pre_end(&handle);
+		dirty = true;
 	}
 	r = data.append(&header);
 	if(r < 0)
@@ -132,12 +121,12 @@ int sys_journal::filter()
 	meta_journal info;
 	SYSJ_DEBUG("");
 	
-	if(pid > 0)
+	if(dirty)
 	{
 		r = flush_tx();
 		if(r < 0)
 			return r;
-		assert(pid <= 0);
+		assert(!dirty);
 	}
 	
 	info.magic = SYSJ_META_MAGIC;
@@ -148,18 +137,13 @@ int sys_journal::filter()
 	assert(data.end() == data_size);
 	
 	istr data_name = istr(meta_name) + seq;
-	pid = patchgroup_create(0);
-	if(pid <= 0)
-		return pid ? (int) pid : -1;
-	r = patchgroup_release(pid);
-	assert(r >= 0);
-	patchgroup_engage(pid);
+	r = tx_start_external();
+	if(r < 0)
+		return r;
 	r = filter(meta_dfd, data_name, &info.size);
-	patchgroup_disengage(pid);
+	tx_end_external(r >= 0);
 	if(r >= 0)
 	{
-		tx_add_depend(pid);
-		patchgroup_abandon(pid);
 		r = tx_write(meta_fd, &info, sizeof(info), 0);
 		if(r >= 0)
 		{
@@ -179,11 +163,7 @@ int sys_journal::filter()
 			unlinkat(meta_dfd, data_name, 0);
 	}
 	else
-	{
-		patchgroup_abandon(pid);
 		unlinkat(meta_dfd, data_name, 0);
-	}
-	pid = 0;
 	assert(data.end() == data_size);
 	return r;
 }
@@ -281,36 +261,15 @@ int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing
 			return (int) meta_fd;
 	create:
 		istr data_name = istr(file) + ".0";
-		pid = patchgroup_create(0);
-		if(pid <= 0)
-		{
-			r = pid ? (int) pid : -1;
-			goto fail_pid;
-		}
-		patchgroup_release(pid);
-		patchgroup_engage(pid);
 		
-		r = data.create(dfd, data_name);
+		r = data.create(dfd, data_name, true);
 		if(r < 0)
-		{
-			patchgroup_disengage(pid);
-			patchgroup_abandon(pid);
-			pid = 0;
-			goto fail_pid;
-		}
+			goto fail_create;
 		header.magic = SYSJ_DATA_MAGIC;
 		header.version = SYSJ_DATA_VERSION;
 		r = data.append(&header);
-		patchgroup_disengage(pid);
 		if(r < 0)
-		{
-			patchgroup_abandon(pid);
-			pid = 0;
-			goto fail_create;
-		}
-		tx_add_depend(pid);
-		patchgroup_abandon(pid);
-		pid = 0;
+			goto fail_append;
 		
 		info.magic = SYSJ_META_MAGIC;
 		info.version = SYSJ_META_VERSION;
@@ -319,10 +278,10 @@ int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing
 		r = tx_write(meta_fd, &info, sizeof(info), 0);
 		if(r < 0)
 		{
-		fail_create:
+		fail_append:
 			data.close();
 			unlinkat(dfd, data_name, 0);
-		fail_pid:
+		fail_create:
 			tx_close(meta_fd);
 			tx_unlink(dfd, file);
 			meta_fd = -1;
@@ -493,9 +452,9 @@ void sys_journal::deinit()
 	if(meta_fd >= 0)
 	{
 		int r;
-		if(pid > 0)
+		if(dirty)
 			flush_tx();
-		assert(pid <= 0);
+		assert(!dirty);
 		discarded.clear();
 		r = data.close();
 		assert(r >= 0);
@@ -591,14 +550,12 @@ int sys_journal::flush_tx()
 	meta_journal info;
 	SYSJ_DEBUG("");
 	
-	if(pid <= 0)
+	if(!dirty)
 		return 0;
-	assert(data.get_pid() == pid);
 	assert(data.end() == data_size);
 	r = data.flush();
 	if(r < 0)
 		return r;
-	tx_add_depend(pid);
 	
 	info.magic = SYSJ_META_MAGIC;
 	info.version = SYSJ_META_VERSION;
@@ -608,10 +565,7 @@ int sys_journal::flush_tx()
 	if(r < 0)
 		return r;
 	
-	patchgroup_abandon(pid);
-	data.set_pid(0);
-	pid = 0;
-	
+	dirty = false;
 	assert(data.end() == data_size);
 	return 0;
 }

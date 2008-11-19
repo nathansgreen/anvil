@@ -10,9 +10,10 @@
 
 #include "openat.h"
 
+#include "transaction.h"
 #include "rwfile.h"
 
-int rwfile::create(int dfd, const char * file, patchgroup_id_t pid, mode_t mode)
+int rwfile::create(int dfd, const char * file, bool tx_external, mode_t mode)
 {
 	if(fd >= 0)
 	{
@@ -24,13 +25,14 @@ int rwfile::create(int dfd, const char * file, patchgroup_id_t pid, mode_t mode)
 	if(fd < 0)
 		return fd;
 	write_mode = true;
+	external = tx_external;
 	filled = 0;
 	write_offset = 0;
-	this->pid = pid;
+	this->pid = 0;
 	return 0;
 }
 
-int rwfile::open(int dfd, const char * file, off_t end_offset, patchgroup_id_t pid)
+int rwfile::open(int dfd, const char * file, off_t end_offset, bool tx_external)
 {
 	if(fd >= 0)
 	{
@@ -42,9 +44,10 @@ int rwfile::open(int dfd, const char * file, off_t end_offset, patchgroup_id_t p
 	if(fd < 0)
 		return fd;
 	write_mode = true;
+	external = tx_external;
 	filled = 0;
 	write_offset = end_offset;
-	this->pid = pid;
+	this->pid = 0;
 	return 0;
 }
 
@@ -55,6 +58,8 @@ int rwfile::flush()
 		return 0;
 	if(pid > 0)
 		patchgroup_engage(pid);
+	if(external)
+		tx_start_external();
 	while(written < filled)
 	{
 		r = pwrite(fd, &buffer[written], filled - written, write_offset);
@@ -72,6 +77,8 @@ int rwfile::flush()
 	}
 	if(pid > 0)
 		patchgroup_disengage(pid);
+	if(external)
+		tx_end_external(true);
 	filled -= written;
 	return (!filled) ? 0 : (r < 0) ? (int) r : -1;
 }
@@ -113,6 +120,7 @@ int rwfile::truncate(off_t end_offset)
 
 int rwfile::set_pid(patchgroup_id_t pid)
 {
+	assert(!external);
 	if(write_mode && filled)
 	{
 		int r = flush();
@@ -120,6 +128,19 @@ int rwfile::set_pid(patchgroup_id_t pid)
 			return r;
 	}
 	this->pid = pid;
+	return 0;
+}
+
+int rwfile::set_external(bool tx_external)
+{
+	assert(!pid);
+	if(write_mode && filled)
+	{
+		int r = flush();
+		if(r < 0)
+			return r;
+	}
+	external = tx_external;
 	return 0;
 }
 
@@ -143,6 +164,8 @@ ssize_t rwfile::append(const void * data, ssize_t size)
 			return r;
 		if(pid > 0)
 			patchgroup_engage(pid);
+		if(external)
+			tx_start_external();
 		while(written < size)
 		{
 			/* can't use void * in arithmetic... */
@@ -158,6 +181,8 @@ ssize_t rwfile::append(const void * data, ssize_t size)
 		}
 		if(pid > 0)
 			patchgroup_disengage(pid);
+		if(external)
+			tx_end_external(true);
 		return written ? written : r;
 	}
 	

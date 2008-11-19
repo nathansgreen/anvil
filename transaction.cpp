@@ -315,14 +315,17 @@ int tx_start_external(void)
 	if(!tx_external_count)
 	{
 		int r;
-		tx_external = patchgroup_create(0);
 		if(tx_external <= 0)
-			return -ENOMEM;
-		r = patchgroup_release(tx_external);
-		assert(r >= 0);
+		{
+			tx_external = patchgroup_create(0);
+			if(tx_external <= 0)
+				return -ENOMEM;
+			r = patchgroup_release(tx_external);
+			assert(r >= 0);
+			tx_external_success = 0;
+		}
 		r = patchgroup_engage(tx_external);
 		assert(r >= 0);
-		tx_external_success = 0;
 	}
 	tx_external_count++;
 	return 0;
@@ -335,13 +338,6 @@ int tx_end_external(int success)
 	if(!--tx_external_count)
 	{
 		int r = patchgroup_disengage(tx_external);
-		assert(r >= 0);
-		if(tx_external_success)
-		{
-			r = tx_add_depend(tx_external);
-			assert(r >= 0);
-		}
-		r = patchgroup_abandon(tx_external);
 		assert(r >= 0);
 	}
 	return 0;
@@ -364,17 +360,27 @@ tx_id tx_end(int assign_id)
 		return -ENOENT;
 	if(tx_recursion != 1)
 		return -EBUSY;
-	assert(!tx_external_count);
 	while(pre_end_handlers)
 	{
 		pre_end_handlers->handle(pre_end_handlers->data);
 		pre_end_handlers = pre_end_handlers->_next;
 	}
-	if(assign_id)
+	/* after the pre-end handlers, attach the external dependencies */
+	assert(!tx_external_count);
+	if(tx_external > 0)
 	{
+		if(tx_external_success)
+		{
+			r = tx_add_depend(tx_external);
+			assert(r >= 0);
+		}
+		r = patchgroup_abandon(tx_external);
+		assert(r >= 0);
+		tx_external = 0;
+	}
+	if(assign_id)
 		if(!tx_map->insert(std::make_pair(last_tx_id, current_journal)).second)
 			return -ENOENT;
-	}
 	r = current_journal->commit();
 	if(r < 0)
 		goto fail;

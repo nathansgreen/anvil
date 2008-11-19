@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# If -pg is used here, be sure to run toilet only once below, probably not with valgrind
+# If -pg is used here, probably toilet shuld not be run with valgrind
 CFLAGS="-ggdb $CFLAGS" make || exit $?
 
 # Uncomment to use valgrind

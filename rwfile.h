@@ -25,15 +25,15 @@ extern "C" {
 
 /* This class provides a stdio-like wrapper around a read/write file descriptor,
  * allowing data to be appended to the file (starting at a given position) and
- * optionally engaging a patchgroup before doing any writes. Both reads and
- * writes are buffered. */
+ * optionally either engaging a patchgroup or starting an external transaction
+ * dependency before doing any writes. Both reads and writes are buffered. */
 
 class rwfile
 {
 public:
 	/* buffer_size is in KiB */
 	inline rwfile(ssize_t buffer_size = 8)
-		: fd(-1), write_mode(true), filled(0), write_offset(0), pid(0), buffer(NULL)
+		: fd(-1), write_mode(true), external(false), filled(0), write_offset(0), pid(0), buffer(NULL)
 	{
 		this->buffer_size = buffer_size * 1024;
 		buffer = new uint8_t[this->buffer_size];
@@ -50,8 +50,8 @@ public:
 			delete[] buffer;
 	}
 	
-	int create(int dfd, const char * file, patchgroup_id_t pid = 0, mode_t mode = 0644);
-	int open(int dfd, const char * file, off_t end_offset, patchgroup_id_t pid = 0);
+	int create(int dfd, const char * file, bool tx_external = false, mode_t mode = 0644);
+	int open(int dfd, const char * file, off_t end_offset, bool tx_external = false);
 	
 	/* flush the buffer */
 	int flush();
@@ -62,12 +62,18 @@ public:
 	/* sets the logical end of the file */
 	int truncate(off_t end_offset);
 	
-	/* flushes the buffer before setting, so might fail */
+	/* these flush the buffer before setting, so might fail */
 	int set_pid(patchgroup_id_t pid);
+	int set_external(bool tx_external);
 	
 	inline patchgroup_id_t get_pid()
 	{
 		return pid;
+	}
+	
+	inline bool get_external()
+	{
+		return external;
 	}
 	
 	/* return the current idea of the end of the file */
@@ -118,7 +124,7 @@ public:
 	
 private:
 	int fd;
-	bool write_mode;
+	bool write_mode, external;
 	ssize_t filled, buffer_size;
 	off_t read_offset, write_offset;
 	patchgroup_id_t pid;
