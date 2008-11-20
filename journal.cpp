@@ -42,6 +42,7 @@ journal * journal::create(int dfd, const istr & path, journal * prev)
 		errno = save;
 		return NULL;
 	}
+	j->data_file.set_handler(&j->handler);
 	return j;
 }
 
@@ -68,12 +69,12 @@ int journal::appendv(const struct ovec * ovp, size_t count)
 	
 	if(!records)
 	{
+		data_file.flush();
 		records = patchgroup_create(0);
 		if(records <= 0)
 			return -1;
 		patchgroup_label(records, "records");
 		patchgroup_release(records);
-		data_file.set_pid(records);
 	}
 	offset = data_file.end();
 	if(data_file.append(data, header.length + sizeof(header)) != (ssize_t) (sizeof(header) + header.length))
@@ -91,7 +92,7 @@ int journal::appendv(const struct ovec * ovp, size_t count)
 
 int journal::start_external()
 {
-	if(!external_count)
+	if(!ext_count)
 	{
 		int r;
 		if(external <= 0)
@@ -102,20 +103,20 @@ int journal::start_external()
 			patchgroup_label(external, "external dependency");
 			r = patchgroup_release(external);
 			assert(r >= 0);
-			external_success = false;
+			ext_success = false;
 		}
 		r = patchgroup_engage(external);
 		assert(r >= 0);
 	}
-	external_count++;
+	ext_count++;
 	return 0;
 }
 
 int journal::end_external(bool success)
 {
-	assert(external_count > 0);
-	external_success |= success;
-	if(!--external_count)
+	assert(ext_count > 0);
+	ext_success |= success;
+	if(!--ext_count)
 	{
 		int r = patchgroup_disengage(external);
 		assert(r >= 0);
@@ -178,20 +179,19 @@ int journal::commit()
 	patchgroup_label(commit, "commit");
 	
 	/* add the external dependency, if any */
-	assert(!external_count);
+	assert(!ext_count);
 	if(external > 0)
 	{
-		if(external_success && patchgroup_add_depend(commit, external) < 0)
+		if(ext_success && patchgroup_add_depend(commit, external) < 0)
 			goto fail;
 		patchgroup_abandon(external);
 		external = 0;
 	}
 	
-	data_file.set_pid(0);
+	data_file.flush();
 	if(patchgroup_add_depend(commit, records) < 0)
 	{
 	fail:
-		data_file.set_pid(records);
 		patchgroup_release(commit);
 		patchgroup_abandon(commit);
 		return -1;
@@ -529,6 +529,8 @@ int journal::reopen(int dfd, const istr & path, journal ** pj, journal * prev)
 		delete j;
 		j = NULL;
 	}
+	if(j)
+		j->data_file.set_handler(&j->handler);
 	*pj = j;
 	return (r < 0) ? r : 0;
 	

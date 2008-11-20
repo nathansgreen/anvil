@@ -89,7 +89,7 @@ private:
 	inline journal(const istr & path, int dfd, journal * prev)
 		: path(path), dfd(dfd), crfd(-1), records(0), last_commit(0),
 		  finished(0), erasure(0), prev(prev), commits(0), playbacks(0),
-		  usage(1), external_count(0), external_success(false), external(0)
+		  usage(1), handler(this), ext_count(0), ext_success(false), external(0)
 	{
 		prev_cr.offset = 0;
 		prev_cr.length = 0;
@@ -97,6 +97,22 @@ private:
 			prev->usage++;
 	}
 	inline ~journal() {}
+	
+	class flush_handler : public rwfile::flush_handler
+	{
+	public:
+		virtual int pre()
+		{
+			return (j->records > 0) ? patchgroup_engage(j->records) : 0;
+		}
+		virtual void post()
+		{
+			if(j->records > 0)
+				patchgroup_disengage(j->records);
+		}
+		journal * j;
+		inline flush_handler(journal * j) : j(j) {}
+	};
 	
 	int checksum(off_t start, off_t end, uint8_t * checksum);
 	int init_crfd();
@@ -123,9 +139,10 @@ private:
 	commit_record prev_cr;
 	/* usage count of this journal */
 	int usage;
+	flush_handler handler;
 	/* external dependency state */
-	int external_count;
-	bool external_success;
+	int ext_count;
+	bool ext_success;
 	/* TODO: this can actually just use "records" above */
 	patchgroup_id_t external;
 };

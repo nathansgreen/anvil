@@ -28,7 +28,7 @@ int rwfile::create(int dfd, const char * file, bool tx_external, mode_t mode)
 	external = tx_external;
 	filled = 0;
 	write_offset = 0;
-	this->pid = 0;
+	this->handler = NULL;
 	return 0;
 }
 
@@ -47,7 +47,7 @@ int rwfile::open(int dfd, const char * file, off_t end_offset, bool tx_external)
 	external = tx_external;
 	filled = 0;
 	write_offset = end_offset;
-	this->pid = 0;
+	this->handler = NULL;
 	return 0;
 }
 
@@ -56,8 +56,12 @@ int rwfile::flush()
 	ssize_t r = 0, written = 0;
 	if(!write_mode || !filled)
 		return 0;
-	if(pid > 0)
-		patchgroup_engage(pid);
+	if(handler)
+	{
+		r = handler->pre();
+		if(r < 0)
+			return r;
+	}
 	if(external)
 		tx_start_external();
 	while(written < filled)
@@ -75,8 +79,8 @@ int rwfile::flush()
 		written += r;
 		write_offset += r;
 	}
-	if(pid > 0)
-		patchgroup_disengage(pid);
+	if(handler)
+		handler->post();
 	if(external)
 		tx_end_external(true);
 	filled -= written;
@@ -118,7 +122,7 @@ int rwfile::truncate(off_t end_offset)
 	return 0;
 }
 
-int rwfile::set_pid(patchgroup_id_t pid)
+int rwfile::set_handler(flush_handler * handler)
 {
 	assert(!external);
 	if(write_mode && filled)
@@ -127,13 +131,13 @@ int rwfile::set_pid(patchgroup_id_t pid)
 		if(r < 0)
 			return r;
 	}
-	this->pid = pid;
+	this->handler = handler;
 	return 0;
 }
 
 int rwfile::set_external(bool tx_external)
 {
-	assert(!pid);
+	assert(!handler);
 	if(write_mode && filled)
 	{
 		int r = flush();
@@ -162,8 +166,12 @@ ssize_t rwfile::append(const void * data, ssize_t size)
 		r = flush();
 		if(r < 0)
 			return r;
-		if(pid > 0)
-			patchgroup_engage(pid);
+		if(handler)
+		{
+			r = handler->pre();
+			if(r < 0)
+				return r;
+		}
 		if(external)
 			tx_start_external();
 		while(written < size)
@@ -179,8 +187,8 @@ ssize_t rwfile::append(const void * data, ssize_t size)
 			written += r;
 			write_offset += r;
 		}
-		if(pid > 0)
-			patchgroup_disengage(pid);
+		if(handler)
+			handler->post();
 		if(external)
 			tx_end_external(true);
 		return written ? written : r;

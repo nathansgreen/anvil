@@ -14,18 +14,12 @@
 #error rwfile.h is a C++ header file
 #endif
 
-extern "C" {
-/* Featherstitch does not know about C++ so we include
- * its header file inside an extern "C" block. */
-#include <patchgroup.h>
-}
-
 #include "blob.h"
 #include "istr.h"
 
 /* This class provides a stdio-like wrapper around a read/write file descriptor,
  * allowing data to be appended to the file (starting at a given position) and
- * optionally either engaging a patchgroup or starting an external transaction
+ * optionally either calling a given handler or starting an external transaction
  * dependency before doing any writes. Both reads and writes are buffered. */
 
 class rwfile
@@ -33,7 +27,7 @@ class rwfile
 public:
 	/* buffer_size is in KiB */
 	inline rwfile(ssize_t buffer_size = 8)
-		: fd(-1), write_mode(true), external(false), filled(0), write_offset(0), pid(0), buffer(NULL)
+		: fd(-1), write_mode(true), external(false), filled(0), write_offset(0), handler(NULL), buffer(NULL)
 	{
 		this->buffer_size = buffer_size * 1024;
 		buffer = new uint8_t[this->buffer_size];
@@ -62,13 +56,20 @@ public:
 	/* sets the logical end of the file */
 	int truncate(off_t end_offset);
 	
+	class flush_handler
+	{
+	public:
+		virtual int pre() = 0;
+		virtual void post() = 0;
+		inline virtual ~flush_handler() {}
+	};
 	/* these flush the buffer before setting, so might fail */
-	int set_pid(patchgroup_id_t pid);
+	int set_handler(flush_handler * handler);
 	int set_external(bool tx_external);
 	
-	inline patchgroup_id_t get_pid()
+	inline flush_handler * get_handler()
 	{
-		return pid;
+		return handler;
 	}
 	
 	inline bool get_external()
@@ -127,7 +128,7 @@ private:
 	bool write_mode, external;
 	ssize_t filled, buffer_size;
 	off_t read_offset, write_offset;
-	patchgroup_id_t pid;
+	flush_handler * handler;
 	uint8_t * buffer;
 };
 
