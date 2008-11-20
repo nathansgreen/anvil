@@ -168,7 +168,13 @@ int journal::commit()
 	
 	if(crfd < 0 && init_crfd() < 0)
 		return -1;
-	
+	else
+	{
+		/* if the commit record file is almost full add more empty records to it */
+		if(!(commits % (J_ADD_N_COMMITS * 1000)))
+			init_crfd();
+	}
+
 	cr.offset = prev_cr.offset + prev_cr.length;
 	cr.length = data_file.end() - cr.offset;
 	if(checksum(cr.offset, cr.offset + cr.length, cr.checksum) < 0)
@@ -430,10 +436,15 @@ int journal::init_crfd()
 	struct timeval settime[2] = {{0, 0}, {0, 0}};
 	commit_record zero = {0, 0}, cr;
 	
-	crfd = openat(dfd, path + J_COMMIT_EXT, O_CREAT | O_RDWR, 0644);
+	/* Only append more empy records to the commit file if it is already open
+	 * otherwise create a new commit record file. */
 	if(crfd < 0)
-		return -1;
-	
+	{
+		crfd = openat(dfd, path + J_COMMIT_EXT, O_CREAT | O_RDWR, 0644);
+		if(crfd < 0)
+			return -1;
+	}
+
 	filesize = lseek(crfd, 0, SEEK_END);
 	memset(zero.checksum, 0, sizeof(zero.checksum));
 	/* find out where the last good commit record is */
@@ -459,18 +470,14 @@ int journal::init_crfd()
 	if((r = futimes(crfd, settime)) < 0)
 		goto error;
 	
-#define COMMIT_RECORDS 40000
-	if(filesize < COMMIT_RECORDS * (int) sizeof(cr))
+	if(filesize < (nextcr + (int) sizeof(cr)))
 	{
-		/* zero out the rest of the file 1000 entries at a time */
-		uint8_t zbuffer[1000 * sizeof(cr)];
+		/* zero out the rest of the file J_ADD_N_COMMITS records at a time */
+		uint8_t zbuffer[1000 * sizeof(zero)];
 		memset(zbuffer, 0, sizeof(zbuffer));
-		while(filesize < COMMIT_RECORDS * (int) sizeof(cr))
+		while((filesize - nextcr) < J_ADD_N_COMMITS * (int) sizeof(zbuffer))
 		{
-			r = COMMIT_RECORDS * sizeof(cr) - filesize;
-			if(r > (int) sizeof(zbuffer))
-				r = sizeof(zbuffer);
-			r = pwrite(crfd, zbuffer, r, filesize);
+			r = pwrite(crfd, zbuffer, sizeof(zbuffer), filesize);
 			if(r <= 0)
 				goto error;
 			filesize += r;

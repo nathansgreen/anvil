@@ -27,6 +27,7 @@ extern "C" {
 
 #define J_COMMIT_EXT ".commit"
 #define J_CHECKSUM_LEN 16
+#define J_ADD_N_COMMITS 50 // In thousands of commits
 
 class journal
 {
