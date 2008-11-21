@@ -53,6 +53,11 @@ public:
 		return *(T *) &internal->bytes[off + i * sizeof(T)];
 	}
 	
+	inline const void * data() const
+	{
+		return internal ? &internal->bytes : NULL;
+	}
+	
 	/* will extend the size/capacity if necessary */
 	inline int overwrite(size_t offset, const blob & x)
 	{
@@ -131,7 +136,7 @@ public:
 	int set_size(size_t size, bool clear = true);
 	int set_capacity(size_t capacity);
 	
-	inline operator blob()
+	inline operator blob() const
 	{
 		/* default constructor sets internal to NULL */
 		blob value;

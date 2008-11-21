@@ -134,6 +134,12 @@ int tpp_blob_copy(tpp_blob * c, const tpp_blob * src)
 	return init_tpp_blob(c, *src_safer);
 }
 
+int tpp_blob_copy_buffer(tpp_blob * c, const tpp_blob_buffer * src)
+{
+	tpp_blob_buffer_union_const src_safer(src);
+	return init_tpp_blob(c, blob(*src_safer));
+}
+
 void tpp_blob_kill(tpp_blob * c)
 {
 	tpp_blob_union safer(c);
@@ -158,31 +164,121 @@ const void * tpp_blob_data(const tpp_blob * c)
 	return safer->data();
 }
 
-static inline void init_tpp_mblob(tpp_mblob * c, const metablob & value)
+static inline void init_tpp_metablob(tpp_metablob * c, const metablob & value)
 {
 	c->_size = value.size();
 	c->_exists = value.exists();
 }
 
-int tpp_mblob_copy(tpp_mblob * c, const tpp_mblob * src)
+int tpp_metablob_copy(tpp_metablob * c, const tpp_metablob * src)
 {
 	*c = *src;
 	return 0;
 }
 
-void tpp_mblob_kill(tpp_mblob * c)
+void tpp_metablob_kill(tpp_metablob * c)
 {
 	/* nothing to do */
 }
 
-bool tpp_mblob_exists(const tpp_mblob * c)
+bool tpp_metablob_exists(const tpp_metablob * c)
 {
 	return c->_exists;
 }
 
-size_t tpp_mblob_size(const tpp_mblob * c)
+size_t tpp_metablob_size(const tpp_metablob * c)
 {
 	return c->_size;
+}
+
+static inline int init_tpp_blob_buffer(tpp_blob_buffer * c, const blob_buffer & value)
+{
+	tpp_blob_buffer_union safer(c);
+	/* blob_buffer is sufficiently initialized if it is zeroed out */
+	util::memset(c, 0, sizeof(*c));
+	*safer = value;
+	return 0;
+}
+
+int tpp_blob_buffer_new(tpp_blob_buffer * c)
+{
+	return init_tpp_blob_buffer(c, blob_buffer());
+}
+
+int tpp_blob_buffer_new_capacity(tpp_blob_buffer * c, size_t capacity)
+{
+	return init_tpp_blob_buffer(c, blob_buffer(capacity));
+}
+
+int tpp_blob_buffer_new_data(tpp_blob_buffer * c, size_t size, const void * data)
+{
+	return init_tpp_blob_buffer(c, blob_buffer(size, data));
+}
+
+int tpp_blob_buffer_copy(tpp_blob_buffer * c, const tpp_blob_buffer * src)
+{
+	tpp_blob_buffer_union_const src_safer(src);
+	return init_tpp_blob_buffer(c, *src_safer);
+}
+
+int tpp_blob_buffer_copy_blob(tpp_blob_buffer * c, const tpp_blob * src)
+{
+	tpp_blob_union_const src_safer(src);
+	return init_tpp_blob_buffer(c, blob_buffer(*src_safer));
+}
+
+void tpp_blob_buffer_kill(tpp_blob_buffer * c)
+{
+	tpp_blob_buffer_union safer(c);
+	*safer = blob_buffer();
+}
+
+bool tpp_blob_buffer_exists(const tpp_blob_buffer * c)
+{
+	tpp_blob_buffer_union_const safer(c);
+	return safer->exists();
+}
+
+size_t tpp_blob_buffer_size(const tpp_blob_buffer * c)
+{
+	tpp_blob_buffer_union_const safer(c);
+	return safer->size();
+}
+
+size_t tpp_blob_buffer_capacity(const tpp_blob_buffer * c)
+{
+	tpp_blob_buffer_union_const safer(c);
+	return safer->capacity();
+}
+
+const void * tpp_blob_buffer_data(const tpp_blob_buffer * c)
+{
+	tpp_blob_buffer_union_const safer(c);
+	return safer->data();
+}
+
+int tpp_blob_buffer_set_size(tpp_blob_buffer * c, size_t size)
+{
+	tpp_blob_buffer_union safer(c);
+	return safer->set_size(size);
+}
+
+int tpp_blob_buffer_set_capacity(tpp_blob_buffer * c, size_t capacity)
+{
+	tpp_blob_buffer_union safer(c);
+	return safer->set_capacity(capacity);
+}
+
+int tpp_blob_buffer_overwrite(tpp_blob_buffer * c, size_t offset, const void * data, size_t length)
+{
+	tpp_blob_buffer_union safer(c);
+	return safer->overwrite(offset, data, length);
+}
+
+int tpp_blob_buffer_append(tpp_blob_buffer * c, const void * data, size_t length)
+{
+	tpp_blob_buffer_union safer(c);
+	return safer->append(data, length);
 }
 
 tpp_params * tpp_params_new(void)
@@ -496,10 +592,10 @@ bool tpp_dtable_iter_seek(tpp_dtable_iter * c, const tpp_dtype * key)
 
 /* bool tpp_dtable_iter_seek_test(tpp_dtable_iter * c, const dtype_test * test); */
 
-void tpp_dtable_iter_meta(const tpp_dtable_iter * c, tpp_mblob * meta)
+void tpp_dtable_iter_meta(const tpp_dtable_iter * c, tpp_metablob * meta)
 {
 	tpp_dtable_iter_union_const safer(c);
-	init_tpp_mblob(meta, safer->meta());
+	init_tpp_metablob(meta, safer->meta());
 }
 
 int tpp_dtable_iter_value(const tpp_dtable_iter * c, tpp_blob * value)

@@ -35,13 +35,20 @@ struct tpp_blob
 };
 typedef struct tpp_blob tpp_blob;
 
-struct tpp_mblob
+struct tpp_metablob
 {
 	/* same as metablob */
 	size_t _size;
 	bool _exists;
 };
-typedef struct tpp_mblob tpp_mblob;
+typedef struct tpp_metablob tpp_metablob;
+
+struct tpp_blob_buffer
+{
+	/* sizeof(blob_buffer) */
+	uint8_t _space[sizeof(size_t) + sizeof(void *)];
+};
+typedef struct tpp_blob_buffer tpp_blob_buffer;
 
 /* while we have stack instances of params in C++, we'll do heap
  * allocation here since params are not in the critical path */
@@ -99,17 +106,36 @@ int tpp_blob_str(tpp_blob * c, const char * str);
 int tpp_blob_dne(tpp_blob * c);
 int tpp_blob_empty(tpp_blob * c);
 int tpp_blob_copy(tpp_blob * c, const tpp_blob * src);
+int tpp_blob_copy_buffer(tpp_blob * c, const tpp_blob_buffer * src);
 void tpp_blob_kill(tpp_blob * c);
 
 bool tpp_blob_exists(const tpp_blob * c);
 size_t tpp_blob_size(const tpp_blob * c);
 const void * tpp_blob_data(const tpp_blob * c);
 
-int tpp_mblob_copy(tpp_mblob * c, const tpp_mblob * src);
-void tpp_mblob_kill(tpp_mblob * c);
+int tpp_metablob_copy(tpp_metablob * c, const tpp_metablob * src);
+void tpp_metablob_kill(tpp_metablob * c);
 
-bool tpp_mblob_exists(const tpp_mblob * c);
-size_t tpp_mblob_size(const tpp_mblob * c);
+bool tpp_metablob_exists(const tpp_metablob * c);
+size_t tpp_metablob_size(const tpp_metablob * c);
+
+/* blob_buffer */
+int tpp_blob_buffer_new(tpp_blob_buffer * c);
+int tpp_blob_buffer_new_capacity(tpp_blob_buffer * c, size_t capacity);
+int tpp_blob_buffer_new_data(tpp_blob_buffer * c, size_t size, const void * data);
+int tpp_blob_buffer_copy(tpp_blob_buffer * c, const tpp_blob_buffer * src);
+int tpp_blob_buffer_copy_blob(tpp_blob_buffer * c, const tpp_blob * src);
+void tpp_blob_buffer_kill(tpp_blob_buffer * c);
+
+bool tpp_blob_buffer_exists(const tpp_blob_buffer * c);
+size_t tpp_blob_buffer_size(const tpp_blob_buffer * c);
+size_t tpp_blob_buffer_capacity(const tpp_blob_buffer * c);
+const void * tpp_blob_buffer_data(const tpp_blob_buffer * c);
+
+int tpp_blob_buffer_set_size(tpp_blob_buffer * c, size_t size);
+int tpp_blob_buffer_set_capacity(tpp_blob_buffer * c, size_t capacity);
+int tpp_blob_buffer_overwrite(tpp_blob_buffer * c, size_t offset, const void * data, size_t length);
+int tpp_blob_buffer_append(tpp_blob_buffer * c, const void * data, size_t length);
 
 /* params */
 tpp_params * tpp_params_new(void);
@@ -171,7 +197,7 @@ bool tpp_dtable_iter_last(tpp_dtable_iter * c);
 int tpp_dtable_iter_key(const tpp_dtable_iter * c, tpp_dtype * key);
 bool tpp_dtable_iter_seek(tpp_dtable_iter * c, const tpp_dtype * key);
 /* bool tpp_dtable_iter_seek_test(tpp_dtable_iter * c, const dtype_test * test); */
-void tpp_dtable_iter_meta(const tpp_dtable_iter * c, tpp_mblob * meta);
+void tpp_dtable_iter_meta(const tpp_dtable_iter * c, tpp_metablob * meta);
 int tpp_dtable_iter_value(const tpp_dtable_iter * c, tpp_blob * value);
 void tpp_dtable_iter_kill(tpp_dtable_iter * c);
 
@@ -222,6 +248,7 @@ void tpp_blobcmp_release(tpp_blobcmp ** blobcmp);
 #include "dtable.h"
 #include "ctable.h"
 #include "stable.h"
+#include "blob_buffer.h"
 
 #define static_assert(x) do { switch(0) { case 0: case (x): ; } } while(0)
 
@@ -232,6 +259,7 @@ static void * __tpp_static_asserts(void)
 	static_assert(sizeof(tpp_istr) == sizeof(istr));
 	static_assert(sizeof(tpp_blob) == sizeof(blob));
 	static_assert(sizeof(tpp_dtype) == sizeof(dtype));
+	static_assert(sizeof(tpp_blob_buffer) == sizeof(blob_buffer));
 	return (void *) __tpp_static_asserts;
 }
 
@@ -253,6 +281,7 @@ union tpp_union_cast
 
 TPP_UNION_CAST(tpp_istr, istr);
 TPP_UNION_CAST(tpp_blob, blob);
+TPP_UNION_CAST(tpp_blob_buffer, blob_buffer);
 TPP_UNION_CAST(tpp_params, params);
 TPP_UNION_CAST(tpp_dtype, dtype);
 TPP_UNION_CAST(tpp_dtable, dtable);
