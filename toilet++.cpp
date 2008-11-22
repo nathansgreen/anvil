@@ -555,7 +555,11 @@ bool tpp_dtable_key_iter_seek(tpp_dtable_key_iter * c, const tpp_dtype * key)
 	return safer->seek(*key_safer);
 }
 
-/* bool tpp_dtable_key_iter_seek_test(tpp_dtable_key_iter * c, const dtype_test * test); */
+bool tpp_dtable_key_iter_seek_test(tpp_dtable_key_iter * c, blob_test test, void * user)
+{
+	tpp_dtable_key_iter_union safer(c);
+	return safer->seek(tpp_dtype_test(test, user));
+}
 
 void tpp_dtable_key_iter_kill(tpp_dtable_key_iter * c)
 {
@@ -612,7 +616,11 @@ bool tpp_dtable_iter_seek(tpp_dtable_iter * c, const tpp_dtype * key)
 	return safer->seek(*key_safer);
 }
 
-/* bool tpp_dtable_iter_seek_test(tpp_dtable_iter * c, const dtype_test * test); */
+bool tpp_dtable_iter_seek_test(tpp_dtable_iter * c, blob_test test, void * user)
+{
+	tpp_dtable_iter_union safer(c);
+	return safer->seek(tpp_dtype_test(test, user));
+}
 
 void tpp_dtable_iter_meta(const tpp_dtable_iter * c, tpp_metablob * meta)
 {
@@ -772,7 +780,11 @@ bool tpp_ctable_iter_seek(tpp_ctable_iter * c, const tpp_dtype * key)
 	return safer->seek(*key_safer);
 }
 
-/* bool tpp_ctable_iter_seek_test(tpp_ctable_iter * c, const dtype_test * test); */
+bool tpp_ctable_iter_seek_test(tpp_ctable_iter * c, blob_test test, void * user)
+{
+	tpp_ctable_iter_union safer(c);
+	return safer->seek(tpp_dtype_test(test, user));
+}
 
 const char * tpp_ctable_iter_column(const tpp_ctable_iter * c)
 {

@@ -89,6 +89,9 @@ typedef struct tpp_blobcmp tpp_blobcmp;
 typedef int (*blobcmp_func)(const void * b1, size_t s1, const void * b2, size_t s2, void * user);
 typedef void (*blobcmp_free)(void * user);
 
+/* for the *_seek_test() functions, the magic blob key test */
+typedef int (*blob_test)(const void *, size_t, void *);
+
 /* use toilet runtime environment (journals, etc.) at this path */
 int tpp_init(const char * path);
 
@@ -190,7 +193,7 @@ bool tpp_dtable_key_iter_first(tpp_dtable_key_iter * c);
 bool tpp_dtable_key_iter_last(tpp_dtable_key_iter * c);
 int tpp_dtable_key_iter_key(const tpp_dtable_key_iter * c, tpp_dtype * key);
 bool tpp_dtable_key_iter_seek(tpp_dtable_key_iter * c, const tpp_dtype * key);
-/* bool tpp_dtable_key_iter_seek_test(tpp_dtable_key_iter * c, const dtype_test * test); */
+bool tpp_dtable_key_iter_seek_test(tpp_dtable_key_iter * c, blob_test test, void * user);
 void tpp_dtable_key_iter_kill(tpp_dtable_key_iter * c);
 
 tpp_dtable_iter * tpp_dtable_iterator(const tpp_dtable * c);
@@ -201,7 +204,7 @@ bool tpp_dtable_iter_first(tpp_dtable_iter * c);
 bool tpp_dtable_iter_last(tpp_dtable_iter * c);
 int tpp_dtable_iter_key(const tpp_dtable_iter * c, tpp_dtype * key);
 bool tpp_dtable_iter_seek(tpp_dtable_iter * c, const tpp_dtype * key);
-/* bool tpp_dtable_iter_seek_test(tpp_dtable_iter * c, const dtype_test * test); */
+bool tpp_dtable_iter_seek_test(tpp_dtable_iter * c, blob_test test, void * user);
 void tpp_dtable_iter_meta(const tpp_dtable_iter * c, tpp_metablob * meta);
 int tpp_dtable_iter_value(const tpp_dtable_iter * c, tpp_blob * value);
 void tpp_dtable_iter_kill(tpp_dtable_iter * c);
@@ -232,7 +235,7 @@ bool tpp_ctable_iter_first(tpp_ctable_iter * c);
 bool tpp_ctable_iter_last(tpp_ctable_iter * c);
 int tpp_ctable_iter_key(const tpp_ctable_iter * c, tpp_dtype * key);
 bool tpp_ctable_iter_seek(tpp_ctable_iter * c, const tpp_dtype * key);
-/* bool tpp_ctable_iter_seek_test(tpp_ctable_iter * c, const dtype_test * test); */
+bool tpp_ctable_iter_seek_test(tpp_ctable_iter * c, blob_test test, void * user);
 const char * tpp_ctable_iter_column(const tpp_ctable_iter * c);
 int tpp_ctable_iter_value(const tpp_ctable_iter * c, tpp_blob * value);
 void tpp_ctable_iter_kill(tpp_ctable_iter * c);
@@ -324,6 +327,21 @@ struct tpp_blobcmp : public blob_comparator
 		if(copied)
 			free(user);
 	}
+};
+
+class tpp_dtype_test : public dtype_test
+{
+public:
+	virtual int operator()(const dtype & key) const
+	{
+		assert(key.type == dtype::BLOB);
+		return test(&key.blb[0], key.blb.size(), user);
+	}
+	
+	tpp_dtype_test(blob_test test, void * user) : test(test), user(user) {}
+private:
+	blob_test test;
+	void * user;
 };
 
 #endif
