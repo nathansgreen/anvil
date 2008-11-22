@@ -113,6 +113,11 @@ bool tpp_blob_exists(const tpp_blob * c);
 size_t tpp_blob_size(const tpp_blob * c);
 const void * tpp_blob_data(const tpp_blob * c);
 
+/* these work using blob buffers; for more than one overwrite/append, you should do that manually */
+int tpp_blob_overwrite(tpp_blob * c, size_t offset, const void * data, size_t length);
+int tpp_blob_append(tpp_blob * c, const void * data, size_t length);
+
+/* metablob */
 int tpp_metablob_copy(tpp_metablob * c, const tpp_metablob * src);
 void tpp_metablob_kill(tpp_metablob * c);
 

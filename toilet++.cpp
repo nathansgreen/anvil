@@ -164,6 +164,28 @@ const void * tpp_blob_data(const tpp_blob * c)
 	return safer->data();
 }
 
+int tpp_blob_overwrite(tpp_blob * c, size_t offset, const void * data, size_t length)
+{
+	tpp_blob_union safer(c);
+	blob_buffer buffer(*safer);
+	int r = buffer.overwrite(offset, data, length);
+	if(r < 0)
+		return r;
+	*safer = blob(buffer);
+	return 0;
+}
+
+int tpp_blob_append(tpp_blob * c, const void * data, size_t length)
+{
+	tpp_blob_union safer(c);
+	blob_buffer buffer(*safer);
+	int r = buffer.append(data, length);
+	if(r < 0)
+		return r;
+	*safer = blob(buffer);
+	return 0;
+}
+
 static inline void init_tpp_metablob(tpp_metablob * c, const metablob & value)
 {
 	c->_size = value.size();
