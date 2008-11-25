@@ -256,6 +256,8 @@ typedef struct tpp_dtable_cache tpp_dtable_cache;
 tpp_dtable_cache * tpp_dtable_cache_new(int dir_fd, const char * type, const tpp_params * config);
 void tpp_dtable_cache_kill(tpp_dtable_cache * c);
 
+int tpp_dtable_cache_create(tpp_dtable_cache * c, int index, const tpp_dtable * source, const tpp_dtable * shadow);
+int tpp_dtable_cache_create_empty(tpp_dtable_cache * c, int index, tpp_dtype_type key_type);
 tpp_dtable * tpp_dtable_cache_open(tpp_dtable_cache * c, int index);
 void tpp_dtable_cache_close(tpp_dtable_cache * c, tpp_dtable * dtable);
 

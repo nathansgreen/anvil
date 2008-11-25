@@ -911,6 +911,20 @@ void tpp_dtable_cache_kill(tpp_dtable_cache * c)
 	delete c;
 }
 
+int tpp_dtable_cache_create(tpp_dtable_cache * c, int index, const tpp_dtable * source, const tpp_dtable * shadow)
+{
+	char number[24];
+	snprintf(number, sizeof(number), "%d", index);
+	return tpp_dtable_create(c->type, c->dir_fd, number, c->config, source, shadow);
+}
+
+int tpp_dtable_cache_create_empty(tpp_dtable_cache * c, int index, tpp_dtype_type key_type)
+{
+	char number[24];
+	snprintf(number, sizeof(number), "%d", index);
+	return tpp_dtable_create_empty(c->type, c->dir_fd, number, c->config, key_type);
+}
+
 tpp_dtable * tpp_dtable_cache_open(tpp_dtable_cache * c, int index)
 {
 	return c->open(index);
