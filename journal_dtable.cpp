@@ -191,7 +191,8 @@ template<class T> inline int journal_dtable::log(T * entry, const blob & blob, s
 	if(blob.exists())
 	{
 		entry->size = blob.size();
-		memcpy(&entry->data[offset], &blob[0], entry->size);
+		if(entry->size)
+			memcpy(&entry->data[offset], &blob[0], entry->size);
 		size += entry->size;
 	}
 	else
@@ -253,7 +254,8 @@ int journal_dtable::log(const dtype & key, const blob & blob)
 				return -ENOMEM;
 			entry->type = JDT_KEY_BLOB;
 			entry->key_size = key.blb.size();
-			memcpy(entry->data, &key.blb[0], entry->key_size);
+			if(entry->key_size)
+				memcpy(entry->data, &key.blb[0], entry->key_size);
 			return log(entry, blob, entry->key_size);
 		}
 	}

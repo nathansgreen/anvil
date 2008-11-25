@@ -365,7 +365,7 @@ int tpp_dtype_copy(tpp_dtype * c, const tpp_dtype * src)
 void tpp_dtype_kill(tpp_dtype * c)
 {
 	tpp_dtype_union safer(c);
-	delete safer.cpp;
+	*safer = dtype(0u);
 }
 
 tpp_dtype_type tpp_dtype_get_type(const tpp_dtype * c)
@@ -844,7 +844,7 @@ void tpp_blobcmp_release(tpp_blobcmp ** blobcmp)
 tpp_dtable * tpp_dtable_cache::open(int index)
 {
 	char number[24];
-	tpp_dtable * table;
+	tpp_dtable * dtable;
 	idx_map::iterator iter = index_map.find(index);
 	if(iter != index_map.end())
 	{
@@ -853,10 +853,12 @@ tpp_dtable * tpp_dtable_cache::open(int index)
 	}
 	
 	snprintf(number, sizeof(number), "%d", index);
-	table = tpp_dtable_open(type, dir_fd, number, config);
-	index_map[index] = (open_dtable) {table, 1};
-	dtable_map[table] = index;
-	return table;
+	dtable = tpp_dtable_open(type, dir_fd, number, config);
+	if(!dtable)
+		return NULL;
+	index_map[index] = (open_dtable) {dtable, 1};
+	dtable_map[dtable] = index;
+	return dtable;
 }
 
 void tpp_dtable_cache::close(tpp_dtable * dtable)
