@@ -199,6 +199,42 @@ private:
 	const blob_comparator *& blob_cmp;
 };
 
+template<class T>
+struct dtype_hash_helper
+{
+};
+
+/* hash a 32-bit integer */
+template<>
+struct dtype_hash_helper<uint32_t>
+{
+	inline size_t operator()(uint32_t x) const
+	{
+		return __gnu_cxx::hash<uint32_t>()(x);
+	}
+};
+
+/* hash a 64-bit integer */
+template<>
+struct dtype_hash_helper<uint64_t>
+{
+	inline size_t operator()(uint64_t x) const
+	{
+		return __gnu_cxx::hash<uint32_t>()((x >> 32) ^ x);
+	}
+};
+
+/* hash a pointer */
+template<>
+struct dtype_hash_helper<void *>
+{
+	size_t operator()(const void * x) const
+	{
+		/* this will be one of the above two cases */
+		return dtype_hash_helper<uintptr_t>()((uintptr_t) x);
+	}
+};
+
 /* good for hash_map; has an equality operator and a hash operator */
 class dtype_hashing_comparator
 {
@@ -218,7 +254,7 @@ public:
 				/* 0 and -0 both hash to zero */
 				if(dt.dbl == 0.0)
 					return 0;
-				return  __gnu_cxx::hash<const char *>()((const char *) &dt.dbl);
+				return dtype_hash_helper<uint64_t>()(*(const uint64_t *) &dt.dbl);
 			case dtype::STRING:
 				return __gnu_cxx::hash<const char *>()((const char *) dt.str);
 			case dtype::BLOB:

@@ -840,3 +840,83 @@ void tpp_blobcmp_release(tpp_blobcmp ** blobcmp)
 	(*blobcmp)->release();
 	*blobcmp = NULL;
 }
+
+tpp_dtable * tpp_dtable_factory::open(int index)
+{
+	char number[24];
+	tpp_dtable * table;
+	idx_map::iterator iter = index_map.find(index);
+	if(iter != index_map.end())
+	{
+		iter->second.count++;
+		return iter->second.dtable;
+	}
+	
+	snprintf(number, sizeof(number), "%d", index);
+	table = tpp_dtable_open(type, dir_fd, number, config);
+	index_map[index] = (open_dtable) {table, 1};
+	dtable_map[table] = index;
+	return table;
+}
+
+void tpp_dtable_factory::close(tpp_dtable * dtable)
+{
+	dt_map::iterator index = dtable_map.find(dtable);
+	assert(index != dtable_map.end());
+	idx_map::iterator iter = index_map.find(index->second);
+	assert(iter != index_map.end());
+	
+	if(!--(iter->second.count))
+	{
+		if(recent[0] == dtable || recent[1] == dtable)
+		{
+			/* it's being closed from the recent list */
+			tpp_dtable_kill(dtable);
+			if(recent[0] == dtable)
+				recent[0] = NULL;
+			else
+				recent[1] = NULL;
+		}
+		else
+		{
+			/* give it a second chance in the recent list */
+			if(recent[0])
+			{
+				if(recent[1])
+					close(recent[1]);
+				recent[1] = recent[0];
+			}
+			recent[0] = dtable;
+			iter->second.count++;
+		}
+	}
+}
+
+tpp_dtable_factory::~tpp_dtable_factory()
+{
+	if(recent[0])
+		close(recent[0]);
+	if(recent[1])
+		close(recent[1]);
+	assert(index_map.empty());
+}
+
+tpp_dtable_factory * tpp_dtable_factory_new(int dir_fd, const char * type, const tpp_params * config)
+{
+	return new tpp_dtable_factory(dir_fd, type, config);
+}
+
+void tpp_dtable_factory_kill(tpp_dtable_factory * c)
+{
+	delete c;
+}
+
+tpp_dtable * tpp_dtable_factory_open(tpp_dtable_factory * c, int index)
+{
+	return c->open(index);
+}
+
+void tpp_dtable_factory_close(tpp_dtable_factory * c, tpp_dtable * dtable)
+{
+	return c->close(dtable);
+}

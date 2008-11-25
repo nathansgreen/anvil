@@ -247,8 +247,22 @@ const char * tpp_blobcmp_name(const tpp_blobcmp * blobcmp);
 void tpp_blobcmp_retain(tpp_blobcmp * blobcmp);
 void tpp_blobcmp_release(tpp_blobcmp ** blobcmp);
 
+/* dtables should only be opened once, but it is often convenient to be able to
+ * act as though they can be opened many times - so we provide a layer of
+ * indirection on opening and closing them, to simulate multi-opened dtables */
+struct tpp_dtable_factory;
+typedef struct tpp_dtable_factory tpp_dtable_factory;
+
+tpp_dtable_factory * tpp_dtable_factory_new(int dir_fd, const char * type, const tpp_params * config);
+void tpp_dtable_factory_kill(tpp_dtable_factory * c);
+
+tpp_dtable * tpp_dtable_factory_open(tpp_dtable_factory * c, int index);
+void tpp_dtable_factory_close(tpp_dtable_factory * c, tpp_dtable * dtable);
+
 #ifdef __cplusplus
 }
+
+#include <ext/hash_map>
 
 #include "blob.h"
 #include "istr.h"
@@ -342,6 +356,43 @@ public:
 private:
 	blob_test test;
 	void * user;
+};
+
+struct tpp_dtable_factory
+{
+	int dir_fd;
+	const char * type;
+	const tpp_params * config;
+	
+	struct open_dtable
+	{
+		tpp_dtable * dtable;
+		int count;
+	};
+	struct dtable_hash
+	{
+		inline size_t operator()(tpp_dtable * dtable) const
+		{
+			return dtype_hash_helper<void *>()(dtable);
+		}
+	};
+	typedef __gnu_cxx::hash_map<int, open_dtable> idx_map;
+	typedef __gnu_cxx::hash_map<tpp_dtable *, int, dtable_hash> dt_map;
+	
+	idx_map index_map;
+	dt_map dtable_map;
+	tpp_dtable * recent[2];
+	
+	inline tpp_dtable_factory(int dir_fd, const char * type, const tpp_params * config)
+		: dir_fd(dir_fd), type(type), config(config)
+	{
+		recent[0] = NULL;
+		recent[1] = NULL;
+	}
+	~tpp_dtable_factory();
+	
+	tpp_dtable * open(int index);
+	void close(tpp_dtable * dtable);
 };
 
 #endif
