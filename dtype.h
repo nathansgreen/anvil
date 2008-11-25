@@ -204,27 +204,24 @@ struct dtype_hash_helper
 {
 };
 
-/* hash a 32-bit integer */
 template<>
-struct dtype_hash_helper<uint32_t>
+struct dtype_hash_helper<unsigned int>
 {
-	inline size_t operator()(uint32_t x) const
+	inline size_t operator()(unsigned int x) const
 	{
-		return __gnu_cxx::hash<uint32_t>()(x);
+		return x;
 	}
 };
 
-/* hash a 64-bit integer */
 template<>
-struct dtype_hash_helper<uint64_t>
+struct dtype_hash_helper<unsigned long>
 {
-	inline size_t operator()(uint64_t x) const
+	inline size_t operator()(unsigned long x) const
 	{
-		return __gnu_cxx::hash<uint32_t>()((x >> 32) ^ x);
+		return x;
 	}
 };
 
-/* hash a pointer */
 template<>
 struct dtype_hash_helper<void *>
 {
@@ -232,6 +229,23 @@ struct dtype_hash_helper<void *>
 	{
 		/* this will be one of the above two cases */
 		return dtype_hash_helper<uintptr_t>()((uintptr_t) x);
+	}
+};
+
+template<>
+struct dtype_hash_helper<double>
+{
+	inline size_t operator()(double x) const
+	{
+		union {
+			uint64_t i;
+			double d;
+		} u = {i: 0};
+		u.d = x;
+		/* we count on the compiler to optimize this */
+		if(sizeof(size_t) == sizeof(uint64_t))
+			return u.i;
+		return (size_t) ((u.i >> 32) ^ u.i);
 	}
 };
 
@@ -249,12 +263,12 @@ public:
 		switch(dt.type)
 		{
 			case dtype::UINT32:
-				return __gnu_cxx::hash<uint32_t>()(dt.u32);
+				return dt.u32;
 			case dtype::DOUBLE:
 				/* 0 and -0 both hash to zero */
 				if(dt.dbl == 0.0)
 					return 0;
-				return dtype_hash_helper<uint64_t>()(*(const uint64_t *) &dt.dbl);
+				return dtype_hash_helper<double>()(dt.dbl);
 			case dtype::STRING:
 				return __gnu_cxx::hash<const char *>()((const char *) dt.str);
 			case dtype::BLOB:
