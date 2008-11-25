@@ -250,14 +250,14 @@ void tpp_blobcmp_release(tpp_blobcmp ** blobcmp);
 /* dtables should only be opened once, but it is often convenient to be able to
  * act as though they can be opened many times - so we provide a layer of
  * indirection on opening and closing them, to simulate multi-opened dtables */
-struct tpp_dtable_factory;
-typedef struct tpp_dtable_factory tpp_dtable_factory;
+struct tpp_dtable_cache;
+typedef struct tpp_dtable_cache tpp_dtable_cache;
 
-tpp_dtable_factory * tpp_dtable_factory_new(int dir_fd, const char * type, const tpp_params * config);
-void tpp_dtable_factory_kill(tpp_dtable_factory * c);
+tpp_dtable_cache * tpp_dtable_cache_new(int dir_fd, const char * type, const tpp_params * config);
+void tpp_dtable_cache_kill(tpp_dtable_cache * c);
 
-tpp_dtable * tpp_dtable_factory_open(tpp_dtable_factory * c, int index);
-void tpp_dtable_factory_close(tpp_dtable_factory * c, tpp_dtable * dtable);
+tpp_dtable * tpp_dtable_cache_open(tpp_dtable_cache * c, int index);
+void tpp_dtable_cache_close(tpp_dtable_cache * c, tpp_dtable * dtable);
 
 #ifdef __cplusplus
 }
@@ -358,7 +358,7 @@ private:
 	void * user;
 };
 
-struct tpp_dtable_factory
+struct tpp_dtable_cache
 {
 	int dir_fd;
 	const char * type;
@@ -383,13 +383,13 @@ struct tpp_dtable_factory
 	dt_map dtable_map;
 	tpp_dtable * recent[2];
 	
-	inline tpp_dtable_factory(int dir_fd, const char * type, const tpp_params * config)
+	inline tpp_dtable_cache(int dir_fd, const char * type, const tpp_params * config)
 		: dir_fd(dir_fd), type(type), config(config)
 	{
 		recent[0] = NULL;
 		recent[1] = NULL;
 	}
-	~tpp_dtable_factory();
+	~tpp_dtable_cache();
 	
 	tpp_dtable * open(int index);
 	void close(tpp_dtable * dtable);

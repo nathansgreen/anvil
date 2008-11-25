@@ -841,7 +841,7 @@ void tpp_blobcmp_release(tpp_blobcmp ** blobcmp)
 	*blobcmp = NULL;
 }
 
-tpp_dtable * tpp_dtable_factory::open(int index)
+tpp_dtable * tpp_dtable_cache::open(int index)
 {
 	char number[24];
 	tpp_dtable * table;
@@ -859,7 +859,7 @@ tpp_dtable * tpp_dtable_factory::open(int index)
 	return table;
 }
 
-void tpp_dtable_factory::close(tpp_dtable * dtable)
+void tpp_dtable_cache::close(tpp_dtable * dtable)
 {
 	dt_map::iterator index = dtable_map.find(dtable);
 	assert(index != dtable_map.end());
@@ -892,7 +892,7 @@ void tpp_dtable_factory::close(tpp_dtable * dtable)
 	}
 }
 
-tpp_dtable_factory::~tpp_dtable_factory()
+tpp_dtable_cache::~tpp_dtable_cache()
 {
 	if(recent[0])
 		close(recent[0]);
@@ -901,22 +901,22 @@ tpp_dtable_factory::~tpp_dtable_factory()
 	assert(index_map.empty());
 }
 
-tpp_dtable_factory * tpp_dtable_factory_new(int dir_fd, const char * type, const tpp_params * config)
+tpp_dtable_cache * tpp_dtable_cache_new(int dir_fd, const char * type, const tpp_params * config)
 {
-	return new tpp_dtable_factory(dir_fd, type, config);
+	return new tpp_dtable_cache(dir_fd, type, config);
 }
 
-void tpp_dtable_factory_kill(tpp_dtable_factory * c)
+void tpp_dtable_cache_kill(tpp_dtable_cache * c)
 {
 	delete c;
 }
 
-tpp_dtable * tpp_dtable_factory_open(tpp_dtable_factory * c, int index)
+tpp_dtable * tpp_dtable_cache_open(tpp_dtable_cache * c, int index)
 {
 	return c->open(index);
 }
 
-void tpp_dtable_factory_close(tpp_dtable_factory * c, tpp_dtable * dtable)
+void tpp_dtable_cache_close(tpp_dtable_cache * c, tpp_dtable * dtable)
 {
 	return c->close(dtable);
 }
