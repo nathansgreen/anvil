@@ -874,6 +874,8 @@ void tpp_dtable_cache::close(tpp_dtable * dtable)
 		{
 			/* it's being closed from the recent list */
 			tpp_dtable_kill(dtable);
+			dtable_map.erase(index);
+			index_map.erase(iter);
 			if(recent[0] == dtable)
 				recent[0] = NULL;
 			else
