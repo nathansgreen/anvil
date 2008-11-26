@@ -870,36 +870,34 @@ void tpp_dtable_cache::close(tpp_dtable * dtable)
 	
 	if(!--(iter->second.count))
 	{
-		if(recent[0] == dtable || recent[1] == dtable)
-		{
-			/* it's being closed from the recent list */
-			dtable_map.erase(index);
-			for(int i = 0; i < OPEN_DTABLE_ITERS; i++)
-				if(iter->second.iters[i])
-				{
-					iter_map.erase(iter->second.iters[i]);
-					tpp_dtable_iter_kill(iter->second.iters[i]);
-					iter->second.iters[i] = NULL;
-				}
-			index_map.erase(iter);
-			tpp_dtable_kill(dtable);
-			if(recent[0] == dtable)
-				recent[0] = NULL;
-			else
-				recent[1] = NULL;
-		}
-		else
-		{
-			/* give it a second chance in the recent list */
-			if(recent[0])
+		int i;
+		for(i = 0; i < RECENT_OPEN_DTABLES; i++)
+			if(recent[i] == dtable)
 			{
-				if(recent[1])
-					close(recent[1]);
-				recent[1] = recent[0];
+				/* it's being closed from the recent list */
+				dtable_map.erase(index);
+				for(int j = 0; j < OPEN_DTABLE_ITERS; j++)
+					if(iter->second.iters[j])
+					{
+						iter_map.erase(iter->second.iters[j]);
+						tpp_dtable_iter_kill(iter->second.iters[j]);
+						iter->second.iters[j] = NULL;
+					}
+				index_map.erase(iter);
+				tpp_dtable_kill(dtable);
+				recent[i] = NULL;
+				return;
 			}
-			recent[0] = dtable;
-			iter->second.count++;
-		}
+		/* give it a second chance in the recent list */
+		for(i = 0; i < RECENT_OPEN_DTABLES; i++)
+			if(!recent[i])
+				break;
+		if(i == RECENT_OPEN_DTABLES)
+			close(recent[RECENT_OPEN_DTABLES - 1]);
+		for(; i; i--)
+			recent[i] = recent[i - 1];
+		recent[0] = dtable;
+		iter->second.count++;
 	}
 }
 
@@ -943,10 +941,9 @@ void tpp_dtable_cache::close(tpp_dtable_iter * dt_iter)
 
 tpp_dtable_cache::~tpp_dtable_cache()
 {
-	if(recent[0])
-		close(recent[0]);
-	if(recent[1])
-		close(recent[1]);
+	for(int i = 0; i < RECENT_OPEN_DTABLES; i++)
+		if(recent[i])
+			close(recent[i]);
 	assert(index_map.empty());
 }
 

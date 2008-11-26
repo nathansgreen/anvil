@@ -372,6 +372,7 @@ struct tpp_dtable_cache
 	const tpp_params * config;
 	
 #define OPEN_DTABLE_ITERS 2
+#define RECENT_OPEN_DTABLES 4
 	struct open_dtable
 	{
 		tpp_dtable * dtable;
@@ -410,13 +411,13 @@ struct tpp_dtable_cache
 	idx_map index_map;
 	dt_map dtable_map;
 	it_map iter_map;
-	tpp_dtable * recent[2];
+	tpp_dtable * recent[RECENT_OPEN_DTABLES];
 	
 	inline tpp_dtable_cache(int dir_fd, const char * type, const tpp_params * config)
 		: dir_fd(dir_fd), type(type), config(config)
 	{
-		recent[0] = NULL;
-		recent[1] = NULL;
+		for(int i = 0; i < RECENT_OPEN_DTABLES; i++)
+			recent[i] = NULL;
 	}
 	~tpp_dtable_cache();
 	
