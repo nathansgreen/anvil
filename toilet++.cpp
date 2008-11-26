@@ -856,7 +856,7 @@ tpp_dtable * tpp_dtable_cache::open(int index)
 	dtable = tpp_dtable_open(type, dir_fd, number, config);
 	if(!dtable)
 		return NULL;
-	index_map[index] = (open_dtable) {dtable, 1};
+	index_map[index].init(dtable);
 	dtable_map[dtable] = index;
 	return dtable;
 }
@@ -873,9 +873,16 @@ void tpp_dtable_cache::close(tpp_dtable * dtable)
 		if(recent[0] == dtable || recent[1] == dtable)
 		{
 			/* it's being closed from the recent list */
-			tpp_dtable_kill(dtable);
 			dtable_map.erase(index);
+			for(int i = 0; i < OPEN_DTABLE_ITERS; i++)
+				if(iter->second.iters[i])
+				{
+					iter_map.erase(iter->second.iters[i]);
+					tpp_dtable_iter_kill(iter->second.iters[i]);
+					iter->second.iters[i] = NULL;
+				}
 			index_map.erase(iter);
+			tpp_dtable_kill(dtable);
 			if(recent[0] == dtable)
 				recent[0] = NULL;
 			else
@@ -894,6 +901,44 @@ void tpp_dtable_cache::close(tpp_dtable * dtable)
 			iter->second.count++;
 		}
 	}
+}
+
+tpp_dtable_iter * tpp_dtable_cache::iterator(int index)
+{
+	tpp_dtable_iter * dt_iter;
+	idx_map::iterator iter = index_map.find(index);
+	if(iter == index_map.end())
+		return NULL;
+	for(int i = 0; i < OPEN_DTABLE_ITERS; i++)
+		if(iter->second.iters[i])
+		{
+			dt_iter = iter->second.iters[i];
+			iter->second.iters[i] = NULL;
+			tpp_dtable_iter_union safer(dt_iter);
+			safer->first();
+			return dt_iter;
+		}
+	dt_iter = tpp_dtable_iterator(iter->second.dtable);
+	if(!dt_iter)
+		return NULL;
+	iter_map[dt_iter] = index;
+	return dt_iter;
+}
+
+void tpp_dtable_cache::close(tpp_dtable_iter * dt_iter)
+{
+	it_map::iterator index = iter_map.find(dt_iter);
+	assert(index != iter_map.end());
+	idx_map::iterator iter = index_map.find(index->second);
+	assert(iter != index_map.end());
+	for(int i = 0; i < OPEN_DTABLE_ITERS; i++)
+		if(!iter->second.iters[i])
+		{
+			iter->second.iters[i] = dt_iter;
+			return;
+		}
+	iter_map.erase(index);
+	tpp_dtable_iter_kill(dt_iter);
 }
 
 tpp_dtable_cache::~tpp_dtable_cache()
@@ -936,5 +981,15 @@ tpp_dtable * tpp_dtable_cache_open(tpp_dtable_cache * c, int index)
 
 void tpp_dtable_cache_close(tpp_dtable_cache * c, tpp_dtable * dtable)
 {
-	return c->close(dtable);
+	c->close(dtable);
+}
+
+tpp_dtable_iter * tpp_dtable_cache_iter(tpp_dtable_cache * c, int index)
+{
+	return c->iterator(index);
+}
+
+void tpp_dtable_cache_close_iter(tpp_dtable_cache * c, tpp_dtable_iter * iter)
+{
+	c->close(iter);
 }

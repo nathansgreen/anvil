@@ -258,8 +258,13 @@ void tpp_dtable_cache_kill(tpp_dtable_cache * c);
 
 int tpp_dtable_cache_create(tpp_dtable_cache * c, int index, const tpp_dtable * source, const tpp_dtable * shadow);
 int tpp_dtable_cache_create_empty(tpp_dtable_cache * c, int index, tpp_dtype_type key_type);
+
 tpp_dtable * tpp_dtable_cache_open(tpp_dtable_cache * c, int index);
 void tpp_dtable_cache_close(tpp_dtable_cache * c, tpp_dtable * dtable);
+
+/* the index must itself be open already */
+tpp_dtable_iter * tpp_dtable_cache_iter(tpp_dtable_cache * c, int index);
+void tpp_dtable_cache_close_iter(tpp_dtable_cache * c, tpp_dtable_iter * iter);
 
 #ifdef __cplusplus
 }
@@ -366,23 +371,45 @@ struct tpp_dtable_cache
 	const char * type;
 	const tpp_params * config;
 	
+#define OPEN_DTABLE_ITERS 2
 	struct open_dtable
 	{
 		tpp_dtable * dtable;
+		tpp_dtable_iter * iters[OPEN_DTABLE_ITERS];
 		int count;
-	};
-	struct dtable_hash
-	{
-		inline size_t operator()(tpp_dtable * dtable) const
+		
+		inline open_dtable()
+			: dtable(NULL), count(1)
 		{
-			return dtype_hash_helper<void *>()(dtable);
+			for(int i = 0; i < OPEN_DTABLE_ITERS; i++)
+				iters[i] = NULL;
+		}
+		inline void init(tpp_dtable * dtable)
+		{
+			assert(!this->dtable);
+			this->dtable = dtable;
+		}
+		inline ~open_dtable()
+		{
+			for(int i = 0; i < OPEN_DTABLE_ITERS; i++)
+				assert(!iters[i]);
+		}
+	};
+	struct pointer_hash
+	{
+		template<class T>
+		inline size_t operator()(T * pointer) const
+		{
+			return dtype_hash_helper<void *>()(pointer);
 		}
 	};
 	typedef __gnu_cxx::hash_map<int, open_dtable> idx_map;
-	typedef __gnu_cxx::hash_map<tpp_dtable *, int, dtable_hash> dt_map;
+	typedef __gnu_cxx::hash_map<tpp_dtable *, int, pointer_hash> dt_map;
+	typedef __gnu_cxx::hash_map<tpp_dtable_iter *, int, pointer_hash> it_map;
 	
 	idx_map index_map;
 	dt_map dtable_map;
+	it_map iter_map;
 	tpp_dtable * recent[2];
 	
 	inline tpp_dtable_cache(int dir_fd, const char * type, const tpp_params * config)
@@ -395,6 +422,9 @@ struct tpp_dtable_cache
 	
 	tpp_dtable * open(int index);
 	void close(tpp_dtable * dtable);
+	
+	tpp_dtable_iter * iterator(int index);
+	void close(tpp_dtable_iter * dt_iter);
 };
 
 #endif
