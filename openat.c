@@ -163,7 +163,7 @@ int futimesat(int dfd, const char * filename, const struct timeval * times)
 
 int fstatat64(int dfd, const char * path, struct stat64 * statbuf, int flag)
 {
-	return syscall(SYS_fstat64, dfd, path, statbuf, flag);
+	return syscall(SYS_fstatat64, dfd, path, statbuf, flag);
 }
 
 int unlinkat(int dfd, const char * pathname, int flag)
