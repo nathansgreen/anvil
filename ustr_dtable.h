@@ -40,6 +40,8 @@ class ustr_dtable : public dtable
 public:
 	virtual iter * iterator() const;
 	virtual blob lookup(const dtype & key, bool * found) const;
+	virtual blob index(size_t index) const;
+	inline virtual size_t size() const { return key_count; }
 	
 	inline ustr_dtable() : fp(NULL) {}
 	int init(int dfd, const char * file, const params & config);
@@ -49,6 +51,8 @@ public:
 		if(fp)
 			deinit();
 	}
+	
+	static inline bool static_indexed_access() { return true; }
 	
 	static int create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow = NULL);
 	DECLARE_RO_FACTORY(ustr_dtable);
@@ -79,6 +83,7 @@ private:
 		virtual dtype key() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
+		virtual bool seek(size_t index);
 		virtual metablob meta() const;
 		virtual blob value() const;
 		virtual const dtable * source() const;

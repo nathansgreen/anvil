@@ -120,6 +120,9 @@ public:
 				::memset(dst, value, size);
 		}
 	}
+	
+	/* rm -r */
+	static int rm_r(int dfd, const char * path);
 };
 
 #endif /* __UTIL_H */

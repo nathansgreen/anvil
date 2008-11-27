@@ -309,7 +309,8 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 		{
 			delete copy[i].disk;
 			sprintf(name, "md_data.%u", copy[i].ddt_number);
-			tx_unlink(md_dfd, name);
+			/* recursive unlink */
+			tx_unlink(md_dfd, name, 1);
 		}
 	/* force array scope to end */
 	{

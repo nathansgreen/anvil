@@ -105,6 +105,14 @@ bool ustr_dtable::iter::seek(const dtype_test & test)
 	return udt_source->find_key(test, &index) >= 0;
 }
 
+bool ustr_dtable::iter::seek(size_t index)
+{
+	if(index < 0 || index >= udt_source->key_count)
+		return false;
+	this->index = index;
+	return true;
+}
+
 metablob ustr_dtable::iter::meta() const
 {
 	size_t data_length;
@@ -283,6 +291,13 @@ blob ustr_dtable::lookup(const dtype & key, bool * found) const
 		return blob();
 	/* the data length stored in the key record is the unpacked size */
 	return get_value(index, data_length, data_offset);
+}
+
+blob ustr_dtable::index(size_t index) const
+{
+	if(index < 0 || index >= key_count)
+		return blob();
+	return get_value(index);
 }
 
 int ustr_dtable::init(int dfd, const char * file, const params & config)

@@ -38,6 +38,9 @@ public:
 		return -ENOSYS;
 	}
 	
+	/* returns true if the class this factory will construct supports indexed access */
+	virtual bool indexed_access() const = 0;
+	
 	virtual ~dtable_factory_base() {}
 	
 	/* wrapper for open() that does lookup() */
@@ -68,6 +71,11 @@ public:
 			/* do we care about failure here? */
 			disk->maintain();
 		return disk;
+	}
+	
+	inline virtual bool indexed_access() const
+	{
+		return T::static_indexed_access();
 	}
 };
 

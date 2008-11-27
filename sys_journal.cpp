@@ -156,7 +156,7 @@ int sys_journal::filter()
 			/* delete the old sys_journal data */
 			snprintf(seq, sizeof(seq), ".%u", sequence);
 			data_name = meta_name + seq;
-			tx_unlink(meta_dfd, data_name);
+			tx_unlink(meta_dfd, data_name, 0);
 			sequence = info.seq;
 		}
 		else
@@ -283,7 +283,7 @@ int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing
 			unlinkat(dfd, data_name, 0);
 		fail_create:
 			tx_close(meta_fd);
-			tx_unlink(dfd, file);
+			tx_unlink(dfd, file, 0);
 			meta_fd = -1;
 			return r;
 		}

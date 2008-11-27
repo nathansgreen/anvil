@@ -6,5 +6,6 @@ libtoilet.a
 io_count.so
 fstitch
 main
+scratch
 tags
 *.o

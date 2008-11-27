@@ -95,6 +95,14 @@ bool simple_dtable::iter::seek(const dtype_test & test)
 	return sdt_source->find_key(test, &index) >= 0;
 }
 
+bool simple_dtable::iter::seek(size_t index)
+{
+	if(index < 0 || index >= sdt_source->key_count)
+		return false;
+	this->index = index;
+	return true;
+}
+
 metablob simple_dtable::iter::meta() const
 {
 	size_t data_length;
@@ -237,6 +245,13 @@ blob simple_dtable::lookup(const dtype & key, bool * found) const
 	if(data_length == (size_t) -1)
 		return blob();
 	return get_value(index, data_length, data_offset);
+}
+
+blob simple_dtable::index(size_t index) const
+{
+	if(index < 0 || index >= key_count)
+		return blob();
+	return get_value(index);
 }
 
 int simple_dtable::init(int dfd, const char * file, const params & config)

@@ -22,6 +22,7 @@
 #include "transaction.h"
 
 #include "istr.h"
+#include "util.h"
 #include "params.h"
 
 /* The routines in this file implement a file system transaction interface on
@@ -54,7 +55,7 @@ struct tx_write_hdr {
 };
 
 struct tx_hdr {
-	enum { WRITE, UNLINK } type;
+	enum { WRITE, UNLINK, RM_R } type;
 	union {
 		struct tx_write_hdr write[0];
 		struct tx_name_hdr unlink[0];
@@ -469,7 +470,7 @@ static int tx_write_playback(struct tx_write_hdr * header, size_t length)
 	return 0;
 }
 
-static int tx_unlink_playback(struct tx_name_hdr * header, size_t length)
+static int tx_unlink_playback(struct tx_name_hdr * header, size_t length, bool recursive)
 {
 	int r, dfd;
 	istr dir(header->strings, header->dir_len);
@@ -477,7 +478,10 @@ static int tx_unlink_playback(struct tx_name_hdr * header, size_t length)
 	dfd = open(dir, 0);
 	if(dfd < 0)
 		return dfd;
-	r = unlinkat(dfd, name, 0);
+	if(recursive)
+		r = util::rm_r(dfd, name);
+	else
+		r = unlinkat(dfd, name, 0);
 	if(r < 0 && errno == ENOENT)
 		r = 0;
 	close(dfd);
@@ -492,7 +496,8 @@ static int tx_record_processor(void * data, size_t length, void * param)
 		case tx_hdr::WRITE:
 			return tx_write_playback(header->write, length);
 		case tx_hdr::UNLINK:
-			return tx_unlink_playback(header->unlink, length);
+		case tx_hdr::RM_R:
+			return tx_unlink_playback(header->unlink, length, header->type == tx_hdr::RM_R);
 	}
 	return -ENOSYS;
 }
@@ -787,7 +792,7 @@ int tx_close(tx_fd fd)
  * played back), the unlink that occurs during playback will unlink the file
  * which is still open as the new file. Further writes to the file will occur on
  * the unlinked file, which will be lost once it is closed. */
-int tx_unlink(int dfd, const char * name)
+int tx_unlink(int dfd, const char * name, int recursive)
 {
 	struct tx_unlink header;
 	struct journal::ovec ov[3];
@@ -795,7 +800,18 @@ int tx_unlink(int dfd, const char * name)
 	int r;
 	if(!current_journal)
 		return -EBUSY;
-	header.type.type = tx_hdr::UNLINK;
+	if(!recursive)
+	{
+		struct stat64 st;
+		r = fstatat64(dfd, name, &st, AT_SYMLINK_NOFOLLOW);
+		if(r < 0)
+			return r;
+		if(S_ISDIR(st.st_mode))
+			return -EISDIR;
+		header.type.type = tx_hdr::UNLINK;
+	}
+	else
+		header.type.type = tx_hdr::RM_R;
 	ov[0].ov_base = &header;
 	ov[0].ov_len = sizeof(header);
 	dir = getcwdat(dfd, NULL, 0);

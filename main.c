@@ -581,7 +581,7 @@ static int command_tx(int argc, const char * argv[])
 	
 	r = tx_start();
 	printf("tx_start() = %d\n", r);
-	r = tx_unlink(AT_FDCWD, "testfile");
+	r = tx_unlink(AT_FDCWD, "testfile", 0);
 	printf("tx_unlink(testfile) = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end() = %d\n", r);

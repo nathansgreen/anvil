@@ -49,7 +49,7 @@ int tx_nprintf(tx_fd fd, off_t offset, size_t max, const char * format, ...);
 int tx_close(tx_fd fd);
 
 /* see the detailed comments about this function in transaction.cpp before you use it */
-int tx_unlink(int dfd, const char * name);
+int tx_unlink(int dfd, const char * name, int recursive);
 
 /* simple recursive transaction functions: the "real" transaction is the outermost one */
 

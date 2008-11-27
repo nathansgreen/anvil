@@ -28,7 +28,6 @@ public:
 		 * dereference the local variable in order to use the overloaded
 		 * operators. In particular we'd need ++*it instead of just ++it, yet
 		 * both would compile without error. So, we use next() etc. here. */
-		
 	public:
 		/* Iterators may point at any valid entry, or a single "invalid" entry
 		 * which is immediately after the last valid entry. In the case of an
@@ -60,6 +59,9 @@ public:
 		 * called to check whether the iterator points at a valid entry. */
 		virtual bool seek(const dtype & key) = 0;
 		virtual bool seek(const dtype_test & test) = 0;
+		/* Seeks this iterator to the requested index. May not be supported by
+		 * all dtables. See dtable_factory::indexed_access() for details. */
+		virtual bool seek(size_t index) { return false; }
 		
 		virtual ~key_iter() {}
 	};
@@ -75,6 +77,9 @@ public:
 	virtual iter * iterator() const = 0;
 	virtual blob lookup(const dtype & key, bool * found) const = 0;
 	inline blob find(const dtype & key) const { bool found; return lookup(key, &found); }
+	/* index() and size() only work when iter::seek(size_t) works, see above */
+	inline virtual blob index(size_t index) const { return blob(); }
+	inline virtual size_t size() const { return (size_t) -1; }
 	inline virtual bool writable() const { return false; }
 	inline virtual int insert(const dtype & key, const blob & blob, bool append = false) { return -ENOSYS; }
 	inline virtual int remove(const dtype & key) { return -ENOSYS; }
@@ -99,6 +104,9 @@ public:
 	
 	/* maintenance callback; does nothing by default */
 	inline virtual int maintain() { return 0; }
+	
+	/* subclasses can specify that they support indexed access */
+	static inline bool static_indexed_access() { return false; }
 	
 protected:
 	dtype::ctype ktype;
