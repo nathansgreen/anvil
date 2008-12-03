@@ -47,6 +47,11 @@ public:
 		return (r == sizeof(T)) ? 0 : (r < 0) ? (int) r : -1;
 	}
 	
+	/* returns a pointer to the requested page of the file, where a "page" is
+	 * taken to be the same size as the buffers used by this rofile instance */
+	/* the pointer will be invalidated by any further calls to this rofile */
+	virtual const void * page(off_t index) = 0;
+	
 	/* buffer_size is in KiB */
 	template<ssize_t buffer_size, int buffer_count>
 	static rofile * open(int dfd, const char * file);
@@ -207,6 +212,19 @@ public:
 		bool done = buffers[last_buffer].use(&offset, &data, &left, ++lru_count);
 		assert(done);
 		return size - left;
+	}
+	
+	virtual const void * page(off_t index)
+	{
+		off_t offset = index * buffer_size;
+		if(!buffers[last_buffer].contains(offset))
+		{
+			if(!find_not_last(offset))
+				/* cache it */
+				if(!load_buffer(offset))
+					return NULL;
+		}
+		return buffers[last_buffer].data;
 	}
 	
 private:

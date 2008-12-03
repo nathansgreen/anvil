@@ -298,6 +298,20 @@ private:
 
 typedef magic_test<dtype> dtype_test;
 
+class dtype_fixed_test : public dtype_test
+{
+public:
+	inline dtype_fixed_test(const dtype & key) : secret(key) { }
+	
+	inline virtual int operator()(const dtype & key) const
+	{
+		return key.compare(secret);
+	}
+	
+private:
+	const dtype secret;
+};
+
 #endif /* __cplusplus */
 
 #endif /* __DTYPE_H */

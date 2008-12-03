@@ -107,10 +107,12 @@ bool ustr_dtable::iter::seek(const dtype_test & test)
 
 bool ustr_dtable::iter::seek_index(size_t index)
 {
-	if(index < 0 || index >= udt_source->key_count)
+	/* we allow seeking to one past the end, just
+	 * as we allow getting there with next() */
+	if(index < 0 || index > udt_source->key_count)
 		return false;
 	this->index = index;
-	return true;
+	return index < udt_source->key_count;
 }
 
 metablob ustr_dtable::iter::meta() const

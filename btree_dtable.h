@@ -14,6 +14,7 @@
 #endif
 
 #include "blob.h"
+#include "rofile.h"
 #include "dtable.h"
 #include "dtable_factory.h"
 
@@ -23,7 +24,8 @@
 #define BTREE_DTABLE_MAGIC 0xB2815C66
 #define BTREE_DTABLE_VERSION 0
 
-#define BTREE_PAGE_SIZE 4096
+#define BTREE_PAGE_KB 4
+#define BTREE_PAGE_SIZE (BTREE_PAGE_KB * 1024)
 
 class btree_dtable : public dtable
 {
@@ -92,7 +94,7 @@ private:
 			inline bool append_pointer(size_t pointer);
 			inline bool append_record(uint32_t key, size_t index);
 			inline bool write(int fd, size_t page);
-			inline bool empty() { return !filled; }
+			inline bool empty() const { return !filled; }
 			inline void pad();
 		private:
 			size_t filled;
@@ -133,8 +135,12 @@ private:
 	};
 	
 	dtable * base;
+	rofile * btree;
+	btree_dtable_header header;
 	
-	static size_t btree_depth(size_t key_count);
+	size_t btree_lookup(const dtype & key, bool * found) const;
+	size_t btree_lookup(const dtype_test & test, bool * found) const;
+	
 	static int write_btree(int dfd, const char * name, const dtable * base);
 };
 

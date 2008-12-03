@@ -79,14 +79,16 @@ dtype btree_dtable::iter::key() const
 
 bool btree_dtable::iter::seek(const dtype & key)
 {
-	/* XXX use the btree here */
-	return base_iter->seek(key);
+	bool found;
+	base_iter->seek_index(bdt_source->btree_lookup(key, &found));
+	return found;
 }
 
 bool btree_dtable::iter::seek(const dtype_test & test)
 {
-	/* XXX use the btree here */
-	return base_iter->seek(test);
+	bool found;
+	base_iter->seek_index(bdt_source->btree_lookup(test, &found));
+	return found;
 }
 
 bool btree_dtable::iter::seek_index(size_t index)
@@ -126,8 +128,10 @@ dtable::iter * btree_dtable::iterator() const
 
 blob btree_dtable::lookup(const dtype & key, bool * found) const
 {
-	/* XXX use the btree here */
-	return base->lookup(key, found);
+	size_t index = btree_lookup(key, found);
+	if(!*found)
+		return blob();
+	return base->index(index);
 }
 
 blob btree_dtable::index(size_t index) const
@@ -144,7 +148,7 @@ int btree_dtable::init(int dfd, const char * file, const params & config)
 {
 	const dtable_factory * factory;
 	params base_config;
-	int bt_dfd;
+	int r, bt_dfd;
 	if(base)
 		deinit();
 	factory = dtable_factory::lookup(config, "base");
@@ -159,26 +163,146 @@ int btree_dtable::init(int dfd, const char * file, const params & config)
 		return bt_dfd;
 	base = factory->open(bt_dfd, "base", base_config);
 	if(!base)
-	{
-		close(bt_dfd);
-		return -1;
-	}
+		goto fail_base;
 	ktype = base->key_type();
 	assert(ktype == dtype::UINT32);
 	cmp_name = base->get_cmp_name();
-	/* XXX open the btree here */
+	
+	/* open the btree */
+	btree = rofile::open<BTREE_PAGE_KB, 8>(bt_dfd, "btree");
+	if(!btree)
+		goto fail_open;
+	r = btree->read(0, &header);
+	if(r < 0)
+		goto fail_format;
+	/* check the header */
+	if(header.magic != BTREE_DTABLE_MAGIC || header.version != BTREE_DTABLE_VERSION)
+		goto fail_format;
+	if(header.page_size != BTREE_PAGE_SIZE || header.pageno_size != BTREE_PAGENO_SIZE)
+		goto fail_format;
+	if(header.key_size != BTREE_KEY_SIZE || header.index_size != BTREE_INDEX_SIZE)
+		goto fail_format;
+	/* 1 -> uint32, and even with an empty table there will be a root page */
+	if(header.key_type != 1 || !header.root_page)
+		goto fail_format;
+	
 	close(bt_dfd);
 	return 0;
+	
+fail_format:
+	delete btree;
+fail_open:
+	delete base;
+	base = NULL;
+fail_base:
+	close(bt_dfd);
+	return -1;
 }
 
 void btree_dtable::deinit()
 {
 	if(base)
 	{
+		delete btree;
 		delete base;
 		base = NULL;
 		dtable::deinit();
 	}
+}
+
+size_t btree_dtable::btree_lookup(const dtype & key, bool * found) const
+{
+	/* TODO: avoid the virtual function call overhead of dtype_test */
+	return btree_lookup(dtype_fixed_test(key), found);
+}
+
+size_t btree_dtable::btree_lookup(const dtype_test & test, bool * found) const
+{
+	/* TODO: to do a binary search within the pages here, we need to know
+	 * how many keys are actually on the page - normally they will be full,
+	 * but some of the later pages may be only partially filled... */
+	/* (note that to have the same number of actual key comparisons as a
+	 * regular binary search would, we must do a binary search here) */
+	struct record
+	{
+		uint32_t key;
+		uint32_t index;
+	} __attribute__((packed));
+	struct entry
+	{
+		uint32_t lt_ptr;
+		record rec;
+		/* keeps gt_ptr out of sizeof() */
+		uint32_t gt_ptr[0];
+	} __attribute__((packed));
+	union
+	{
+		const void * page;
+		const record * leaf;
+		const entry * internal;
+	} page;
+	int c;
+	dtype key(0u);
+	size_t depth = 1, index = header.key_count;
+	page.page = btree->page(header.root_page);
+	*found = false;
+	
+	while(depth < header.depth)
+	{
+		size_t pointer = 0;
+		/* scan the internal page */
+		for(size_t i = 0; i < BTREE_KEYS_PER_PAGE; i++)
+		{
+			if(!page.internal[i].lt_ptr)
+				return index;
+			if(!page.internal[i].rec.index)
+			{
+				/* there are no further keys on this internal page,
+				 * so we should follow the last pointer down */
+				pointer = page.internal[i].lt_ptr;
+				break;
+			}
+			key.u32 = page.internal[i].rec.key;
+			c = test(key);
+			if(c > 0)
+			{
+				pointer = page.internal[i].lt_ptr;
+				/* we found something larger, so if we don't find
+				 * anything closer this will be the correct result */
+				index = page.internal[i].rec.index - 1;
+				break;
+			}
+			if(!c)
+			{
+				*found = true;
+				return page.internal[i].rec.index - 1;
+			}
+		}
+		if(!pointer)
+		{
+			pointer = page.internal[BTREE_KEYS_PER_PAGE - 1].gt_ptr[0];
+			if(!pointer)
+				return index;
+		}
+		page.page = btree->page(pointer);
+		depth++;
+	}
+	
+	/* scan the leaf page */
+	for(size_t i = 0; i < BTREE_KEYS_PER_LEAF_PAGE; i++)
+	{
+		if(!page.leaf[i].index)
+			return index;
+		key.u32 = page.leaf[i].key;
+		c = test(key);
+		if(c >= 0)
+		{
+			*found = !c;
+			return page.leaf[i].index - 1;
+		}
+	}
+	
+	return index;
 }
 
 /* returns true if the page fills */
@@ -195,7 +319,8 @@ bool btree_dtable::page_stack::page::append_record(uint32_t key, size_t index)
 {
 	assert(filled + 2 * sizeof(uint32_t) <= BTREE_PAGE_SIZE);
 	*(uint32_t *) &data[filled] = key;
-	*(uint32_t *) &data[filled += sizeof(uint32_t)] = index;
+	/* all indices are stored incremented by 1 so 0 can mean "no record" */
+	*(uint32_t *) &data[filled += sizeof(uint32_t)] = index + 1;
 	filled += sizeof(uint32_t);
 	return filled == BTREE_PAGE_SIZE;
 }
@@ -308,14 +433,14 @@ int btree_dtable::page_stack::flush()
 
 size_t btree_dtable::page_stack::btree_depth(size_t key_count)
 {
-	size_t internal = 1, leaf = 0, depth = 1;
+	size_t depth = 1;
+	uint64_t internal = 0, leaf = 1;
 	/* there's probably some neat closed form way to do this, but this loop
 	 * should only run log(key_count) times, base BTREE_KEYS_PER_PAGE */
-	/* XXX this will quickly overflow; use larger data types? */
 	while(internal * BTREE_KEYS_PER_PAGE + leaf * BTREE_KEYS_PER_LEAF_PAGE < key_count)
 	{
 		internal += leaf;
-		leaf= internal * BTREE_KEYS_PER_PAGE;
+		leaf *= BTREE_KEYS_PER_PAGE;
 		depth++;
 	}
 	/* we expect this to be true if the integers did not overflow */
