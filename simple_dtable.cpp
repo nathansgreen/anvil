@@ -95,7 +95,7 @@ bool simple_dtable::iter::seek(const dtype_test & test)
 	return sdt_source->find_key(test, &index) >= 0;
 }
 
-bool simple_dtable::iter::seek(size_t index)
+bool simple_dtable::iter::seek_index(size_t index)
 {
 	if(index < 0 || index >= sdt_source->key_count)
 		return false;

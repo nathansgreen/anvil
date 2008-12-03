@@ -89,9 +89,9 @@ bool btree_dtable::iter::seek(const dtype_test & test)
 	return base_iter->seek(test);
 }
 
-bool btree_dtable::iter::seek(size_t index)
+bool btree_dtable::iter::seek_index(size_t index)
 {
-	return base_iter->seek(index);
+	return base_iter->seek_index(index);
 }
 
 metablob btree_dtable::iter::meta() const

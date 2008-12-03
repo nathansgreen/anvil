@@ -61,7 +61,7 @@ public:
 		virtual bool seek(const dtype_test & test) = 0;
 		/* Seeks this iterator to the requested index. May not be supported by
 		 * all dtables. See dtable_factory::indexed_access() for details. */
-		virtual bool seek(size_t index) { return false; }
+		virtual bool seek_index(size_t index) { return false; }
 		
 		virtual ~key_iter() {}
 	};
@@ -77,7 +77,7 @@ public:
 	virtual iter * iterator() const = 0;
 	virtual blob lookup(const dtype & key, bool * found) const = 0;
 	inline blob find(const dtype & key) const { bool found; return lookup(key, &found); }
-	/* index() and size() only work when iter::seek(size_t) works, see above */
+	/* index() and size() only work when iter::seek_index() works, see above */
 	inline virtual blob index(size_t index) const { return blob(); }
 	inline virtual size_t size() const { return (size_t) -1; }
 	inline virtual bool writable() const { return false; }

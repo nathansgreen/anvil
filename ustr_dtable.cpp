@@ -105,7 +105,7 @@ bool ustr_dtable::iter::seek(const dtype_test & test)
 	return udt_source->find_key(test, &index) >= 0;
 }
 
-bool ustr_dtable::iter::seek(size_t index)
+bool ustr_dtable::iter::seek_index(size_t index)
 {
 	if(index < 0 || index >= udt_source->key_count)
 		return false;
