@@ -144,10 +144,10 @@ then
 	(cat <<-EOF
 		# Generated on `date` by:
 		# $CMDLINE
-		CFLAGS=\"$CFLAGS\"
-		LDFLAGS=\"$LDFLAGS\"
+		CFLAGS="$CFLAGS"
+		LDFLAGS="$LDFLAGS"
 		FSTITCH=$FSTITCH
-		FSTITCH_PATH=\"$FSTITCH_PATH\"
+		FSTITCH_PATH="$FSTITCH_PATH"
 	EOF
 	) > config.log
 	echo "done."
