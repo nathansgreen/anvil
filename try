@@ -1,7 +1,6 @@
 #!/bin/bash
 
-# If -pg is used here, probably toilet shuld not be run with valgrind
-CFLAGS="-ggdb $CFLAGS" make || exit $?
+make || exit $?
 
 # Uncomment to use valgrind
 #export VALGRIND="valgrind --trace-children=yes --leak-check=full"
