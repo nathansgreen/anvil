@@ -32,10 +32,12 @@ ifeq ($(findstring 64,$(shell uname -m)),64)
 CFLAGS:=-fpic $(CFLAGS)
 endif
 
-CFLAGS:=-Wall -Ifstitch/include $(CFLAGS)
-LDFLAGS:=-Lfstitch/obj/kernel/lib -lpatchgroup -Wl,-R,$(PWD)/fstitch/obj/kernel/lib $(LDFLAGS)
+-include config.mak
 
-all: tags main io_count.so
+CFLAGS:=-Wall $(FSTITCH_CFLAGS) $(CONFIG_CFLAGS) $(CFLAGS)
+LDFLAGS:=$(FSTITCH_LDFLAGS) $(CONFIG_LDFLAGS) $(LDFLAGS)
+
+all: config.mak tags main io_count.so
 
 %.o: %.c
 	gcc -c $< -O2 $(CFLAGS)
@@ -43,7 +45,7 @@ all: tags main io_count.so
 %.o: %.cpp
 	g++ -c $< -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
 
-libtoilet.so: libtoilet.o fstitch/obj/kernel/lib/libpatchgroup.so
+libtoilet.so: libtoilet.o $(FSTITCH_LIB)
 	g++ -shared -o $@ $< -ldl $(LDFLAGS)
 
 libtoilet.o: $(OBJECTS)
@@ -68,7 +70,7 @@ io_count.so: io_count.o
 	gcc -shared -o $@ $< -ldl $(LDFLAGS)
 
 clean:
-	rm -f main libtoilet.so libtoilet.a io_count.so *.o .depend tags
+	rm -f config.h config.mak main libtoilet.so libtoilet.a io_count.so *.o .depend tags
 
 clean-all: clean
 	php/clean
@@ -82,7 +84,12 @@ count-all:
 php:
 	if [ -f php/Makefile ]; then make -C php; else php/compile; fi
 
-.depend: $(SOURCES) $(HEADERS) main.c
+config.h: config.mak
+
+config.mak: configure
+	./configure --reconfigure
+
+.depend: $(SOURCES) $(HEADERS) config.h main.c main++.cpp
 	g++ -MM $(CFLAGS) $(CPPFLAGS) *.c *.cpp > .depend
 
 tags: $(SOURCES) main.c $(HEADERS)

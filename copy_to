@@ -29,7 +29,8 @@ fi
 rsync --rsh=ssh -vaSz --exclude=*.o \
 	--exclude=/main --exclude=/core \
 	--exclude=/tags --exclude=/php/ \
-	--exclude=/fstitch --exclude=/.depend \
+	--exclude=/config.* --exclude=/.depend \
+	--exclude=/fstitch --exclude=/.copy_to \
 	--exclude=/.toilet_history --exclude=/scratch \
 	--exclude=/libtoilet.so --exclude=/io_count.so \
 	--exclude=.*.swp --exclude=.*.swo --exclude=.*.swn \

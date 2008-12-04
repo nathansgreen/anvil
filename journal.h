@@ -12,11 +12,15 @@
 #error journal.h is a C++ header file
 #endif
 
+#include "config.h"
+
+#if HAVE_FSTITCH
 extern "C" {
 /* Featherstitch does not know about C++ so we include
  * its header file inside an extern "C" block. */
 #include <patchgroup.h>
 }
+#endif
 
 #include "istr.h"
 #include "rwfile.h"

@@ -1,6 +1,9 @@
 .fdb_history
 .copy_to
 .depend
+config.h
+config.log
+config.mak
 libtoilet.so
 libtoilet.a
 io_count.so

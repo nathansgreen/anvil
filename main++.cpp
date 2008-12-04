@@ -887,7 +887,10 @@ int command_performance(int argc, const char * argv[])
 			"base" class(dt) managed_dtable
 			"base_config" config [
 				"base" class ustr_dtable
-				"fastbase" class simple_dtable
+				"fastbase" class btree_dtable
+				"fastbase_config" config [
+					"base" class simple_dtable
+				]
 				"digest_interval" int 2
 				"combine_interval" int 8
 				"combine_count" int 5

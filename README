@@ -1,3 +1,0 @@
-* Help! I got this error: patchgroup.h: No such file or directory
-  - You need to make a symbolic link "fstitch" that points at a checked out copy
-    of Featherstitch. Then everything should compile nicely.

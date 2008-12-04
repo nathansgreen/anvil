@@ -1,0 +1,154 @@
+#!/bin/bash
+
+# This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+# of the University of California. It is distributed under the terms of
+# version 2 of the GNU GPL. See the file LICENSE for details.
+
+CMDLINE="$0 $@"
+
+function help()
+{
+	cat <<-EOF
+		Usage: $0 [options]
+		
+		Options include:
+		    --help                 Display this help
+		    --with-fstitch[=path]  Use Featherstitch from path
+		    --without-fstitch      Don't use Featherstitch
+		    --reconfigure          Use previously given options
+		
+		Some influential environment variables:
+		    CFLAGS, LDFLAGS
+	EOF
+	exit
+}
+
+RECONFIG=no
+
+# Default to using Featherstitch for now
+FSTITCH=yes
+FSTITCH_PATH=
+
+while [ $# -gt 0 ]
+do
+	OPT="$1"
+	shift
+	case "$OPT" in
+		--help)
+			help
+		;;
+		--with-fstitch)
+			FSTITCH=yes
+		;;
+		--with-fstitch=*)
+			FSTITCH=yes
+			FSTITCH_PATH=${OPT#--with-fstitch=}
+		;;
+		--without-fstitch)
+			FSTITCH=no
+		;;
+		--reconfigure)
+			RECONFIG=yes
+		;;
+		*)
+			echo "$0: unknown option \"$OPT\""
+			exit 1
+		;;
+	esac
+done
+
+if [ $RECONFIG == yes ]
+then
+	if [ -f config.log ]
+	then
+		source config.log
+	else
+		RECONFIG=no
+	fi
+fi
+
+if [ $FSTITCH == yes ]
+then
+	if [ "$FSTITCH_PATH" ]
+	then
+		SEARCH="$FSTITCH_PATH"
+		FSTITCH_PATH=
+	else
+		# Search for Featherstitch
+		SEARCH="/usr/local/fstitch:/home/$LOGNAME/fstitch:/home/$LOGNAME/git/fstitch"
+	fi
+	
+	IFS=:
+	for CHECK in $SEARCH
+	do
+		echo -n "Checking for Featherstitch in $CHECK... "
+		if [ -f "$CHECK/include/patchgroup.h" ]
+		then
+			echo "found."
+			FSTITCH_PATH="$CHECK"
+			break
+		fi
+		echo "not found."
+		unset CHECK
+	done
+	unset IFS
+	
+	if [ ! "$FSTITCH_PATH" ]
+	then
+		echo "Featherstitch not found!"
+		exit 1
+	fi
+fi
+
+rm -f fstitch
+if [ $FSTITCH == yes ]
+then
+	HAVE_FSTITCH=1
+	FSTITCH_CFLAGS='-Ifstitch/include'
+	FSTITCH_LDFLAGS='-Lfstitch/obj/kernel/lib -lpatchgroup -Wl,-R,$(PWD)/fstitch/obj/kernel/lib'
+	FSTITCH_LIB='fstitch/obj/kernel/lib/libpatchgroup.so'
+	echo -n "Creating symbolic link \"fstitch\"... "
+	ln -s "$FSTITCH_PATH" fstitch
+	echo "done."
+else
+	HAVE_FSTITCH=0
+	FSTITCH_CFLAGS=
+	FSTITCH_LDFLAGS=
+	FSTITCH_LIB=
+fi
+
+echo -n "Creating config.h... "
+(cat <<-EOF
+	#ifndef __CONFIG_H
+	#define __CONFIG_H
+	#define HAVE_FSTITCH $HAVE_FSTITCH
+	#endif
+EOF
+) > config.h
+echo "done."
+
+echo -n "Creating config.mak... "
+(cat <<-EOF
+	CONFIG_CFLAGS=$CFLAGS
+	CONFIG_LDFLAGS=$LDFLAGS
+	FSTITCH_CFLAGS=$FSTITCH_CFLAGS
+	FSTITCH_LDFLAGS=$FSTITCH_LDFLAGS
+	FSTITCH_LIB=$FSTITCH_LIB
+EOF
+) > config.mak
+echo "done."
+
+if [ $RECONFIG == no ]
+then
+	echo -n "Creating config.log... "
+	(cat <<-EOF
+		# Generated on `date` by:
+		# $CMDLINE
+		CFLAGS=\"$CFLAGS\"
+		LDFLAGS=\"$LDFLAGS\"
+		FSTITCH=$FSTITCH
+		FSTITCH_PATH=\"$FSTITCH_PATH\"
+	EOF
+	) > config.log
+	echo "done."
+fi
