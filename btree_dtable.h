@@ -22,7 +22,7 @@
  * btree key index for it. The base dtable must support indexed access. */
 
 #define BTREE_DTABLE_MAGIC 0xB2815C66
-#define BTREE_DTABLE_VERSION 0
+#define BTREE_DTABLE_VERSION 1
 
 #define BTREE_PAGE_KB 4
 #define BTREE_PAGE_SIZE (BTREE_PAGE_KB * 1024)
@@ -73,7 +73,29 @@ private:
 		uint32_t key_count;
 		uint32_t depth;
 		uint32_t root_page;
+		uint32_t last_full;
 	} __attribute__((packed));
+	struct record
+	{
+		uint32_t key;
+		uint32_t index;
+		inline uint32_t get_key() const { return key; }
+	} __attribute__((packed));
+	struct entry
+	{
+		uint32_t lt_ptr;
+		record rec;
+		inline uint32_t get_key() const { return rec.get_key(); }
+	} __attribute__((packed));
+	union page_union
+	{
+		const void * page;
+		const uint8_t * bytes;
+		const record * leaf;
+		const entry * internal;
+		/* gets the value of filled stored by page::pad() */
+		inline uint32_t filled() const;
+	};
 	
 	class page_stack
 	{
@@ -137,6 +159,9 @@ private:
 	dtable * base;
 	rofile * btree;
 	btree_dtable_header header;
+	
+	template<class T>
+	static size_t find_key(const dtype_test & test, const T * entries, size_t count, bool * found);
 	
 	size_t btree_lookup(const dtype & key, bool * found) const;
 	size_t btree_lookup(const dtype_test & test, bool * found) const;
