@@ -160,11 +160,15 @@ private:
 	rofile * btree;
 	btree_dtable_header header;
 	
-	template<class T>
-	static size_t find_key(const dtype_test & test, const T * entries, size_t count, bool * found);
+	template<class T, class U>
+	static size_t find_key(const T & test, const U * entries, size_t count, bool * found);
 	
-	size_t btree_lookup(const dtype & key, bool * found) const;
-	size_t btree_lookup(const dtype_test & test, bool * found) const;
+	inline size_t btree_lookup(const dtype & key, bool * found) const
+	{
+		return btree_lookup(dtype_static_test(key, blob_cmp), found);
+	}
+	template<class T>
+	size_t btree_lookup(const T & test, bool * found) const;
 	
 	static int write_btree(int dfd, const char * name, const dtable * base);
 };

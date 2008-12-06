@@ -217,14 +217,8 @@ void btree_dtable::deinit()
 	}
 }
 
-size_t btree_dtable::btree_lookup(const dtype & key, bool * found) const
-{
-	/* TODO: avoid the virtual function call overhead of dtype_test */
-	return btree_lookup(dtype_fixed_test(key), found);
-}
-
-template <class T>
-size_t btree_dtable::find_key(const dtype_test & test, const T * entries, size_t count, bool * found)
+template<class T, class U>
+size_t btree_dtable::find_key(const T & test, const U * entries, size_t count, bool * found)
 {
 	/* binary search */
 	ssize_t min = 0, max = count - 1;
@@ -249,7 +243,8 @@ size_t btree_dtable::find_key(const dtype_test & test, const T * entries, size_t
 	return min;
 }
 
-size_t btree_dtable::btree_lookup(const dtype_test & test, bool * found) const
+template<class T>
+size_t btree_dtable::btree_lookup(const T & test, bool * found) const
 {
 	page_union page;
 	size_t depth = 1;

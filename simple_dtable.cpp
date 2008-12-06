@@ -161,7 +161,8 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 	abort();
 }
 
-int simple_dtable::find_key(const dtype & key, size_t * data_length, off_t * data_offset, size_t * index) const
+template<class T>
+int simple_dtable::find_key(const T & test, size_t * index, size_t * data_length, off_t * data_offset) const
 {
 	/* binary search */
 	ssize_t min = 0, max = key_count - 1;
@@ -171,32 +172,6 @@ int simple_dtable::find_key(const dtype & key, size_t * data_length, off_t * dat
 		/* watch out for overflow! */
 		ssize_t mid = min + (max - min) / 2;
 		dtype value = get_key(mid, data_length, data_offset);
-		int c = value.compare(key, blob_cmp);
-		if(c < 0)
-			min = mid + 1;
-		else if(c > 0)
-			max = mid - 1;
-		else
-		{
-			if(index)
-				*index = mid;
-			return 0;
-		}
-	}
-	if(index)
-		*index = min;
-	return -ENOENT;
-}
-
-int simple_dtable::find_key(const dtype_test & test, size_t * index) const
-{
-	/* binary search */
-	ssize_t min = 0, max = key_count - 1;
-	while(min <= max)
-	{
-		/* watch out for overflow! */
-		ssize_t mid = min + (max - min) / 2;
-		dtype value = get_key(mid);
 		int c = test(value);
 		if(c < 0)
 			min = mid + 1;

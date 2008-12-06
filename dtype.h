@@ -193,10 +193,10 @@ public:
 		return a.compare(b, blob_cmp) < 0;
 	}
 	
-	inline dtype_comparator_refobject(const blob_comparator *& comparator) : blob_cmp(comparator) {}
+	inline dtype_comparator_refobject(const blob_comparator * const & comparator) : blob_cmp(comparator) {}
 	
 private:
-	const blob_comparator *& blob_cmp;
+	const blob_comparator * const & blob_cmp;
 };
 
 template<class T>
@@ -290,26 +290,28 @@ public:
 		abort();
 	}
 	
-	inline dtype_hashing_comparator(const blob_comparator *& comparator) : blob_cmp(comparator) {}
+	inline dtype_hashing_comparator(const blob_comparator * const & comparator) : blob_cmp(comparator) {}
 	
 private:
-	const blob_comparator *& blob_cmp;
+	const blob_comparator * const & blob_cmp;
 };
 
 typedef magic_test<dtype> dtype_test;
 
-class dtype_fixed_test : public dtype_test
+/* not actually a dtype_test, but usable the same way with a template */
+class dtype_static_test
 {
 public:
-	inline dtype_fixed_test(const dtype & key) : secret(key) { }
+	inline dtype_static_test(const dtype & key, const blob_comparator * const & cmp) : secret(key), blob_cmp(cmp) { }
 	
-	inline virtual int operator()(const dtype & key) const
+	inline int operator()(const dtype & key) const
 	{
-		return key.compare(secret);
+		return key.compare(secret, blob_cmp);
 	}
 	
 private:
 	const dtype secret;
+	const blob_comparator * const & blob_cmp;
 };
 
 #endif /* __cplusplus */
