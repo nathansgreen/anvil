@@ -34,4 +34,7 @@ rsync --rsh=ssh -vaSz --exclude=*.o \
 	--exclude=/.toilet_history --exclude=/scratch \
 	--exclude=/libtoilet.so --exclude=/io_count.so \
 	--exclude=.*.swp --exclude=.*.swo --exclude=.*.swn \
+	--exclude=/reboot/*.*o --exclude=/reboot/.tmp_versions \
+	--exclude=/reboot/.*.cmd --exclude=/reboot/reboot.mod.c \
+	--exclude=/reboot/Module.symvers \
 	. $MACHINE:$TARGET/

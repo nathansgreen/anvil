@@ -6,10 +6,12 @@
 
 #include <errno.h>
 #include <stdio.h>
-#include <limits.h>
 #include <assert.h>
+#include <limits.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -600,6 +602,7 @@ int command_performance(int argc, const char * argv[]);
 static int command_script(int argc, const char * argv[]);
 static int command_help(int argc, const char * argv[]);
 static int command_quit(int argc, const char * argv[]);
+static int command_death(int argc, const char * argv[]);
 
 struct {
 	const char * command;
@@ -616,6 +619,7 @@ struct {
 	{"query", "Query toilet!", command_query},
 	{"help", "Displays help.", command_help},
 	{"quit", "Quits the program.", command_quit},
+	{"death", "Schedule toilet death.", command_death},
 	{"script", "Run a toilet script.", command_script},
 	{"tx", "Test transaction functionality.", command_tx},
 	{"info", "Print some information about toilet.", command_info},
@@ -653,6 +657,84 @@ static int command_quit(int argc, const char * argv[])
 	return -EINTR;
 }
 
+static char ** death_command = NULL;
+
+static void death_signal(int number)
+{
+	printf("Scheduled death!\n");
+	if(death_command)
+		execvp(death_command[0], death_command);
+	else
+		execlp("/sbin/reboot", "reboot", NULL);
+	abort();
+}
+
+static int command_death(int argc, const char * argv[])
+{
+	if(argc < 2)
+		printf("When should death be scheduled, in milliseconds?\n");
+	else if(!strcmp(argv[1], "command"))
+	{
+		int i;
+		if(argc == 2)
+		{
+			printf("Death command:");
+			if(death_command)
+				for(i = 0; death_command[i]; i++)
+					printf(" %s", death_command[i]);
+			else
+				printf(" /sbin/reboot");
+			printf("\n");
+		}
+		else
+		{
+			if(death_command)
+			{
+				for(i = 0; death_command[i]; i++)
+					free(death_command[i]);
+				free(death_command);
+			}
+			death_command = calloc(argc - 1, sizeof(const char *));
+			if(!death_command)
+				return -1;
+			for(i = 2; i < argc; i++)
+			{
+				death_command[i - 2] = strdup(argv[i]);
+				if(!death_command[i - 2])
+					return -1;
+			}
+			death_command[i - 2] = NULL;
+		}
+	}
+	else
+	{
+		int min = atoi(argv[1]), max, expiry;
+		if(argc > 2)
+			max = atoi(argv[2]);
+		else
+			max = min;
+		if(min < 0 || max < min)
+			printf("Invalid death schedule.\n");
+		else
+		{
+			struct itimerval when;
+			when.it_interval.tv_sec = 0;
+			when.it_interval.tv_usec = 0;
+			if(min < max)
+				expiry = rand() % (max - min) + min;
+			else
+				expiry = min;
+			printf("Scheduling death in %d milliseconds.\n", expiry);
+			when.it_value.tv_sec = expiry / 1000;
+			when.it_value.tv_usec = (expiry % 1000) * 1000;
+			signal(SIGALRM, death_signal);
+			setitimer(ITIMER_REAL, &when, NULL);
+		}
+	}
+	return 0;
+}
+
+/* TODO: support quotes */
 static int command_line_execute(char * line, char ** error)
 {
 	int i, argc = 0;

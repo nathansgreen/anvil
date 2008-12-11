@@ -1,7 +1,5 @@
 #!/bin/bash
 
-make || exit $?
-
 # Uncomment to use valgrind
 #export VALGRIND="valgrind --trace-children=yes --leak-check=full"
 
@@ -21,6 +19,17 @@ make || exit $?
 
 # Uncomment to use Featherstitch journal mode
 #JOURNAL=use_journal=1
+
+# Uncomment to use death testing
+#DEATH="0 30000"
+
+make || exit $?
+if [ "$DEATH" ]
+then
+	make -C reboot || exit $?
+	# TODO: add escaped quote marks in case pwd has spaces
+	DEATH="`echo death command "$(pwd)/reboot/reboot"; echo death $DEATH; echo " "`"
+fi
 
 HOST="`hostname`"
 if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" -a "$HOST" != "butters" ]
@@ -69,7 +78,7 @@ then
 fi
 
 # Run the performance test
-echo "performance seek" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $PERF_TRACE exec $VALGRIND '"$WD/toilet"')
+echo "${DEATH}performance seek" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $PERF_TRACE exec $VALGRIND '"$WD/toilet"')
 find /mnt/test -type f -print0 | xargs -0 ls -l
 
 if [ "$OPROF" ]
@@ -84,7 +93,7 @@ fi
 if [ ! -f /mnt/test/core ]
 then
 	# Run the blob_cmp performance test
-	echo "blob_cmp perf" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $BLOB_TRACE exec $VALGRIND '"$WD/toilet"')
+	echo "${DEATH}blob_cmp perf" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $BLOB_TRACE exec $VALGRIND '"$WD/toilet"')
 	find /mnt/test -type f -print0 | xargs -0 ls -l
 	
 	if [ ! -f /mnt/test/core ]
