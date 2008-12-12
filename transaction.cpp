@@ -231,7 +231,9 @@ int tx_init(int dfd, size_t log_size)
 			if(error < 0)
 				goto fail;
 			/* unlink the commit file as well */
-			unlinkat(journal_dir, entries[i] + J_COMMIT_EXT, 0);
+			error = unlinkat(journal_dir, commit_name, 0);
+			if(error < 0)
+				goto fail;
 			continue;
 		}
 		error = current_journal->playback(tx_record_processor, recover_hook, NULL);
