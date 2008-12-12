@@ -58,6 +58,7 @@ ctable
 stable
 iterator
 blob_cmp
+bdbtest
 EOF
 mkdir /mnt/test/journals
 sudo umount /mnt/test

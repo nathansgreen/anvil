@@ -34,6 +34,7 @@ int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
 int command_performance(int argc, const char * argv[]);
+int command_bdbtest(int argc, const char * argv[]);
 };
 
 static void print(dtype x)
@@ -616,6 +617,78 @@ int command_iterator(int argc, const char * argv[])
 	delete it;
 	delete mdt;
 	
+	return 0;
+}
+
+int command_bdbtest(int argc, const char * argv[])
+{
+	//TODO this isn't the complete bdb test we need to try different durability checks
+	const uint32_t KEYSIZE = 8;
+	const uint32_t VALSIZE = 32;
+	struct timeval start, end;
+
+	int r;
+	sys_journal::listener_id jid;
+	journal_dtable jdt;
+
+	char * keybuf, * valbuf;
+	keybuf = new char[KEYSIZE];
+	valbuf = new char[VALSIZE];
+	assert(keybuf && valbuf);
+	memset(keybuf, 'a', KEYSIZE);
+	memset(valbuf, 'b', VALSIZE);
+
+	blob key(KEYSIZE, &keybuf);
+	blob value(VALSIZE, &valbuf);
+
+	printf("BekeleyDB test timing! \n");
+	gettimeofday(&start, NULL);
+
+	jid = sys_journal::get_unique_id();
+	if(jid == sys_journal::NO_ID)
+		return -EBUSY;
+	r = jdt.init(dtype::BLOB, jid, NULL);
+
+	for(int i = 0; i < 1000000; i++)
+	{
+		r = tx_start();
+		if(r)
+		{
+			printf("TX error\n");
+			break;
+		}
+		assert(jdt.insert(dtype(key), value) == 0);
+		if((i % 100000) == 99999)
+		{
+			gettimeofday(&end, NULL);
+			end.tv_sec -= start.tv_sec;
+			if(end.tv_usec < start.tv_usec)
+			{
+				end.tv_usec += 1000000;
+				end.tv_sec--;
+			}
+			end.tv_usec -= start.tv_usec;
+			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 10000, (int) end.tv_sec, (int) end.tv_usec);
+			fflush(stdout);
+		}
+		r = tx_end(0);
+		if(r)
+		{
+			printf("TX error\n");
+			break;
+		}
+	}
+
+	gettimeofday(&end, NULL);
+	end.tv_sec -= start.tv_sec;
+	if(end.tv_usec < start.tv_usec)
+	{
+		end.tv_usec += 1000000;
+		end.tv_sec--;
+	}
+	end.tv_usec -= start.tv_usec;
+	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
+
 	return 0;
 }
 
