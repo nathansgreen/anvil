@@ -637,7 +637,7 @@ int tx_emptyfile(tx_fd fd)
 	r = fstat(tx_fds[fd].fd, &st);
 	if(r < 0)
 		return r;
-	return st.st_size > 0;
+	return !st.st_size;
 }
 
 ssize_t tx_read(tx_fd fd, void * buf, size_t length, off_t offset)

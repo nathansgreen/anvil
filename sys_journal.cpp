@@ -502,10 +502,11 @@ int sys_journal::set_unique_id_file(int dfd, const char * file, bool create)
 	{
 		if(!create || (id.fd != -ENOENT && errno != ENOENT))
 			return (int) id.fd;
-		id.next = 0;
 		id.fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
 		if(id.fd < 0)
 			return (int) id.fd;
+create_empty:
+		id.next = 0;
 		r = tx_write(id.fd, &id.next, sizeof(id.next), 0);
 		if(r < 0)
 		{
@@ -520,6 +521,8 @@ int sys_journal::set_unique_id_file(int dfd, const char * file, bool create)
 		r = tx_read(id.fd, &id.next, sizeof(id.next), 0);
 		if(r != sizeof(id.next))
 		{
+			if(!r && create)
+				goto create_empty;
 			tx_close(id.fd);
 			id.fd = -1;
 			return (r < 0) ? r : -1;

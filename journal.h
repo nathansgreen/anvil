@@ -100,6 +100,7 @@ private:
 		if(prev)
 			prev->usage++;
 	}
+	/* TODO: should we put something in here? */
 	inline ~journal() {}
 	
 	class flush_handler : public rwfile::flush_handler

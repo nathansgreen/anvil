@@ -426,7 +426,7 @@ int journal::verify()
 int journal::init_crfd()
 {
 	int r;
-	off_t filesize, pos = 0, lastcr;
+	off_t filesize, nextcr = 0;
 	struct timeval settime[2] = {{0, 0}, {0, 0}};
 	commit_record zero = {0, 0}, cr;
 	
@@ -437,22 +437,14 @@ int journal::init_crfd()
 	filesize = lseek(crfd, 0, SEEK_END);
 	memset(zero.checksum, 0, sizeof(zero.checksum));
 	/* find out where the last good commit record is */
-	while((r = pread(crfd, &cr, sizeof(cr), pos)))
+	while((r = pread(crfd, &cr, sizeof(cr), nextcr)))
 	{
 		if(r < (int) sizeof(cr))
-		{
-			pos -= r;
 			break;
-		}
 		if(!cr.offset && !cr.length && !memcmp(&cr.checksum, &zero.checksum, J_CHECKSUM_LEN))
-		{
-			pos -= r;
 			break;
-		}
-		pos += r;
+		nextcr += r;
 	}
-	
-	lastcr = pos;
 	
 	/* We set the mtime for the commit record file in the future to prevent
 	 * the inode metadata being updated with every write - this uses a hack
@@ -467,26 +459,34 @@ int journal::init_crfd()
 	if((r = futimes(crfd, settime)) < 0)
 		goto error;
 	
-	if(filesize <= (pos + (int) sizeof(cr)))
+#define COMMIT_RECORDS 40000
+	if(filesize < COMMIT_RECORDS * (int) sizeof(cr))
 	{
-		/* zero out the rest of the file 40000 entries at a time */
-		uint8_t zbuffer[1000 * sizeof(zero)] = {0};
-		while((pos - filesize) < 40 * (int) sizeof(zbuffer))
+		/* zero out the rest of the file 1000 entries at a time */
+		uint8_t zbuffer[1000 * sizeof(cr)];
+		memset(zbuffer, 0, sizeof(zbuffer));
+		while(filesize < COMMIT_RECORDS * (int) sizeof(cr))
 		{
-			r = pwrite(crfd, &zbuffer, sizeof(zbuffer), pos);
-			if(r <= 0 || r < (int) sizeof(zbuffer))
+			r = COMMIT_RECORDS * sizeof(cr) - filesize;
+			if(r > (int) sizeof(zbuffer))
+				r = sizeof(zbuffer);
+			r = pwrite(crfd, zbuffer, r, filesize);
+			if(r <= 0)
 				goto error;
-			pos += r;
+			filesize += r;
 		}
 		/* necessary? */
 		fsync(crfd);
 	}
 	
-	return lastcr;
+	return nextcr;
 	
 error:
 	if(crfd > 0)
+	{
 		close(crfd);
+		crfd = -1;
+	}
 	return r < 0 ? r : -1;
 }
 
@@ -506,15 +506,16 @@ int journal::reopen(int dfd, const istr & path, journal ** pj, journal * prev)
 	offset = j->init_crfd();
 	if(offset < 0)
 		goto error;
-	
-	r = pread(j->crfd, &j->prev_cr, sizeof(j->prev_cr), offset);
-	/* opening an empty journal file */
-	if(!offset && !r)
+	if(!offset)
 	{
+		/* opening an empty journal file */
 		j->commits = 0;
 		*pj = j;
 		return 0;
 	}
+	
+	offset -= sizeof(j->prev_cr);
+	r = pread(j->crfd, &j->prev_cr, sizeof(j->prev_cr), offset);
 	if(r != (int) sizeof(j->prev_cr))
 		return (r < 0) ? r : -1;
 	j->commits = (offset / sizeof(j->prev_cr)) + 1;
