@@ -36,6 +36,12 @@ then
 	exit 1
 fi
 
+if [ ! "$JOURNAL" ]
+then
+	sudo e2fsck -f /dev/sdb1
+	sync
+fi
+
 echo -n "Loading Featherstitch... "
 sudo insmod fstitch/kfstitchd.ko device=/dev/sdb $JOURNAL
 [ -f /proc/kfstitchd_debug ] && (cat /proc/kfstitchd_debug > try.fdb &) || rm -f try.fdb

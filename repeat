@@ -1,9 +1,10 @@
 #!/bin/bash
 
-CFLAGS="-DNDEBUG $CFLAGS" make || exit $?
-
 # Uncomment to use Featherstitch journal mode
 #JOURNAL=use_journal=1
+
+grep -q ^CFLAGS.*-DNDEBUG config.log || echo "Warning: not compiling with NDEBUG"
+make || exit $?
 
 HOST="`hostname`"
 if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" -a "$HOST" != "butters" ]
