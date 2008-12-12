@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# Uncomment to use valgrind
+#export VALGRIND="valgrind --trace-children=yes --leak-check=full"
+
+# Uncomment to do IO counting
+#export IO_COUNT='LD_PRELOAD=$WD/io_count.so'
+
+# Uncomment to enable patchgroup traces during recovery
+#PG_TRACE="PATCHGROUP_TRACE=sysj.pgt"
+
+# Uncomment to use Featherstitch journal mode
+#JOURNAL=use_journal=1
+
+# Uncomment to use death testing
+#DEATH="0 30000"
+
+make || exit $?
+if [ "$DEATH" ]
+then
+	make -C reboot || exit $?
+	# TODO: add escaped quote marks in case pwd has spaces
+	DEATH="`echo death command "$(pwd)/reboot/reboot"; echo death $DEATH; echo " "`"
+fi
+
+HOST="`hostname`"
+if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" -a "$HOST" != "butters" ]
+then
+	echo "Not running on a kudos-* test machine, won't overwrite your file systems."
+	exit 1
+fi
+
+if mount | grep -q "on /mnt/test"
+then
+	echo "/mnt/test is mounted; unmount before running this script."
+	exit 1
+fi
+
+echo -n "Loading Featherstitch... "
+sudo insmod fstitch/kfstitchd.ko device=/dev/sdb $JOURNAL
+[ -f /proc/kfstitchd_debug ] && (cat /proc/kfstitchd_debug > try.fdb &) || rm -f try.fdb
+sudo mount /mnt/test
+echo "done."
+
+# Filter the system journal
+find /mnt/test -type f -print0 | xargs -0 ls -l
+true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $PG_TRACE exec $VALGRIND '"$WD/toilet"')
+find /mnt/test -type f -print0 | xargs -0 ls -l
+
+echo "Unloading Featherstitch..."
+sudo umount /mnt/test
+time sudo rmmod kfstitchd
+
+echo -ne \\007
+
+sudo mount /dev/sdb1 /mnt/test -t ext2
+rm -f gmon.out* gmon.sum*
+if [ -f /mnt/test/gmon.out ]
+then
+	echo -n "Processing gprof data... "
+	cp /mnt/test/gmon.out* .
+	for gmon in gmon.out*
+	do
+		gprof main $gmon > ${gmon/out/sum}
+	done
+	echo "done."
+fi
+for pgt in /mnt/test/*.pgt
+do
+	[ "$pgt" == "/mnt/test/*.pgt" ] && break
+	echo "Patchgroup trace: `basename "$pgt"`"
+	cp "$pgt" .
+done
+if [ -f /mnt/test/core ]
+then
+	echo "Starting debugger on core."
+	gdb -c /mnt/test/core main
+fi
+sudo umount /mnt/test
