@@ -31,6 +31,8 @@ then
 	DEATH="`echo death command "$(pwd)/reboot/reboot"; echo death $DEATH; echo " "`"
 fi
 
+FSTYPE="ext3"
+
 HOST="`hostname`"
 if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" -a "$HOST" != "butters" ]
 then
@@ -45,8 +47,13 @@ then
 fi
 
 echo -n "Creating file system... "
-sudo mke2fs -m 0 -b 4096 /dev/sdb1 &> /dev/null
-sudo mount /dev/sdb1 /mnt/test -t ext2
+if [ "$FSTYPE" == "ext3" ]
+then
+	sudo mke2fs -j -m 0 -b 4096 /dev/sdb1 &> /dev/null
+else
+	sudo mke2fs -m 0 -b 4096 /dev/sdb1 &> /dev/null
+fi
+sudo mount /dev/sdb1 /mnt/test -t $FSTYPE
 sudo chown -R `whoami` /mnt/test
 [ "$JOURNAL" ] && dd if=/dev/zero of=/mnt/test/.journal bs=1M count=64 2> /dev/null
 cp demo /mnt/test
@@ -58,16 +65,19 @@ ctable
 stable
 iterator
 blob_cmp
-bdbtest
+#bdbtest
 EOF
 mkdir /mnt/test/journals
-sudo umount /mnt/test
 echo "done."
 
-echo -n "Loading Featherstitch... "
-sudo insmod fstitch/kfstitchd.ko device=/dev/sdb $JOURNAL
-[ -f /proc/kfstitchd_debug ] && (cat /proc/kfstitchd_debug > try.fdb &) || rm -f try.fdb
-sudo mount /mnt/test
+if [ "$FSTYPE" == "ext2" ]
+then
+	echo -n "Loading Featherstitch... "
+	sudo umount /mnt/test
+	sudo insmod fstitch/kfstitchd.ko device=/dev/sdb $JOURNAL
+	[ -f /proc/kfstitchd_debug ] && (cat /proc/kfstitchd_debug > try.fdb &) || rm -f try.fdb
+	sudo mount /mnt/test
+fi
 echo "done."
 
 if [ "$OPROF" ]
@@ -121,13 +131,16 @@ then
 	fi
 fi
 
-echo "Unloading Featherstitch..."
 sudo umount /mnt/test
-time sudo rmmod kfstitchd
+if [ "$FSTYPE" == "ext2" ]
+then
+	echo "Unloading Featherstitch..."
+	time sudo rmmod kfstitchd
+fi
 
 echo -ne \\007
 
-sudo mount /dev/sdb1 /mnt/test -t ext2
+sudo mount /dev/sdb1 /mnt/test -t $FSTYPE
 rm -f gmon.out* gmon.sum*
 if [ -f /mnt/test/gmon.out ]
 then

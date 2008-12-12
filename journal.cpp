@@ -42,8 +42,20 @@ journal * journal::create(int dfd, const istr & path, journal * prev)
 		errno = save;
 		return NULL;
 	}
-	j->data_file.set_handler(&j->handler);
+	//j->data_file.set_handler(&j->handler);
 	return j;
+}
+
+int journal::wait()
+{
+	int r = 0;
+	if(!last_commit)
+		return -EINVAL;
+	//XXX: return patchgroup_sync(last_commit);
+
+	sync();
+
+	return r;
 }
 
 int journal::appendv(const struct ovec * ovp, size_t count)
@@ -70,11 +82,12 @@ int journal::appendv(const struct ovec * ovp, size_t count)
 	if(!records)
 	{
 		data_file.flush();
-		records = patchgroup_create(0);
-		if(records <= 0)
-			return -1;
-		patchgroup_label(records, "records");
-		patchgroup_release(records);
+		records = 1;
+	//	records = patchgroup_create(0);
+	//	if(records <= 0)
+	//		return -1;
+	//	patchgroup_label(records, "records");
+	//	patchgroup_release(records);
 	}
 	offset = data_file.end();
 	if(data_file.append(data, header.length + sizeof(header)) != (ssize_t) (sizeof(header) + header.length))
@@ -92,7 +105,7 @@ int journal::appendv(const struct ovec * ovp, size_t count)
 
 int journal::start_external()
 {
-	if(!ext_count)
+	/*if(!ext_count)
 	{
 		int r;
 		if(external <= 0)
@@ -108,19 +121,19 @@ int journal::start_external()
 		r = patchgroup_engage(external);
 		assert(r >= 0);
 	}
-	ext_count++;
+	ext_count++;*/
 	return 0;
 }
 
 int journal::end_external(bool success)
 {
-	assert(ext_count > 0);
+	/*assert(ext_count > 0);
 	ext_success |= success;
 	if(!--ext_count)
 	{
 		int r = patchgroup_disengage(external);
 		assert(r >= 0);
-	}
+	}*/
 	return 0;
 }
 
@@ -154,7 +167,7 @@ int journal::checksum(off_t start, off_t end, uint8_t * checksum)
 int journal::commit()
 {
 	commit_record cr;
-	patchgroup_id_t commit;
+	//patchgroup_id_t commit;
 	
 	if(erasure)
 		return -EINVAL;
@@ -166,79 +179,87 @@ int journal::commit()
 	if(!records)
 		return 0;
 	
-	if(crfd < 0 && init_crfd() < 0)
-		return -1;
-	else
-	{
-		/* if the commit record file is almost full add more empty records to it */
-		if(!(commits % (J_ADD_N_COMMITS * 1000)))
-			init_crfd();
-	}
+	/* initialize crfd or if it is almost full add more empty records to it */
+	if(crfd < 0 || !(commits % (J_ADD_N_COMMITS * 1000)))
+			if(init_crfd(istr::null) < 0)
+				return -1;
 
 	cr.offset = prev_cr.offset + prev_cr.length;
 	cr.length = data_file.end() - cr.offset;
 	if(checksum(cr.offset, cr.offset + cr.length, cr.checksum) < 0)
 		return -1;
-	commit = patchgroup_create(0);
-	if(commit <= 0)
-		return -1;
-	patchgroup_label(commit, "commit");
+	//commit = patchgroup_create(0);
+	//if(commit <= 0)
+	//	return -1;
+	//patchgroup_label(commit, "commit");
 	
 	/* add the external dependency, if any */
-	assert(!ext_count);
-	if(external > 0)
-	{
-		if(ext_success && patchgroup_add_depend(commit, external) < 0)
-			goto fail;
-		patchgroup_abandon(external);
-		external = 0;
-	}
-	
+	//assert(!ext_count);
+	//if(external > 0)
+	//{
+	//	if(ext_success && patchgroup_add_depend(commit, external) < 0)
+	//		goto fail;
+	//	patchgroup_abandon(external);
+	//	external = 0;
+	//}
+
 	data_file.flush();
-	if(patchgroup_add_depend(commit, records) < 0)
-	{
-	fail:
-		patchgroup_release(commit);
-		patchgroup_abandon(commit);
-		return -1;
-	}
-	if(last_commit > 0 && patchgroup_add_depend(commit, last_commit) < 0)
-		goto fail;
-	if(prev && prev->last_commit && !commits && patchgroup_add_depend(commit, prev->last_commit) < 0)
-		goto fail;
-	patchgroup_release(commit);
+	//if(patchgroup_add_depend(commit, records) < 0)
+	//{
+	//fail:
+	//	patchgroup_release(commit);
+	//	patchgroup_abandon(commit);
+	//	return -1;
+	//}
+	//if(last_commit > 0 && patchgroup_add_depend(commit, last_commit) < 0)
+	//	goto fail;
+	//if(prev && prev->last_commit && !commits && patchgroup_add_depend(commit, prev->last_commit) < 0)
+	//	goto fail;
+	//patchgroup_release(commit);
 	
-	if(patchgroup_engage(commit) < 0)
-	{
+	//if(patchgroup_engage(commit) < 0)
+	//{
 		/* this basically can't happen */
-		patchgroup_abandon(commit);
-		return -1;
-	}
+	//	patchgroup_abandon(commit);
+	//	return -1;
+	//}
 	if(pwrite(crfd, &cr, sizeof(cr), commits * sizeof(cr)) != sizeof(cr))
 	{
 		int save = errno;
-		patchgroup_disengage(commit);
+		//patchgroup_disengage(commit);
 		/* the truncate() really should be part of records, but
 		 * since commit depends on records, we'll substitute it */
-		patchgroup_abandon(records);
+		//patchgroup_abandon(records);
 		/* make sure the pointer is not past the end of the file */
 		errno = save;
 		return -1;
 	}
-	patchgroup_disengage(commit);
-	patchgroup_abandon(records);
+	//patchgroup_disengage(commit);
+	//patchgroup_abandon(records);
 	records = 0;
-	if(last_commit)
-		patchgroup_abandon(last_commit);
-	last_commit = commit;
-	commits++;
+	//if(last_commit)
+	//	patchgroup_abandon(last_commit);
+	//last_commit = commit;
+	int r;
+	char commit_number[16];
+	snprintf(commit_number, sizeof(commit_number), ".%d", last_commit);
+	istr old_commit, new_commit;
+	old_commit = commit_number;
+	snprintf(commit_number, sizeof(commit_number), ".%d", commits+1);
+	new_commit = commit_number;
+	//printf("commit is %s %d\n", commit_number, commits);
+	r = renameat(dfd, path + J_COMMIT_EXT + old_commit, dfd, path + J_COMMIT_EXT + new_commit);
+	if(r < 0)
+		return r;
+	++commits;
+	last_commit = commits;
 	prev_cr = cr;
 	return 0;
 }
 
 int journal::playback(record_processor processor, commit_hook commit, void * param)
 {
-	patchgroup_id_t playback;
+	//patchgroup_id_t playback;
 	data_header header;
 	commit_record cr;
 	off_t readoff;
@@ -251,17 +272,17 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 		/* nothing to play back */
 		return 0;
 	assert(playbacks < commits);
-	playback = patchgroup_create(0);
-	if(playback <= 0)
-		return -1;
-	patchgroup_label(playback, "playback");
-	if(last_commit > 0 && patchgroup_add_depend(playback, last_commit) < 0)
-	{
-		patchgroup_release(playback);
-		patchgroup_abandon(playback);
-		return -1;
-	}
-	patchgroup_release(playback);
+	//playback = patchgroup_create(0);
+	//if(playback <= 0)
+	//	return -1;
+	//patchgroup_label(playback, "playback");
+	//if(last_commit > 0 && patchgroup_add_depend(playback, last_commit) < 0)
+	//{
+	//	patchgroup_release(playback);
+	//	patchgroup_abandon(playback);
+	//	return -1;
+	//}
+	//patchgroup_release(playback);
 	if(last_commit > 0 && commits)
 		/* only replay the records from the last commit */
 		readoff = (commits - 1) * sizeof(cr);
@@ -269,12 +290,12 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 		/* if we haven't commited anything replay the whole journal */
 		readoff = 0;
 	
-	if(patchgroup_engage(playback) < 0)
-	{
+	//if(patchgroup_engage(playback) < 0)
+	//{
 		/* this basically can't happen */
-		patchgroup_abandon(playback);
-		return -1;
-	}
+	//	patchgroup_abandon(playback);
+	//	return -1;
+	//}
 	memset(zero_checksum, 0, sizeof(zero_checksum));
 	while(pread(crfd, &cr, sizeof(cr), readoff) == sizeof(cr))
 	{
@@ -286,22 +307,22 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 		{
 			if(data_file.read(curoff, &header, sizeof(header)) != sizeof(header))
 			{
-				patchgroup_disengage(playback);
-				patchgroup_abandon(playback);
+				//patchgroup_disengage(playback);
+				//patchgroup_abandon(playback);
 				return -1;
 			}
 			if(data_file.read(curoff + sizeof(header), buffer, header.length) != (ssize_t) header.length)
 			{
-				patchgroup_disengage(playback);
-				patchgroup_abandon(playback);
+				//patchgroup_disengage(playback);
+				//patchgroup_abandon(playback);
 				return -1;
 			}
 			curoff += sizeof(header) + header.length;
 			r = processor(buffer, header.length, param);
 			if(r < 0)
 			{
-				patchgroup_disengage(playback);
-				patchgroup_abandon(playback);
+				//patchgroup_disengage(playback);
+				//patchgroup_abandon(playback);
 				return r;
 			}
 		}
@@ -311,30 +332,31 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 			r = commit(param);
 			if(r < 0)
 			{
-				patchgroup_disengage(playback);
-				patchgroup_abandon(playback);
+				//patchgroup_disengage(playback);
+				//patchgroup_abandon(playback);
 				return r;
 			}
 		}
 	}
-	patchgroup_disengage(playback);
+	//patchgroup_disengage(playback);
 	if(!finished)
 	{
-		finished = patchgroup_create(0);
-		if(finished <= 0)
-		{
-			patchgroup_abandon(playback);
-			return -1;
-		}
-		patchgroup_label(finished, "finished");
+			finished = 1;
+	//	finished = patchgroup_create(0);
+	//	if(finished <= 0)
+	//	{
+	//		patchgroup_abandon(playback);
+	//		return -1;
+	//	}
+	//	patchgroup_label(finished, "finished");
 	}
-	r = patchgroup_add_depend(finished, playback);
-	if(r < 0)
-	{
-		patchgroup_abandon(playback);
-		return r;
-	}
-	patchgroup_abandon(playback);
+	//r = patchgroup_add_depend(finished, playback);
+	//if(r < 0)
+	//{
+	//	patchgroup_abandon(playback);
+	//	return r;
+	//}
+	//patchgroup_abandon(playback);
 	playbacks = commits;
 	return 0;
 }
@@ -358,24 +380,29 @@ int journal::erase()
 			erasure = finished;
 		else
 		{
-			erasure = patchgroup_create(0);
+		/*	erasure = patchgroup_create(0);
 			if(erasure <= 0)
 				return -1;
+				*/
+			erasure = 1;
 		}
-		patchgroup_label(erasure, "delete");
+		//patchgroup_label(erasure, "delete");
 	}
+	/*
 	if(prev && patchgroup_add_depend(erasure, prev->erasure) < 0)
 		return -1;
 	r = patchgroup_release(erasure);
 	assert(r >= 0);
 	r = patchgroup_engage(erasure);
 	assert(r >= 0);
-	
+	*/
+	char commit_number[16];
+	snprintf(commit_number, sizeof(commit_number), ".%d", last_commit);
 	unlinkat(dfd, path, 0);
-	unlinkat(dfd, path + J_COMMIT_EXT, 0);
+	unlinkat(dfd, path + J_COMMIT_EXT + commit_number, 0);
 	
-	r = patchgroup_disengage(erasure);
-	assert(r >= 0);
+	//r = patchgroup_disengage(erasure);
+	//assert(r >= 0);
 	
 	r = data_file.close();
 	assert(r >= 0);
@@ -402,9 +429,9 @@ int journal::release()
 		return 0;
 	assert(!records);
 	assert(!external);
-	if(last_commit)
-		patchgroup_abandon(last_commit);
-	patchgroup_abandon(erasure);
+	//if(last_commit)
+	//	patchgroup_abandon(last_commit);
+	//patchgroup_abandon(erasure);
 	/* no need to unlink, since those were done in erase() */
 	delete this;
 	return 0;
@@ -429,7 +456,7 @@ int journal::verify()
 	return 1;
 }
 
-int journal::init_crfd()
+int journal::init_crfd(const istr & commit_name)
 {
 	int r;
 	off_t filesize, nextcr = 0;
@@ -440,7 +467,14 @@ int journal::init_crfd()
 	 * otherwise create a new commit record file. */
 	if(crfd < 0)
 	{
-		crfd = openat(dfd, path + J_COMMIT_EXT, O_CREAT | O_RDWR, 0644);
+		const char * cname = commit_name;
+		if(!cname)
+		{
+			char commit_number[16];
+			snprintf(commit_number, sizeof(commit_number), ".%d", commits);
+			cname = path + J_COMMIT_EXT + commit_number;
+		}
+		crfd = openat(dfd, cname, O_CREAT | O_RDWR, 0644);
 		if(crfd < 0)
 			return -1;
 	}
@@ -497,7 +531,7 @@ error:
 	return r < 0 ? r : -1;
 }
 
-int journal::reopen(int dfd, const istr & path, journal ** pj, journal * prev)
+int journal::reopen(int dfd, const istr & path, const istr & commit_name, journal ** pj, journal * prev)
 {
 	int r;
 	journal * j;
@@ -510,7 +544,7 @@ int journal::reopen(int dfd, const istr & path, journal ** pj, journal * prev)
 		return -1;
 	if(!j->path)
 		goto error;
-	offset = j->init_crfd();
+	offset = j->init_crfd(commit_name);
 	if(offset < 0)
 		goto error;
 	if(!offset)

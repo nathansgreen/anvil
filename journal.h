@@ -58,12 +58,7 @@ public:
 	int commit();
 	
 	/* blocks waiting for a committed journal to be written to disk */
-	inline int wait()
-	{
-		if(!last_commit)
-			return -EINVAL;
-		return patchgroup_sync(last_commit);
-	}
+	int wait();
 	
 	/* plays back a journal, possibly during recovery */
 	int playback(record_processor processor, commit_hook commit, void * param);
@@ -78,7 +73,7 @@ public:
 	static journal * create(int dfd, const istr & path, journal * prev);
 	
 	/* reopens an existing journal if it is committed, otherwise leaves it alone */
-	static int reopen(int dfd, const istr & path, journal ** pj, journal * prev);
+	static int reopen(int dfd, const istr & path, const istr & commit_name, journal ** pj, journal * prev);
 	
 	/* number of bytes currently occupied by the journal */
 	inline size_t size() const { return data_file.end() + (commits * sizeof(commit_record));}
@@ -121,7 +116,7 @@ private:
 	};
 	
 	int checksum(off_t start, off_t end, uint8_t * checksum);
-	int init_crfd();
+	int init_crfd(const istr & commit_name);
 	int verify();
 	
 	istr path;
@@ -130,7 +125,8 @@ private:
 	/* the records in this journal */
 	patchgroup_id_t records;
 	/* the most recent commit record */
-	patchgroup_id_t last_commit;
+	//patchgroup_id_t last_commit;
+	uint32_t last_commit;
 	/* depends on all the playbacks; will be the erasure */
 	patchgroup_id_t finished;
 	/* the erasure of this journal */

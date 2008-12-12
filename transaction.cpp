@@ -213,8 +213,15 @@ int tx_init(int dfd, size_t log_size)
 	for(size_t i = 0; i < entries.size(); i++)
 	{
 		const char * name = entries[i];
+		const char * commit_name = NULL;
 		last_tx_id = strtol(name, NULL, 16);
-		error = journal::reopen(journal_dir, name, &current_journal, last_journal);
+		if(i+1 < entries.size() && strstr(entries[i+1], name) && strstr(entries[i+1], J_COMMIT_EXT))
+		{
+			commit_name = entries[i+1];
+			i++;
+		}
+
+		error = journal::reopen(journal_dir, name, commit_name, &current_journal, last_journal);
 		if(error < 0)
 			goto fail;
 		if(!current_journal)
