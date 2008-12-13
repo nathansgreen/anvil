@@ -88,8 +88,12 @@ private:
 	
 	inline journal(const istr & path, int dfd, journal * prev)
 		: path(path), dfd(dfd), crfd(-1), records(0), last_commit(0),
-		  finished(0), erasure(0), prev(prev), commits(0), playbacks(0),
-		  usage(1), handler(this), ext_count(0), ext_success(false), external(0)
+		  finished(0), erasure(0), external(0),
+#if HAVE_FSTITCH
+			handler(this),
+#endif
+			prev(prev), commits(0),
+			playbacks(0), usage(1), ext_count(0), ext_success(false)
 	{
 		prev_cr.offset = 0;
 		prev_cr.length = 0;
@@ -99,6 +103,7 @@ private:
 	/* TODO: should we put something in here? */
 	inline ~journal() {}
 	
+#if HAVE_FSTITCH
 	class flush_handler : public rwfile::flush_handler
 	{
 	public:
@@ -114,6 +119,7 @@ private:
 		journal * j;
 		inline flush_handler(journal * j) : j(j) {}
 	};
+#endif
 	
 	int checksum(off_t start, off_t end, uint8_t * checksum);
 	int init_crfd(const istr & commit_name);
@@ -122,15 +128,21 @@ private:
 	istr path;
 	int dfd, crfd;
 	rwfile data_file;
+#if HAVE_FSTITCH
 	/* the records in this journal */
 	patchgroup_id_t records;
 	/* the most recent commit record */
-	//patchgroup_id_t last_commit;
-	uint32_t last_commit;
+	patchgroup_id_t last_commit;
 	/* depends on all the playbacks; will be the erasure */
 	patchgroup_id_t finished;
 	/* the erasure of this journal */
 	patchgroup_id_t erasure;
+	/* TODO: this can actually just use "records" above */
+	patchgroup_id_t external;
+	flush_handler handler;
+#else
+	uint32_t records, last_commit, finished, erasure, external;
+#endif
 	/* the previous journal */
 	struct journal * prev;
 	/* how many commits have been done on this journal */
@@ -141,12 +153,9 @@ private:
 	commit_record prev_cr;
 	/* usage count of this journal */
 	int usage;
-	flush_handler handler;
 	/* external dependency state */
 	int ext_count;
 	bool ext_success;
-	/* TODO: this can actually just use "records" above */
-	patchgroup_id_t external;
 };
 
 #endif /* __JOURNAL_H */

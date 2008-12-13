@@ -23,6 +23,13 @@
 # Uncomment to use death testing
 #DEATH="0 30000"
 
+if [ -h fstitch ]
+then
+	FSTYPE="ext2"
+else
+	FSTYPE="ext3"
+fi
+
 make || exit $?
 if [ "$DEATH" ]
 then
@@ -30,8 +37,6 @@ then
 	# TODO: add escaped quote marks in case pwd has spaces
 	DEATH="`echo death command "$(pwd)/reboot/reboot"; echo death $DEATH; echo " "`"
 fi
-
-FSTYPE="ext3"
 
 HOST="`hostname`"
 if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" -a "$HOST" != "butters" ]
