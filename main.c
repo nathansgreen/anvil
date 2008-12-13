@@ -723,7 +723,12 @@ static int command_death(int argc, const char * argv[])
 			when.it_interval.tv_sec = 0;
 			when.it_interval.tv_usec = 0;
 			if(min < max)
+			{
+				/* we don't initialize this elsewhere so we get
+				 * predictable results, but we want it here */
+				srand(time(NULL));
 				expiry = rand() % (max - min) + min;
+			}
 			else
 				expiry = min;
 			printf("Scheduling death in %d milliseconds.\n", expiry);
