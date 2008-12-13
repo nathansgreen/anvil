@@ -69,8 +69,11 @@ endif
 io_count.so: io_count.o
 	gcc -shared -o $@ $< -ldl $(LDFLAGS)
 
+medic: medic.o md5.o
+	gcc -o $@ $^
+
 clean:
-	rm -f config.h config.mak main libtoilet.so libtoilet.a io_count.so *.o .depend tags
+	rm -f config.h config.mak main libtoilet.so libtoilet.a io_count.so medic *.o .depend tags
 
 clean-all: clean
 	php/clean

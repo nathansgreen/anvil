@@ -9,6 +9,7 @@ libtoilet.a
 io_count.so
 fstitch
 main
+medic
 scratch
 tags
 *.o
