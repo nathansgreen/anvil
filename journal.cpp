@@ -34,7 +34,6 @@ journal * journal::create(int dfd, const istr & path, journal * prev)
 	journal * j = new journal(path, dfd, prev);
 	if(!j)
 		return NULL;
-	/* hmm... should we include this create() in the patchgroup? */
 	if(!j->path || j->data_file.create(dfd, path) < 0)
 	{
 		int save = errno;
@@ -48,14 +47,14 @@ journal * journal::create(int dfd, const istr & path, journal * prev)
 
 int journal::wait()
 {
-	int r = 0;
 	if(!last_commit)
 		return -EINVAL;
-	//XXX: return patchgroup_sync(last_commit);
-
+#if HAVE_FSTITCH
+	return patchgroup_sync(last_commit);
+#else
 	sync();
-
-	return r;
+	return 0;
+#endif
 }
 
 int journal::appendv(const struct ovec * ovp, size_t count)
@@ -82,12 +81,15 @@ int journal::appendv(const struct ovec * ovp, size_t count)
 	if(!records)
 	{
 		data_file.flush();
+#if HAVE_FSTITCH
+		records = patchgroup_create(0);
+		if(records <= 0)
+			return -1;
+		patchgroup_label(records, "records");
+		patchgroup_release(records);
+#else
 		records = 1;
-	//	records = patchgroup_create(0);
-	//	if(records <= 0)
-	//		return -1;
-	//	patchgroup_label(records, "records");
-	//	patchgroup_release(records);
+#endif
 	}
 	offset = data_file.end();
 	if(data_file.append(data, header.length + sizeof(header)) != (ssize_t) (sizeof(header) + header.length))
@@ -105,7 +107,8 @@ int journal::appendv(const struct ovec * ovp, size_t count)
 
 int journal::start_external()
 {
-	/*if(!ext_count)
+#if HAVE_FSTITCH
+	if(!ext_count)
 	{
 		int r;
 		if(external <= 0)
@@ -121,19 +124,22 @@ int journal::start_external()
 		r = patchgroup_engage(external);
 		assert(r >= 0);
 	}
-	ext_count++;*/
+	ext_count++;
+#endif
 	return 0;
 }
 
 int journal::end_external(bool success)
 {
-	/*assert(ext_count > 0);
+#if HAVE_FSTITCH
+	assert(ext_count > 0);
 	ext_success |= success;
 	if(!--ext_count)
 	{
 		int r = patchgroup_disengage(external);
 		assert(r >= 0);
-	}*/
+	}
+#endif
 	return 0;
 }
 
@@ -167,7 +173,6 @@ int journal::checksum(off_t start, off_t end, uint8_t * checksum)
 int journal::commit()
 {
 	commit_record cr;
-	//patchgroup_id_t commit;
 	
 	if(erasure)
 		return -EINVAL;
@@ -188,78 +193,85 @@ int journal::commit()
 	cr.length = data_file.end() - cr.offset;
 	if(checksum(cr.offset, cr.offset + cr.length, cr.checksum) < 0)
 		return -1;
-	//commit = patchgroup_create(0);
-	//if(commit <= 0)
-	//	return -1;
-	//patchgroup_label(commit, "commit");
+#if HAVE_FSTITCH
+	patchgroup_id_t commit;
+	commit = patchgroup_create(0);
+	if(commit <= 0)
+		return -1;
+	patchgroup_label(commit, "commit");
 	
 	/* add the external dependency, if any */
-	//assert(!ext_count);
-	//if(external > 0)
-	//{
-	//	if(ext_success && patchgroup_add_depend(commit, external) < 0)
-	//		goto fail;
-	//	patchgroup_abandon(external);
-	//	external = 0;
-	//}
-
-	data_file.flush();
-	//if(patchgroup_add_depend(commit, records) < 0)
-	//{
-	//fail:
-	//	patchgroup_release(commit);
-	//	patchgroup_abandon(commit);
-	//	return -1;
-	//}
-	//if(last_commit > 0 && patchgroup_add_depend(commit, last_commit) < 0)
-	//	goto fail;
-	//if(prev && prev->last_commit && !commits && patchgroup_add_depend(commit, prev->last_commit) < 0)
-	//	goto fail;
-	//patchgroup_release(commit);
-	
-	//if(patchgroup_engage(commit) < 0)
-	//{
-		/* this basically can't happen */
-	//	patchgroup_abandon(commit);
-	//	return -1;
-	//}
-	if(pwrite(crfd, &cr, sizeof(cr), commits * sizeof(cr)) != sizeof(cr))
+	assert(!ext_count);
+	if(external > 0)
 	{
-		int save = errno;
-		//patchgroup_disengage(commit);
-		/* the truncate() really should be part of records, but
-		 * since commit depends on records, we'll substitute it */
-		//patchgroup_abandon(records);
-		/* make sure the pointer is not past the end of the file */
-		errno = save;
+		if(ext_success && patchgroup_add_depend(commit, external) < 0)
+			goto fail;
+		patchgroup_abandon(external);
+		external = 0;
+	}
+
+	if(patchgroup_add_depend(commit, records) < 0)
+	{
+	fail:
+		patchgroup_release(commit);
+		patchgroup_abandon(commit);
 		return -1;
 	}
-	//patchgroup_disengage(commit);
-	//patchgroup_abandon(records);
-	records = 0;
-	//if(last_commit)
-	//	patchgroup_abandon(last_commit);
-	//last_commit = commit;
+	if(last_commit > 0 && patchgroup_add_depend(commit, last_commit) < 0)
+		goto fail;
+	if(prev && prev->last_commit && !commits && patchgroup_add_depend(commit, prev->last_commit) < 0)
+		goto fail;
+	patchgroup_release(commit);
+	
+	if(patchgroup_engage(commit) < 0)
+	{
+		/* this basically can't happen */
+		patchgroup_abandon(commit);
+		return -1;
+	}
+#endif
+	data_file.flush();
+
+	if(pwrite(crfd, &cr, sizeof(cr), commits * sizeof(cr)) != sizeof(cr))
+	{
+#if HAVE_FSTITCH
+		int save = errno;
+		patchgroup_disengage(commit);
+		/* the truncate() really should be part of records, but
+		 * since commit depends on records, we'll substitute it */
+		patchgroup_abandon(records);
+		/* make sure the pointer is not past the end of the file */
+		errno = save;
+#endif
+		return -1;
+	}
+#if HAVE_FSTITCH
+	patchgroup_disengage(commit);
+	patchgroup_abandon(records);
+	if(last_commit)
+		patchgroup_abandon(last_commit);
+	last_commit = commit;
+#else
 	int r;
+	last_commit = commits;
 	char commit_number[16];
 	snprintf(commit_number, sizeof(commit_number), ".%d", last_commit);
 	istr old_commit, new_commit;
-	old_commit = commit_number;
+	old_commit = path + J_COMMIT_EXT + commit_number;
 	snprintf(commit_number, sizeof(commit_number), ".%d", commits+1);
-	new_commit = commit_number;
-	//printf("commit is %s %d\n", commit_number, commits);
-	r = renameat(dfd, path + J_COMMIT_EXT + old_commit, dfd, path + J_COMMIT_EXT + new_commit);
+	new_commit = path + J_COMMIT_EXT + commit_number;
+	r = renameat(dfd, old_commit, dfd, new_commit);
 	if(r < 0)
 		return r;
+#endif
+	records = 0;
 	++commits;
-	last_commit = commits;
 	prev_cr = cr;
 	return 0;
 }
 
 int journal::playback(record_processor processor, commit_hook commit, void * param)
 {
-	//patchgroup_id_t playback;
 	data_header header;
 	commit_record cr;
 	off_t readoff;
@@ -272,17 +284,20 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 		/* nothing to play back */
 		return 0;
 	assert(playbacks < commits);
-	//playback = patchgroup_create(0);
-	//if(playback <= 0)
-	//	return -1;
-	//patchgroup_label(playback, "playback");
-	//if(last_commit > 0 && patchgroup_add_depend(playback, last_commit) < 0)
-	//{
-	//	patchgroup_release(playback);
-	//	patchgroup_abandon(playback);
-	//	return -1;
-	//}
-	//patchgroup_release(playback);
+#if HAVE_FSTITCH
+	patchgroup_id_t playback;
+	playback = patchgroup_create(0);
+	if(playback <= 0)
+		return -1;
+	patchgroup_label(playback, "playback");
+	if(last_commit > 0 && patchgroup_add_depend(playback, last_commit) < 0)
+	{
+		patchgroup_release(playback);
+		patchgroup_abandon(playback);
+		return -1;
+	}
+	patchgroup_release(playback);
+#endif
 	if(last_commit > 0 && commits)
 		/* only replay the records from the last commit */
 		readoff = (commits - 1) * sizeof(cr);
@@ -290,12 +305,14 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 		/* if we haven't commited anything replay the whole journal */
 		readoff = 0;
 	
-	//if(patchgroup_engage(playback) < 0)
-	//{
+#if HAVE_FSTITCH
+	if(patchgroup_engage(playback) < 0)
+	{
 		/* this basically can't happen */
-	//	patchgroup_abandon(playback);
-	//	return -1;
-	//}
+		patchgroup_abandon(playback);
+		return -1;
+	}
+#endif
 	memset(zero_checksum, 0, sizeof(zero_checksum));
 	while(pread(crfd, &cr, sizeof(cr), readoff) == sizeof(cr))
 	{
@@ -307,58 +324,63 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 		{
 			if(data_file.read(curoff, &header, sizeof(header)) != sizeof(header))
 			{
-				//patchgroup_disengage(playback);
-				//patchgroup_abandon(playback);
-				return -1;
+				r = -1;
+				goto playback_error;
 			}
 			if(data_file.read(curoff + sizeof(header), buffer, header.length) != (ssize_t) header.length)
 			{
-				//patchgroup_disengage(playback);
-				//patchgroup_abandon(playback);
-				return -1;
+				r = -1;
+				goto playback_error;
 			}
 			curoff += sizeof(header) + header.length;
 			r = processor(buffer, header.length, param);
 			if(r < 0)
-			{
-				//patchgroup_disengage(playback);
-				//patchgroup_abandon(playback);
-				return r;
-			}
+				goto playback_error;
 		}
 		readoff += sizeof(cr);
 		if(commit)
 		{
 			r = commit(param);
 			if(r < 0)
-			{
-				//patchgroup_disengage(playback);
-				//patchgroup_abandon(playback);
-				return r;
-			}
+				goto playback_error;
 		}
 	}
-	//patchgroup_disengage(playback);
+#if HAVE_FSTITCH
+	patchgroup_disengage(playback);
+#endif
 	if(!finished)
 	{
-			finished = 1;
-	//	finished = patchgroup_create(0);
-	//	if(finished <= 0)
-	//	{
-	//		patchgroup_abandon(playback);
-	//		return -1;
-	//	}
-	//	patchgroup_label(finished, "finished");
+#if HAVE_FSTITCH
+		finished = patchgroup_create(0);
+		if(finished <= 0)
+		{
+			patchgroup_abandon(playback);
+			return -1;
+		}
+		patchgroup_label(finished, "finished");
+#else
+		finished = 1;
+#endif
 	}
-	//r = patchgroup_add_depend(finished, playback);
-	//if(r < 0)
-	//{
-	//	patchgroup_abandon(playback);
-	//	return r;
-	//}
-	//patchgroup_abandon(playback);
+#if HAVE_FSTITCH
+	r = patchgroup_add_depend(finished, playback);
+	if(r < 0)
+	{
+		patchgroup_abandon(playback);
+		return r;
+	}
+	patchgroup_abandon(playback);
+#endif
 	playbacks = commits;
 	return 0;
+
+playback_error:
+#if HAVE_FSTITCH
+	patchgroup_disengage(playback);
+	patchgroup_abandon(playback);
+#endif
+	return r;
+
 }
 
 int journal::erase()
@@ -380,30 +402,35 @@ int journal::erase()
 			erasure = finished;
 		else
 		{
-		/*	erasure = patchgroup_create(0);
-			if(erasure <= 0)
-				return -1;
-				*/
+#if HAVE_FSTITCH
+			erasure = patchgroup_create(0);
+					if(erasure <= 0)
+					return -1;
+#else
 			erasure = 1;
+#endif
 		}
-		//patchgroup_label(erasure, "delete");
+#if HAVE_FSTITCH
+		patchgroup_label(erasure, "delete");
+#endif
 	}
-	/*
-	if(prev && patchgroup_add_depend(erasure, prev->erasure) < 0)
-		return -1;
-	r = patchgroup_release(erasure);
+#if HAVE_FSTITCH
+		 if(prev && patchgroup_add_depend(erasure, prev->erasure) < 0)
+		 return -1;
+		 r = patchgroup_release(erasure);
+		 assert(r >= 0);
+		 r = patchgroup_engage(erasure);
+		 assert(r >= 0);
+#endif
+	unlinkat(dfd, path, 0);
+#if HAVE_FSTITCH
+	r = patchgroup_disengage(erasure);
 	assert(r >= 0);
-	r = patchgroup_engage(erasure);
-	assert(r >= 0);
-	*/
+#else
 	char commit_number[16];
 	snprintf(commit_number, sizeof(commit_number), ".%d", last_commit);
-	unlinkat(dfd, path, 0);
 	unlinkat(dfd, path + J_COMMIT_EXT + commit_number, 0);
-	
-	//r = patchgroup_disengage(erasure);
-	//assert(r >= 0);
-	
+#endif
 	r = data_file.close();
 	assert(r >= 0);
 	close(crfd);
@@ -429,9 +456,11 @@ int journal::release()
 		return 0;
 	assert(!records);
 	assert(!external);
-	//if(last_commit)
-	//	patchgroup_abandon(last_commit);
-	//patchgroup_abandon(erasure);
+#if HAVE_FSTITCH
+	if(last_commit)
+		patchgroup_abandon(last_commit);
+	patchgroup_abandon(erasure);
+#endif
 	/* no need to unlink, since those were done in erase() */
 	delete this;
 	return 0;
@@ -571,8 +600,10 @@ int journal::reopen(int dfd, const istr & path, const istr & commit_name, journa
 		delete j;
 		j = NULL;
 	}
+#if HAVE_FSTITCH
 	if(j)
 		j->data_file.set_handler(&j->handler);
+#endif
 	*pj = j;
 	return (r < 0) ? r : 0;
 	
