@@ -34,7 +34,6 @@ journal * journal::create(int dfd, const istr & path, journal * prev)
 	journal * j = new journal(path, dfd, prev);
 	if(!j)
 		return NULL;
-	/* hmm... should we include this create() in the patchgroup? */
 	if(!j->path || j->data_file.create(dfd, path) < 0)
 	{
 		int save = errno;
@@ -42,8 +41,20 @@ journal * journal::create(int dfd, const istr & path, journal * prev)
 		errno = save;
 		return NULL;
 	}
-	j->data_file.set_handler(&j->handler);
+	//j->data_file.set_handler(&j->handler);
 	return j;
+}
+
+int journal::wait()
+{
+	if(!last_commit)
+		return -EINVAL;
+#if HAVE_FSTITCH
+	return patchgroup_sync(last_commit);
+#else
+	sync();
+	return 0;
+#endif
 }
 
 int journal::appendv(const struct ovec * ovp, size_t count)
@@ -70,11 +81,15 @@ int journal::appendv(const struct ovec * ovp, size_t count)
 	if(!records)
 	{
 		data_file.flush();
+#if HAVE_FSTITCH
 		records = patchgroup_create(0);
 		if(records <= 0)
 			return -1;
 		patchgroup_label(records, "records");
 		patchgroup_release(records);
+#else
+		records = 1;
+#endif
 	}
 	offset = data_file.end();
 	if(data_file.append(data, header.length + sizeof(header)) != (ssize_t) (sizeof(header) + header.length))
@@ -92,6 +107,7 @@ int journal::appendv(const struct ovec * ovp, size_t count)
 
 int journal::start_external()
 {
+#if HAVE_FSTITCH
 	if(!ext_count)
 	{
 		int r;
@@ -109,11 +125,13 @@ int journal::start_external()
 		assert(r >= 0);
 	}
 	ext_count++;
+#endif
 	return 0;
 }
 
 int journal::end_external(bool success)
 {
+#if HAVE_FSTITCH
 	assert(ext_count > 0);
 	ext_success |= success;
 	if(!--ext_count)
@@ -121,6 +139,7 @@ int journal::end_external(bool success)
 		int r = patchgroup_disengage(external);
 		assert(r >= 0);
 	}
+#endif
 	return 0;
 }
 
@@ -154,7 +173,6 @@ int journal::checksum(off_t start, off_t end, uint8_t * checksum)
 int journal::commit()
 {
 	commit_record cr;
-	patchgroup_id_t commit;
 	
 	if(erasure)
 		return -EINVAL;
@@ -166,13 +184,17 @@ int journal::commit()
 	if(!records)
 		return 0;
 	
-	if(crfd < 0 && init_crfd() < 0)
-		return -1;
-	
+	/* initialize crfd or if it is almost full add more empty records to it */
+	if(crfd < 0 || !(commits % (J_ADD_N_COMMITS * 1000)))
+			if(init_crfd(istr::null) < 0)
+				return -1;
+
 	cr.offset = prev_cr.offset + prev_cr.length;
 	cr.length = data_file.end() - cr.offset;
 	if(checksum(cr.offset, cr.offset + cr.length, cr.checksum) < 0)
 		return -1;
+#if HAVE_FSTITCH
+	patchgroup_id_t commit;
 	commit = patchgroup_create(0);
 	if(commit <= 0)
 		return -1;
@@ -187,8 +209,7 @@ int journal::commit()
 		patchgroup_abandon(external);
 		external = 0;
 	}
-	
-	data_file.flush();
+
 	if(patchgroup_add_depend(commit, records) < 0)
 	{
 	fail:
@@ -208,8 +229,12 @@ int journal::commit()
 		patchgroup_abandon(commit);
 		return -1;
 	}
+#endif
+	data_file.flush();
+
 	if(pwrite(crfd, &cr, sizeof(cr), commits * sizeof(cr)) != sizeof(cr))
 	{
+#if HAVE_FSTITCH
 		int save = errno;
 		patchgroup_disengage(commit);
 		/* the truncate() really should be part of records, but
@@ -217,22 +242,36 @@ int journal::commit()
 		patchgroup_abandon(records);
 		/* make sure the pointer is not past the end of the file */
 		errno = save;
+#endif
 		return -1;
 	}
+#if HAVE_FSTITCH
 	patchgroup_disengage(commit);
 	patchgroup_abandon(records);
-	records = 0;
 	if(last_commit)
 		patchgroup_abandon(last_commit);
 	last_commit = commit;
-	commits++;
+#else
+	int r;
+	last_commit = commits;
+	char commit_number[16];
+	snprintf(commit_number, sizeof(commit_number), ".%d", last_commit);
+	istr old_commit, new_commit;
+	old_commit = path + J_COMMIT_EXT + commit_number;
+	snprintf(commit_number, sizeof(commit_number), ".%d", commits+1);
+	new_commit = path + J_COMMIT_EXT + commit_number;
+	r = renameat(dfd, old_commit, dfd, new_commit);
+	if(r < 0)
+		return r;
+#endif
+	records = 0;
+	++commits;
 	prev_cr = cr;
 	return 0;
 }
 
 int journal::playback(record_processor processor, commit_hook commit, void * param)
 {
-	patchgroup_id_t playback;
 	data_header header;
 	commit_record cr;
 	off_t readoff;
@@ -245,6 +284,8 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 		/* nothing to play back */
 		return 0;
 	assert(playbacks < commits);
+#if HAVE_FSTITCH
+	patchgroup_id_t playback;
 	playback = patchgroup_create(0);
 	if(playback <= 0)
 		return -1;
@@ -256,6 +297,7 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 		return -1;
 	}
 	patchgroup_release(playback);
+#endif
 	if(last_commit > 0 && commits)
 		/* only replay the records from the last commit */
 		readoff = (commits - 1) * sizeof(cr);
@@ -263,12 +305,14 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 		/* if we haven't commited anything replay the whole journal */
 		readoff = 0;
 	
+#if HAVE_FSTITCH
 	if(patchgroup_engage(playback) < 0)
 	{
 		/* this basically can't happen */
 		patchgroup_abandon(playback);
 		return -1;
 	}
+#endif
 	memset(zero_checksum, 0, sizeof(zero_checksum));
 	while(pread(crfd, &cr, sizeof(cr), readoff) == sizeof(cr))
 	{
@@ -280,40 +324,33 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 		{
 			if(data_file.read(curoff, &header, sizeof(header)) != sizeof(header))
 			{
-				patchgroup_disengage(playback);
-				patchgroup_abandon(playback);
-				return -1;
+				r = -1;
+				goto playback_error;
 			}
 			if(data_file.read(curoff + sizeof(header), buffer, header.length) != (ssize_t) header.length)
 			{
-				patchgroup_disengage(playback);
-				patchgroup_abandon(playback);
-				return -1;
+				r = -1;
+				goto playback_error;
 			}
 			curoff += sizeof(header) + header.length;
 			r = processor(buffer, header.length, param);
 			if(r < 0)
-			{
-				patchgroup_disengage(playback);
-				patchgroup_abandon(playback);
-				return r;
-			}
+				goto playback_error;
 		}
 		readoff += sizeof(cr);
 		if(commit)
 		{
 			r = commit(param);
 			if(r < 0)
-			{
-				patchgroup_disengage(playback);
-				patchgroup_abandon(playback);
-				return r;
-			}
+				goto playback_error;
 		}
 	}
+#if HAVE_FSTITCH
 	patchgroup_disengage(playback);
+#endif
 	if(!finished)
 	{
+#if HAVE_FSTITCH
 		finished = patchgroup_create(0);
 		if(finished <= 0)
 		{
@@ -321,7 +358,11 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 			return -1;
 		}
 		patchgroup_label(finished, "finished");
+#else
+		finished = 1;
+#endif
 	}
+#if HAVE_FSTITCH
 	r = patchgroup_add_depend(finished, playback);
 	if(r < 0)
 	{
@@ -329,8 +370,17 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 		return r;
 	}
 	patchgroup_abandon(playback);
+#endif
 	playbacks = commits;
 	return 0;
+
+playback_error:
+#if HAVE_FSTITCH
+	patchgroup_disengage(playback);
+	patchgroup_abandon(playback);
+#endif
+	return r;
+
 }
 
 int journal::erase()
@@ -352,25 +402,35 @@ int journal::erase()
 			erasure = finished;
 		else
 		{
+#if HAVE_FSTITCH
 			erasure = patchgroup_create(0);
-			if(erasure <= 0)
-				return -1;
+					if(erasure <= 0)
+					return -1;
+#else
+			erasure = 1;
+#endif
 		}
+#if HAVE_FSTITCH
 		patchgroup_label(erasure, "delete");
+#endif
 	}
-	if(prev && patchgroup_add_depend(erasure, prev->erasure) < 0)
-		return -1;
-	r = patchgroup_release(erasure);
-	assert(r >= 0);
-	r = patchgroup_engage(erasure);
-	assert(r >= 0);
-	
+#if HAVE_FSTITCH
+		 if(prev && patchgroup_add_depend(erasure, prev->erasure) < 0)
+		 return -1;
+		 r = patchgroup_release(erasure);
+		 assert(r >= 0);
+		 r = patchgroup_engage(erasure);
+		 assert(r >= 0);
+#endif
 	unlinkat(dfd, path, 0);
-	unlinkat(dfd, path + J_COMMIT_EXT, 0);
-	
+#if HAVE_FSTITCH
 	r = patchgroup_disengage(erasure);
 	assert(r >= 0);
-	
+#else
+	char commit_number[16];
+	snprintf(commit_number, sizeof(commit_number), ".%d", last_commit);
+	unlinkat(dfd, path + J_COMMIT_EXT + commit_number, 0);
+#endif
 	r = data_file.close();
 	assert(r >= 0);
 	close(crfd);
@@ -396,9 +456,11 @@ int journal::release()
 		return 0;
 	assert(!records);
 	assert(!external);
+#if HAVE_FSTITCH
 	if(last_commit)
 		patchgroup_abandon(last_commit);
 	patchgroup_abandon(erasure);
+#endif
 	/* no need to unlink, since those were done in erase() */
 	delete this;
 	return 0;
@@ -423,17 +485,29 @@ int journal::verify()
 	return 1;
 }
 
-int journal::init_crfd()
+int journal::init_crfd(const istr & commit_name)
 {
 	int r;
 	off_t filesize, nextcr = 0;
 	struct timeval settime[2] = {{0, 0}, {0, 0}};
 	commit_record zero = {0, 0}, cr;
 	
-	crfd = openat(dfd, path + J_COMMIT_EXT, O_CREAT | O_RDWR, 0644);
+	/* Only append more empy records to the commit file if it is already open
+	 * otherwise create a new commit record file. */
 	if(crfd < 0)
-		return -1;
-	
+	{
+		const char * cname = commit_name;
+		if(!cname)
+		{
+			char commit_number[16];
+			snprintf(commit_number, sizeof(commit_number), ".%d", commits);
+			cname = path + J_COMMIT_EXT + commit_number;
+		}
+		crfd = openat(dfd, cname, O_CREAT | O_RDWR, 0644);
+		if(crfd < 0)
+			return -1;
+	}
+
 	filesize = lseek(crfd, 0, SEEK_END);
 	memset(zero.checksum, 0, sizeof(zero.checksum));
 	/* find out where the last good commit record is */
@@ -459,18 +533,14 @@ int journal::init_crfd()
 	if((r = futimes(crfd, settime)) < 0)
 		goto error;
 	
-#define COMMIT_RECORDS 40000
-	if(filesize < COMMIT_RECORDS * (int) sizeof(cr))
+	if(filesize < (nextcr + (int) sizeof(cr)))
 	{
-		/* zero out the rest of the file 1000 entries at a time */
-		uint8_t zbuffer[1000 * sizeof(cr)];
+		/* zero out the rest of the file J_ADD_N_COMMITS records at a time */
+		uint8_t zbuffer[1000 * sizeof(zero)];
 		memset(zbuffer, 0, sizeof(zbuffer));
-		while(filesize < COMMIT_RECORDS * (int) sizeof(cr))
+		while((filesize - nextcr) < J_ADD_N_COMMITS * (int) sizeof(zbuffer))
 		{
-			r = COMMIT_RECORDS * sizeof(cr) - filesize;
-			if(r > (int) sizeof(zbuffer))
-				r = sizeof(zbuffer);
-			r = pwrite(crfd, zbuffer, r, filesize);
+			r = pwrite(crfd, zbuffer, sizeof(zbuffer), filesize);
 			if(r <= 0)
 				goto error;
 			filesize += r;
@@ -490,7 +560,7 @@ error:
 	return r < 0 ? r : -1;
 }
 
-int journal::reopen(int dfd, const istr & path, journal ** pj, journal * prev)
+int journal::reopen(int dfd, const istr & path, const istr & commit_name, journal ** pj, journal * prev)
 {
 	int r;
 	journal * j;
@@ -503,7 +573,7 @@ int journal::reopen(int dfd, const istr & path, journal ** pj, journal * prev)
 		return -1;
 	if(!j->path)
 		goto error;
-	offset = j->init_crfd();
+	offset = j->init_crfd(commit_name);
 	if(offset < 0)
 		goto error;
 	if(!offset)
@@ -530,8 +600,10 @@ int journal::reopen(int dfd, const istr & path, journal ** pj, journal * prev)
 		delete j;
 		j = NULL;
 	}
+#if HAVE_FSTITCH
 	if(j)
 		j->data_file.set_handler(&j->handler);
+#endif
 	*pj = j;
 	return (r < 0) ? r : 0;
 	
