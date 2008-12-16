@@ -620,6 +620,7 @@ int command_iterator(int argc, const char * argv[])
 }
 
 #define ROW_COUNT 50000
+#define DT_ROW_COUNT 200000
 
 int command_blob_cmp(int argc, const char * argv[])
 {
@@ -738,10 +739,10 @@ int command_blob_cmp(int argc, const char * argv[])
 	r = sst->set_blob_cmp(&reverse);
 	printf("sst->set_blob_cmp = %d\n", r);
 	
-	printf("Start timing! (2000000 reverse blob key inserts to %d rows)\n", ROW_COUNT);
+	printf("Start timing! (4000000 reverse blob key inserts to %d rows)\n", ROW_COUNT);
 	gettimeofday(&start, NULL);
 	
-	for(uint32_t i = 0; i < 2000000; i++)
+	for(uint32_t i = 0; i < 4000000; i++)
 	{
 		uint32_t keydata = rand() % ROW_COUNT;
 		blob key(sizeof(keydata), &keydata);
@@ -759,7 +760,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		r = sst->insert(key, column, current);
 		if(r < 0)
 			goto fail_insert;
-		if((i % 200000) == 199999)
+		if((i % 400000) == 399999)
 		{
 			gettimeofday(&end, NULL);
 			end.tv_sec -= start.tv_sec;
@@ -769,7 +770,7 @@ int command_blob_cmp(int argc, const char * argv[])
 				end.tv_sec--;
 			}
 			end.tv_usec -= start.tv_usec;
-			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 20000, (int) end.tv_sec, (int) end.tv_usec);
+			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 40000, (int) end.tv_sec, (int) end.tv_usec);
 			fflush(stdout);
 		}
 		if((i % 10000) == 9999)
@@ -802,7 +803,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	}
 	end.tv_usec -= start.tv_usec;
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
-	printf("Average: %"PRIu64" inserts/second\n", 2000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
+	printf("Average: %"PRIu64" inserts/second\n", 4000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
 	delete sst;
 	
@@ -859,7 +860,7 @@ fail_tx_start:
 static const istr column_names[] = {"c_one", "c_two", "c_three", "c_four", "c_five"};
 #define COLUMN_NAMES (sizeof(column_names) / sizeof(column_names[0]))
 
-int command_performance(int argc, const char * argv[])
+static int command_performance_stable(int argc, const char * argv[])
 {
 	int r;
 	simple_stable * sst;
@@ -1067,4 +1068,173 @@ fail_insert:
 fail_tx_start:
 	delete sst;
 	return r;
+}
+
+static int command_performance_dtable(int argc, const char * argv[])
+{
+	int r;
+	dtable * dt;
+	dtable::iter * iter;
+	struct timeval start, end;
+	uint32_t table_copy[DT_ROW_COUNT];
+	params config;
+	
+	r = params::parse(LITERAL(
+	config [
+		"cache_size" int 40000
+		"base" class(dt) managed_dtable
+		"base_config" config [
+			"base" class(dt) simple_dtable
+			"digest_interval" int 2
+			"combine_interval" int 8
+			"combine_count" int 5
+		]
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = dtable_factory::setup("cache_dtable", AT_FDCWD, "dtpftest", config, dtype::UINT32);
+	printf("dtable_factory::setup = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpftest", config);
+	printf("dtable_factory::load = %p\n", dt);
+	
+	for(uint32_t i = 0; i < DT_ROW_COUNT; i++)
+		table_copy[i] = (uint32_t) -1;
+	
+	printf("Start timing! (8000000 inserts to %d rows)\n", DT_ROW_COUNT);
+	gettimeofday(&start, NULL);
+	
+	for(int i = 0; i < 8000000; i++)
+	{
+		uint32_t row = rand() % DT_ROW_COUNT;
+		if(!(i % 1000))
+		{
+			r = tx_start();
+			if(r < 0)
+				goto fail_tx_start;
+		}
+		do {
+			table_copy[row] = rand();
+		} while(table_copy[row] == (uint32_t) -1);
+		r = dt->insert(row, blob(sizeof(table_copy[row]), &table_copy[row]));
+		if(r < 0)
+			goto fail_insert;
+		if((i % 800000) == 799999)
+		{
+			gettimeofday(&end, NULL);
+			end.tv_sec -= start.tv_sec;
+			if(end.tv_usec < start.tv_usec)
+			{
+				end.tv_usec += 1000000;
+				end.tv_sec--;
+			}
+			end.tv_usec -= start.tv_usec;
+			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 80000, (int) end.tv_sec, (int) end.tv_usec);
+			fflush(stdout);
+		}
+		if((i % 10000) == 9999)
+		{
+			r = dt->maintain();
+			if(r < 0)
+				goto fail_maintain;
+		}
+		if((i % 500000) == 499999)
+		{
+			r = sys_journal::get_global_journal()->filter();
+			if(r < 0)
+				goto fail_maintain;
+		}
+		if((i % 1000) == 999)
+		{
+			r = tx_end(0);
+			assert(r >= 0);
+		}
+	}
+	
+	gettimeofday(&end, NULL);
+	end.tv_sec -= start.tv_sec;
+	if(end.tv_usec < start.tv_usec)
+	{
+		end.tv_usec += 1000000;
+		end.tv_sec--;
+	}
+	end.tv_usec -= start.tv_usec;
+	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
+	printf("Average: %"PRIu64" inserts/second\n", 8000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
+	
+	delete dt;
+	
+	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpftest", config);
+	printf("dtable_factory::load = %p\n", dt);
+	
+	printf("Verifying writes... ");
+	fflush(stdout);
+	for(uint32_t i = 0; i < DT_ROW_COUNT; i++)
+	{
+		blob value = dt->find(i);
+		if(value.exists())
+		{
+			if(value.size() != sizeof(uint32_t))
+				goto fail_verify;
+			dtype typed(value, dtype::UINT32);
+			if(table_copy[i] != typed.u32)
+				goto fail_verify;
+		}
+		else if(table_copy[i] != (uint32_t) -1)
+			goto fail_verify;
+	}
+	printf("OK!\n");
+	
+	if(argc > 1 && !strcmp(argv[1], "seek"))
+	{
+		printf("Checking seeking (100000 seeks)... ");
+		fflush(stdout);
+		iter = dt->iterator();
+		for(int i = 0; i < 100000; i++)
+		{
+			uint32_t row = rand() % DT_ROW_COUNT;
+			if(iter->seek(row))
+			{
+				blob value = iter->value();
+				if(value.size() != sizeof(uint32_t))
+					goto fail_iter;
+				dtype typed(value, dtype::UINT32);
+				if(table_copy[row] != typed.u32)
+					goto fail_iter;
+			}
+			else if(table_copy[row] != (uint32_t) -1)
+				goto fail_iter;
+		}
+		printf("OK!\n");
+	}
+	
+	delete dt;
+	return 0;
+	
+fail_iter:
+	delete iter;
+fail_verify:
+	printf("failed!\n");
+	delete dt;
+	return -1;
+	
+fail_maintain:
+fail_insert:
+	tx_end(0);
+fail_tx_start:
+	delete dt;
+	return r;
+}
+
+int command_performance(int argc, const char * argv[])
+{
+	if(argc > 1 && !strcmp(argv[1], "stable"))
+		return command_performance_stable(argc - 1, &argv[1]);
+	return command_performance_dtable(argc, argv);
 }
