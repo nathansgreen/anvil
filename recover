@@ -12,16 +12,15 @@
 # Uncomment to use Featherstitch journal mode
 #JOURNAL=use_journal=1
 
-# Uncomment to use death testing
-#DEATH="0 30000"
+if [ -h fstitch ]
+then
+	FSTYPE="ext2"
+else
+	FSTYPE="ext3"
+	[ "$PG_TRACE" -o "$JOURNAL" ] && echo "Warning: ignoring Featherstitch-specific option (not using Featherstitch)"
+fi
 
 make || exit $?
-if [ "$DEATH" ]
-then
-	make -C reboot || exit $?
-	# TODO: add escaped quote marks in case pwd has spaces
-	DEATH="`echo death command "$(pwd)/reboot/reboot"; echo death $DEATH; echo " "`"
-fi
 
 HOST="`hostname`"
 if [ "${HOST#kudos-}" == "$HOST" -a "$HOST" != "execl" -a "$HOST" != "butters" ]
@@ -36,30 +35,40 @@ then
 	exit 1
 fi
 
-if [ ! "$JOURNAL" ]
+if [ "$FSTYPE" == "ext2" ]
 then
-	sudo e2fsck -f /dev/sdb1
-	sync
+	if [ ! "$JOURNAL" ]
+	then
+		# Soft updates mode; use fsck
+		sudo e2fsck -f /dev/sdb1
+		sync
+	fi
+	
+	echo -n "Loading Featherstitch... "
+	sudo insmod fstitch/kfstitchd.ko device=/dev/sdb $JOURNAL
+	[ -f /proc/kfstitchd_debug ] && (cat /proc/kfstitchd_debug > try.fdb &) || rm -f try.fdb
+	sudo mount /mnt/test
+	echo "done."
+else
+	sudo mount /dev/sdb1 /mnt/test -t $FSTYPE
 fi
 
-echo -n "Loading Featherstitch... "
-sudo insmod fstitch/kfstitchd.ko device=/dev/sdb $JOURNAL
-[ -f /proc/kfstitchd_debug ] && (cat /proc/kfstitchd_debug > try.fdb &) || rm -f try.fdb
-sudo mount /mnt/test
-echo "done."
 
 # Filter the system journal
 find /mnt/test -type f -print0 | xargs -0 ls -l
 true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $PG_TRACE exec $VALGRIND '"$WD/toilet"')
 find /mnt/test -type f -print0 | xargs -0 ls -l
 
-echo "Unloading Featherstitch..."
 sudo umount /mnt/test
-time sudo rmmod kfstitchd
+if [ "$FSTYPE" == "ext2" ]
+then
+	echo "Unloading Featherstitch..."
+	time sudo rmmod kfstitchd
+fi
 
 echo -ne \\007
 
-sudo mount /dev/sdb1 /mnt/test -t ext2
+sudo mount /dev/sdb1 /mnt/test -t $FSTYPE
 rm -f gmon.out* gmon.sum*
 if [ -f /mnt/test/gmon.out ]
 then

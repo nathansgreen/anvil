@@ -26,8 +26,13 @@
 if [ -h fstitch ]
 then
 	FSTYPE="ext2"
+	MKFS_ARGS=""
 else
 	FSTYPE="ext3"
+	MKFS_ARGS="-j"
+	[ "$PERF_TRACE" -o "$BLOB_TRACE" -o "$TEST_TRACE" -o \
+	  "$DEMO_TRACE" -o "$HAND_TRACE" -o "$SYSJ_TRACE" -o \
+	  "$JOURNAL" ] && echo "Warning: ignoring Featherstitch-specific option (not using Featherstitch)"
 fi
 
 make || exit $?
@@ -52,12 +57,7 @@ then
 fi
 
 echo -n "Creating file system... "
-if [ "$FSTYPE" == "ext3" ]
-then
-	sudo mke2fs -j -m 0 -b 4096 /dev/sdb1 &> /dev/null
-else
-	sudo mke2fs -m 0 -b 4096 /dev/sdb1 &> /dev/null
-fi
+sudo mke2fs $MKFS_ARGS -m 0 -b 4096 /dev/sdb1 &> /dev/null
 sudo mount /dev/sdb1 /mnt/test -t $FSTYPE
 sudo chown -R `whoami` /mnt/test
 [ "$JOURNAL" ] && dd if=/dev/zero of=/mnt/test/.journal bs=1M count=64 2> /dev/null
@@ -77,13 +77,13 @@ echo "done."
 
 if [ "$FSTYPE" == "ext2" ]
 then
-	echo -n "Loading Featherstitch... "
 	sudo umount /mnt/test
+	echo -n "Loading Featherstitch... "
 	sudo insmod fstitch/kfstitchd.ko device=/dev/sdb $JOURNAL
 	[ -f /proc/kfstitchd_debug ] && (cat /proc/kfstitchd_debug > try.fdb &) || rm -f try.fdb
 	sudo mount /mnt/test
+	echo "done."
 fi
-echo "done."
 
 if [ "$OPROF" ]
 then
