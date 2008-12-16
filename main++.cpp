@@ -622,7 +622,7 @@ int command_iterator(int argc, const char * argv[])
 
 int command_bdbtest(int argc, const char * argv[])
 {
-	//TODO this isn't the complete bdb test we need to try different durability checks
+	/* TODO: this isn't the complete bdb test; we need to try different durability checks */
 	const uint32_t KEYSIZE = 8;
 	const uint32_t VALSIZE = 32;
 	struct timeval start, end;

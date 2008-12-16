@@ -41,7 +41,9 @@ journal * journal::create(int dfd, const istr & path, journal * prev)
 		errno = save;
 		return NULL;
 	}
-	//j->data_file.set_handler(&j->handler);
+#if HAVE_FSTITCH
+	j->data_file.set_handler(&j->handler);
+#endif
 	return j;
 }
 
@@ -186,8 +188,8 @@ int journal::commit()
 	
 	/* initialize crfd or if it is almost full add more empty records to it */
 	if(crfd < 0 || !(commits % (J_ADD_N_COMMITS * 1000)))
-			if(init_crfd(istr::null) < 0)
-				return -1;
+		if(init_crfd(istr::null) < 0)
+			return -1;
 
 	cr.offset = prev_cr.offset + prev_cr.length;
 	cr.length = data_file.end() - cr.offset;
@@ -209,7 +211,7 @@ int journal::commit()
 		patchgroup_abandon(external);
 		external = 0;
 	}
-
+	
 	if(patchgroup_add_depend(commit, records) < 0)
 	{
 	fail:
@@ -231,7 +233,7 @@ int journal::commit()
 	}
 #endif
 	data_file.flush();
-
+	
 	if(pwrite(crfd, &cr, sizeof(cr), commits * sizeof(cr)) != sizeof(cr))
 	{
 #if HAVE_FSTITCH
@@ -404,8 +406,8 @@ int journal::erase()
 		{
 #if HAVE_FSTITCH
 			erasure = patchgroup_create(0);
-					if(erasure <= 0)
-					return -1;
+			if(erasure <= 0)
+				return -1;
 #else
 			erasure = 1;
 #endif
@@ -415,12 +417,12 @@ int journal::erase()
 #endif
 	}
 #if HAVE_FSTITCH
-		 if(prev && patchgroup_add_depend(erasure, prev->erasure) < 0)
-		 return -1;
-		 r = patchgroup_release(erasure);
-		 assert(r >= 0);
-		 r = patchgroup_engage(erasure);
-		 assert(r >= 0);
+	if(prev && patchgroup_add_depend(erasure, prev->erasure) < 0)
+		return -1;
+	r = patchgroup_release(erasure);
+	assert(r >= 0);
+	r = patchgroup_engage(erasure);
+	assert(r >= 0);
 #endif
 	unlinkat(dfd, path, 0);
 #if HAVE_FSTITCH

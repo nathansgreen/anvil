@@ -27,7 +27,7 @@ extern "C" {
 
 #define J_COMMIT_EXT ".commit"
 #define J_CHECKSUM_LEN 16
-#define J_ADD_N_COMMITS 50 // In thousands of commits
+#define J_ADD_N_COMMITS 50 /* in thousands of commits */
 
 class journal
 {
@@ -90,10 +90,10 @@ private:
 		: path(path), dfd(dfd), crfd(-1), records(0), last_commit(0),
 		  finished(0), erasure(0), external(0),
 #if HAVE_FSTITCH
-			handler(this),
+		  handler(this),
 #endif
-			prev(prev), commits(0),
-			playbacks(0), usage(1), ext_count(0), ext_success(false)
+		  prev(prev), commits(0), playbacks(0), usage(1),
+		  ext_count(0), ext_success(false)
 	{
 		prev_cr.offset = 0;
 		prev_cr.length = 0;
