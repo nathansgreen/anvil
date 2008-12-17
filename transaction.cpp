@@ -698,7 +698,9 @@ ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset)
 	struct journal::ovec ov[4];
 	size_t count = 1;
 	int r;
-	if(!current_journal)
+	/* assert for now; makes it easier to find errors */
+	assert(current_journal && tx_recursion);
+	if(!current_journal || !tx_recursion)
 		return -EBUSY;
 	assert(tx_fds[fd].fd >= 0);
 	header->type.type = tx_hdr::WRITE;
