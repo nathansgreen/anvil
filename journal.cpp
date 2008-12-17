@@ -430,7 +430,7 @@ int journal::erase()
 	assert(r >= 0);
 #else
 	char commit_number[16];
-	snprintf(commit_number, sizeof(commit_number), ".%d", last_commit);
+	snprintf(commit_number, sizeof(commit_number), ".%d", commits);
 	unlinkat(dfd, path + J_COMMIT_EXT + commit_number, 0);
 #endif
 	r = data_file.close();
