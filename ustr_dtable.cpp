@@ -717,7 +717,8 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	{
 		blob value = iter->value();
 		iter->next();
-		if(!value.exists())
+		/* nonexistent blobs have size 0 */
+		if(!value.size())
 			continue;
 		if(dups.size())
 			value = pack_blob(value, header, dup_vector);

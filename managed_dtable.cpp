@@ -33,6 +33,10 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		fast_config = "base_config";
 	if(!config.get(fast_config, &fastbase_config, params()))
 		return -EINVAL;
+	if(!config.get("digest_on_close", &digest_on_close, false))
+		return -EINVAL;
+	if(!config.get("close_digest_fastbase", &close_digest_fastbase, true))
+		return -EINVAL;
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
 		return md_dfd;
@@ -131,6 +135,15 @@ void managed_dtable::deinit()
 {
 	if(md_dfd < 0)
 		return;
+	if(digest_on_close)
+	{
+		int r = digest(close_digest_fastbase);
+		if(r < 0)
+		{
+			/* failing silently is OK here; do we need to warn? */
+			fprintf(stderr, "%s: digest(%s) failed (%d; %s)\n", __PRETTY_FUNCTION__, close_digest_fastbase ? "true" : "false", r, strerror(errno));
+		}
+	}
 	delete overlay;
 	delete journal;
 	for(size_t i = 0; i < disks.size(); i++)

@@ -461,7 +461,8 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	{
 		blob value = iter->value();
 		iter->next();
-		if(!value.exists())
+		/* nonexistent blobs have size 0 */
+		if(!value.size())
 			continue;
 		r = out.append(&value[0], value.size());
 		if(r != (int) value.size())

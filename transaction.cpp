@@ -359,6 +359,7 @@ tx_id tx_end(int assign_id)
 	if(r < 0)
 		/* not clear how to uncommit the journal... */
 		goto fail;
+	/* current_journal->done() renames commit record again? */
 	if(current_journal->size() >= tx_log_size)
 	{
 		r = switch_journal();

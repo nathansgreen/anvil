@@ -260,7 +260,7 @@ int journal::commit()
 	snprintf(commit_number, sizeof(commit_number), ".%d", last_commit);
 	istr old_commit, new_commit;
 	old_commit = path + J_COMMIT_EXT + commit_number;
-	snprintf(commit_number, sizeof(commit_number), ".%d", commits+1);
+	snprintf(commit_number, sizeof(commit_number), ".%d", commits + 1);
 	new_commit = path + J_COMMIT_EXT + commit_number;
 	r = renameat(dfd, old_commit, dfd, new_commit);
 	if(r < 0)

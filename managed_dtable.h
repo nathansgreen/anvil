@@ -155,6 +155,7 @@ private:
 	 * -EBUSY and we will need to query it later when the blob comparator is
 	 *  set; we set delayed_query when this case is detected in init() */
 	sys_journal * delayed_query;
+	bool digest_on_close, close_digest_fastbase;
 };
 
 #endif /* __MANAGED_DTABLE_H */
