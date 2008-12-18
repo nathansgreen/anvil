@@ -644,10 +644,15 @@ int command_bdbtest(int argc, const char * argv[])
 	printf("BekeleyDB test timing! \n");
 	gettimeofday(&start, NULL);
 
+	r = tx_start();
+	printf("tx_start = %d\n", r);
 	jid = sys_journal::get_unique_id();
 	if(jid == sys_journal::NO_ID)
 		return -EBUSY;
 	r = jdt.init(dtype::BLOB, jid, NULL);
+	printf("jdt.init = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
 
 	for(int i = 0; i < 1000000; i++)
 	{
@@ -880,6 +885,8 @@ int command_blob_cmp(int argc, const char * argv[])
 	
 	delete sst;
 	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
 	sst = new simple_stable;
 	r = sst->init(AT_FDCWD, "cmptest", config);
 	printf("sst->init = %d\n", r);
@@ -887,6 +894,8 @@ int command_blob_cmp(int argc, const char * argv[])
 	printf("sst->set_blob_cmp = %d\n", r);
 	r = sst->maintain();
 	printf("sst->maintain = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
 	
 	printf("Verifying writes... ");
 	fflush(stdout);
@@ -1243,8 +1252,12 @@ static int command_performance_dtable(int argc, const char * argv[])
 	
 	delete dt;
 	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
 	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpftest", config);
 	printf("dtable_factory::load = %p\n", dt);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
 	
 	printf("Verifying writes... ");
 	fflush(stdout);
