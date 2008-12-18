@@ -25,7 +25,7 @@ extern "C" {
 #include "istr.h"
 #include "rwfile.h"
 
-#define J_COMMIT_EXT ".commit"
+#define J_COMMIT_EXT ".commit."
 #define J_CHECKSUM_LEN 16
 #define J_ADD_N_COMMITS 50 /* in thousands of commits */
 
