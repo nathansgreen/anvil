@@ -254,15 +254,14 @@ int journal::commit()
 		patchgroup_abandon(last_commit);
 	last_commit = commit;
 #else /* }}} */
-	int r;
-	last_commit = commits;
 	char commit_number[16];
-	snprintf(commit_number, sizeof(commit_number), "%d", last_commit);
 	istr old_commit, new_commit;
+	last_commit = commits;
+	snprintf(commit_number, sizeof(commit_number), "%d", last_commit);
 	old_commit = path + J_COMMIT_EXT + commit_number;
 	snprintf(commit_number, sizeof(commit_number), "%d", commits + 1);
 	new_commit = path + J_COMMIT_EXT + commit_number;
-	r = renameat(dfd, old_commit, dfd, new_commit);
+	int r = renameat(dfd, old_commit, dfd, new_commit);
 	if(r < 0)
 		return r;
 #endif
@@ -498,7 +497,7 @@ int journal::init_crfd(const istr & commit_name)
 	 * otherwise create a new commit record file. */
 	if(crfd < 0)
 	{
-		const char * cname = commit_name;
+		istr cname = commit_name;
 		if(!cname)
 		{
 			char commit_number[16];
