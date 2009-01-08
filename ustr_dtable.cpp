@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -109,7 +109,7 @@ bool ustr_dtable::iter::seek_index(size_t index)
 {
 	/* we allow seeking to one past the end, just
 	 * as we allow getting there with next() */
-	if(index < 0 || index > udt_source->key_count)
+	if(index < 0 || index >= udt_source->key_count)
 		return false;
 	this->index = index;
 	return index < udt_source->key_count;
