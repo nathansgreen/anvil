@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -12,7 +12,11 @@
 #include "ctable_factory.h"
 #include "index_factory.h"
 
-/* hmm... can we be guaranteed that this constructor will be called before the constructors that call add() below? */
+/* Can we be guaranteed that the constructor for this map will be called before
+ * the factory constructors that call add() below? Not officially, but in
+ * practice we can. We must list all the factory-constructible classes before
+ * the corresponding factory registries in the Makefile, as the global
+ * constructors are called in the opposite order as they are linked together. */
 template<class T>
 typename factory<T>::factory_map factory<T>::factories;
 

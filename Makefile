@@ -1,5 +1,7 @@
 # Not many C source files left now...
 CSOURCES=blowfish.c md5.c openat.c
+# NOTE: list all factory-constructible classes (dtables, etc.) before the
+# corresponding factory registries. See factory_impl.h for the reason.
 CPPSOURCES=string_counter.cpp istr.cpp new.cpp rofile.cpp rwfile.cpp stringset.cpp stringtbl.cpp util.cpp
 CPPSOURCES+=blob.cpp blob_buffer.cpp params.cpp sub_blob.cpp journal.cpp sys_journal.cpp transaction.cpp
 CPPSOURCES+=simple_dtable.cpp simple_ctable.cpp simple_stable.cpp simple_ext_index.cpp memory_dtable.cpp
