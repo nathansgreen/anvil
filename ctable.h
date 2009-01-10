@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -33,7 +33,11 @@ public:
 		virtual bool seek(const dtype_test & test) = 0;
 		virtual const istr & column() const = 0;
 		virtual blob value() const = 0;
+		inline iter() {}
 		virtual ~iter() {}
+	private:
+		void operator=(const iter &);
+		iter(const iter &);
 	};
 	
 	virtual dtable::key_iter * keys() const = 0;
@@ -60,6 +64,10 @@ public:
 	
 protected:
 	const dtable * dt_source;
+	
+private:
+	void operator=(const ctable &);
+	ctable(const ctable &);
 };
 
 #endif /* __CTABLE_H */
