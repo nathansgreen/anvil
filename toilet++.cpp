@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -11,6 +11,8 @@
 #include "sys_journal.h"
 #include "dtable_factory.h"
 #include "ctable_factory.h"
+#include "dtable_cache_iter.h"
+#include "ctable_cache_iter.h"
 #include "toilet++.h"
 
 static void rename_gmon_out(void)
@@ -513,7 +515,11 @@ int tpp_dtable_maintain(tpp_dtable * c)
 tpp_dtable_key_iter * tpp_dtable_keys(const tpp_dtable * c)
 {
 	tpp_dtable_union_const safer(c);
-	return tpp_dtable_key_iter_union(safer->iterator());
+	dtable::key_iter * iter = safer->iterator();
+	dtable::key_iter * cache = iter ? new dtable_cache_key_iter(iter) : NULL;
+	if(!cache && iter)
+		delete iter;
+	return tpp_dtable_key_iter_union(cache);
 }
 
 bool tpp_dtable_key_iter_valid(const tpp_dtable_key_iter * c)
@@ -574,7 +580,11 @@ void tpp_dtable_key_iter_kill(tpp_dtable_key_iter * c)
 tpp_dtable_iter * tpp_dtable_iterator(const tpp_dtable * c)
 {
 	tpp_dtable_union_const safer(c);
-	return tpp_dtable_iter_union(safer->iterator());
+	dtable::iter * iter = safer->iterator();
+	dtable::iter * cache = iter ? new dtable_cache_iter(iter) : NULL;
+	if(!cache && iter)
+		delete iter;
+	return tpp_dtable_iter_union(cache);
 }
 
 bool tpp_dtable_iter_valid(const tpp_dtable_iter * c)
@@ -732,13 +742,21 @@ int tpp_ctable_maintain(tpp_ctable * c)
 tpp_dtable_key_iter * tpp_ctable_keys(const tpp_ctable * c)
 {
 	tpp_ctable_union_const safer(c);
-	return tpp_dtable_key_iter_union(safer->keys());
+	dtable::key_iter * iter = safer->keys();
+	dtable::key_iter * cache = iter ? new dtable_cache_key_iter(iter) : NULL;
+	if(!cache && iter)
+		delete iter;
+	return tpp_dtable_key_iter_union(cache);
 }
 
 tpp_ctable_iter * tpp_ctable_iterator(const tpp_ctable * c)
 {
 	tpp_ctable_union_const safer(c);
-	return tpp_ctable_iter_union(safer->iterator());
+	ctable::iter * iter = safer->iterator();
+	ctable::iter * cache = iter ? new ctable_cache_iter(iter) : NULL;
+	if(!cache && iter)
+		delete iter;
+	return tpp_ctable_iter_union(cache);
 }
 
 bool tpp_ctable_iter_valid(const tpp_ctable_iter * c)
