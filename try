@@ -166,6 +166,6 @@ done
 if [ -f /mnt/test/core ]
 then
 	echo "Starting debugger on core."
-	gdb -c /mnt/test/core main
+	gdb -q -c /mnt/test/core main
 fi
 sudo umount /mnt/test
