@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -19,6 +19,7 @@
 #include "stable.h"
 #include "sys_journal.h"
 #include "cache_dtable.h"
+#include "array_dtable.h"
 #include "simple_dtable.h"
 #include "managed_dtable.h"
 #include "ustr_dtable.h"
@@ -31,6 +32,7 @@ int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
+int command_adtable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
 int command_performance(int argc, const char * argv[]);
@@ -331,6 +333,72 @@ int command_ctable(int argc, const char * argv[])
 	delete sct;
 	delete mdt;
 	
+	return 0;
+}
+
+int command_adtable(int argc, const char * argv[])
+{
+	int r;
+	managed_dtable * mdt;
+
+	params config;
+	config.set_class("base", array_dtable);
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = managed_dtable::create(AT_FDCWD, "managed_array_dtable", config, dtype::UINT32);
+	printf("managed array_dtable::create = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "managed_array_dtable", config);
+	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = mdt->insert(4u, blob("hello"));
+	printf("mdt->insert = %d\n", r);
+	r = mdt->insert(2u, blob("world"));
+	printf("mdt->insert = %d\n", r);
+	r = mdt->insert(12u, blob("apple"));
+	printf("mdt->insert = %d\n", r);
+	r = mdt->insert(3u, blob("fruit"));
+	printf("mdt->insert = %d\n", r);
+	run_iterator(mdt);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	delete mdt;
+
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "managed_array_dtable", config);
+	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	run_iterator(mdt);
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = mdt->digest();
+	printf("mdt->digest = %d\n", r);
+	run_iterator(mdt);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	delete mdt;
+
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "managed_array_dtable", config);
+	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	run_iterator(mdt);
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = mdt->insert(6u, blob("fives"));
+	printf("mdt->insert = %d\n", r);
+	r = mdt->insert(0u, blob("fours"));
+	printf("mdt->insert = %d\n", r);
+	run_iterator(mdt);
+	r = mdt->digest();
+	printf("mdt->digest = %d\n", r);
+	run_iterator(mdt);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+
+	delete mdt;
 	return 0;
 }
 
