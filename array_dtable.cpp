@@ -22,23 +22,23 @@ array_dtable::iter::iter(const array_dtable * source)
 
 bool array_dtable::iter::valid() const
 {
-	return index < bdt_source->key_count;
+	return index <= bdt_source->max_key;
 }
 
 bool array_dtable::iter::next()
 {
-	if(index == bdt_source->key_count)
+	if(index == bdt_source->max_key+1)
 		return false;
 
-	while(++index < bdt_source->key_count && !bdt_source->exists(index))
+	while(++index <= bdt_source->max_key && !bdt_source->exists(index))
 		continue;
 
-	return index < bdt_source->key_count;
+	return index <= bdt_source->max_key;
 }
 
 bool array_dtable::iter::prev()
 {
-	if(!index)
+	if(index == bdt_source->min_key)
 		return false;
 	index--;
 	return true;
@@ -46,17 +46,17 @@ bool array_dtable::iter::prev()
 
 bool array_dtable::iter::last()
 {
-	if(!bdt_source->key_count)
+	if(!bdt_source->max_key)
 		return false;
-	index = bdt_source->key_count - 1;
+	index = bdt_source->max_key;
 	return true;
 }
 
 bool array_dtable::iter::first()
 {
-	if(!bdt_source->key_count)
+	if(!bdt_source->max_key)
 		return false;
-	index = 0;
+	index = bdt_source->min_key;
 	return true;
 }
 
@@ -68,7 +68,7 @@ dtype array_dtable::iter::key() const
 bool array_dtable::iter::seek(const dtype & key)
 {
 	assert(key.type == dtype::UINT32);
-	if(key.u32 >= bdt_source->key_count)
+	if(key.u32 > bdt_source->max_key || key.u32 < bdt_source->min_key)
 		return false;
 	index = key.u32;
 	return true;
@@ -81,10 +81,10 @@ bool array_dtable::iter::seek(const dtype_test & test)
 
 bool array_dtable::iter::seek_index(size_t idx)
 {
-	if(idx < 0 || idx >= bdt_source->key_count)
+	if(idx < 0 || idx > bdt_source->max_key)
 		return false;
 	index = idx;
-	return index < bdt_source->key_count;
+	return index <= bdt_source->max_key;
 }
 
 metablob array_dtable::iter::meta() const
@@ -112,9 +112,9 @@ dtable::iter * array_dtable::iterator() const
 
 blob array_dtable::get_value(uint32_t key, bool * found) const
 {
-	assert(key < key_count && key >= 0);
+	assert(key <= max_key && key >= min_key);
 	/* we use an extra byte to see if the value exists hence the value_size + 1 */
-	size_t offset = sizeof(dtable_header) + (key * (value_size+1));
+	size_t offset = sizeof(dtable_header) + ((key - min_key) * (value_size+1));
 	uint8_t exists;
 	size_t data_length = fp->read(offset, &exists, sizeof(exists));
 	assert(data_length == sizeof(exists));
@@ -133,9 +133,9 @@ blob array_dtable::get_value(uint32_t key, bool * found) const
 
 bool array_dtable::exists(uint32_t key) const
 {
-	assert(key < key_count && key >= 0);
+	assert(key <= max_key && key >= min_key);
 	/* we use an extra byte to see if the value exists hence the value_size + 1 */
-	size_t offset = sizeof(dtable_header) + (key * (value_size+1));
+	size_t offset = sizeof(dtable_header) + ((key - min_key) * (value_size+1));
 	uint8_t exists;
 	size_t data_length = fp->read(offset, &exists, sizeof(exists));
 	assert(data_length == sizeof(exists));
@@ -146,7 +146,7 @@ template<class T>
 int array_dtable::find_key(const T & test, size_t * index) const
 {
 	/* binary search */
-	size_t min = 0, max = key_count - 1;
+	size_t min = min_key, max = max_key;
 	assert(ktype != dtype::BLOB || !cmp_name == !blob_cmp);
 	while(min <= max)
 	{
@@ -173,7 +173,7 @@ int array_dtable::find_key(const T & test, size_t * index) const
 blob array_dtable::lookup(const dtype & key, bool * found) const
 {
 	assert(key.type == dtype::UINT32);
-	if(key.u32 >= key_count || key.u32 < 0)
+	if(key.u32 > max_key || key.u32 < min_key)
 	{
 		*found = false;
 		return blob();
@@ -193,8 +193,9 @@ int array_dtable::init(int dfd, const char * file, const params & config)
 		goto fail;
 	if(header.magic != ADTABLE_MAGIC || header.version != ADTABLE_VERSION)
 		goto fail;
-	key_count = header.key_count;
+	max_key = header.max_key;
 	value_size = header.value_size;
+	min_key = header.min_key;
 	ktype = dtype::UINT32;
 
 	return 0;
@@ -222,13 +223,14 @@ int array_dtable::create(int dfd, const char * file, const params & config, cons
 		return -EINVAL;
 	dtype::ctype key_type = source->key_type();
 	dtable_header header;
-	uint32_t max_key = 0, max_data_size = 0, i = 0;
+	uint32_t max_data_size = 0, i = 0;
 	uint8_t * zero_data;
 	int r;
 	rwfile out;
 	if(!source_shadow_ok(source, shadow))
 		return -EINVAL;
 	iter = source->iterator();
+	uint32_t min_key = 0,	max_key = 0;
 	while(iter->valid())
 	{
 		dtype key = iter->key();
@@ -239,6 +241,8 @@ int array_dtable::create(int dfd, const char * file, const params & config, cons
 			if(!shadow || !shadow->find(key).exists())
 				continue;
 		assert(key.type == key_type);
+		if(key.u32 < min_key)
+			min_key = key.u32;
 		if(key.u32 > max_key)
 			max_key = key.u32;
 		if(max_data_size == 0 && meta.size() > max_data_size)
@@ -251,7 +255,8 @@ int array_dtable::create(int dfd, const char * file, const params & config, cons
 
 	header.magic = ADTABLE_MAGIC;
 	header.version = ADTABLE_VERSION;
-	header.key_count = max_key+1;
+	header.max_key = max_key;
+	header.min_key = min_key;
 	header.value_size = max_data_size;
 
 	if(key_type != dtype::UINT32)

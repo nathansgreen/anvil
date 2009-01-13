@@ -24,7 +24,7 @@ class array_dtable : public dtable
 public:
 	virtual iter * iterator() const;
 	virtual blob lookup(const dtype & key, bool * found) const;
-	inline array_dtable() : fp(NULL), key_count(0) {}
+	inline array_dtable() : fp(NULL), max_key(0), min_key(0), value_size(0) {}
 	int init(int dfd, const char * file, const params & config);
 	dtype get_key(size_t index) const;
 	blob get_value(size_t index, bool * found) const;
@@ -38,8 +38,9 @@ private:
 	struct dtable_header {
 		uint32_t magic;
 		uint32_t version;
-		uint32_t key_count;
+		uint32_t max_key;
 		uint32_t value_size;
+		uint32_t min_key;
 	} __attribute__((packed));
 
 	class iter : public dtable::iter
@@ -74,8 +75,9 @@ private:
 	bool exists(size_t index) const;
 
 	rofile * fp;
+	uint32_t max_key;
+	uint32_t min_key;
 	uint32_t value_size;
-	size_t key_count;
 };
 
 #endif /* __ARRAY_DTABLE_H */
