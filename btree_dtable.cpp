@@ -280,6 +280,7 @@ size_t btree_dtable::btree_lookup(const T & test, bool * found) const
 		pointer = page.internal[index].lt_ptr;
 		full = pointer <= header.last_full;
 		page.page = btree->page(pointer);
+		assert(page.page);
 		depth++;
 	}
 	
@@ -378,8 +379,9 @@ int btree_dtable::page_stack::add(uint32_t key, size_t index)
 			abort();
 		add(pointer);
 	}
-	else if(next_depth < depth - 1)
-		next_depth++;
+	else
+		/* this will usually be the case already */
+		next_depth = depth - 1;
 	return 0;
 }
 
@@ -441,7 +443,7 @@ size_t btree_dtable::page_stack::btree_depth(size_t key_count)
 	while(internal * BTREE_KEYS_PER_PAGE + leaf * BTREE_KEYS_PER_LEAF_PAGE < key_count)
 	{
 		internal += leaf;
-		leaf *= BTREE_KEYS_PER_PAGE;
+		leaf *= BTREE_KEYS_PER_PAGE + 1;
 		depth++;
 	}
 	return depth;
