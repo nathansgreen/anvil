@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -101,6 +101,11 @@ bool btree_dtable::iter::seek(const dtype_test & test)
 bool btree_dtable::iter::seek_index(size_t index)
 {
 	return base_iter->seek_index(index);
+}
+
+size_t btree_dtable::iter::get_index() const
+{
+	return base_iter->get_index();
 }
 
 metablob btree_dtable::iter::meta() const
@@ -481,10 +486,10 @@ int btree_dtable::write_btree(int dfd, const char * name, const dtable * base)
 	if(!base_iter)
 		goto fail_iter;
 	
-	for(size_t index = 0; index < count; index++)
+	while(base_iter->valid())
 	{
-		assert(base_iter->valid());
 		dtype key = base_iter->key();
+		size_t index = base_iter->get_index();
 		assert(key.type == dtype::UINT32);
 		base_iter->next();
 		r = stack.add(key.u32, index);

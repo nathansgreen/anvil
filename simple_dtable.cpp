@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -103,6 +103,11 @@ bool simple_dtable::iter::seek_index(size_t index)
 		return false;
 	this->index = index;
 	return index < sdt_source->key_count;
+}
+
+size_t simple_dtable::iter::get_index() const
+{
+	return index;
 }
 
 metablob simple_dtable::iter::meta() const

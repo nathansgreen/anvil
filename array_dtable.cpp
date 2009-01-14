@@ -85,6 +85,11 @@ bool array_dtable::iter::seek_index(size_t index)
 	return index < adt_source->array_size;
 }
 
+size_t array_dtable::iter::get_index() const
+{
+	return index;
+}
+
 metablob array_dtable::iter::meta() const
 {
 	return metablob(adt_source->value_size);
@@ -92,8 +97,8 @@ metablob array_dtable::iter::meta() const
 
 blob array_dtable::iter::value() const
 {
-	bool test;
-	return adt_source->get_value(index, &test);
+	bool found;
+	return adt_source->get_value(index, &found);
 }
 
 const dtable * array_dtable::iter::source() const
@@ -184,6 +189,14 @@ blob array_dtable::lookup(const dtype & key, bool * found) const
 	return get_value(key.u32 - min_key, found);
 }
 
+blob array_dtable::index(size_t index) const
+{
+	bool found;
+	if(index >= array_size)
+		return blob();
+	return get_value(index, &found);
+}
+
 int array_dtable::init(int dfd, const char * file, const params & config)
 {
 	dtable_header header;
@@ -198,6 +211,7 @@ int array_dtable::init(int dfd, const char * file, const params & config)
 		goto fail;
 	ktype = dtype::UINT32;
 	min_key = header.min_key;
+	key_count = header.key_count;
 	array_size = header.array_size;
 	value_size = header.value_size;
 	
@@ -240,6 +254,7 @@ int array_dtable::create(int dfd, const char * file, const params & config, cons
 		return -EINVAL;
 	
 	header.min_key = 0;
+	header.key_count = 0;
 	header.value_size = 0;
 	iter = source->iterator();
 	while(iter->valid())
@@ -258,6 +273,7 @@ int array_dtable::create(int dfd, const char * file, const params & config, cons
 			min_key_known = true;
 		}
 		max_key = key.u32;
+		header.key_count++;
 		if(meta.exists())
 		{
 			if(!value_size_known)

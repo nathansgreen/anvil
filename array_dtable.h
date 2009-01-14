@@ -15,7 +15,7 @@
 #include "dtable_factory.h"
 
 #define ADTABLE_MAGIC 0x69AD02D3
-#define ADTABLE_VERSION 1
+#define ADTABLE_VERSION 2
 
 /* array tables */
 
@@ -28,10 +28,11 @@ class array_dtable : public dtable
 public:
 	virtual iter * iterator() const;
 	virtual blob lookup(const dtype & key, bool * found) const;
+	virtual blob index(size_t index) const;
+	inline virtual size_t size() const { return key_count; }
+	
 	inline array_dtable() : fp(NULL), min_key(0), array_size(0), value_size(0) {}
 	int init(int dfd, const char * file, const params & config);
-	dtype get_key(size_t index) const;
-	blob get_value(size_t index, bool * found) const;
 	static inline bool static_indexed_access() { return true; }
 	void deinit();
 	inline virtual ~array_dtable()
@@ -47,6 +48,7 @@ private:
 		uint32_t magic;
 		uint32_t version;
 		uint32_t min_key;
+		uint32_t key_count;
 		uint32_t array_size;
 		uint32_t value_size;
 	} __attribute__((packed));
@@ -63,6 +65,7 @@ private:
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
 		virtual bool seek_index(size_t index);
+		virtual size_t get_index() const;
 		virtual metablob meta() const;
 		virtual blob value() const;
 		virtual const dtable * source() const;
@@ -74,12 +77,15 @@ private:
 		const array_dtable * adt_source;
 	};
 	
+	dtype get_key(size_t index) const;
+	blob get_value(size_t index, bool * found) const;
 	int find_key(const dtype_test & test, size_t * index) const;
 	uint8_t index_type(size_t index, off_t * offset = NULL) const;
 	inline bool is_hole(size_t index) const { return index_type(index) == ARRAY_INDEX_HOLE; }
 	
 	rofile * fp;
 	uint32_t min_key;
+	size_t key_count;
 	size_t array_size;
 	size_t value_size;
 };

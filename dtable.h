@@ -62,6 +62,8 @@ public:
 		/* Seeks this iterator to the requested index. May not be supported by
 		 * all dtables. See dtable_factory::indexed_access() for details. */
 		virtual bool seek_index(size_t index) { return false; }
+		/* Gets an index for later use with seek_index(). Same restrictions. */
+		virtual size_t get_index() const { return (size_t) -1; }
 		
 		inline key_iter() {}
 		virtual ~key_iter() {}
