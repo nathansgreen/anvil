@@ -19,30 +19,38 @@
 
 /* array tables */
 
+#define ARRAY_INDEX_HOLE 0
+#define ARRAY_INDEX_DNE 1
+#define ARRAY_INDEX_VALID 2
+
 class array_dtable : public dtable
 {
 public:
 	virtual iter * iterator() const;
 	virtual blob lookup(const dtype & key, bool * found) const;
-	inline array_dtable() : fp(NULL), max_key(0), min_key(0), value_size(0) {}
+	inline array_dtable() : fp(NULL), min_key(0), array_size(0), value_size(0) {}
 	int init(int dfd, const char * file, const params & config);
 	dtype get_key(size_t index) const;
 	blob get_value(size_t index, bool * found) const;
 	static inline bool static_indexed_access() { return true; }
 	void deinit();
-	inline virtual ~array_dtable() { deinit(); }
+	inline virtual ~array_dtable()
+	{
+		if(fp)
+			deinit();
+	}
 	static int create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow = NULL);
 	DECLARE_RO_FACTORY(array_dtable);
-
+	
 private:
 	struct dtable_header {
 		uint32_t magic;
 		uint32_t version;
-		uint32_t max_key;
-		uint32_t value_size;
 		uint32_t min_key;
+		uint32_t array_size;
+		uint32_t value_size;
 	} __attribute__((packed));
-
+	
 	class iter : public dtable::iter
 	{
 	public:
@@ -63,21 +71,17 @@ private:
 
 	private:
 		size_t index;
-		const array_dtable * bdt_source;
+		const array_dtable * adt_source;
 	};
-
-	inline int find_key(const dtype & key, size_t * index) const
-	{
-		return find_key(dtype_static_test(key, blob_cmp), index);
-	}
-	template<class T>
-	int find_key(const T & test, size_t * index) const;
-	bool exists(size_t index) const;
-
+	
+	int find_key(const dtype_test & test, size_t * index) const;
+	uint8_t index_type(size_t index, off_t * offset = NULL) const;
+	inline bool is_hole(size_t index) const { return index_type(index) == ARRAY_INDEX_HOLE; }
+	
 	rofile * fp;
-	uint32_t max_key;
 	uint32_t min_key;
-	uint32_t value_size;
+	size_t array_size;
+	size_t value_size;
 };
 
 #endif /* __ARRAY_DTABLE_H */
