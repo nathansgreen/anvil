@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -42,7 +42,7 @@ struct entry_header
 #define DEBUG_SYSJ 0
 
 #if DEBUG_SYSJ
-#define SYSJ_DEBUG(format, args...) printf("%s @%p[%u %u] (" format ")\n", __FUNCTION__, this, (unsigned) data.end(), (unsigned) data_size, ##args)
+#define SYSJ_DEBUG(format, args...) printf("%s @%p[%u %u/%u] (" format ")\n", __FUNCTION__, this, (unsigned) data.end(), (unsigned) data_size, (unsigned) info_size, ##args)
 #else
 #define SYSJ_DEBUG(format, args...)
 #endif
@@ -51,6 +51,7 @@ int sys_journal::append(journal_listener * listener, void * entry, size_t length
 {
 	int r;
 	entry_header header;
+	live_entry_map::iterator count;
 	SYSJ_DEBUG("%d, %p, %u", listener->id(), entry, length);
 	
 	header.id = listener->id();
@@ -60,11 +61,14 @@ int sys_journal::append(journal_listener * listener, void * entry, size_t length
 		return -EINVAL;
 	header.length = length;
 	
-	assert(data.end() == data_size);
+	assert(data_size == data.end());
 	if(!dirty)
 	{
-		/* FIXME: might this cause problems if handle is already registered? */
-		tx_register_pre_end(&handle);
+		if(!registered)
+		{
+			tx_register_pre_end(&handle);
+			registered = true;
+		}
 		dirty = true;
 	}
 	r = data.append(&header);
@@ -78,7 +82,14 @@ int sys_journal::append(journal_listener * listener, void * entry, size_t length
 	}
 	data_size += sizeof(header) + length;
 	
-	assert(data.end() == data_size);
+	count = live_entry_count.find(header.id);
+	if(count != live_entry_count.end())
+		count->second++;
+	else
+		live_entry_count[header.id] = 1;
+	live_entries++;
+	
+	assert(data_size == data.end());
 	return 0;
 }
 
@@ -86,17 +97,21 @@ int sys_journal::discard(journal_listener * listener)
 {
 	int r;
 	entry_header header;
+	live_entry_map::iterator count;
 	SYSJ_DEBUG("%d", listener->id());
 	
 	header.id = listener->id();
 	assert(lookup_listener(header.id) == listener);
 	header.length = (size_t) -1;
 	
-	assert(data.end() == data_size);
+	assert(data_size == data.end());
 	if(!dirty)
 	{
-		/* FIXME: might this cause problems if handle is already registered? */
-		tx_register_pre_end(&handle);
+		if(!registered)
+		{
+			tx_register_pre_end(&handle);
+			registered = true;
+		}
 		dirty = true;
 	}
 	r = data.append(&header);
@@ -105,13 +120,17 @@ int sys_journal::discard(journal_listener * listener)
 	data_size += sizeof(header);
 	discarded.insert(header.id);
 	
-	assert(data.end() == data_size);
+	count = live_entry_count.find(header.id);
+	if(count != live_entry_count.end())
+	{
+		live_entries -= count->second;
+		live_entry_count.erase(count);
+		if(!live_entries && filter_on_empty)
+			filter();
+	}
+	
+	assert(data_size == data.end());
 	return 0;
-}
-
-int sys_journal::get_entries(journal_listener * listener)
-{
-	return playback(listener);
 }
 
 int sys_journal::filter()
@@ -134,7 +153,8 @@ int sys_journal::filter()
 	info.seq = sequence + 1;
 	/* size will be filled in by filter() below */
 	snprintf(seq, sizeof(seq), ".%u", info.seq);
-	assert(data.end() == data_size);
+	assert(info_size == data_size);
+	assert(data_size == data.end());
 	
 	istr data_name = istr(meta_name) + seq;
 	r = tx_start_external();
@@ -151,6 +171,7 @@ int sys_journal::filter()
 			r = data.close();
 			assert(r >= 0);
 			data_size = info.size;
+			info_size = info.size;
 			r = data.open(meta_dfd, data_name, data_size);
 			assert(r >= 0);
 			/* delete the old sys_journal data */
@@ -158,22 +179,21 @@ int sys_journal::filter()
 			data_name = meta_name + seq;
 			tx_unlink(meta_dfd, data_name, 0);
 			sequence = info.seq;
+			discarded.clear();
 		}
 		else
 			unlinkat(meta_dfd, data_name, 0);
 	}
 	else
 		unlinkat(meta_dfd, data_name, 0);
-	assert(data.end() == data_size);
+	assert(data_size == data.end());
 	return r;
 }
 
 int sys_journal::filter(int dfd, const char * file, size_t * new_size)
 {
 	rwfile out;
-	size_t offset;
 	data_header header;
-	entry_header entry;
 	SYSJ_DEBUG("%d, %s", dfd, file);
 	int r = out.create(dfd, file);
 	if(r < 0)
@@ -183,48 +203,53 @@ int sys_journal::filter(int dfd, const char * file, size_t * new_size)
 	r = out.append(&header);
 	if(r < 0)
 		goto fail;
-	offset = sizeof(header);
-	while(offset < data_size)
+	/* if there are no live entries, don't waste time scanning */
+	if(live_entries)
 	{
-		void * entry_data;
-		r = data.read(offset, &entry);
-		if(r < 0)
-			goto fail;
-		offset += sizeof(entry);
-		if(entry.length == (size_t) -1)
-			continue;
-		if(discarded.count(entry.id))
+		entry_header entry;
+		size_t offset = sizeof(header);
+		while(offset < data_size)
 		{
-			/* skip this entry, it's been discarded */
+			void * entry_data;
+			r = data.read(offset, &entry);
+			if(r < 0)
+				goto fail;
+			offset += sizeof(entry);
+			if(entry.length == (size_t) -1)
+				continue;
+			if(discarded.count(entry.id))
+			{
+				/* skip this entry, it's been discarded */
+				offset += entry.length;
+				continue;
+			}
+			entry_data = malloc(entry.length);
+			if(!entry_data)
+			{
+				r = -ENOMEM;
+				goto fail;
+			}
+			if(data.read(offset, entry_data, entry.length) != (ssize_t) entry.length)
+			{
+				free(entry_data);
+				r = -EIO;
+				goto fail;
+			}
 			offset += entry.length;
-			continue;
-		}
-		entry_data = malloc(entry.length);
-		if(!entry_data)
-		{
-			r = -ENOMEM;
-			goto fail;
-		}
-		if(data.read(offset, entry_data, entry.length) != (ssize_t) entry.length)
-		{
+			r = out.append(&entry);
+			if(r < 0)
+			{
+				free(entry_data);
+				goto fail;
+			}
+			r = out.append(entry_data, entry.length);
 			free(entry_data);
-			r = -EIO;
-			goto fail;
+			if(r != (int) entry.length)
+				goto fail;
 		}
-		offset += entry.length;
-		r = out.append(&entry);
-		if(r < 0)
-		{
-			free(entry_data);
-			goto fail;
-		}
-		r = out.append(entry_data, entry.length);
-		free(entry_data);
-		if(r != (int) entry.length)
+		if(offset != data_size)
 			goto fail;
 	}
-	if(offset != data_size)
-		goto fail;
 	*new_size = out.end();
 	r = out.close();
 	if(r < 0)
@@ -237,19 +262,19 @@ fail:
 	return (r < 0) ? r : -1;
 }
 
-int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing)
+int sys_journal::init(int dfd, const char * file, bool create, bool filter_on_empty, bool fail_missing)
 {
+	int r;
+	meta_journal info;
+	data_header header;
 	bool do_playback = false;
 	SYSJ_DEBUG("%d, %s, %d, %d", dfd, file, create, fail_missing);
 	if(meta_fd >= 0)
 		deinit();
+	this->filter_on_empty = filter_on_empty;
 	meta_fd = tx_open(dfd, file, O_RDWR);
 	if(meta_fd < 0)
 	{
-		int r;
-		meta_journal info;
-		data_header header;
-		
 		if(!create || (meta_fd != -ENOENT && errno != ENOENT))
 			return (int) meta_fd;
 		
@@ -287,15 +312,10 @@ int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing
 			meta_fd = -1;
 			return r;
 		}
-		data_size = info.size;
-		sequence = info.seq;
 	}
 	else
 	{
 		char seq[16];
-		meta_journal info;
-		data_header header;
-		int r;
 		if(tx_read(meta_fd, &info, sizeof(info), 0) != sizeof(info))
 		{
 			if(tx_emptyfile(meta_fd))
@@ -334,14 +354,14 @@ int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing
 			meta_fd = -1;
 			return -EINVAL;
 		}
-		data_size = info.size;
-		sequence = info.seq;
 		do_playback = true;
 	}
-	/* any other initialization here */
+	data_size = info.size;
+	info_size = info.size;
+	sequence = info.seq;
 	if(do_playback)
 	{
-		int r = playback(NULL, fail_missing);
+		int r = playback(NULL, fail_missing, true);
 		if(r < 0)
 		{
 			deinit();
@@ -363,15 +383,23 @@ int sys_journal::init(int dfd, const char * file, bool create, bool fail_missing
 	return 0;
 }
 
-int sys_journal::playback(journal_listener * target, bool fail_missing)
+/* TODO: allow filtering right here? store discards in a separate file? */
+int sys_journal::playback(journal_listener * target, bool fail_missing, bool count_live)
 {
-	/* playback */
 	__gnu_cxx::hash_set<listener_id> missing, failed;
 	size_t offset = sizeof(data_header);
 	SYSJ_DEBUG("%d, %d", target ? target->id() : 0, fail_missing);
-	assert(data_size >= offset);
-	assert(data.end() == data_size);
-	while(offset < data_size)
+	assert(offset <= info_size);
+	assert(info_size <= data_size);
+	assert(data_size == data.end());
+	if(count_live)
+	{
+		if(info_size != data_size)
+			return -EINVAL;
+		live_entries = 0;
+		live_entry_count.clear();
+	}
+	while(offset < info_size)
 	{
 		int r;
 		void * entry_data;
@@ -382,6 +410,15 @@ int sys_journal::playback(journal_listener * target, bool fail_missing)
 		offset += sizeof(entry);
 		if(entry.length == (size_t) -1)
 		{
+			if(count_live)
+			{
+				live_entry_map::iterator count = live_entry_count.find(entry.id);
+				if(count != live_entry_count.end())
+				{
+					live_entries -= count->second;
+					live_entry_count.erase(count);
+				}
+			}
 			/* warn if entry.id == target->id() ? */
 			if(!target)
 			{
@@ -389,6 +426,15 @@ int sys_journal::playback(journal_listener * target, bool fail_missing)
 				discarded.insert(entry.id);
 			}
 			continue;
+		}
+		if(count_live)
+		{
+			live_entry_map::iterator count = live_entry_count.find(entry.id);
+			if(count != live_entry_count.end())
+				count->second++;
+			else
+				live_entry_count[entry.id] = 1;
+			live_entries++;
 		}
 		if(target)
 		{
@@ -435,14 +481,14 @@ int sys_journal::playback(journal_listener * target, bool fail_missing)
 			failed.insert(entry.id);
 		}
 	}
-	if(offset != data_size)
+	if(offset != info_size)
 		return -EIO;
 	if(fail_missing && !missing.empty())
 		/* print warning message? */
 		return -ENOENT;
 	if(!failed.empty())
 		return -EBUSY;
-	assert(data.end() == data_size);
+	assert(data_size == data.end());
 	return 0;
 }
 
@@ -455,7 +501,11 @@ void sys_journal::deinit()
 		if(dirty)
 			flush_tx();
 		assert(!dirty);
-		discarded.clear();
+		if(registered)
+		{
+			tx_unregister_pre_end(&handle);
+			registered = false;
+		}
 		r = data.close();
 		assert(r >= 0);
 		tx_close(meta_fd);
@@ -466,6 +516,7 @@ void sys_journal::deinit()
 			close(meta_dfd);
 			meta_dfd = -1;
 		}
+		discarded.clear();
 	}
 }
 
@@ -555,7 +606,7 @@ int sys_journal::flush_tx()
 	
 	if(!dirty)
 		return 0;
-	assert(data.end() == data_size);
+	assert(data_size == data.end());
 	r = data.flush();
 	if(r < 0)
 		return r;
@@ -569,12 +620,14 @@ int sys_journal::flush_tx()
 		return r;
 	
 	dirty = false;
-	assert(data.end() == data_size);
+	info_size = data_size;
+	assert(data_size == data.end());
 	return 0;
 }
 
 void sys_journal::flush_tx_static(void * data)
 {
+	((sys_journal *) data)->registered = false;
 	int r = ((sys_journal *) data)->flush_tx();
 	assert(r >= 0);
 }

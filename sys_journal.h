@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -87,13 +87,20 @@ public:
 	int append(journal_listener * listener, void * entry, size_t length);
 	/* make a note that this listener's entries are no longer needed */
 	int discard(journal_listener * listener);
-	/* gets only those entries that have been committed */
-	int get_entries(journal_listener * listener);
 	/* remove any discarded entries from this journal */
 	int filter();
+	/* gets only those entries that have been committed */
+	inline int get_entries(journal_listener * listener)
+	{
+		return playback(listener);
+	}
 	
-	inline sys_journal() : meta_dfd(-1), meta_fd(-1), dirty(false) { handle.data = this; handle.handle = flush_tx_static; }
-	int init(int dfd, const char * file, bool create = false, bool fail_missing = false);
+	inline sys_journal() : meta_dfd(-1), meta_fd(-1), dirty(false), registered(false)
+	{
+		handle.data = this;
+		handle.handle = flush_tx_static;
+	}
+	int init(int dfd, const char * file, bool create = false, bool filter_on_empty = true, bool fail_missing = false);
 	void deinit();
 	inline ~sys_journal()
 	{
@@ -117,10 +124,15 @@ private:
 	
 	rwfile data;
 	tx_fd meta_fd;
-	bool dirty;
+	bool dirty, registered, filter_on_empty;
 	size_t data_size;
+	size_t info_size;
 	uint32_t sequence;
 	tx_pre_end handle;
+	size_t live_entries;
+	
+	typedef __gnu_cxx::hash_map<listener_id, size_t> live_entry_map;
+	live_entry_map live_entry_count;
 	
 	__gnu_cxx::hash_set<listener_id> discarded;
 	
@@ -141,7 +153,7 @@ private:
 	static unique_id id;
 	
 	/* if no listener provided, all listeners, via global registry */
-	int playback(journal_listener * target = NULL, bool fail_missing = false);
+	int playback(journal_listener * target = NULL, bool fail_missing = false, bool count_live = false);
 	/* copy the entries in this journal to a new one, omitting the discarded entries */
 	int filter(int dfd, const char * file, size_t * new_size);
 	/* flushes the data file and tx_write()s the meta file */
