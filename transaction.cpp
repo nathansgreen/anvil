@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -268,19 +268,30 @@ void tx_deinit(void)
 {
 	if(journal_dir < 0)
 		return;
-	if(current_journal)
+	if(tx_recursion)
+	{
+		fprintf(stderr, "Warning: %s() ending and committing transaction (recursion %u)\n", __FUNCTION__, tx_recursion);
+		tx_recursion = 1;
 		tx_end(0);
+	}
 	for(tx_map_t::iterator itr = tx_map->begin(); itr != tx_map->end(); ++itr)
 	{
 		journal * j = itr->second;
 		if(j != last_journal)
 			j->release();
 	}
-	tx_map->clear();
 	delete tx_map;
-	if(last_journal)
-		last_journal->release();
 	tx_map = NULL;
+	if(last_journal)
+	{
+		last_journal->release();
+		last_journal = NULL;
+	}
+	if(current_journal)
+	{
+		current_journal->release();
+		current_journal = NULL;
+	}
 	close(journal_dir);
 	journal_dir = -1;
 }
@@ -311,6 +322,15 @@ void tx_register_pre_end(struct tx_pre_end * handle)
 {
 	handle->_next = pre_end_handlers;
 	pre_end_handlers = handle;
+}
+
+void tx_unregister_pre_end(struct tx_pre_end * handle)
+{
+	struct tx_pre_end ** prev = &pre_end_handlers;
+	while(*prev && *prev != handle)
+		prev = &(*prev)->_next;
+	if(*prev)
+		*prev = handle->_next;
 }
 
 int tx_start_external(void)

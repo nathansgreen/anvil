@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -30,6 +30,8 @@ void tx_deinit(void);
 int tx_start(void);
 /* adds a pre-end handler to the current transaction */
 void tx_register_pre_end(struct tx_pre_end * handle);
+/* does a linear search; avoid if possible */
+void tx_unregister_pre_end(struct tx_pre_end * handle);
 /* tx_start_external() causes subsequent file operations until tx_end_external()
  * to become dependencies of this transaction - see journal::start_external() */
 int tx_start_external(void);
