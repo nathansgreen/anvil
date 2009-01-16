@@ -148,6 +148,10 @@ int sys_journal::filter()
 		assert(!dirty);
 	}
 	
+	/* no discarded IDs? no need to filter */
+	if(!discarded.size())
+		return 0;
+	
 	info.magic = SYSJ_META_MAGIC;
 	info.version = SYSJ_META_VERSION;
 	info.seq = sequence + 1;
