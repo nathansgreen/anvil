@@ -417,6 +417,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	}
 	
 	/* now the key array */
+	max_key = 0;
 	total_data_size = 0;
 	iter = source->iterator();
 	while(iter->valid())
@@ -440,12 +441,14 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 				i += sizeof(double);
 				break;
 			case dtype::STRING:
-				max_key = istr::locate(strings, key.str);
+				/* no need to locate the string; it's the next one */
 				util::layout_bytes(bytes, &i, max_key, header.key_size);
+				max_key++;
 				break;
 			case dtype::BLOB:
-				max_key = blob::locate(blobs, key.blb, blob_cmp);
+				/* no need to locate the blob; it's the next one */
 				util::layout_bytes(bytes, &i, max_key, header.key_size);
+				max_key++;
 				break;
 		}
 		util::layout_bytes(bytes, &i, meta.exists() ? meta.size() + 1 : 0, header.length_size);
