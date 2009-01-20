@@ -60,6 +60,7 @@ bool array_dtable::iter::last()
 
 dtype array_dtable::iter::key() const
 {
+	assert(index < adt_source->array_size);
 	return dtype(index + adt_source->min_key);
 }
 
