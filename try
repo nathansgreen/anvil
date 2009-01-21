@@ -70,6 +70,7 @@ ctable
 stable
 iterator
 blob_cmp
+#edtable
 #bdbtest
 EOF
 mkdir /mnt/test/journals
