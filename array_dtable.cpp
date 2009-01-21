@@ -61,7 +61,8 @@ bool array_dtable::iter::last()
 dtype array_dtable::iter::key() const
 {
 	assert(index < adt_source->array_size);
-	return dtype(index + adt_source->min_key);
+	uint32_t key = index + adt_source->min_key;
+	return dtype(key);
 }
 
 bool array_dtable::iter::seek(const dtype & key)
@@ -152,7 +153,7 @@ int array_dtable::find_key(const dtype_test & test, size_t * index) const
 	{
 		/* watch out for overflow! */
 		size_t mid = min + (max - min) / 2;
-		int c = test(dtype(mid));
+		int c = test(dtype((uint32_t) mid));
 		if(c < 0)
 			min = mid + 1;
 		else if(c > 0)

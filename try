@@ -66,6 +66,7 @@ cat > /mnt/test/tests << EOF
 tx
 info
 dtable
+dtable madt_test array_dtable
 ctable
 stable
 iterator

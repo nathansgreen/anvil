@@ -33,7 +33,6 @@ int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
-int command_adtable(int argc, const char * argv[]);
 int command_edtable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
@@ -204,25 +203,38 @@ int command_dtable(int argc, const char * argv[])
 {
 	int r;
 	managed_dtable * mdt;
-	
+	const char * path;
 	params config;
-	config.set_class("base", simple_dtable);
+	
+	if(argc > 1)
+		path = argv[1];
+	else
+		path = "msdt_test";
+	if(argc > 2)
+		config.set("base", argv[2]);
+	else
+		config.set_class("base", simple_dtable);
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = managed_dtable::create(AT_FDCWD, "managed_dtable", config, dtype::UINT32);
-	printf("dtable::create = %d\n", r);
+	r = managed_dtable::create(AT_FDCWD, path, config, dtype::UINT32);
+	printf("dtable::create(%s) = %d\n", path, r);
+	if(r < 0)
+	{
+		tx_end(0);
+		return r;
+	}
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", config);
+	r = mdt->init(AT_FDCWD, path, config);
 	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = mdt->insert(4u, blob("hello"));
+	r = mdt->insert(6u, blob("hello"));
 	printf("mdt->insert = %d\n", r);
-	r = mdt->insert(2u, blob("world"));
+	r = mdt->insert(4u, blob("world"));
 	printf("mdt->insert = %d\n", r);
 	run_iterator(mdt);
 	r = tx_end(0);
@@ -230,7 +242,7 @@ int command_dtable(int argc, const char * argv[])
 	delete mdt;
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", config);
+	r = mdt->init(AT_FDCWD, path, config);
 	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
@@ -243,14 +255,14 @@ int command_dtable(int argc, const char * argv[])
 	delete mdt;
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", config);
+	r = mdt->init(AT_FDCWD, path, config);
 	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = mdt->insert(6u, blob("icanhas"));
+	r = mdt->insert(8u, blob("icanhas"));
 	printf("mdt->insert = %d\n", r);
-	r = mdt->insert(0u, blob("cheezburger"));
+	r = mdt->insert(2u, blob("cheezburger"));
 	printf("mdt->insert = %d\n", r);
 	run_iterator(mdt);
 	r = mdt->digest();
@@ -261,7 +273,7 @@ int command_dtable(int argc, const char * argv[])
 	delete mdt;
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", config);
+	r = mdt->init(AT_FDCWD, path, config);
 	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
@@ -274,7 +286,7 @@ int command_dtable(int argc, const char * argv[])
 	delete mdt;
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "managed_dtable", config);
+	r = mdt->init(AT_FDCWD, path, config);
 	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
 	delete mdt;
@@ -293,14 +305,14 @@ int command_ctable(int argc, const char * argv[])
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = managed_dtable::create(AT_FDCWD, "managed_ctable", config, dtype::UINT32);
+	r = managed_dtable::create(AT_FDCWD, "msct_test", config, dtype::UINT32);
 	printf("dtable::create = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
 	mdt = new managed_dtable;
 	sct = new simple_ctable;
-	r = mdt->init(AT_FDCWD, "managed_ctable", config);
+	r = mdt->init(AT_FDCWD, "msct_test", config);
 	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	r = sct->init(mdt);
 	printf("sct->init = %d\n", r);
@@ -335,72 +347,6 @@ int command_ctable(int argc, const char * argv[])
 	delete sct;
 	delete mdt;
 	
-	return 0;
-}
-
-int command_adtable(int argc, const char * argv[])
-{
-	int r;
-	managed_dtable * mdt;
-
-	params config;
-	config.set_class("base", array_dtable);
-	r = tx_start();
-	printf("tx_start = %d\n", r);
-	r = managed_dtable::create(AT_FDCWD, "managed_array_dtable", config, dtype::UINT32);
-	printf("managed array_dtable::create = %d\n", r);
-	r = tx_end(0);
-	printf("tx_end = %d\n", r);
-
-	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "managed_array_dtable", config);
-	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
-	r = tx_start();
-	printf("tx_start = %d\n", r);
-	r = mdt->insert(4u, blob("hello"));
-	printf("mdt->insert = %d\n", r);
-	r = mdt->insert(2u, blob("world"));
-	printf("mdt->insert = %d\n", r);
-	r = mdt->insert(12u, blob("apple"));
-	printf("mdt->insert = %d\n", r);
-	r = mdt->insert(3u, blob("fruit"));
-	printf("mdt->insert = %d\n", r);
-	run_iterator(mdt);
-	r = tx_end(0);
-	printf("tx_end = %d\n", r);
-	delete mdt;
-
-	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "managed_array_dtable", config);
-	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
-	run_iterator(mdt);
-	r = tx_start();
-	printf("tx_start = %d\n", r);
-	r = mdt->digest();
-	printf("mdt->digest = %d\n", r);
-	run_iterator(mdt);
-	r = tx_end(0);
-	printf("tx_end = %d\n", r);
-	delete mdt;
-
-	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "managed_array_dtable", config);
-	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
-	run_iterator(mdt);
-	r = tx_start();
-	printf("tx_start = %d\n", r);
-	r = mdt->insert(6u, blob("fives"));
-	printf("mdt->insert = %d\n", r);
-	r = mdt->insert(0u, blob("fours"));
-	printf("mdt->insert = %d\n", r);
-	run_iterator(mdt);
-	r = mdt->digest();
-	printf("mdt->digest = %d\n", r);
-	run_iterator(mdt);
-	r = tx_end(0);
-	printf("tx_end = %d\n", r);
-
-	delete mdt;
 	return 0;
 }
 
@@ -523,13 +469,13 @@ int command_stable(int argc, const char * argv[])
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = simple_stable::create(AT_FDCWD, "simple_stable", config, dtype::UINT32);
+	r = simple_stable::create(AT_FDCWD, "msst_test", config, dtype::UINT32);
 	printf("stable::create = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "simple_stable", config);
+	r = sst->init(AT_FDCWD, "msst_test", config);
 	printf("sst->init = %d\n", r);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -545,7 +491,7 @@ int command_stable(int argc, const char * argv[])
 	delete sst;
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "simple_stable", config);
+	r = sst->init(AT_FDCWD, "msst_test", config);
 	printf("sst->init = %d\n", r);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -569,7 +515,7 @@ int command_stable(int argc, const char * argv[])
 	/* must start the transaction first since it will do maintenance */
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = sst->init(AT_FDCWD, "simple_stable", config);
+	r = sst->init(AT_FDCWD, "msst_test", config);
 	printf("sst->init = %d\n", r);
 	r = sst->maintain();
 	printf("sst->maintain() = %d\n", r);
@@ -960,21 +906,21 @@ int command_blob_cmp(int argc, const char * argv[])
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = simple_stable::create(AT_FDCWD, "cmptest", config, dtype::BLOB);
+	r = simple_stable::create(AT_FDCWD, "cmp_test", config, dtype::BLOB);
 	printf("stable::create = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "cmptest", config);
+	r = sst->init(AT_FDCWD, "cmp_test", config);
 	printf("sst->init = %d\n", r);
 	r = sst->set_blob_cmp(&reverse);
 	printf("sst->set_blob_cmp = %d\n", r);
 	
-	printf("Start timing! (4000000 reverse blob key inserts to %d rows)\n", ROW_COUNT);
+	printf("Start timing! (5000000 reverse blob key inserts to %d rows)\n", ROW_COUNT);
 	gettimeofday(&start, NULL);
 	
-	for(uint32_t i = 0; i < 4000000; i++)
+	for(uint32_t i = 0; i < 5000000; i++)
 	{
 		uint32_t keydata = rand() % ROW_COUNT;
 		blob key(sizeof(keydata), &keydata);
@@ -992,7 +938,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		r = sst->insert(key, column, current);
 		if(r < 0)
 			goto fail_insert;
-		if((i % 400000) == 399999)
+		if((i % 500000) == 499999)
 		{
 			gettimeofday(&end, NULL);
 			end.tv_sec -= start.tv_sec;
@@ -1002,7 +948,7 @@ int command_blob_cmp(int argc, const char * argv[])
 				end.tv_sec--;
 			}
 			end.tv_usec -= start.tv_usec;
-			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 40000, (int) end.tv_sec, (int) end.tv_usec);
+			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 50000, (int) end.tv_sec, (int) end.tv_usec);
 			fflush(stdout);
 		}
 		if((i % 10000) == 9999)
@@ -1035,14 +981,14 @@ int command_blob_cmp(int argc, const char * argv[])
 	}
 	end.tv_usec -= start.tv_usec;
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
-	printf("Average: %"PRIu64" inserts/second\n", 4000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
+	printf("Average: %"PRIu64" inserts/second\n", 5000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
 	delete sst;
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "cmptest", config);
+	r = sst->init(AT_FDCWD, "cmp_test", config);
 	printf("sst->init = %d\n", r);
 	r = sst->set_blob_cmp(&reverse);
 	printf("sst->set_blob_cmp = %d\n", r);
@@ -1138,13 +1084,13 @@ static int command_performance_stable(int argc, const char * argv[])
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = simple_stable::create(AT_FDCWD, "perftest", config, dtype::UINT32);
+	r = simple_stable::create(AT_FDCWD, "perf_test", config, dtype::UINT32);
 	printf("stable::create = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "perftest", config);
+	r = sst->init(AT_FDCWD, "perf_test", config);
 	printf("sst->init = %d\n", r);
 	
 	for(uint32_t i = 0; i < ROW_COUNT; i++)
@@ -1216,7 +1162,7 @@ static int command_performance_stable(int argc, const char * argv[])
 	delete sst;
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "perftest", config);
+	r = sst->init(AT_FDCWD, "perf_test", config);
 	printf("sst->init = %d\n", r);
 	
 	printf("Verifying writes... ");
@@ -1320,7 +1266,11 @@ static int command_performance_dtable(int argc, const char * argv[])
 		"cache_size" int 40000
 		"base" class(dt) managed_dtable
 		"base_config" config [
-			"base" class(dt) simple_dtable
+			"base" class(dt) btree_dtable
+			"base_config" config [
+				"base" class(dt) simple_dtable
+			]
+			"fastbase" class(dt) simple_dtable
 			"digest_interval" int 2
 			"combine_interval" int 8
 			"combine_count" int 5
@@ -1332,21 +1282,21 @@ static int command_performance_dtable(int argc, const char * argv[])
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = dtable_factory::setup("cache_dtable", AT_FDCWD, "dtpftest", config, dtype::UINT32);
+	r = dtable_factory::setup("cache_dtable", AT_FDCWD, "dtpf_test", config, dtype::UINT32);
 	printf("dtable_factory::setup = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
-	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpftest", config);
+	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpf_test", config);
 	printf("dtable_factory::load = %p\n", dt);
 	
 	for(uint32_t i = 0; i < DT_ROW_COUNT; i++)
 		table_copy[i] = (uint32_t) -1;
 	
-	printf("Start timing! (8000000 inserts to %d rows)\n", DT_ROW_COUNT);
+	printf("Start timing! (10000000 inserts to %d rows)\n", DT_ROW_COUNT);
 	gettimeofday(&start, NULL);
 	
-	for(int i = 0; i < 8000000; i++)
+	for(int i = 0; i < 10000000; i++)
 	{
 		uint32_t row = rand() % DT_ROW_COUNT;
 		if(!(i % 1000))
@@ -1361,7 +1311,7 @@ static int command_performance_dtable(int argc, const char * argv[])
 		r = dt->insert(row, blob(sizeof(table_copy[row]), &table_copy[row]));
 		if(r < 0)
 			goto fail_insert;
-		if((i % 800000) == 799999)
+		if((i % 1000000) == 999999)
 		{
 			gettimeofday(&end, NULL);
 			end.tv_sec -= start.tv_sec;
@@ -1371,7 +1321,7 @@ static int command_performance_dtable(int argc, const char * argv[])
 				end.tv_sec--;
 			}
 			end.tv_usec -= start.tv_usec;
-			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 80000, (int) end.tv_sec, (int) end.tv_usec);
+			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 100000, (int) end.tv_sec, (int) end.tv_usec);
 			fflush(stdout);
 		}
 		if((i % 10000) == 9999)
@@ -1402,13 +1352,13 @@ static int command_performance_dtable(int argc, const char * argv[])
 	}
 	end.tv_usec -= start.tv_usec;
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
-	printf("Average: %"PRIu64" inserts/second\n", 8000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
+	printf("Average: %"PRIu64" inserts/second\n", 10000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
 	delete dt;
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpftest", config);
+	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpf_test", config);
 	printf("dtable_factory::load = %p\n", dt);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
