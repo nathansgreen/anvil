@@ -65,6 +65,11 @@ dtype array_dtable::iter::key() const
 	return dtype(key);
 }
 
+dtype::ctype array_dtable::iter::key_type() const
+{
+	return adt_source->key_type();
+}
+
 bool array_dtable::iter::seek(const dtype & key)
 {
 	assert(key.type == dtype::UINT32);

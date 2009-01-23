@@ -39,6 +39,7 @@ private:
 		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
+		virtual dtype::ctype key_type() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
 		virtual metablob meta() const;

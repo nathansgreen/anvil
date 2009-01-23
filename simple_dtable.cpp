@@ -85,6 +85,11 @@ dtype simple_dtable::iter::key() const
 	return sdt_source->get_key(index);
 }
 
+dtype::ctype simple_dtable::iter::key_type() const
+{
+	return sdt_source->key_type();
+}
+
 bool simple_dtable::iter::seek(const dtype & key)
 {
 	return sdt_source->find_key(key, NULL, NULL, &index) >= 0;

@@ -95,6 +95,11 @@ dtype ustr_dtable::iter::key() const
 	return udt_source->get_key(index);
 }
 
+dtype::ctype ustr_dtable::iter::key_type() const
+{
+	return udt_source->key_type();
+}
+
 bool ustr_dtable::iter::seek(const dtype & key)
 {
 	return udt_source->find_key(key, NULL, NULL, &index) >= 0;

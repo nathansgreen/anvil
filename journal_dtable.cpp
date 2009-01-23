@@ -47,6 +47,11 @@ dtype journal_dtable::iter::key() const
 	return jit->first;
 }
 
+dtype::ctype journal_dtable::iter::key_type() const
+{
+	return jdt_source->key_type();
+}
+
 bool journal_dtable::iter::seek(const dtype & key)
 {
 	jit = jdt_source->jdt_map.lower_bound(key);

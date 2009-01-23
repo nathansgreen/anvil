@@ -62,6 +62,7 @@ private:
 		virtual bool last();
 		virtual bool first();
 		virtual dtype key() const;
+		virtual dtype::ctype key_type() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
 		virtual bool seek_index(size_t index);

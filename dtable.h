@@ -53,6 +53,9 @@ public:
 		 * if the iterator does not point at a valid entry. */
 		virtual dtype key() const = 0;
 		
+		/* Returns the key type of the underlying dtable. */
+		virtual dtype::ctype key_type() const = 0;
+		
 		/* Seeks this iterator to the requested key, or the next key if the
 		 * requested key is not present. Returns true if the requested key was
 		 * found, and false otherwise. In the latter case valid() should be

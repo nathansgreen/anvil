@@ -157,6 +157,11 @@ dtype exception_dtable::iter::key() const
 	return current_iter->iter->key();
 }
 
+dtype::ctype exception_dtable::iter::key_type() const
+{
+	return excp_source->key_type();
+}
+
 bool exception_dtable::iter::seek(const dtype & key)
 {
 	bool base_seek = base_iter->iter->seek(key);

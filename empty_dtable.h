@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -16,7 +16,7 @@
 class empty_dtable : public dtable
 {
 public:
-	virtual iter * iterator() const { return new iter(); }
+	virtual iter * iterator() const { return new iter(ktype); }
 	inline virtual blob lookup(const dtype & key, bool * found) const { *found = false; return blob(); }
 	inline empty_dtable(dtype::ctype key_type) { ktype = key_type; }
 	inline virtual ~empty_dtable() {}
@@ -32,12 +32,16 @@ private:
 		virtual bool last() { return false; }
 		/* well, really we have nothing to return */
 		virtual dtype key() const { return dtype(0u); }
+		virtual dtype::ctype key_type() const { return ktype; }
 		virtual bool seek(const dtype & key) { return false; }
 		virtual bool seek(const dtype_test & test) { return false; }
 		virtual metablob meta() const { return metablob(); }
 		virtual blob value() const { return blob(); }
 		virtual const dtable * source() const { return NULL; }
+		inline iter(dtype::ctype ktype) : ktype(ktype) {}
 		virtual ~iter() {}
+	private:
+		dtype::ctype ktype;
 	};
 };
 

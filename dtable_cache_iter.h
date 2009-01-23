@@ -57,6 +57,10 @@ public:
 		}
 		return cached_key;
 	}
+	virtual dtype::ctype key_type() const
+	{
+		return iter->key_type();
+	}
 	virtual bool seek(const dtype & key)
 	{
 		kill_cache();
@@ -98,6 +102,8 @@ private:
 	dtable_cache_key_iter(const dtable_cache_key_iter &);
 };
 
+/* it would be nice if this could inherit from dtable_cache_key_iter
+ * above, but then we'd have to deal with multiple inheritance */
 class dtable_cache_iter : public dtable::iter
 {
 public:
@@ -133,6 +139,10 @@ public:
 			key_cached = true;
 		}
 		return cached_key;
+	}
+	virtual dtype::ctype key_type() const
+	{
+		return iter->key_type();
 	}
 	virtual bool seek(const dtype & key)
 	{

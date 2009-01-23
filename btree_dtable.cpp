@@ -84,6 +84,11 @@ dtype btree_dtable::iter::key() const
 	return base_iter->key();
 }
 
+dtype::ctype btree_dtable::iter::key_type() const
+{
+	return base_iter->key_type();
+}
+
 bool btree_dtable::iter::seek(const dtype & key)
 {
 	bool found;

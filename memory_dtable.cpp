@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -45,6 +45,11 @@ bool memory_dtable::iter::last()
 dtype memory_dtable::iter::key() const
 {
 	return mit->first;
+}
+
+dtype::ctype memory_dtable::iter::key_type() const
+{
+	return mdt_source->key_type();
 }
 
 bool memory_dtable::iter::seek(const dtype & key)
