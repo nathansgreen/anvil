@@ -595,6 +595,7 @@ int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
+int command_edtable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
 int command_performance(int argc, const char * argv[]);
@@ -627,6 +628,7 @@ struct {
 	{"dtable", "Test dtable functionality.", command_dtable},
 	{"ctable", "Test ctable functionality.", command_ctable},
 	{"stable", "Test stable functionality.", command_stable},
+	{"edtable", "Test exception_dtable functionality.", command_edtable},
 	{"iterator", "Test iterator functionality.", command_iterator},
 	{"blob_cmp", "Test blob_cmp functionality.", command_blob_cmp},
 	{"performance", "Test performance.", command_performance},
