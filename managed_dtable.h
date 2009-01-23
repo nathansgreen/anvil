@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -47,15 +47,23 @@ public:
 	/* send to journal_dtable */
 	inline virtual int insert(const dtype & key, const blob & blob, bool append = false)
 	{
+		int r;
 		if(!blob.exists() && !find(key).exists())
 			return 0;
-		return journal->insert(key, blob, append);
+		r = journal->insert(key, blob, append);
+		if(r >= 0 && digest_size && journal->size() >= digest_size)
+			r = digest();
+		return r;
 	}
 	inline virtual int remove(const dtype & key)
 	{
+		int r;
 		if(!find(key).exists())
 			return 0;
-		return journal->remove(key);
+		r = journal->remove(key);
+		if(r >= 0 && digest_size && journal->size() >= digest_size)
+			r = digest();
+		return r;
 	}
 	
 	/* return the number of disk dtables */
@@ -155,6 +163,7 @@ private:
 	 * -EBUSY and we will need to query it later when the blob comparator is
 	 *  set; we set delayed_query when this case is detected in init() */
 	sys_journal * delayed_query;
+	size_t digest_size;
 	bool digest_on_close, close_digest_fastbase;
 };
 

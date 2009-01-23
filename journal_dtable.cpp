@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -107,6 +107,7 @@ struct jdt_string
 struct jdt_key_u32
 {
 	uint8_t type;
+	uint8_t append;
 	uint32_t key;
 	size_t size;
 	uint8_t data[0];
@@ -116,6 +117,7 @@ struct jdt_key_u32
 struct jdt_key_dbl
 {
 	uint8_t type;
+	uint8_t append;
 	double key;
 	size_t size;
 	uint8_t data[0];
@@ -125,6 +127,7 @@ struct jdt_key_dbl
 struct jdt_key_str
 {
 	uint8_t type;
+	uint8_t append;
 	uint32_t index;
 	size_t size;
 	uint8_t data[0];
@@ -134,6 +137,7 @@ struct jdt_key_str
 struct jdt_key_blob
 {
 	uint8_t type;
+	uint8_t append;
 	size_t key_size;
 	size_t size;
 	/* key stored first, then data */
@@ -202,7 +206,7 @@ template<class T> inline int journal_dtable::log(T * entry, const blob & blob, s
 	return r;
 }
 
-int journal_dtable::log(const dtype & key, const blob & blob)
+int journal_dtable::log(const dtype & key, const blob & blob, bool append)
 {
 	if(ktype == dtype::BLOB && blob_cmp && !cmp_name)
 	{
@@ -220,6 +224,7 @@ int journal_dtable::log(const dtype & key, const blob & blob)
 			if(!entry)
 				return -ENOMEM;
 			entry->type = JDT_KEY_U32;
+			entry->append = append;
 			entry->key = key.u32;
 			return log(entry, blob);
 		}
@@ -229,6 +234,7 @@ int journal_dtable::log(const dtype & key, const blob & blob)
 			if(!entry)
 				return -ENOMEM;
 			entry->type = JDT_KEY_DBL;
+			entry->append = append;
 			entry->key = key.dbl;
 			return log(entry, blob);
 		}
@@ -239,6 +245,7 @@ int journal_dtable::log(const dtype & key, const blob & blob)
 			if(!entry)
 				return -ENOMEM;
 			entry->type = JDT_KEY_STR;
+			entry->append = append;
 			r = add_string(key.str, &entry->index);
 			if(r < 0)
 			{
@@ -253,6 +260,7 @@ int journal_dtable::log(const dtype & key, const blob & blob)
 			if(!entry)
 				return -ENOMEM;
 			entry->type = JDT_KEY_BLOB;
+			entry->append = append;
 			entry->key_size = key.blb.size();
 			if(entry->key_size)
 				memcpy(entry->data, &key.blb[0], entry->key_size);
@@ -267,33 +275,16 @@ int journal_dtable::insert(const dtype & key, const blob & blob, bool append)
 	int r;
 	if(key.type != ktype || (ktype == dtype::BLOB && !key.blb.exists()))
 		return -EINVAL;
-	r = log(key, blob);
+	r = log(key, blob, append);
 	if(r < 0)
 		return r;
-	/* empty hash table? just add it */
-	if(!jdt_hash.size())
-		return add_node(key, blob);
-	if(append)
-	{
-		journal_dtable_map::iterator end = jdt_map.end();
-		journal_dtable_map::iterator last = end;
-		int c = (--last)->first.compare(key, blob_cmp);
-		/* this is the expected case, if the hint was correct */
-		if(c < 0)
-			return add_node(key, blob, end);
-		if(!c)
-		{
-			last->second = blob;
-			return 0;
-		}
-	}
 	journal_dtable_hash::iterator it = jdt_hash.find(key);
 	if(it != jdt_hash.end())
 	{
 		*(it->second) = blob;
 		return 0;
 	}
-	return add_node(key, blob);
+	return add_node(key, blob, append);
 }
 
 int journal_dtable::remove(const dtype & key)
@@ -301,7 +292,7 @@ int journal_dtable::remove(const dtype & key)
 	return insert(key, blob());
 }
 
-int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal)
+int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, bool always_append, sys_journal * journal)
 {
 	int r;
 	if(id() != sys_journal::NO_ID)
@@ -313,6 +304,7 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sy
 	r = strings.init(true);
 	if(r < 0)
 		return r;
+	this->always_append = always_append;
 	string_index = 0;
 	set_id(lid);
 	set_journal(journal);
@@ -347,24 +339,21 @@ void journal_dtable::deinit()
 	dtable::deinit();
 }
 
-int journal_dtable::add_node(const dtype & key, const blob & value)
-{
-	blob & map_value = jdt_map[key];
-	map_value = value;
-	jdt_hash[key] = &map_value;
-	return 0;
-}
-
-int journal_dtable::add_node(const dtype & key, const blob & value, const journal_dtable_map::iterator & end)
+int journal_dtable::add_node(const dtype & key, const blob & value, bool append)
 {
 	journal_dtable_map::value_type pair(key, value);
-	journal_dtable_map::iterator it = jdt_map.insert(end, pair);
+	journal_dtable_map::iterator it;
+	if(append || always_append)
+		it = jdt_map.insert(jdt_map.end(), pair);
+	else
+		it = jdt_map.insert(pair).first;
 	jdt_hash[key] = &(it->second);
 	return 0;
 }
 
 int journal_dtable::journal_replay(void *& entry, size_t length)
 {
+	blob value;
 	if(cmp_name && !blob_cmp)
 		/* if we need a blob comparator and don't have
 		 * one yet, then don't accept journal entries */
@@ -395,18 +384,18 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 			jdt_key_u32 * u32 = (jdt_key_u32 *) entry;
 			if(ktype != dtype::UINT32)
 				return -EINVAL;
-			if(u32->size == (size_t) -1)
-				return add_node(u32->key, blob());
-			return add_node(u32->key, blob(u32->size, u32->data));
+			if(u32->size != (size_t) -1)
+				value = blob(u32->size, u32->data);
+			return add_node(u32->key, value, u32->append);
 		}
 		case JDT_KEY_DBL:
 		{
 			jdt_key_dbl * dbl = (jdt_key_dbl *) entry;
 			if(ktype != dtype::DOUBLE)
 				return -EINVAL;
-			if(dbl->size == (size_t) -1)
-				return add_node(dbl->key, blob());
-			return add_node(dbl->key, blob(dbl->size, dbl->data));
+			if(dbl->size != (size_t) -1)
+				value = blob(dbl->size, dbl->data);
+			return add_node(dbl->key, value, dbl->append);
 		}
 		case JDT_KEY_STR:
 		{
@@ -414,17 +403,17 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 			istr string = strings.lookup(str->index);
 			if(!string || ktype != dtype::STRING)
 				return -EINVAL;
-			if(str->size == (size_t) -1)
-				return add_node(string, blob());
-			return add_node(string, blob(str->size, str->data));
+			if(str->size != (size_t) -1)
+				value = blob(str->size, str->data);
+			return add_node(string, value, str->append);
 		}
 		case JDT_KEY_BLOB:
 		{
 			jdt_key_blob * blb = (jdt_key_blob *) entry;
 			blob key(blb->key_size, blb->data);
-			if(blb->size == (size_t) -1)
-				return add_node(key, blob());
-			return add_node(key, blob(blb->size, &blb->data[blb->key_size]));
+			if(blb->size != (size_t) -1)
+				value = blob(blb->size, &blb->data[blb->key_size]);
+			return add_node(key, value, blb->append);
 		}
 		case JDT_BLOB_CMP:
 		{

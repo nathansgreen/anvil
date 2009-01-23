@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -32,6 +32,8 @@ public:
 	virtual iter * iterator() const;
 	virtual blob lookup(const dtype & key, bool * found) const;
 	
+	/* journal_dtable supports size() even though it is not otherwise indexable */
+	inline virtual size_t size() const { return jdt_hash.size(); }
 	inline virtual bool writable() const { return true; }
 	virtual int insert(const dtype & key, const blob & blob, bool append = false);
 	virtual int remove(const dtype & key);
@@ -44,7 +46,7 @@ public:
 	}
 	
 	inline journal_dtable() : string_index(0), jdt_map(blob_cmp), jdt_hash(10, blob_cmp, blob_cmp) {}
-	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL);
+	int init(dtype::ctype key_type, sys_journal::listener_id lid, bool always_append = false, sys_journal * journal = NULL);
 	/* reinitialize, optionally discarding the old entries from the journal */
 	/* NOTE: also clears and releases the blob comparator, if one has been set */
 	int reinit(sys_journal::listener_id lid, bool discard = true);
@@ -61,8 +63,7 @@ private:
 	typedef std::map<dtype, blob, dtype_comparator_refobject> journal_dtable_map;
 	typedef __gnu_cxx::hash_map<const dtype, blob *, dtype_hashing_comparator, dtype_hashing_comparator> journal_dtable_hash;
 	
-	inline int add_node(const dtype & key, const blob & value);
-	inline int add_node(const dtype & key, const blob & value, const journal_dtable_map::iterator & end);
+	inline int add_node(const dtype & key, const blob & value, bool append);
 	
 	class iter : public dtable::iter
 	{
@@ -88,9 +89,10 @@ private:
 	int add_string(const istr & string, uint32_t * index);
 	int log_blob_cmp();
 	template<class T> inline int log(T * entry, const blob & blob, size_t offset = 0);
-	int log(const dtype & key, const blob & blob);
+	int log(const dtype & key, const blob & blob, bool append);
 	
 	stringset strings;
+	bool always_append;
 	uint32_t string_index;
 	journal_dtable_map jdt_map;
 	journal_dtable_hash jdt_hash;

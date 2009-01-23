@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -18,7 +18,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	istr fast_config = "fastbase_config";
 	tx_fd meta;
 	off_t meta_off;
-	int r = -1;
+	int r = -1, size;
 	if(md_dfd >= 0)
 		deinit();
 	base = dtable_factory::lookup(config, "base");
@@ -33,6 +33,11 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		fast_config = "base_config";
 	if(!config.get(fast_config, &fastbase_config, params()))
 		return -EINVAL;
+	/* NOTE: use of this feature causes iterators to potentially
+	 * become invalid on every insert() or remove() */
+	if(!config.get("digest_size", &size, 0))
+		return -EINVAL;
+	digest_size = size;
 	if(!config.get("digest_on_close", &digest_on_close, false))
 		return -EINVAL;
 	if(!config.get("close_digest_fastbase", &close_digest_fastbase, true))

@@ -663,7 +663,7 @@ int command_bdbtest(int argc, const char * argv[])
 	jid = sys_journal::get_unique_id();
 	if(jid == sys_journal::NO_ID)
 		return -EBUSY;
-	r = jdt.init(dtype::BLOB, jid, NULL);
+	r = jdt.init(dtype::BLOB, jid);
 	printf("jdt.init = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
@@ -733,7 +733,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		jid = sys_journal::get_unique_id();
 		if(jid == sys_journal::NO_ID)
 			return -EBUSY;
-		r = jdt.init(dtype::BLOB, jid, NULL);
+		r = jdt.init(dtype::BLOB, jid);
 		printf("jdt.init = %d\n", r);
 		r = jdt.set_blob_cmp(&reverse);
 		printf("jdt.set_blob_cmp = %d\n", r);
