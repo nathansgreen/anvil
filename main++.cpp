@@ -371,7 +371,7 @@ int command_edtable(int argc, const char * argv[])
 	if(jid == sys_journal::NO_ID)
 		return -EBUSY;
 	jdt = new journal_dtable;
-	r = jdt->init(dtype::UINT32, jid, NULL);
+	r = jdt->init(dtype::UINT32, jid);
 	printf("jdt.init = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
@@ -405,7 +405,7 @@ int command_edtable(int argc, const char * argv[])
 	if(jid == sys_journal::NO_ID)
 		return -EBUSY;
 	jdt = new journal_dtable;
-	r = jdt->init(dtype::UINT32, jid, NULL);
+	r = jdt->init(dtype::UINT32, jid);
 	printf("jdt.init = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
