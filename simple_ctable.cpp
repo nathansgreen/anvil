@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -143,6 +143,11 @@ bool simple_ctable::iter::last()
 dtype simple_ctable::iter::key() const
 {
 	return source->key();
+}
+
+dtype::ctype simple_ctable::iter::key_type() const
+{
+	return source->key_type();
 }
 
 bool simple_ctable::iter::seek(const dtype & key)

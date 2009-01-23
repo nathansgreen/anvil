@@ -57,6 +57,10 @@ public:
 		}
 		return cached_key;
 	}
+	virtual dtype::ctype key_type() const
+	{
+		return iter->key_type();
+	}
 	virtual bool seek(const dtype & key)
 	{
 		kill_cache();

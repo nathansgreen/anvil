@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -72,6 +72,7 @@ private:
 		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
+		virtual dtype::ctype key_type() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
 		virtual const istr & column() const;
