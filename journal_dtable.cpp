@@ -278,13 +278,7 @@ int journal_dtable::insert(const dtype & key, const blob & blob, bool append)
 	r = log(key, blob, append);
 	if(r < 0)
 		return r;
-	journal_dtable_hash::iterator it = jdt_hash.find(key);
-	if(it != jdt_hash.end())
-	{
-		*(it->second) = blob;
-		return 0;
-	}
-	return add_node(key, blob, append);
+	return set_node(key, blob, append);
 }
 
 int journal_dtable::remove(const dtype & key)
@@ -351,6 +345,17 @@ int journal_dtable::add_node(const dtype & key, const blob & value, bool append)
 	return 0;
 }
 
+int journal_dtable::set_node(const dtype & key, const blob & value, bool append)
+{
+	journal_dtable_hash::iterator it = jdt_hash.find(key);
+	if(it != jdt_hash.end())
+	{
+		*(it->second) = value;
+		return 0;
+	}
+	return add_node(key, value, append);
+}
+
 int journal_dtable::journal_replay(void *& entry, size_t length)
 {
 	blob value;
@@ -386,7 +391,7 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 				return -EINVAL;
 			if(u32->size != (size_t) -1)
 				value = blob(u32->size, u32->data);
-			return add_node(u32->key, value, u32->append);
+			return set_node(u32->key, value, u32->append);
 		}
 		case JDT_KEY_DBL:
 		{
@@ -395,7 +400,7 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 				return -EINVAL;
 			if(dbl->size != (size_t) -1)
 				value = blob(dbl->size, dbl->data);
-			return add_node(dbl->key, value, dbl->append);
+			return set_node(dbl->key, value, dbl->append);
 		}
 		case JDT_KEY_STR:
 		{
@@ -405,7 +410,7 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 				return -EINVAL;
 			if(str->size != (size_t) -1)
 				value = blob(str->size, str->data);
-			return add_node(string, value, str->append);
+			return set_node(string, value, str->append);
 		}
 		case JDT_KEY_BLOB:
 		{
@@ -413,7 +418,7 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 			blob key(blb->key_size, blb->data);
 			if(blb->size != (size_t) -1)
 				value = blob(blb->size, &blb->data[blb->key_size]);
-			return add_node(key, value, blb->append);
+			return set_node(key, value, blb->append);
 		}
 		case JDT_BLOB_CMP:
 		{

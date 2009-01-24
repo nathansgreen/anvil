@@ -64,6 +64,8 @@ private:
 	typedef __gnu_cxx::hash_map<const dtype, blob *, dtype_hashing_comparator, dtype_hashing_comparator> journal_dtable_hash;
 	
 	inline int add_node(const dtype & key, const blob & value, bool append);
+	/* tries to set an existing node, and calls add_node() otherwise */
+	inline int set_node(const dtype & key, const blob & value, bool append);
 	
 	class iter : public iter_source<journal_dtable>
 	{
