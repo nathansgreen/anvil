@@ -13,6 +13,7 @@
 
 #include "rwfile.h"
 #include "blob_buffer.h"
+#include "dtable_iter_filter.h"
 #include "array_dtable.h"
 
 array_dtable::iter::iter(const array_dtable * source)
@@ -235,93 +236,30 @@ void array_dtable::deinit()
 	}
 }
 
+class array_filter
+{
+protected:
+	int init(const params & config)
+	{
+		int r, size;
+		r = config.get("blob_size", &size, -1);
+		if(r < 0 || size < 0)
+			return r;
+		blob_size = size;
+		return 0;
+	}
+	bool accept(const dtable::iter * iter)
+	{
+		metablob meta = iter->meta();
+		return !meta.exists() || meta.size() == blob_size;
+	}
+private:
+	size_t blob_size;
+};
+
 dtable::iter * array_dtable::filter_iterator(dtable::iter * source, const params & config, dtable * rejects)
 {
-	class iter : public dtable::iter
-	{
-	public:
-		virtual bool valid() const { return base->valid(); }
-		virtual bool next()
-		{
-			if(base->next())
-				return skip_next();
-			hit_end = true;
-			return false;
-		}
-		virtual bool prev()
-		{
-			while(base->prev())
-			{
-				metablob meta = base->meta();
-				if(!meta.exists() || meta.size() == blob_size)
-					return true;
-				if(rejects->insert(base->key(), base->value()) < 0)
-					/* by returning true, we'll trigger an error elsewhere, which is what we want */
-					return true;
-			}
-			return false;
-		}
-		/* don't support last() for now; it's probably not needed */
-		virtual bool last() { abort(); }
-		virtual bool first()
-		{
-			if(base->first())
-				return skip_next();
-			hit_end = true;
-			return false;
-		}
-		virtual dtype key() const { return base->key(); }
-		/* don't support seeking for now; it's probably not needed */
-		virtual bool seek(const dtype & key) { abort(); }
-		virtual bool seek(const dtype_test & test) { abort(); }
-		virtual dtype::ctype key_type() const { return base->key_type(); }
-		virtual const blob_comparator * get_blob_cmp() const { return base->get_blob_cmp(); }
-		virtual const istr & get_cmp_name() const { return base->get_cmp_name(); }
-		virtual metablob meta() const { return base->meta(); }
-		virtual blob value() const { return base->value(); }
-		virtual const dtable * source() const { return base->source(); }
-		inline iter() : base(NULL), rejects(NULL) {}
-		inline int init(dtable::iter * source, const params & config, dtable * rejects)
-		{
-			int r, size;
-			r = config.get("blob_size", &size, -1);
-			if(r < 0 || size < 0)
-				return r;
-			if(!rejects->writable())
-				return -EINVAL;
-			base = source;
-			this->rejects = rejects;
-			blob_size = size;
-			hit_end = false;
-			/* we can ignore errors from skip_next(); they'll come back later */
-			skip_next();
-			return 0;
-		}
-		virtual ~iter() {}
-		
-	private:
-		/* does not do an initial next() */
-		bool skip_next()
-		{
-			while(base->valid())
-			{
-				metablob meta = base->meta();
-				if(!meta.exists() || meta.size() == blob_size)
-					break;
-				if(!hit_end && rejects->insert(base->key(), base->value()) < 0)
-					/* by returning true, we'll trigger an error elsewhere, which is what we want */
-					return true;
-				base->next();
-			}
-			hit_end = true;
-			return false;
-		}
-		
-		dtable::iter * base;
-		dtable * rejects;
-		size_t blob_size;
-		bool hit_end;
-	};
+	typedef dtable_iter_filter<array_filter> iter;
 	iter * filter = new iter;
 	if(filter)
 	{
