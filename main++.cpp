@@ -33,7 +33,6 @@ int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
-int command_edtable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
 int command_performance(int argc, const char * argv[]);
@@ -347,90 +346,6 @@ int command_ctable(int argc, const char * argv[])
 	delete sct;
 	delete mdt;
 	
-	return 0;
-}
-
-int command_edtable(int argc, const char * argv[])
-{
-	int r;
-
-	sys_journal::listener_id jid;
-	journal_dtable * jdt;
-	array_dtable * adt;
-	simple_dtable * sdt;
-	exception_dtable * edt;
-
-	blob value(5, "fixed");
-	blob value2(9, "exception");
-	params config;
-
-	printf("exception_dtable test\n");
-	r = tx_start();
-	printf("tx_start = %d\n", r);
-	jid = sys_journal::get_unique_id();
-	if(jid == sys_journal::NO_ID)
-		return -EBUSY;
-	jdt = new journal_dtable;
-	r = jdt->init(dtype::UINT32, jid);
-	printf("jdt.init = %d\n", r);
-	r = tx_end(0);
-	printf("tx_end = %d\n", r);
-
-	r = tx_start();
-	if(r)
-		printf("TX error\n");
-	assert(jdt->insert(dtype(0u), value) == 0);
-	assert(jdt->insert(dtype(1u), value) == 0);
-	assert(jdt->insert(dtype(3u), value) == 0);
-	r = tx_end(0);
-	if(r)
-		printf("TX error\n");
-
-	r = tx_start();
-	printf("tx_start = %d\n", r);
-	r = dtable_factory::setup("array_dtable", AT_FDCWD, "excp_array_test", config, jdt);
-	printf("exception array_dtable::create = %d\n", r);
-	r = tx_end(0);
-	printf("tx_end = %d\n", r);
-
-	adt = new array_dtable;
-	r = adt->init(AT_FDCWD, "excp_array_test", config);
-	run_iterator(adt);
-
-	delete jdt;
-
-	r = tx_start();
-	printf("tx_start = %d\n", r);
-	jid = sys_journal::get_unique_id();
-	if(jid == sys_journal::NO_ID)
-		return -EBUSY;
-	jdt = new journal_dtable;
-	r = jdt->init(dtype::UINT32, jid);
-	printf("jdt.init = %d\n", r);
-	r = tx_end(0);
-	printf("tx_end = %d\n", r);
-
-	r = tx_start();
-	if(r)
-		printf("TX error\n");
-	assert(jdt->insert(dtype(2u), value2) == 0);
-	assert(jdt->insert(dtype(8u), value2) == 0);
-	r = tx_end(0);
-	if(r)
-		printf("TX error\n");
-
-	r = dtable_factory::setup("simple_dtable", AT_FDCWD, "excp_simple_test", config, jdt);
-	printf("exception simple_dtable::create = %d\n", r);
-	sdt = new simple_dtable;
-	r = sdt->init(AT_FDCWD, "exception_simple_dtable", config);
-	run_iterator(sdt);
-
-	edt = new exception_dtable;
-	r = edt->init(adt, sdt);
-	assert(r >= 0);
-	printf("exception_dtable::init = %d\n", r);
-	run_iterator(edt);
-
 	return 0;
 }
 

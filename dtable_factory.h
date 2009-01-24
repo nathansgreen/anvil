@@ -33,13 +33,13 @@ public:
 	 * (as existent entries) will be kept as non-existent entries in the
 	 * result, otherwise they will be omitted since they are not needed */
 	/* shadow may also be NULL in which case it is treated as empty */
-	inline virtual int create(int dfd, const char * name, const params & config, dtable::iter * source, const dtable * shadow) const
+	inline virtual int create(int dfd, const char * name, const params & config, dtable::iter * source, const dtable * shadow = NULL) const
 	{
 		return -ENOSYS;
 	}
 	
 	/* convenience wrapper */
-	inline int create(int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow) const
+	inline int create(int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow = NULL) const
 	{
 		dtable::iter * iter = source->iterator();
 		int r = create(dfd, name, config, iter, shadow);
@@ -49,6 +49,10 @@ public:
 	
 	/* returns true if the class this factory will construct supports indexed access */
 	virtual bool indexed_access() const = 0;
+	
+	/* returns an iterator that will skip over any source keys this dtable type can't store, adding them to rejects instead */
+	/* NOTE: the returned iterator does not claim ownership of the source iterator, but also might return the source itself */
+	virtual dtable::iter * filter_iterator(dtable::iter * source, const params & config, dtable * rejects) const = 0;
 	
 	virtual ~dtable_factory_base() {}
 	
@@ -87,6 +91,11 @@ public:
 	{
 		return T::static_indexed_access();
 	}
+	
+	inline virtual dtable::iter * filter_iterator(dtable::iter * source, const params & config, dtable * rejects) const
+	{
+		return T::filter_iterator(source, config, rejects);
+	}
 };
 
 template<class T>
@@ -95,7 +104,7 @@ class dtable_ro_factory : public dtable_open_factory<T>
 public:
 	dtable_ro_factory(const istr & class_name) : dtable_open_factory<T>(class_name) {}
 	
-	inline virtual int create(int dfd, const char * name, const params & config, dtable::iter * source, const dtable * shadow) const
+	inline virtual int create(int dfd, const char * name, const params & config, dtable::iter * source, const dtable * shadow = NULL) const
 	{
 		return T::create(dfd, name, config, source, shadow);
 	}
@@ -119,7 +128,7 @@ class dtable_wrap_factory : public dtable_open_factory<T>
 public:
 	inline dtable_wrap_factory(const istr & class_name) : dtable_open_factory<T>(class_name) {}
 	
-	inline virtual int create(int dfd, const char * name, const params & config, dtable::iter * source, const dtable * shadow) const
+	inline virtual int create(int dfd, const char * name, const params & config, dtable::iter * source, const dtable * shadow = NULL) const
 	{
 		params base_config;
 		const dtable_factory * base = dtable_factory::lookup(config, "base");

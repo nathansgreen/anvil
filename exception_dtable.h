@@ -11,6 +11,7 @@
 
 #include "blob.h"
 #include "dtable.h"
+#include "dtable_factory.h"
 
 /* exception tables */
 
@@ -19,16 +20,17 @@ class exception_dtable : public dtable
 public:
 	virtual iter * iterator() const;
 	virtual blob lookup(const dtype & key, bool * found) const;
-	int init(const dtable * dt, const dtable * edt);
+	int init(int dfd, const char * file, const params & config);
 	void deinit();
 	inline virtual ~exception_dtable()
 	{
-		if(base && alternatives)
+		if(base || alternatives)
 			deinit();
 	}
-	dtype get_key(size_t index) const;
-	blob get_value(size_t index) const;
-
+	
+	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow = NULL);
+	DECLARE_RO_FACTORY(exception_dtable);
+	
 private:
 	class iter : public iter_source<exception_dtable>
 	{
@@ -53,7 +55,7 @@ private:
 			dtable::iter * iter;
 			bool valid;
 		};
-
+		
 		sub * base_iter;
 		sub * alternatives_iter;
 		sub * current_iter;

@@ -160,7 +160,7 @@ int sys_journal::filter()
 	assert(info_size == data_size);
 	assert(data_size == data.end());
 	
-	istr data_name = istr(meta_name) + seq;
+	istr data_name = meta_name + seq;
 	r = tx_start_external();
 	if(r < 0)
 		return r;
@@ -496,7 +496,7 @@ int sys_journal::playback(journal_listener * target, bool fail_missing, bool cou
 	return 0;
 }
 
-void sys_journal::deinit()
+void sys_journal::deinit(bool erase)
 {
 	SYSJ_DEBUG("");
 	if(meta_fd >= 0)
@@ -513,6 +513,14 @@ void sys_journal::deinit()
 		r = data.close();
 		assert(r >= 0);
 		tx_close(meta_fd);
+		if(erase)
+		{
+			char seq[16];
+			snprintf(seq, sizeof(seq), ".%u", sequence);
+			istr data_name = meta_name + seq;
+			tx_unlink(meta_dfd, data_name, 0);
+			tx_unlink(meta_dfd, meta_name, 0);
+		}
 		meta_fd = -1;
 		meta_name = NULL;
 		if(meta_dfd >= 0 && meta_dfd != AT_FDCWD)

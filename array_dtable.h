@@ -33,8 +33,9 @@ public:
 	
 	inline array_dtable() : fp(NULL), min_key(0), array_size(0), value_size(0) {}
 	int init(int dfd, const char * file, const params & config);
-	static inline bool static_indexed_access() { return true; }
 	void deinit();
+	static inline bool static_indexed_access() { return true; }
+	static dtable::iter * filter_iterator(dtable::iter * source, const params & config, dtable * rejects);
 	inline virtual ~array_dtable()
 	{
 		if(fp)
@@ -71,7 +72,7 @@ private:
 		virtual const dtable * source() const;
 		inline iter(const array_dtable * source);
 		virtual ~iter() {}
-
+		
 	private:
 		size_t index;
 	};

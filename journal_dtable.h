@@ -50,7 +50,7 @@ public:
 	/* reinitialize, optionally discarding the old entries from the journal */
 	/* NOTE: also clears and releases the blob comparator, if one has been set */
 	int reinit(sys_journal::listener_id lid, bool discard = true);
-	void deinit();
+	void deinit(bool discard = false);
 	inline virtual ~journal_dtable()
 	{
 		if(id() != sys_journal::NO_ID)

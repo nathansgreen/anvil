@@ -13,6 +13,7 @@
 
 #include "blob.h"
 #include "dtype.h"
+#include "params.h"
 #include "blob_comparator.h"
 
 /* data tables */
@@ -134,6 +135,13 @@ public:
 	
 	/* subclasses can specify that they support indexed access */
 	static inline bool static_indexed_access() { return false; }
+	
+	/* see dtable_factory::filter_iterator() for details */
+	static inline iter * filter_iterator(iter * source, const params & config, dtable * rejects)
+	{
+		/* default: we can store everything, just return the original iterator */
+		return source;
+	}
 	
 protected:
 	dtype::ctype ktype;

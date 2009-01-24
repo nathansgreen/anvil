@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -302,7 +302,7 @@ typedef magic_test<dtype> dtype_test;
 class dtype_static_test
 {
 public:
-	inline dtype_static_test(const dtype & key, const blob_comparator * const & cmp) : secret(key), blob_cmp(cmp) { }
+	inline dtype_static_test(const dtype & key, const blob_comparator * const & cmp) : secret(key), blob_cmp(cmp) {}
 	
 	inline int operator()(const dtype & key) const
 	{

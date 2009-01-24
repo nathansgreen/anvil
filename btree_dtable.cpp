@@ -528,6 +528,9 @@ int btree_dtable::create(int dfd, const char * file, const params & config, dtab
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
 	
+	if(!source_shadow_ok(source, shadow))
+		return -EINVAL;
+	
 	r = mkdirat(dfd, file, 0755);
 	if(r < 0)
 		return r;

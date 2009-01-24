@@ -101,7 +101,8 @@ public:
 		handle.handle = flush_tx_static;
 	}
 	int init(int dfd, const char * file, bool create = false, bool filter_on_empty = true, bool fail_missing = false);
-	void deinit();
+	/* erase = true will tx_unlink() the journal - be sure you really want that */
+	void deinit(bool erase = false);
 	inline ~sys_journal()
 	{
 		if(meta_fd >= 0)

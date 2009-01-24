@@ -112,7 +112,7 @@ private:
 		class page
 		{
 		public:
-			inline page() : filled(0) { }
+			inline page() : filled(0) {}
 			inline bool append_pointer(size_t pointer);
 			inline bool append_record(uint32_t key, size_t index);
 			inline bool write(int fd, size_t page);
@@ -150,7 +150,7 @@ private:
 		virtual blob value() const;
 		virtual const dtable * source() const;
 		inline iter(dtable::iter * base, const btree_dtable * source);
-		virtual ~iter() { }
+		virtual ~iter() {}
 		
 	private:
 		dtable::iter * base_iter;

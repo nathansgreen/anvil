@@ -323,8 +323,10 @@ int journal_dtable::reinit(sys_journal::listener_id lid, bool discard)
 	return 0;
 }
 
-void journal_dtable::deinit()
+void journal_dtable::deinit(bool discard)
 {
+	if(discard)
+		journal_discard();
 	set_id(sys_journal::NO_ID);
 	/* no explicit deinitialization, so reinitialize empty */
 	strings.init();

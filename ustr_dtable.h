@@ -89,7 +89,7 @@ private:
 		virtual blob value() const;
 		virtual const dtable * source() const;
 		inline iter(const ustr_dtable * source);
-		virtual ~iter() { }
+		virtual ~iter() {}
 		
 	private:
 		size_t index;
