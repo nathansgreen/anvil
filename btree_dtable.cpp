@@ -515,7 +515,7 @@ fail_iter:
 	return r;
 }
 
-int btree_dtable::create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow)
+int btree_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow)
 {
 	int bt_dfd, r;
 	params base_config;

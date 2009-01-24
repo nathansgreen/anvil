@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -18,6 +18,12 @@ int dtable_factory_base::setup(const istr & type, int dfd, const char * name, co
 {
 	const dtable_factory * factory = dtable_factory::lookup(type);
 	return factory ? factory->create(dfd, name, config, key_type) : -ENOENT;
+}
+
+int dtable_factory_base::setup(const istr & type, int dfd, const char * name, const params & config, dtable::iter * source, const dtable * shadow)
+{
+	const dtable_factory * factory = dtable_factory::lookup(type);
+	return factory ? factory->create(dfd, name, config, source, shadow) : -ENOENT;
 }
 
 int dtable_factory_base::setup(const istr & type, int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow)

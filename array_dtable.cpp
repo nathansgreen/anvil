@@ -235,11 +235,10 @@ void array_dtable::deinit()
 	}
 }
 
-int array_dtable::create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow)
+int array_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow)
 {
 	int r;
 	rwfile out;
-	dtable::iter * iter;
 	uint8_t * zero_data;
 	dtable_header header;
 	dtype::ctype key_type;
@@ -258,12 +257,13 @@ int array_dtable::create(int dfd, const char * file, const params & config, cons
 	header.min_key = 0;
 	header.key_count = 0;
 	header.value_size = 0;
-	iter = source->iterator();
-	while(iter->valid())
+	/* just to be sure */
+	source->first();
+	while(source->valid())
 	{
-		dtype key = iter->key();
-		metablob meta = iter->meta();
-		iter->next();
+		dtype key = source->key();
+		metablob meta = source->meta();
+		source->next();
 		if(!meta.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->find(key).exists())
@@ -285,13 +285,9 @@ int array_dtable::create(int dfd, const char * file, const params & config, cons
 			}
 			/* all the items in this dtable must be the same size */
 			else if(meta.size() != header.value_size)
-			{
-				delete iter;
 				return -EINVAL;
-			}
 		}
 	}
-	delete iter;
 	
 	header.magic = ADTABLE_MAGIC;
 	header.version = ADTABLE_VERSION;
@@ -310,14 +306,14 @@ int array_dtable::create(int dfd, const char * file, const params & config, cons
 		return -1;
 	memset(zero_data, 0, header.value_size);
 	
-	iter = source->iterator();
-	while(iter->valid())
+	source->first();
+	while(source->valid())
 	{
 		uint8_t type;
-		dtype key = iter->key();
-		blob value = iter->value();
-		metablob meta = iter->meta();
-		iter->next();
+		dtype key = source->key();
+		blob value = source->value();
+		metablob meta = source->meta();
+		source->next();
 		if(!meta.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->find(key).exists())
@@ -339,7 +335,6 @@ int array_dtable::create(int dfd, const char * file, const params & config, cons
 		index++;
 	}
 	
-	delete iter;
 	delete[] zero_data;
 	
 	r = out.close();

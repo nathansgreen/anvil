@@ -40,7 +40,7 @@ public:
 		if(fp)
 			deinit();
 	}
-	static int create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow = NULL);
+	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow = NULL);
 	DECLARE_RO_FACTORY(array_dtable);
 	
 private:

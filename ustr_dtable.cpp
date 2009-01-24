@@ -464,13 +464,12 @@ blob ustr_dtable::pack_blob(const blob & source, const dtable_header & header, c
 	return buffer;
 }
 
-int ustr_dtable::create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow)
+int ustr_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow)
 {
 	std::vector<istr> strings;
 	std::vector<blob> blobs;
 	string_counter dups;
 	std::vector<istr> dup_vector;
-	dtable::iter * iter;
 	dtype::ctype key_type = source->key_type();
 	const blob_comparator * blob_cmp = source->get_blob_cmp();
 	size_t key_count = 0, max_data_size = 0, total_data_size = 0;
@@ -482,13 +481,14 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 		return -EINVAL;
 	/* reserve one duplicate string index for the escape sequence itself */
 	dups.init(255);
-	iter = source->iterator();
-	while(iter->valid())
+	/* just to be sure */
+	source->first();
+	while(source->valid())
 	{
-		dtype key = iter->key();
-		blob value = iter->value();
+		dtype key = source->key();
+		blob value = source->value();
 		size_t blob_size = value.size();
-		iter->next();
+		source->next();
 		if(!value.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->find(key).exists())
@@ -535,7 +535,6 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 			}
 		}
 	}
-	delete iter;
 	
 	/* duplicate string table setup */
 	dups.ignore();
@@ -553,13 +552,13 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 		/* make another pass over the data to recalculate total_data_size and byte_counts */
 		for(size_t i = 0; i < 256; i++)
 			byte_counts[i] = 0;
-		iter = source->iterator();
-		while(iter->valid())
+		source->first();
+		while(source->valid())
 		{
-			dtype key = iter->key();
-			blob value = iter->value();
+			dtype key = source->key();
+			blob value = source->value();
 			size_t blob_size = value.size();
-			iter->next();
+			source->next();
 			if(!value.exists())
 				/* omit non-existent entries no longer needed */
 				if(!shadow || !shadow->find(key).exists())
@@ -593,7 +592,6 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 				}
 			}
 		}
-		delete iter;
 		
 		size_t min = 0;
 		for(size_t i = 1; i < 256; i++)
@@ -671,14 +669,14 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	/* now the key array */
 	max_key = 0;
 	total_data_size = 0;
-	iter = source->iterator();
-	while(iter->valid())
+	source->first();
+	while(source->valid())
 	{
 		int i = 0;
 		uint8_t bytes[size];
-		dtype key = iter->key();
-		blob value = iter->value();
-		iter->next();
+		dtype key = source->key();
+		blob value = source->value();
+		source->next();
 		if(!value.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->find(key).exists())
@@ -707,24 +705,20 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 		util::layout_bytes(bytes, &i, total_data_size, header.offset_size);
 		r = out.append(bytes, i);
 		if(r != i)
-		{
-			delete iter;
 			goto fail_unlink;
-		}
 		/* with a duplicate string table, total_data_size should be the compressed size here */
 		if(dups.size())
 			total_data_size += pack_size(value, header, dup_vector);
 		else
 			total_data_size += value.size();
 	}
-	delete iter;
 	
 	/* and the data itself */
-	iter = source->iterator();
-	while(iter->valid())
+	source->first();
+	while(source->valid())
 	{
-		blob value = iter->value();
-		iter->next();
+		blob value = source->value();
+		source->next();
 		/* nonexistent blobs have size 0 */
 		if(!value.size())
 			continue;
@@ -732,12 +726,8 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 			value = pack_blob(value, header, dup_vector);
 		r = out.append(&value[0], value.size());
 		if(r != (int) value.size())
-		{
-			delete iter;
 			goto fail_unlink;
-		}
 	}
-	delete iter;
 	
 	/* the duplicate string table */
 	if(dups.size())
@@ -758,16 +748,16 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 	
 	printf("%s: performing sanity check on new file\n", __PRETTY_FUNCTION__);
 	dtable::iter * new_iter = new_ustr->iterator();
-	iter = source->iterator();
-	while(iter->valid())
+	source->first();
+	while(source->valid())
 	{
-		dtype key = iter->key();
-		blob value = iter->value();
+		dtype key = source->key();
+		blob value = source->value();
 		if(!value.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->find(key).exists())
 			{
-				iter->next();
+				source->next();
 				continue;
 			}
 		if(!new_iter->valid())
@@ -814,19 +804,18 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, const
 			break;
 		}
 		
-		iter->next();
+		source->next();
 		new_iter->next();
 	}
-	if(!iter->valid() && new_iter->valid())
+	if(!source->valid() && new_iter->valid())
 		printf("%s: ERROR: EOF on original dtable\n", __PRETTY_FUNCTION__);
-	if(iter->valid() || new_iter->valid())
+	if(source->valid() || new_iter->valid())
 	{
 		printf("Duplicate strings:\n");
 		for(size_t i = 0; i < dups.size(); i++)
 			printf("#%02d: %s\n", i, (const char *) dup_vector[i]);
 		printf("Escape character: 0x%02x\n", header.dup_escape[0]);
 	}
-	delete iter;
 	delete new_iter;
 	delete new_ustr;
 	}

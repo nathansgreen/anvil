@@ -314,11 +314,10 @@ void simple_dtable::deinit()
 	}
 }
 
-int simple_dtable::create(int dfd, const char * file, const params & config, const dtable * source, const dtable * shadow)
+int simple_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow)
 {
 	std::vector<istr> strings;
 	std::vector<blob> blobs;
-	dtable::iter * iter;
 	dtype::ctype key_type = source->key_type();
 	const blob_comparator * blob_cmp = source->get_blob_cmp();
 	size_t key_count = 0, max_data_size = 0, total_data_size = 0;
@@ -328,12 +327,13 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	rwfile out;
 	if(!source_shadow_ok(source, shadow))
 		return -EINVAL;
-	iter = source->iterator();
-	while(iter->valid())
+	/* just to be sure */
+	source->first();
+	while(source->valid())
 	{
-		dtype key = iter->key();
-		metablob meta = iter->meta();
-		iter->next();
+		dtype key = source->key();
+		metablob meta = source->meta();
+		source->next();
 		if(!meta.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->find(key).exists())
@@ -360,7 +360,6 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 			max_data_size = meta.size();
 		total_data_size += meta.size();
 	}
-	delete iter;
 	
 	/* now write the file */
 	header.magic = SDTABLE_MAGIC;
@@ -419,14 +418,14 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 	/* now the key array */
 	max_key = 0;
 	total_data_size = 0;
-	iter = source->iterator();
-	while(iter->valid())
+	source->first();
+	while(source->valid())
 	{
 		int i = 0;
 		uint8_t bytes[size];
-		dtype key = iter->key();
-		metablob meta = iter->meta();
-		iter->next();
+		dtype key = source->key();
+		metablob meta = source->meta();
+		source->next();
 		if(!meta.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->find(key).exists())
@@ -455,31 +454,23 @@ int simple_dtable::create(int dfd, const char * file, const params & config, con
 		util::layout_bytes(bytes, &i, total_data_size, header.offset_size);
 		r = out.append(bytes, i);
 		if(r != i)
-		{
-			delete iter;
 			goto fail_unlink;
-		}
 		total_data_size += meta.size();
 	}
-	delete iter;
 	
 	/* and the data itself */
-	iter = source->iterator();
-	while(iter->valid())
+	source->first();
+	while(source->valid())
 	{
-		blob value = iter->value();
-		iter->next();
+		blob value = source->value();
+		source->next();
 		/* nonexistent blobs have size 0 */
 		if(!value.size())
 			continue;
 		r = out.append(&value[0], value.size());
 		if(r != (int) value.size())
-		{
-			delete iter;
 			goto fail_unlink;
-		}
 	}
-	delete iter;
 	
 	r = out.close();
 	if(r < 0)

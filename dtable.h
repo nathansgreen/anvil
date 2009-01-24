@@ -152,20 +152,22 @@ protected:
 	}
 	
 	/* helper for create() methods: checks source and shadow to make sure they agree */
-	static inline bool source_shadow_ok(const dtable * source, const dtable * shadow)
+	static inline bool source_shadow_ok(dtable::iter * source, const dtable * shadow)
 	{
 		if(!shadow)
 			return true;
-		if(source->ktype != shadow->ktype)
+		if(source->key_type() != shadow->ktype)
 			return false;
-		if(source->ktype == dtype::BLOB)
+		if(shadow->ktype == dtype::BLOB)
 		{
+			const blob_comparator * source_cmp = source->get_blob_cmp();
+			/* TODO: check get_cmp_name() first? */
 			/* we don't require blob comparators to be the same
 			 * object, but both must either exist or not exist */
-			if(!source->blob_cmp != !shadow->blob_cmp)
+			if(!source_cmp != !shadow->blob_cmp)
 				return false;
 			/* and if they exist, they must have the same name */
-			if(source->blob_cmp && strcmp(source->blob_cmp->name, shadow->blob_cmp->name))
+			if(source_cmp && strcmp(source_cmp->name, shadow->blob_cmp->name))
 				return false;
 		}
 		return true;

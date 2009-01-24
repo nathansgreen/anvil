@@ -388,13 +388,13 @@ int command_edtable(int argc, const char * argv[])
 
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = array_dtable::create(AT_FDCWD, "exception_array_dtable", config, jdt);
+	r = dtable_factory::setup("array_dtable", AT_FDCWD, "excp_array_test", config, jdt);
 	printf("exception array_dtable::create = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 
 	adt = new array_dtable;
-	r = adt->init(AT_FDCWD, "exception_array_dtable", config);
+	r = adt->init(AT_FDCWD, "excp_array_test", config);
 	run_iterator(adt);
 
 	delete jdt;
@@ -419,7 +419,7 @@ int command_edtable(int argc, const char * argv[])
 	if(r)
 		printf("TX error\n");
 
-	r = simple_dtable::create(AT_FDCWD, "exception_simple_dtable", config, jdt);
+	r = dtable_factory::setup("simple_dtable", AT_FDCWD, "excp_simple_test", config, jdt);
 	printf("exception simple_dtable::create = %d\n", r);
 	sdt = new simple_dtable;
 	r = sdt->init(AT_FDCWD, "exception_simple_dtable", config);

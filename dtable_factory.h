@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -33,9 +33,18 @@ public:
 	 * (as existent entries) will be kept as non-existent entries in the
 	 * result, otherwise they will be omitted since they are not needed */
 	/* shadow may also be NULL in which case it is treated as empty */
-	inline virtual int create(int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow) const
+	inline virtual int create(int dfd, const char * name, const params & config, dtable::iter * source, const dtable * shadow) const
 	{
 		return -ENOSYS;
+	}
+	
+	/* convenience wrapper */
+	inline int create(int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow) const
+	{
+		dtable::iter * iter = source->iterator();
+		int r = create(dfd, name, config, iter, shadow);
+		delete iter;
+		return r;
 	}
 	
 	/* returns true if the class this factory will construct supports indexed access */
@@ -47,7 +56,8 @@ public:
 	static dtable * load(const istr & type, int dfd, const char * name, const params & config);
 	/* wrappers for create() that do lookup() */
 	static int setup(const istr & type, int dfd, const char * name, const params & config, dtype::ctype key_type);
-	static int setup(const istr & type, int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow);
+	static int setup(const istr & type, int dfd, const char * name, const params & config, dtable::iter * source, const dtable * shadow = NULL);
+	static int setup(const istr & type, int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow = NULL);
 };
 
 typedef factory<dtable_factory_base> dtable_factory;
@@ -85,7 +95,7 @@ class dtable_ro_factory : public dtable_open_factory<T>
 public:
 	dtable_ro_factory(const istr & class_name) : dtable_open_factory<T>(class_name) {}
 	
-	inline virtual int create(int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow) const
+	inline virtual int create(int dfd, const char * name, const params & config, dtable::iter * source, const dtable * shadow) const
 	{
 		return T::create(dfd, name, config, source, shadow);
 	}
@@ -109,7 +119,7 @@ class dtable_wrap_factory : public dtable_open_factory<T>
 public:
 	inline dtable_wrap_factory(const istr & class_name) : dtable_open_factory<T>(class_name) {}
 	
-	inline virtual int create(int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow) const
+	inline virtual int create(int dfd, const char * name, const params & config, dtable::iter * source, const dtable * shadow) const
 	{
 		params base_config;
 		const dtable_factory * base = dtable_factory::lookup(config, "base");
