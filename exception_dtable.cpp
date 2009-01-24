@@ -57,13 +57,13 @@ bool exception_dtable::iter::next()
 		else
 			return true;
 	}
-
+	
 	if(other_iter->valid)
 	{
 		current_iter = other_iter;
 		return true;
 	}
-
+	
 	return false;
 }
 
@@ -99,13 +99,13 @@ bool exception_dtable::iter::prev()
 		else
 			return true;
 	}
-
+	
 	if(other_iter->valid)
 	{
 		current_iter = other_iter;
 		return true;
 	}
-
+	
 	return false;
 }
 
@@ -125,12 +125,12 @@ bool exception_dtable::iter::first()
 	}
 	else
 		current_iter = base_first ? base_iter : alternatives_iter;
-
+	
 	base_iter->valid = base_first;
 	alternatives_iter->valid = alternatives_first;
-
+	
 	lastdir = FORWARD;
-
+	
 	return true;
 }
 
@@ -150,7 +150,7 @@ bool exception_dtable::iter::last()
 	}
 	else
 		current_iter = base_last ? base_iter : alternatives_iter;
-
+	
 	lastdir = FORWARD;
 	return true;
 }
@@ -166,7 +166,7 @@ bool exception_dtable::iter::seek(const dtype & key)
 	bool exception_seek = alternatives_iter->iter->seek(key);
 	
 	lastdir = FORWARD;
-
+	
 	if(base_seek)
 		current_iter = base_iter;
 	else if(exception_seek)
@@ -294,20 +294,12 @@ void exception_dtable::deinit()
 
 int exception_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow)
 {
-	/* steps:
-	 * - look up factories
-	 * - create journal dtable
-	 * - create filtered iterator
-	 * - create base dtable
-	 * - digest journal dtable to alt
-	 * - kill journal dtable
-	 * - optional: sanity check */
 	int excp_dfd, r;
 	sys_journal alt_journal;
 	journal_dtable alt_jdt;
 	dtable::iter * filtered;
 	sys_journal::listener_id id;
-	params base_config, alt_config;
+	params base_config, alt_config, filter_config;
 	const dtable_factory * base = dtable_factory::lookup(config, "base");
 	const dtable_factory * alt = dtable_factory::lookup(config, "alt");
 	if(!base || !alt)
@@ -315,6 +307,8 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
 	if(!config.get("alt_config", &alt_config, params()))
+		return -EINVAL;
+	if(!config.get("filter_config", &filter_config, params()))
 		return -EINVAL;
 	
 	if(!source_shadow_ok(source, shadow))
@@ -330,7 +324,7 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	r = alt_journal.init(excp_dfd, "alt_journal", true);
 	if(r < 0)
 		goto fail_journal;
-	id = sys_journal::get_unique_id(); /* ! sys_journal::NO_ID */
+	id = sys_journal::get_unique_id();
 	if(id == sys_journal::NO_ID)
 		goto fail_id;
 	/* we'll always be appending, since we'll be reading the data in order */
@@ -340,7 +334,7 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	if(source->get_blob_cmp())
 		alt_jdt.set_blob_cmp(source->get_blob_cmp());
 	
-	filtered = base->filter_iterator(source, base_config, &alt_jdt);
+	filtered = base->filter_iterator(source, filter_config, &alt_jdt);
 	if(!filtered)
 		goto fail_filter;
 	
