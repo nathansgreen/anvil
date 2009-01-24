@@ -50,20 +50,20 @@
  * [] = byte 0-m: data bytes */
 
 ustr_dtable::iter::iter(const ustr_dtable * source)
-	: index(0), udt_source(source)
+	: iter_source<ustr_dtable>(source), index(0)
 {
 }
 
 bool ustr_dtable::iter::valid() const
 {
-	return index < udt_source->key_count;
+	return index < dt_source->key_count;
 }
 
 bool ustr_dtable::iter::next()
 {
-	if(index == udt_source->key_count)
+	if(index == dt_source->key_count)
 		return false;
-	return ++index < udt_source->key_count;
+	return ++index < dt_source->key_count;
 }
 
 bool ustr_dtable::iter::prev()
@@ -76,7 +76,7 @@ bool ustr_dtable::iter::prev()
 
 bool ustr_dtable::iter::first()
 {
-	if(!udt_source->key_count)
+	if(!dt_source->key_count)
 		return false;
 	index = 0;
 	return true;
@@ -84,40 +84,35 @@ bool ustr_dtable::iter::first()
 
 bool ustr_dtable::iter::last()
 {
-	if(!udt_source->key_count)
+	if(!dt_source->key_count)
 		return false;
-	index = udt_source->key_count - 1;
+	index = dt_source->key_count - 1;
 	return true;
 }
 
 dtype ustr_dtable::iter::key() const
 {
-	return udt_source->get_key(index);
-}
-
-dtype::ctype ustr_dtable::iter::key_type() const
-{
-	return udt_source->key_type();
+	return dt_source->get_key(index);
 }
 
 bool ustr_dtable::iter::seek(const dtype & key)
 {
-	return udt_source->find_key(key, NULL, NULL, &index) >= 0;
+	return dt_source->find_key(key, NULL, NULL, &index) >= 0;
 }
 
 bool ustr_dtable::iter::seek(const dtype_test & test)
 {
-	return udt_source->find_key(test, &index) >= 0;
+	return dt_source->find_key(test, &index) >= 0;
 }
 
 bool ustr_dtable::iter::seek_index(size_t index)
 {
 	/* we allow seeking to one past the end, just
 	 * as we allow getting there with next() */
-	if(index < 0 || index > udt_source->key_count)
+	if(index < 0 || index > dt_source->key_count)
 		return false;
 	this->index = index;
-	return index < udt_source->key_count;
+	return index < dt_source->key_count;
 }
 
 size_t ustr_dtable::iter::get_index() const
@@ -128,18 +123,18 @@ size_t ustr_dtable::iter::get_index() const
 metablob ustr_dtable::iter::meta() const
 {
 	size_t data_length;
-	udt_source->get_key(index, &data_length);
+	dt_source->get_key(index, &data_length);
 	return data_length ? metablob(data_length) : metablob();
 }
 
 blob ustr_dtable::iter::value() const
 {
-	return udt_source->get_value(index);
+	return dt_source->get_value(index);
 }
 
 const dtable * ustr_dtable::iter::source() const
 {
-	return udt_source;
+	return dt_source;
 }
 
 dtable::iter * ustr_dtable::iterator() const

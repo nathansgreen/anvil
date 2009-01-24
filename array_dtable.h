@@ -53,7 +53,7 @@ private:
 		uint32_t value_size;
 	} __attribute__((packed));
 	
-	class iter : public dtable::iter
+	class iter : public iter_source<array_dtable>
 	{
 	public:
 		virtual bool valid() const;
@@ -62,7 +62,6 @@ private:
 		virtual bool last();
 		virtual bool first();
 		virtual dtype key() const;
-		virtual dtype::ctype key_type() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
 		virtual bool seek_index(size_t index);
@@ -75,7 +74,6 @@ private:
 
 	private:
 		size_t index;
-		const array_dtable * adt_source;
 	};
 	
 	dtype get_key(size_t index) const;

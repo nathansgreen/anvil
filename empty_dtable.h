@@ -16,13 +16,13 @@
 class empty_dtable : public dtable
 {
 public:
-	virtual iter * iterator() const { return new iter(ktype); }
+	virtual iter * iterator() const { return new iter(this); }
 	inline virtual blob lookup(const dtype & key, bool * found) const { *found = false; return blob(); }
 	inline empty_dtable(dtype::ctype key_type) { ktype = key_type; }
 	inline virtual ~empty_dtable() {}
 	
 private:
-	class iter : public dtable::iter
+	class iter : public iter_source<empty_dtable>
 	{
 	public:
 		virtual bool valid() const { return false; }
@@ -32,16 +32,13 @@ private:
 		virtual bool last() { return false; }
 		/* well, really we have nothing to return */
 		virtual dtype key() const { return dtype(0u); }
-		virtual dtype::ctype key_type() const { return ktype; }
 		virtual bool seek(const dtype & key) { return false; }
 		virtual bool seek(const dtype_test & test) { return false; }
 		virtual metablob meta() const { return metablob(); }
 		virtual blob value() const { return blob(); }
 		virtual const dtable * source() const { return NULL; }
-		inline iter(dtype::ctype ktype) : ktype(ktype) {}
+		inline iter(const empty_dtable * edt) : iter_source<empty_dtable>(edt) {}
 		virtual ~iter() {}
-	private:
-		dtype::ctype ktype;
 	};
 };
 

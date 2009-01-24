@@ -9,19 +9,19 @@
 
 bool journal_dtable::iter::valid() const
 {
-	return jit != jdt_source->jdt_map.end();
+	return jit != dt_source->jdt_map.end();
 }
 
 bool journal_dtable::iter::next()
 {
-	if(jit != jdt_source->jdt_map.end())
+	if(jit != dt_source->jdt_map.end())
 		++jit;
-	return jit != jdt_source->jdt_map.end();
+	return jit != dt_source->jdt_map.end();
 }
 
 bool journal_dtable::iter::prev()
 {
-	if(jit == jdt_source->jdt_map.begin())
+	if(jit == dt_source->jdt_map.begin())
 		return false;
 	--jit;
 	return true;
@@ -29,14 +29,14 @@ bool journal_dtable::iter::prev()
 
 bool journal_dtable::iter::first()
 {
-	jit = jdt_source->jdt_map.begin();
-	return jit != jdt_source->jdt_map.end();
+	jit = dt_source->jdt_map.begin();
+	return jit != dt_source->jdt_map.end();
 }
 
 bool journal_dtable::iter::last()
 {
-	jit = jdt_source->jdt_map.end();
-	if(jit == jdt_source->jdt_map.begin())
+	jit = dt_source->jdt_map.end();
+	if(jit == dt_source->jdt_map.begin())
 		return false;
 	--jit;
 	return true;
@@ -47,23 +47,18 @@ dtype journal_dtable::iter::key() const
 	return jit->first;
 }
 
-dtype::ctype journal_dtable::iter::key_type() const
-{
-	return jdt_source->key_type();
-}
-
 bool journal_dtable::iter::seek(const dtype & key)
 {
-	jit = jdt_source->jdt_map.lower_bound(key);
-	if(jit == jdt_source->jdt_map.end())
+	jit = dt_source->jdt_map.lower_bound(key);
+	if(jit == dt_source->jdt_map.end())
 		return false;
-	return !jdt_source->jdt_map.key_comp()(key, jit->first);
+	return !dt_source->jdt_map.key_comp()(key, jit->first);
 }
 
 bool journal_dtable::iter::seek(const dtype_test & test)
 {
-	jit = lower_bound(jdt_source->jdt_map, test);
-	if(jit == jdt_source->jdt_map.end())
+	jit = lower_bound(dt_source->jdt_map, test);
+	if(jit == dt_source->jdt_map.end())
 		return false;
 	return !test(jit->first);
 }
@@ -80,7 +75,7 @@ blob journal_dtable::iter::value() const
 
 const dtable * journal_dtable::iter::source() const
 {
-	return jdt_source;
+	return dt_source;
 }
 
 dtable::iter * journal_dtable::iterator() const

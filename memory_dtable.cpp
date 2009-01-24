@@ -9,19 +9,19 @@
 
 bool memory_dtable::iter::valid() const
 {
-	return mit != mdt_source->mdt_map.end();
+	return mit != dt_source->mdt_map.end();
 }
 
 bool memory_dtable::iter::next()
 {
-	if(mit != mdt_source->mdt_map.end())
+	if(mit != dt_source->mdt_map.end())
 		++mit;
-	return mit != mdt_source->mdt_map.end();
+	return mit != dt_source->mdt_map.end();
 }
 
 bool memory_dtable::iter::prev()
 {
-	if(mit == mdt_source->mdt_map.begin())
+	if(mit == dt_source->mdt_map.begin())
 		return false;
 	--mit;
 	return true;
@@ -29,14 +29,14 @@ bool memory_dtable::iter::prev()
 
 bool memory_dtable::iter::first()
 {
-	mit = mdt_source->mdt_map.begin();
-	return mit != mdt_source->mdt_map.end();
+	mit = dt_source->mdt_map.begin();
+	return mit != dt_source->mdt_map.end();
 }
 
 bool memory_dtable::iter::last()
 {
-	mit = mdt_source->mdt_map.end();
-	if(mit == mdt_source->mdt_map.begin())
+	mit = dt_source->mdt_map.end();
+	if(mit == dt_source->mdt_map.begin())
 		return false;
 	--mit;
 	return true;
@@ -47,23 +47,18 @@ dtype memory_dtable::iter::key() const
 	return mit->first;
 }
 
-dtype::ctype memory_dtable::iter::key_type() const
-{
-	return mdt_source->key_type();
-}
-
 bool memory_dtable::iter::seek(const dtype & key)
 {
-	mit = mdt_source->mdt_map.lower_bound(key);
-	if(mit == mdt_source->mdt_map.end())
+	mit = dt_source->mdt_map.lower_bound(key);
+	if(mit == dt_source->mdt_map.end())
 		return false;
-	return !mdt_source->mdt_map.key_comp()(key, mit->first);
+	return !dt_source->mdt_map.key_comp()(key, mit->first);
 }
 
 bool memory_dtable::iter::seek(const dtype_test & test)
 {
-	mit = lower_bound(mdt_source->mdt_map, test);
-	if(mit == mdt_source->mdt_map.end())
+	mit = lower_bound(dt_source->mdt_map, test);
+	if(mit == dt_source->mdt_map.end())
 		return false;
 	return !test(mit->first);
 }
@@ -80,7 +75,7 @@ blob memory_dtable::iter::value() const
 
 const dtable * memory_dtable::iter::source() const
 {
-	return mdt_source;
+	return dt_source;
 }
 
 dtable::iter * memory_dtable::iterator() const

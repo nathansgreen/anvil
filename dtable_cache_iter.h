@@ -57,10 +57,6 @@ public:
 		}
 		return cached_key;
 	}
-	virtual dtype::ctype key_type() const
-	{
-		return iter->key_type();
-	}
 	virtual bool seek(const dtype & key)
 	{
 		kill_cache();
@@ -75,6 +71,18 @@ public:
 	{
 		kill_cache();
 		return iter->seek_index(index);
+	}
+	virtual dtype::ctype key_type() const
+	{
+		return iter->key_type();
+	}
+	virtual const blob_comparator * get_blob_cmp() const
+	{
+		return iter->get_blob_cmp();
+	}
+	virtual const istr & get_cmp_name() const
+	{
+		return iter->get_cmp_name();
 	}
 	
 	inline dtable_cache_key_iter(dtable::key_iter * iter)
@@ -140,10 +148,6 @@ public:
 		}
 		return cached_key;
 	}
-	virtual dtype::ctype key_type() const
-	{
-		return iter->key_type();
-	}
 	virtual bool seek(const dtype & key)
 	{
 		kill_cache();
@@ -158,6 +162,18 @@ public:
 	{
 		kill_cache();
 		return iter->seek_index(index);
+	}
+	virtual dtype::ctype key_type() const
+	{
+		return iter->key_type();
+	}
+	virtual const blob_comparator * get_blob_cmp() const
+	{
+		return iter->get_blob_cmp();
+	}
+	virtual const istr & get_cmp_name() const
+	{
+		return iter->get_cmp_name();
 	}
 	virtual metablob meta() const
 	{

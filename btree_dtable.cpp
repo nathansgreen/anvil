@@ -50,7 +50,7 @@
 #define BTREE_KEYS_PER_LEAF_PAGE (BTREE_PAGE_SIZE / BTREE_KEY_INDEX_SIZE)
 
 btree_dtable::iter::iter(dtable::iter * base, const btree_dtable * source)
-	: base_iter(base), bdt_source(source)
+	: iter_source<btree_dtable>(source), base_iter(base)
 {
 }
 
@@ -84,22 +84,17 @@ dtype btree_dtable::iter::key() const
 	return base_iter->key();
 }
 
-dtype::ctype btree_dtable::iter::key_type() const
-{
-	return base_iter->key_type();
-}
-
 bool btree_dtable::iter::seek(const dtype & key)
 {
 	bool found;
-	base_iter->seek_index(bdt_source->btree_lookup(key, &found));
+	base_iter->seek_index(dt_source->btree_lookup(key, &found));
 	return found;
 }
 
 bool btree_dtable::iter::seek(const dtype_test & test)
 {
 	bool found;
-	base_iter->seek_index(bdt_source->btree_lookup(test, &found));
+	base_iter->seek_index(dt_source->btree_lookup(test, &found));
 	return found;
 }
 

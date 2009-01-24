@@ -8,7 +8,7 @@
 #include "overlay_dtable.h"
 
 overlay_dtable::iter::iter(const overlay_dtable * source)
-	: ovr_source(source), lastdir(FORWARD), past_beginning(false)
+	: iter_source<overlay_dtable>(source), lastdir(FORWARD), past_beginning(false)
 {
 	subs = new sub[source->table_count];
 	for(size_t i = 0; i < source->table_count; i++)
@@ -23,14 +23,14 @@ overlay_dtable::iter::iter(const overlay_dtable * source)
 
 overlay_dtable::iter::~iter()
 {
-	for(size_t i = 0; i < ovr_source->table_count; i++)
+	for(size_t i = 0; i < dt_source->table_count; i++)
 		delete subs[i].iter;
 	delete[] subs;
 }
 
 bool overlay_dtable::iter::valid() const
 {
-	return current_index < ovr_source->table_count;
+	return current_index < dt_source->table_count;
 }
 
 /* this will let non-existent blobs shadow extant ones just like we want
@@ -39,12 +39,12 @@ bool overlay_dtable::iter::next()
 {
 	bool first = true;
 	dtype min_key(0u);
-	const blob_comparator * blob_cmp = ovr_source->blob_cmp;
-	current_index = ovr_source->table_count;
+	const blob_comparator * blob_cmp = dt_source->blob_cmp;
+	current_index = dt_source->table_count;
 	
 	if(lastdir == BACKWARD)
 	{
-		for(size_t i = 0; i < ovr_source->table_count; i++)
+		for(size_t i = 0; i < dt_source->table_count; i++)
 		{
 			assert(subs[i].empty || subs[i].valid);
 			if(subs[i].empty && !subs[i].valid)
@@ -67,7 +67,7 @@ bool overlay_dtable::iter::next()
 		}
 	}
 	
-	for(size_t i = 0; i < ovr_source->table_count; i++)
+	for(size_t i = 0; i < dt_source->table_count; i++)
 	{
 		int c;
 		if(subs[i].empty && subs[i].valid)
@@ -89,10 +89,10 @@ bool overlay_dtable::iter::next()
 			/* shadow this entry */
 			subs[i].shadow = true;
 	}
-	if(current_index == ovr_source->table_count)
+	if(current_index == dt_source->table_count)
 		return false;
 	subs[current_index].empty = true;
-	for(size_t i = current_index + 1; i < ovr_source->table_count; i++)
+	for(size_t i = current_index + 1; i < dt_source->table_count; i++)
 		if(subs[i].shadow)
 		{
 			/* skip shadowed entry */
@@ -106,12 +106,12 @@ bool overlay_dtable::iter::prev()
 {
 	bool first = true;
 	dtype max_key(0u);
-	const blob_comparator * blob_cmp = ovr_source->blob_cmp;
-	size_t next_index = ovr_source->table_count;
+	const blob_comparator * blob_cmp = dt_source->blob_cmp;
+	size_t next_index = dt_source->table_count;
 	
 	if(lastdir == FORWARD)
 	{
-		for(size_t i = 0; i < ovr_source->table_count; i++)
+		for(size_t i = 0; i < dt_source->table_count; i++)
 		{
 			assert(subs[i].empty || subs[i].valid);
 			subs[i].empty = true;
@@ -121,7 +121,7 @@ bool overlay_dtable::iter::prev()
 		lastdir = BACKWARD;
 	}
 	
-	for(size_t i = 0; i < ovr_source->table_count; i++)
+	for(size_t i = 0; i < dt_source->table_count; i++)
 	{
 		int c;
 		if(subs[i].empty && subs[i].valid)
@@ -143,7 +143,7 @@ bool overlay_dtable::iter::prev()
 			/* shadow this entry */
 			subs[i].shadow = true;
 	}
-	if(next_index == ovr_source->table_count)
+	if(next_index == dt_source->table_count)
 	{
 		/* we have gone "past the beginning" and when we reverse direction
 		 * again, we'll find the first element rather than the second as we
@@ -154,7 +154,7 @@ bool overlay_dtable::iter::prev()
 	}
 	current_index = next_index;
 	subs[current_index].empty = true;
-	for(size_t i = current_index + 1; i < ovr_source->table_count; i++)
+	for(size_t i = current_index + 1; i < dt_source->table_count; i++)
 		if(subs[i].shadow)
 		{
 			/* skip shadowed entry */
@@ -166,7 +166,7 @@ bool overlay_dtable::iter::prev()
 
 bool overlay_dtable::iter::first()
 {
-	for(size_t i = 0; i < ovr_source->table_count; i++)
+	for(size_t i = 0; i < dt_source->table_count; i++)
 	{
 		subs[i].iter->first();
 		subs[i].empty = !subs[i].iter->valid();
@@ -180,7 +180,7 @@ bool overlay_dtable::iter::first()
 
 bool overlay_dtable::iter::last()
 {
-	for(size_t i = 0; i < ovr_source->table_count; i++)
+	for(size_t i = 0; i < dt_source->table_count; i++)
 	{
 		subs[i].iter->last();
 		if(subs[i].iter->valid())
@@ -199,15 +199,10 @@ dtype overlay_dtable::iter::key() const
 	return subs[current_index].iter->key();
 }
 
-dtype::ctype overlay_dtable::iter::key_type() const
-{
-	return ovr_source->key_type();
-}
-
 bool overlay_dtable::iter::seek(const dtype & key)
 {
 	bool found = false;
-	for(size_t i = 0; i < ovr_source->table_count; i++)
+	for(size_t i = 0; i < dt_source->table_count; i++)
 	{
 		if(subs[i].iter->seek(key))
 			found = true;
@@ -224,7 +219,7 @@ bool overlay_dtable::iter::seek(const dtype & key)
 bool overlay_dtable::iter::seek(const dtype_test & test)
 {
 	bool found = false;
-	for(size_t i = 0; i < ovr_source->table_count; i++)
+	for(size_t i = 0; i < dt_source->table_count; i++)
 	{
 		if(subs[i].iter->seek(test))
 			found = true;

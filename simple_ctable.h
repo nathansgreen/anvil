@@ -72,9 +72,9 @@ private:
 		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
-		virtual dtype::ctype key_type() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
+		virtual dtype::ctype key_type() const;
 		virtual const istr & column() const;
 		virtual blob value() const;
 		inline iter(dtable::iter * src);

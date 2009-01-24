@@ -40,20 +40,20 @@
  * [] = byte 0-m: data bytes */
 
 simple_dtable::iter::iter(const simple_dtable * source)
-	: index(0), sdt_source(source)
+	: iter_source<simple_dtable>(source), index(0)
 {
 }
 
 bool simple_dtable::iter::valid() const
 {
-	return index < sdt_source->key_count;
+	return index < dt_source->key_count;
 }
 
 bool simple_dtable::iter::next()
 {
-	if(index == sdt_source->key_count)
+	if(index == dt_source->key_count)
 		return false;
-	return ++index < sdt_source->key_count;
+	return ++index < dt_source->key_count;
 }
 
 bool simple_dtable::iter::prev()
@@ -66,7 +66,7 @@ bool simple_dtable::iter::prev()
 
 bool simple_dtable::iter::first()
 {
-	if(!sdt_source->key_count)
+	if(!dt_source->key_count)
 		return false;
 	index = 0;
 	return true;
@@ -74,40 +74,35 @@ bool simple_dtable::iter::first()
 
 bool simple_dtable::iter::last()
 {
-	if(!sdt_source->key_count)
+	if(!dt_source->key_count)
 		return false;
-	index = sdt_source->key_count - 1;
+	index = dt_source->key_count - 1;
 	return true;
 }
 
 dtype simple_dtable::iter::key() const
 {
-	return sdt_source->get_key(index);
-}
-
-dtype::ctype simple_dtable::iter::key_type() const
-{
-	return sdt_source->key_type();
+	return dt_source->get_key(index);
 }
 
 bool simple_dtable::iter::seek(const dtype & key)
 {
-	return sdt_source->find_key(key, NULL, NULL, &index) >= 0;
+	return dt_source->find_key(key, NULL, NULL, &index) >= 0;
 }
 
 bool simple_dtable::iter::seek(const dtype_test & test)
 {
-	return sdt_source->find_key(test, &index) >= 0;
+	return dt_source->find_key(test, &index) >= 0;
 }
 
 bool simple_dtable::iter::seek_index(size_t index)
 {
 	/* we allow seeking to one past the end, just
 	 * as we allow getting there with next() */
-	if(index < 0 || index > sdt_source->key_count)
+	if(index < 0 || index > dt_source->key_count)
 		return false;
 	this->index = index;
-	return index < sdt_source->key_count;
+	return index < dt_source->key_count;
 }
 
 size_t simple_dtable::iter::get_index() const
@@ -118,18 +113,18 @@ size_t simple_dtable::iter::get_index() const
 metablob simple_dtable::iter::meta() const
 {
 	size_t data_length;
-	sdt_source->get_key(index, &data_length);
+	dt_source->get_key(index, &data_length);
 	return data_length ? metablob(data_length) : metablob();
 }
 
 blob simple_dtable::iter::value() const
 {
-	return sdt_source->get_value(index);
+	return dt_source->get_value(index);
 }
 
 const dtable * simple_dtable::iter::source() const
 {
-	return sdt_source;
+	return dt_source;
 }
 
 dtable::iter * simple_dtable::iterator() const

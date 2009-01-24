@@ -97,11 +97,6 @@ dtype simple_stable::siter::key() const
 	return data->key();
 }
 
-dtype::ctype simple_stable::siter::key_type() const
-{
-	return data->key_type();
-}
-
 bool simple_stable::siter::seek(const dtype & key)
 {
 	return data->seek(key);
@@ -110,6 +105,11 @@ bool simple_stable::siter::seek(const dtype & key)
 bool simple_stable::siter::seek(const dtype_test & test)
 {
 	return data->seek(test);
+}
+
+dtype::ctype simple_stable::siter::key_type() const
+{
+	return data->key_type();
 }
 
 const istr & simple_stable::siter::column() const

@@ -60,7 +60,7 @@ private:
 	inline int add_node(const dtype & key, const blob & value);
 	inline int add_node(const dtype & key, const blob & value, const memory_dtable_map::iterator & end);
 	
-	class iter : public dtable::iter
+	class iter : public iter_source<memory_dtable>
 	{
 	public:
 		virtual bool valid() const;
@@ -69,16 +69,14 @@ private:
 		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
-		virtual dtype::ctype key_type() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
 		virtual metablob meta() const;
 		virtual blob value() const;
 		virtual const dtable * source() const;
-		inline iter(const memory_dtable * source) : mdt_source(source), mit(source->mdt_map.begin()) {}
+		inline iter(const memory_dtable * source) : iter_source<memory_dtable>(source), mit(source->mdt_map.begin()) {}
 		virtual ~iter() {}
 	private:
-		const memory_dtable * mdt_source;
 		memory_dtable_map::const_iterator mit;
 	};
 	

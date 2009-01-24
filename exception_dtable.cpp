@@ -10,14 +10,14 @@
 
 #include "exception_dtable.h"
 
-exception_dtable::iter::iter(const exception_dtable * s)
-	: excp_source(s), lastdir(FORWARD)
+exception_dtable::iter::iter(const exception_dtable * source)
+	: iter_source<exception_dtable>(source), lastdir(FORWARD)
 {
-		base_iter = new sub;
-		alternatives_iter = new sub;
-		base_iter->iter = excp_source->base->iterator();
-		alternatives_iter->iter = excp_source->alternatives->iterator();
-		first();
+	base_iter = new sub;
+	alternatives_iter = new sub;
+	base_iter->iter = dt_source->base->iterator();
+	alternatives_iter->iter = dt_source->alternatives->iterator();
+	first();
 }
 
 bool exception_dtable::iter::valid() const
@@ -27,7 +27,7 @@ bool exception_dtable::iter::valid() const
 
 bool exception_dtable::iter::next()
 {
-	const blob_comparator * blob_cmp = excp_source->blob_cmp;
+	const blob_comparator * blob_cmp = dt_source->blob_cmp;
 	sub * other_iter = (current_iter == base_iter) ? alternatives_iter : base_iter;
 	if(lastdir != FORWARD)
 	{
@@ -66,7 +66,7 @@ bool exception_dtable::iter::next()
 
 bool exception_dtable::iter::prev()
 {
-	const blob_comparator * blob_cmp = excp_source->blob_cmp;
+	const blob_comparator * blob_cmp = dt_source->blob_cmp;
 	sub * other_iter = (current_iter == base_iter) ? alternatives_iter : base_iter;
 	if(lastdir != BACKWARD)
 	{
@@ -114,7 +114,7 @@ bool exception_dtable::iter::first()
 		return false;
 	if(base_first && alternatives_first)
 	{
-		const blob_comparator * blob_cmp = excp_source->blob_cmp;
+		const blob_comparator * blob_cmp = dt_source->blob_cmp;
 		if(base_iter->iter->key().compare(alternatives_iter->iter->key(), blob_cmp) <= 0)
 			current_iter = base_iter;
 		else
@@ -139,7 +139,7 @@ bool exception_dtable::iter::last()
 		return false;
 	if(base_last && exception_last)
 	{
-		const blob_comparator * blob_cmp = excp_source->blob_cmp;
+		const blob_comparator * blob_cmp = dt_source->blob_cmp;
 		if(base_iter->iter->key().compare(alternatives_iter->iter->key(), blob_cmp) >= 0)
 			current_iter = base_iter;
 		else
@@ -155,11 +155,6 @@ bool exception_dtable::iter::last()
 dtype exception_dtable::iter::key() const
 {
 	return current_iter->iter->key();
-}
-
-dtype::ctype exception_dtable::iter::key_type() const
-{
-	return excp_source->key_type();
 }
 
 bool exception_dtable::iter::seek(const dtype & key)

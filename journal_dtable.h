@@ -65,7 +65,7 @@ private:
 	
 	inline int add_node(const dtype & key, const blob & value, bool append);
 	
-	class iter : public dtable::iter
+	class iter : public iter_source<journal_dtable>
 	{
 	public:
 		virtual bool valid() const;
@@ -74,16 +74,14 @@ private:
 		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
-		virtual dtype::ctype key_type() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
 		virtual metablob meta() const;
 		virtual blob value() const;
 		virtual const dtable * source() const;
-		inline iter(const journal_dtable * source) : jdt_source(source), jit(source->jdt_map.begin()) {}
+		inline iter(const journal_dtable * source) : iter_source<journal_dtable>(source), jit(source->jdt_map.begin()) {}
 		virtual ~iter() {}
 	private:
-		const journal_dtable * jdt_source;
 		journal_dtable_map::const_iterator jit;
 	};
 	

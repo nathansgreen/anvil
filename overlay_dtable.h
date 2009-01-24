@@ -37,7 +37,7 @@ public:
 	}
 	
 private:
-	class iter : public dtable::iter
+	class iter : public iter_source<overlay_dtable>
 	{
 	public:
 		virtual bool valid() const;
@@ -46,7 +46,6 @@ private:
 		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
-		virtual dtype::ctype key_type() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
 		virtual metablob meta() const;
@@ -64,7 +63,6 @@ private:
 		
 		sub * subs;
 		size_t current_index;
-		const overlay_dtable * ovr_source;
 		enum direction {FORWARD, BACKWARD} lastdir;
 		bool past_beginning;
 	};

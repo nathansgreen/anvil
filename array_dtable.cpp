@@ -16,80 +16,75 @@
 #include "array_dtable.h"
 
 array_dtable::iter::iter(const array_dtable * source)
-	: index(0), adt_source(source)
+	: iter_source<array_dtable>(source), index(0)
 {
 }
 
 bool array_dtable::iter::valid() const
 {
-	return index < adt_source->array_size;
+	return index < dt_source->array_size;
 }
 
 bool array_dtable::iter::next()
 {
-	if(index == adt_source->array_size)
+	if(index == dt_source->array_size)
 		return false;
-	while(++index < adt_source->array_size && adt_source->is_hole(index));
-	return index < adt_source->array_size;
+	while(++index < dt_source->array_size && dt_source->is_hole(index));
+	return index < dt_source->array_size;
 }
 
 bool array_dtable::iter::prev()
 {
-	if(index == adt_source->min_key)
+	if(index == dt_source->min_key)
 		return false;
-	while(--index > adt_source->min_key && adt_source->is_hole(index));
+	while(--index > dt_source->min_key && dt_source->is_hole(index));
 	/* the first index can't be a hole, or it wouldn't be the first index */
 	return true;
 }
 
 bool array_dtable::iter::first()
 {
-	if(!adt_source->array_size)
+	if(!dt_source->array_size)
 		return false;
-	index = adt_source->min_key;
+	index = dt_source->min_key;
 	return true;
 }
 
 bool array_dtable::iter::last()
 {
-	if(!adt_source->array_size)
+	if(!dt_source->array_size)
 		return false;
-	index = adt_source->array_size - 1;
+	index = dt_source->array_size - 1;
 	return true;
 }
 
 dtype array_dtable::iter::key() const
 {
-	assert(index < adt_source->array_size);
-	uint32_t key = index + adt_source->min_key;
+	assert(index < dt_source->array_size);
+	uint32_t key = index + dt_source->min_key;
 	return dtype(key);
-}
-
-dtype::ctype array_dtable::iter::key_type() const
-{
-	return adt_source->key_type();
 }
 
 bool array_dtable::iter::seek(const dtype & key)
 {
 	assert(key.type == dtype::UINT32);
-	if(adt_source->is_hole(key.u32 - adt_source->min_key))
+	if(dt_source->is_hole(key.u32 - dt_source->min_key))
 		return false;
-	index = key.u32 - adt_source->min_key;
+	index = key.u32 - dt_source->min_key;
 	return true;
 }
 
 bool array_dtable::iter::seek(const dtype_test & test)
 {
-	return adt_source->find_key(test, &index) >= 0;
+	return dt_source->find_key(test, &index) >= 0;
 }
 
 bool array_dtable::iter::seek_index(size_t index)
 {
-	if(adt_source->is_hole(index))
+	if(dt_source->is_hole(index))
 		return false;
 	this->index = index;
-	return index < adt_source->array_size;
+	return index < dt_source->array_size;
 }
 
 size_t array_dtable::iter::get_index() const
@@ -99,18 +94,18 @@ size_t array_dtable::iter::get_index() const
 
 metablob array_dtable::iter::meta() const
 {
-	return metablob(adt_source->value_size);
+	return metablob(dt_source->value_size);
 }
 
 blob array_dtable::iter::value() const
 {
 	bool found;
-	return adt_source->get_value(index, &found);
+	return dt_source->get_value(index, &found);
 }
 
 const dtable * array_dtable::iter::source() const
 {
-	return adt_source;
+	return dt_source;
 }
 
 dtable::iter * array_dtable::iterator() const

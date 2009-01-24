@@ -72,7 +72,7 @@ private:
 		uint8_t dup_escape[2];
 	} __attribute__((packed));
 	
-	class iter : public dtable::iter
+	class iter : public iter_source<ustr_dtable>
 	{
 	public:
 		virtual bool valid() const;
@@ -81,7 +81,6 @@ private:
 		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
-		virtual dtype::ctype key_type() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
 		virtual bool seek_index(size_t index);
@@ -94,7 +93,6 @@ private:
 		
 	private:
 		size_t index;
-		const ustr_dtable * udt_source;
 	};
 	
 	dtype get_key(size_t index, size_t * data_length = NULL, off_t * data_offset = NULL) const;

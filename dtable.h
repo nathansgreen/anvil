@@ -53,9 +53,6 @@ public:
 		 * if the iterator does not point at a valid entry. */
 		virtual dtype key() const = 0;
 		
-		/* Returns the key type of the underlying dtable. */
-		virtual dtype::ctype key_type() const = 0;
-		
 		/* Seeks this iterator to the requested key, or the next key if the
 		 * requested key is not present. Returns true if the requested key was
 		 * found, and false otherwise. In the latter case valid() should be
@@ -67,6 +64,11 @@ public:
 		virtual bool seek_index(size_t index) { return false; }
 		/* Gets an index for later use with seek_index(). Same restrictions. */
 		virtual size_t get_index() const { return (size_t) -1; }
+		
+		/* Wrappers for the underlying dtable methods of the same names. */
+		virtual dtype::ctype key_type() const = 0;
+		virtual const blob_comparator * get_blob_cmp() const = 0;
+		virtual const istr & get_cmp_name() const = 0;
 		
 		inline key_iter() {}
 		virtual ~key_iter() {}
@@ -86,6 +88,17 @@ public:
 	private:
 		void operator=(const iter &);
 		iter(const iter &);
+	};
+	/* for iterators that want to have wrappers implemented for them */
+	template<class T, class P = iter> class iter_source : public P
+	{
+	public:
+		virtual dtype::ctype key_type() const { return dt_source->key_type(); }
+		virtual const blob_comparator * get_blob_cmp() const { return dt_source->get_blob_cmp(); }
+		virtual const istr & get_cmp_name() const { return dt_source->get_cmp_name(); }
+		inline iter_source(const T * dt_source) : dt_source(dt_source) {}
+	protected:
+		const T * dt_source;
 	};
 	
 	virtual iter * iterator() const = 0;

@@ -133,7 +133,7 @@ private:
 		int add(size_t pointer);
 	};
 	
-	class iter : public dtable::iter
+	class iter : public iter_source<btree_dtable>
 	{
 	public:
 		virtual bool valid() const;
@@ -142,7 +142,6 @@ private:
 		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
-		virtual dtype::ctype key_type() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
 		virtual bool seek_index(size_t index);
@@ -155,7 +154,6 @@ private:
 		
 	private:
 		dtable::iter * base_iter;
-		const btree_dtable * bdt_source;
 	};
 	
 	dtable * base;

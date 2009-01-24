@@ -30,7 +30,7 @@ public:
 	blob get_value(size_t index) const;
 
 private:
-	class iter : public dtable::iter
+	class iter : public iter_source<exception_dtable>
 	{
 	public:
 		virtual bool valid() const;
@@ -39,7 +39,6 @@ private:
 		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
-		virtual dtype::ctype key_type() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
 		virtual metablob meta() const;
@@ -55,8 +54,9 @@ private:
 			bool valid;
 		};
 
-		sub * base_iter, * alternatives_iter, * current_iter;
-		const exception_dtable * excp_source;
+		sub * base_iter;
+		sub * alternatives_iter;
+		sub * current_iter;
 		enum direction {FORWARD, BACKWARD} lastdir;
 	};
 	

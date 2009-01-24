@@ -145,11 +145,6 @@ dtype simple_ctable::iter::key() const
 	return source->key();
 }
 
-dtype::ctype simple_ctable::iter::key_type() const
-{
-	return source->key_type();
-}
-
 bool simple_ctable::iter::seek(const dtype & key)
 {
 	bool found;
@@ -174,6 +169,11 @@ bool simple_ctable::iter::seek(const dtype_test & test)
 	found = source->seek(test);
 	advance();
 	return found;
+}
+
+dtype::ctype simple_ctable::iter::key_type() const
+{
+	return source->key_type();
 }
 
 const istr & simple_ctable::iter::column() const
