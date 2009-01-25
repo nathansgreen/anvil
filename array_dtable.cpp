@@ -239,7 +239,7 @@ void array_dtable::deinit()
 class array_filter
 {
 protected:
-	int init(const params & config)
+	inline int init(const params & config)
 	{
 		int r, size;
 		r = config.get("blob_size", &size, -1);
@@ -248,7 +248,7 @@ protected:
 		blob_size = size;
 		return 0;
 	}
-	bool accept(const dtable::iter * iter)
+	inline bool accept(const dtable::iter * iter)
 	{
 		metablob meta = iter->meta();
 		return !meta.exists() || meta.size() == blob_size;

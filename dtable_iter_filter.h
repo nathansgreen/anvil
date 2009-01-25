@@ -14,8 +14,8 @@
 /* The dtable_iter_filter template provides a convenient way for specialized
  * dtables to implement the filter_iterator() method, so that they can be used
  * from exception_dtable via factories. They need only define a class that keeps
- * some state and provides an accept() method, which will be used as a parent
- * class of the template. See array_dtable for an example. */
+ * any necessary state and provides an accept() method, which will be used as a
+ * parent class of the template. See array_dtable for an example. */
 
 template<class T>
 class dtable_iter_filter : public dtable::iter, public T
@@ -28,7 +28,11 @@ public:
 	virtual bool next()
 	{
 		if(base->next())
-			return skip_next();
+		{
+			check_reject();
+			return true;
+		}
+		rejected = false;
 		hit_end = true;
 		return false;
 	}
@@ -37,18 +41,23 @@ public:
 		/* no need to worry about hit_end or even adding to rejects
 		 * here - we've already seen all of this, and we certainly
 		 * won't get to the end by going backwards */
-		while(base->prev())
-			if(T::accept(const_cast<const dtable::iter *>(base)))
-				return true;
-		return false;
+		bool valid = base->prev();
+		if(valid)
+			check_reject(false);
+		else
+			rejected = false;
+		return valid;
 	}
 	/* don't support last() for now; it's probably not needed */
 	virtual bool last() { abort(); }
 	virtual bool first()
 	{
-		if(base->first())
-			return skip_next();
-		return false;
+		bool valid = base->first();
+		if(valid)
+			check_reject(false);
+		else
+			rejected = false;
+		return valid;
 	}
 	virtual dtype key() const
 	{
@@ -71,11 +80,11 @@ public:
 	}
 	virtual metablob meta() const
 	{
-		return base->meta();
+		return rejected ? metablob(reject_value) : base->meta();
 	}
 	virtual blob value() const
 	{
-		return base->value();
+		return rejected ? reject_value : base->value();
 	}
 	virtual const dtable * source() const
 	{
@@ -83,7 +92,7 @@ public:
 	}
 	
 	inline dtable_iter_filter() : base(NULL), rejects(NULL) {}
-	inline int init(dtable::iter * source, const params & config, dtable * rejects, bool claim = false)
+	inline int init(dtable::iter * source, const params & config, dtable * rejects, blob reject_value = blob(), bool claim_base = false)
 	{
 		int r = T::init(config);
 		if(r < 0)
@@ -94,39 +103,39 @@ public:
 		source->first();
 		base = source;
 		this->rejects = rejects;
-		this->claim = claim;
+		this->reject_value = reject_value;
+		this->claim_base = claim_base;
 		hit_end = false;
-		/* we can ignore errors from skip_next(); they'll come back later */
-		skip_next();
+		if(base->valid())
+			check_reject();
+		else
+		{
+			rejected = false;
+			hit_end = true;
+		}
 		return 0;
 	}
 	virtual ~dtable_iter_filter()
 	{
-		if(base && claim)
+		if(base && claim_base)
 			delete base;
 	}
 	
 private:
-	/* does not do an initial next() */
-	bool skip_next()
+	void check_reject(bool add_rejects = true)
 	{
-		while(base->valid())
-		{
-			metablob meta = base->meta();
-			if(T::accept(const_cast<const dtable::iter *>(base)))
-				break;
-			if(!hit_end && rejects->insert(base->key(), base->value()) < 0)
-				/* by returning true, we'll trigger an error elsewhere, which is what we want */
-				return true;
-			base->next();
-		}
-		hit_end = true;
-		return false;
+		assert(base->valid());
+		rejected = !T::accept(const_cast<const dtable::iter *>(base));
+		if(rejected && !hit_end && add_rejects && rejects->insert(base->key(), base->value()) < 0)
+			/* by not rejecting something that should be rejected, we'll
+			 * trigger an error elsewhere, which is what we want */
+			rejected = false;
 	}
 	
 	dtable::iter * base;
 	dtable * rejects;
-	bool claim, hit_end;
+	blob reject_value;
+	bool claim_base, rejected, hit_end;
 };
 
 #endif /* __DTABLE_ITER_FILTER_H */

@@ -18,6 +18,11 @@ OBJECTS=$(COBJECTS) $(CPPOBJECTS)
 
 .PHONY: all clean clean-all count count-all php
 
+-include config.mak
+
+CFLAGS:=-Wall $(FSTITCH_CFLAGS) $(CONFIG_CFLAGS) $(CFLAGS)
+LDFLAGS:=$(FSTITCH_LDFLAGS) $(CONFIG_LDFLAGS) $(LDFLAGS)
+
 ifeq ($(findstring -pg,$(CFLAGS)),-pg)
 ifeq ($(findstring -pg,$(LDFLAGS)),)
 # Add -pg to LDFLAGS if it's in CFLAGS and not LDFLAGS
@@ -34,11 +39,6 @@ endif
 ifeq ($(findstring 64,$(shell uname -m)),64)
 CFLAGS:=-fpic $(CFLAGS)
 endif
-
--include config.mak
-
-CFLAGS:=-Wall $(FSTITCH_CFLAGS) $(CONFIG_CFLAGS) $(CFLAGS)
-LDFLAGS:=$(FSTITCH_LDFLAGS) $(CONFIG_LDFLAGS) $(LDFLAGS)
 
 all: config.mak tags main io_count.so
 
