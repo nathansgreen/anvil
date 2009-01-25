@@ -67,6 +67,7 @@ tx
 info
 dtable
 dtable madt_test array_dtable
+edtable
 ctable
 stable
 iterator

@@ -338,7 +338,7 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	if(!filtered)
 		goto fail_filter;
 	
-	r = base->create(excp_dfd, "base", base_config, source, shadow);
+	r = base->create(excp_dfd, "base", base_config, filtered, shadow);
 	if(r < 0)
 		goto fail_base;
 	

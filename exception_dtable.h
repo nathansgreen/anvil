@@ -22,6 +22,7 @@ public:
 	virtual blob lookup(const dtype & key, bool * found) const;
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
+	inline exception_dtable() : base(NULL), alternatives(NULL) {}
 	inline virtual ~exception_dtable()
 	{
 		if(base || alternatives)
@@ -62,7 +63,6 @@ private:
 		enum direction {FORWARD, BACKWARD} lastdir;
 	};
 	
-	size_t key_count;
 	const dtable * base;
 	const dtable * alternatives;
 };

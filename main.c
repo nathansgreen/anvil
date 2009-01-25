@@ -593,6 +593,7 @@ static int command_tx(int argc, const char * argv[])
 
 int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
+int command_edtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
@@ -625,6 +626,7 @@ struct {
 	{"tx", "Test transaction functionality.", command_tx},
 	{"info", "Print some information about toilet.", command_info},
 	{"dtable", "Test dtable functionality.", command_dtable},
+	{"edtable", "Test exception dtable functionality.", command_edtable},
 	{"ctable", "Test ctable functionality.", command_ctable},
 	{"stable", "Test stable functionality.", command_stable},
 	{"iterator", "Test iterator functionality.", command_iterator},

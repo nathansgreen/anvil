@@ -31,6 +31,7 @@
 extern "C" {
 int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
+int command_edtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
@@ -288,6 +289,91 @@ int command_dtable(int argc, const char * argv[])
 	r = mdt->init(AT_FDCWD, path, config);
 	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
+	delete mdt;
+	
+	return 0;
+}
+
+int command_edtable(int argc, const char * argv[])
+{
+	int r;
+	blob fixed("fixed");
+	blob exception("exception");
+	managed_dtable * mdt;
+	params config;
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) exception_dtable
+		"base_config" config [
+			"base" class(dt) array_dtable
+			"alt" class(dt) simple_dtable
+			"filter_config" config [
+				"blob_size" int 5
+			]
+		]
+		"digest_interval" int 2
+		"combine_interval" int 4
+		"combine_count" int 3
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = managed_dtable::create(AT_FDCWD, "excp_test", config, dtype::UINT32);
+	printf("dtable::create = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "excp_test", config);
+	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = mdt->insert(0u, fixed);
+	printf("mdt->insert = %d\n", r);
+	r = mdt->insert(1u, fixed);
+	printf("mdt->insert = %d\n", r);
+	r = mdt->insert(3u, fixed);
+	printf("mdt->insert = %d\n", r);
+	run_iterator(mdt);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	delete mdt;
+	
+	printf("Waiting 3 seconds for digest interval...\n");
+	sleep(3);
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "excp_test", config);
+	printf("mdt->init = %d\n", r);
+	r = mdt->maintain();
+	printf("mdt->maintain = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	run_iterator(mdt);
+	r = mdt->insert(2u, exception);
+	printf("mdt->insert = %d\n", r);
+	r = mdt->insert(8u, exception);
+	printf("mdt->insert = %d\n", r);
+	run_iterator(mdt);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	delete mdt;
+	
+	printf("Waiting 2 seconds for digest interval...\n");
+	sleep(2);
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "excp_test", config);
+	printf("mdt->init = %d\n", r);
+	r = mdt->maintain();
+	printf("mdt->maintain = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	run_iterator(mdt);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
 	delete mdt;
 	
 	return 0;
