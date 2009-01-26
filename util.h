@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -11,6 +11,8 @@
 #ifndef __cplusplus
 #error util.h is a C++ header file
 #endif
+
+#define static_assert(x) do { switch(0) { case 0: case (x): ; } } while(0)
 
 /* useful utility stuff */
 class util

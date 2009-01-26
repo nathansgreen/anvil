@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -278,8 +278,6 @@ void tpp_dtable_cache_close_iter(tpp_dtable_cache * c, tpp_dtable_iter * iter);
 #include "ctable.h"
 #include "stable.h"
 #include "blob_buffer.h"
-
-#define static_assert(x) do { switch(0) { case 0: case (x): ; } } while(0)
 
 /* static_assert() must be used in a function, so declare one that is never
  * called but returns its own address to avoid unused function warnings */
