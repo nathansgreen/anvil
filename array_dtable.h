@@ -45,6 +45,9 @@ public:
 	DECLARE_RO_FACTORY(array_dtable);
 	
 private:
+	/* we'll define it in the source file */
+	class array_filter;
+	
 	struct dtable_header {
 		uint32_t magic;
 		uint32_t version;

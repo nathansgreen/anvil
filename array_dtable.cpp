@@ -236,7 +236,7 @@ void array_dtable::deinit()
 	}
 }
 
-class array_filter
+class array_dtable::array_filter
 {
 protected:
 	inline int init(const params & config)
@@ -350,20 +350,23 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 		uint8_t type;
 		dtype key = source->key();
 		blob value = source->value();
-		metablob meta = source->meta();
 		source->next();
-		if(!meta.exists())
+		if(!value.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->find(key).exists())
 				continue;
 		while(index < key.u32 - header.min_key)
 		{
 			type = ARRAY_INDEX_HOLE;
-			out.append<uint8_t>(&type);
-			out.append(zero_data, header.value_size);
+			r = out.append<uint8_t>(&type);
+			if(r < 0)
+				goto fail_unlink;
+			r = out.append(zero_data, header.value_size);
+			if(r < 0)
+				goto fail_unlink;
 			index++;
 		}
-		type = meta.exists() ? ARRAY_INDEX_VALID : ARRAY_INDEX_DNE;
+		type = value.exists() ? ARRAY_INDEX_VALID : ARRAY_INDEX_DNE;
 		r = out.append<uint8_t>(&type);
 		if(r < 0)
 			goto fail_unlink;
