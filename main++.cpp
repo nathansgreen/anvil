@@ -422,7 +422,7 @@ int command_ctable(int argc, const char * argv[])
 	printf("sct->remove(8) = %d\n", r);
 	run_iterator(sct);
 	r = sct->insert(12u, "foo", blob("zot"));
-	printf("sct->insert(10, foo) = %d\n", r);
+	printf("sct->insert(12, foo) = %d\n", r);
 	run_iterator(sct);
 	r = mdt->combine();
 	printf("mdt->combine() = %d\n", r);
