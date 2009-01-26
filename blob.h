@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -38,7 +38,16 @@ public:
 	blob(const blob & x);
 	blob & operator=(const blob & x);
 	
-	static ssize_t locate(const std::vector<blob> & array, const blob & blob, const blob_comparator * blob_cmp = NULL);
+	static inline ssize_t locate(const blob * array, size_t size, const blob & key, const blob_comparator * blob_cmp = NULL)
+	{
+		return locate_generic(array, size, key, blob_cmp);
+	}
+	static inline ssize_t locate(const std::vector<blob> & array, const blob & key, const blob_comparator * blob_cmp = NULL)
+	{
+		/* must explicitly parameterize locate_generic;
+		 * otherwise we try to pass the vector by value */
+		return locate_generic<const std::vector<blob> &>(array, array.size(), key, blob_cmp);
+	}
 	
 	inline ~blob()
 	{
@@ -102,6 +111,9 @@ private:
 		size_t shares;
 		uint8_t bytes[0];
 	} * internal;
+	
+	template<class T>
+	static ssize_t locate_generic(T array, size_t size, const blob & key, const blob_comparator * blob_cmp);
 	
 	friend class blob_buffer;
 };

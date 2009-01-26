@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -144,7 +144,16 @@ public:
 			free(shared);
 	}
 	
-	static ssize_t locate(const std::vector<istr> & array, const istr & string);
+	static inline ssize_t locate(const istr * array, size_t size, const istr & key)
+	{
+		return locate_generic(array, size, key);
+	}
+	static inline ssize_t locate(const std::vector<istr> & array, const istr & key)
+	{
+		/* must explicitly parameterize locate_generic;
+		 * otherwise we try to pass the vector by value */
+		return locate_generic<const std::vector<istr> &>(array, array.size(), key);
+	}
 	
 private:
 	struct share
@@ -152,6 +161,9 @@ private:
 		size_t count;
 		char string[0];
 	};
+	
+	template<class T>
+	static ssize_t locate_generic(T array, size_t size, const istr & key);
 	
 	/* as this is the only state, istr instances will be equal if their strings are pointer
 	 * equivalent - which is what we want anyway, so no need to define operator== */
