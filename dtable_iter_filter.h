@@ -17,6 +17,10 @@
  * any necessary state and provides an accept() method, which will be used as a
  * parent class of the template. See array_dtable for an example. */
 
+/* dtable iterator filters created using this template automatically support the
+ * reject_value config parameter (a blob), to allow setting what rejected values
+ * will be replaced with in the filtered output */
+
 template<class T>
 class dtable_iter_filter : public dtable::iter, public T
 {
@@ -92,18 +96,19 @@ public:
 	}
 	
 	inline dtable_iter_filter() : base(NULL), rejects(NULL) {}
-	inline int init(dtable::iter * source, const params & config, dtable * rejects, blob reject_value = blob(), bool claim_base = false)
+	inline int init(dtable::iter * source, const params & config, dtable * rejects, bool claim_base = false)
 	{
 		int r = T::init(config);
 		if(r < 0)
 			return r;
 		if(!rejects->writable())
 			return -EINVAL;
+		if(!config.get("reject_value", &reject_value, blob()))
+			return -EINVAL;
 		/* just to be sure */
 		source->first();
 		base = source;
 		this->rejects = rejects;
-		this->reject_value = reject_value;
 		this->claim_base = claim_base;
 		hit_end = false;
 		if(base->valid())
