@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -39,6 +39,7 @@ public:
 	bool get(const istr & name, int * value, int dfl = 0) const;
 	bool get(const istr & name, float * value, float dfl = 0) const;
 	bool get(const istr & name, istr * value, const istr & dfl = NULL) const;
+	bool get(const istr & name, blob * value, const blob & dfl = blob()) const;
 	bool get(const istr & name, params * value, const params & dfl = params()) const;
 	
 	inline bool contains(const istr & name) const
@@ -60,7 +61,7 @@ public:
 	static int parse(const char * input, params * result);
 	
 private:
-	enum keyword { ERROR, BOOL, INT, FLOAT, STRING, CLASS, CLASS_DT, CLASS_CT, CLASS_IDX, CONFIG };
+	enum keyword { ERROR, BOOL, INT, FLOAT, STRING, CLASS, CLASS_DT, CLASS_CT, CLASS_IDX, BLOB, CONFIG };
 	static inline enum keyword parse_type(const char * type);
 	static int parse(token_stream * tokens, params * result);
 	
@@ -78,7 +79,7 @@ private:
 
 struct params::param
 {
-	enum { BOOL, INT, FLT, STR, PRM } type;
+	enum { BOOL, INT, FLT, STR, BLB, PRM } type;
 	union
 	{
 		bool b;
@@ -87,6 +88,7 @@ struct params::param
 	};
 	/* alas, we can't put these in the union */
 	istr s;
+	blob bl;
 	params p;
 	inline param() : type(INT), i(0) {}
 	inline param(bool x) : type(BOOL), b(x) {}
@@ -95,6 +97,7 @@ struct params::param
 	inline param(const istr & x) : type(STR), i(0), s(x) {}
 	/* this is necessary so const char * doesn't end up being used as bool */
 	inline param(const char * x) : type(STR), i(0), s(x) {}
+	inline param(const blob & x) : type(BLB), i(0), bl(x) {}
 	inline param(const params & x) : type(PRM), i(0), p(x) {}
 };
 

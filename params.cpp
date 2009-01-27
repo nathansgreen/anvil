@@ -1,8 +1,13 @@
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
+ * of the University of California. It is distributed under the terms of
+ * version 2 of the GNU GPL. See the file LICENSE for details. */
+
 #include <stdlib.h>
 
 #include "dtable_factory.h"
 #include "ctable_factory.h"
 #include "index_factory.h"
+#include "blob_buffer.h"
 #include "params.h"
 
 bool params::simple_find(const istr & name, const param ** p) const
@@ -70,6 +75,20 @@ bool params::get(const istr & name, istr * value, const istr & dfl) const
 	return true;
 }
 
+bool params::get(const istr & name, blob * value, const blob & dfl) const
+{
+	const param * p;
+	if(!simple_find(name, &p))
+	{
+		*value = dfl;
+		return true;
+	}
+	if(p->type != param::BLB)
+		return false;
+	*value = p->bl;
+	return true;
+}
+
 bool params::get(const istr & name, params * value, const params & dfl) const
 {
 	const param * p;
@@ -103,6 +122,20 @@ void params::print() const
 				break;
 			case param::STR:
 				printf("str \"%s\" ", (const char *) (*iter).second.s);
+				break;
+			case param::BLB:
+				printf("blb ");
+				if((*iter).second.bl.exists())
+				{
+					if((*iter).second.bl.size())
+						for(size_t i = 0; i < (*iter).second.bl.size(); i++)
+							printf("%02X", (*iter).second.bl[i]);
+					else
+						printf("empty");
+				}
+				else
+					printf("dne");
+				printf(" ");
 				break;
 			case param::PRM:
 				printf("prm [ ");
@@ -169,6 +202,8 @@ params::keyword params::parse_type(const char * type)
 		return CLASS_CT;
 	if(!strcmp(type, "class(idx)"))
 		return CLASS_IDX;
+	if(!strcmp(type, "blob"))
+		return BLOB;
 	if(!strcmp(type, "config"))
 		return CONFIG;
 	return ERROR;
@@ -271,6 +306,41 @@ int params::parse(token_stream * tokens, params * result)
 					if(type == CLASS_IDX && !index_factory::lookup(cppclass))
 						return -1;
 					result->set(name, cppclass);
+					break;
+				}
+				case BLOB:
+				{
+					blob value;
+					if(!strcmp(token, "empty"))
+						value = blob::empty;
+					else if(strcmp(token, "dne"))
+					{
+						size_t length = strlen(token);
+						/* hex strings should have even length */
+						if(length % 2)
+							return -1;
+						blob_buffer buffer(length / 2);
+						for(size_t i = 0; i < length; i += 2)
+						{
+							uint8_t byte = 0;
+							for(size_t b = 0; b < 2; b++)
+							{
+								char c = token[i + b];
+								if('0' <= c && c <= '9')
+									byte = (byte * 16) + c - '0';
+								else if('A' <= c && c <= 'F')
+									byte = (byte * 16) + 10 + c - 'A';
+								else if('a' <= c && c <= 'f')
+									byte = (byte * 16) + 10 + c - 'a';
+								else
+									/* not a valid hex digit */
+									return -1;
+							}
+							buffer << byte;
+						}
+						value = buffer;
+					}
+					result->set(name, value);
 					break;
 				}
 				/* not used here, but keep the compiler from
