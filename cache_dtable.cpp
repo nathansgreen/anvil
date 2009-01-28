@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -9,6 +9,17 @@ dtable::iter * cache_dtable::iterator() const
 	/* use the underlying iterator directly; we don't want to kill our cache iterating
 	 * though everything nor would it be easy to take advantage of our cache anyway */
 	return base->iterator();
+}
+
+bool cache_dtable::present(const dtype & key, bool * found) const
+{
+	cache_map::const_iterator iter = cache.find(key);
+	if(iter != cache.end())
+	{
+		*found = true;
+		return (*iter).second.value.exists();
+	}
+	return base->present(key, found);
 }
 
 void cache_dtable::add_cache(const dtype & key, const blob & value, bool found) const

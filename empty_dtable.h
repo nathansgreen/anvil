@@ -17,6 +17,7 @@ class empty_dtable : public dtable
 {
 public:
 	virtual iter * iterator() const { return new iter(this); }
+	virtual bool present(const dtype & key, bool * found) const { *found = false; return false; }
 	inline virtual blob lookup(const dtype & key, bool * found) const { *found = false; return blob(); }
 	inline empty_dtable(dtype::ctype key_type) { ktype = key_type; }
 	inline virtual ~empty_dtable() {}

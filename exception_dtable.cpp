@@ -227,13 +227,20 @@ dtable::iter * exception_dtable::iterator() const
 	return new iter(this);
 }
 
+bool exception_dtable::present(const dtype & key, bool * found) const
+{
+	bool result = base->present(key, found);
+	if(*found)
+		return result;
+	return alternatives->present(key, found);
+}
+
 blob exception_dtable::lookup(const dtype & key, bool * found) const
 {
 	blob value = base->lookup(key, found);
 	if(*found)
 		return value;
-	value = alternatives->lookup(key, found);
-	return value;
+	return alternatives->lookup(key, found);
 }
 
 int exception_dtable::init(int dfd, const char * file, const params & config)
@@ -292,7 +299,7 @@ void exception_dtable::deinit()
 	}
 }
 
-int exception_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow)
+int exception_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow)
 {
 	int excp_dfd, r;
 	sys_journal alt_journal;

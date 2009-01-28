@@ -26,8 +26,10 @@ class usstate_dtable : public dtable
 {
 public:
 	virtual iter * iterator() const;
+	virtual bool present(const dtype & key, bool * found) const;
 	virtual blob lookup(const dtype & key, bool * found) const;
 	virtual blob index(size_t index) const;
+	virtual bool contains_index(size_t index) const;
 	inline virtual size_t size() const { return key_count; }
 	
 	inline usstate_dtable() : fp(NULL), min_key(0), array_size(0), value_size(0) {}
@@ -40,7 +42,7 @@ public:
 		if(fp)
 			deinit();
 	}
-	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow = NULL);
+	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
 	DECLARE_RO_FACTORY(usstate_dtable);
 	
 private:

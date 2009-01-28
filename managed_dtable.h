@@ -37,6 +37,10 @@ public:
 	{
 		return overlay->iterator();
 	}
+	inline virtual bool present(const dtype & key, bool * found) const
+	{
+		return overlay->present(key, found);
+	}
 	inline virtual blob lookup(const dtype & key, bool * found) const
 	{
 		return overlay->lookup(key, found);

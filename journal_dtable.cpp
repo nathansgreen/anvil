@@ -83,6 +83,18 @@ dtable::iter * journal_dtable::iterator() const
 	return new iter(this);
 }
 
+bool journal_dtable::present(const dtype & key, bool * found) const
+{
+	journal_dtable_hash::const_iterator it = jdt_hash.find(key);
+	if(it != jdt_hash.end())
+	{
+		*found = true;
+		return it->second->exists();
+	}
+	*found = false;
+	return false;
+}
+
 blob journal_dtable::lookup(const dtype & key, bool * found) const
 {
 	journal_dtable_hash::const_iterator it = jdt_hash.find(key);

@@ -39,8 +39,10 @@ class ustr_dtable : public dtable
 {
 public:
 	virtual iter * iterator() const;
+	virtual bool present(const dtype & key, bool * found) const;
 	virtual blob lookup(const dtype & key, bool * found) const;
 	virtual blob index(size_t index) const;
+	virtual bool contains_index(size_t index) const;
 	inline virtual size_t size() const { return key_count; }
 	
 	inline ustr_dtable() : fp(NULL) {}
@@ -54,7 +56,7 @@ public:
 	
 	static inline bool static_indexed_access() { return true; }
 	
-	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow = NULL);
+	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
 	DECLARE_RO_FACTORY(ustr_dtable);
 	
 private:
@@ -96,7 +98,7 @@ private:
 	};
 	
 	dtype get_key(size_t index, size_t * data_length = NULL, off_t * data_offset = NULL) const;
-	inline int find_key(const dtype & key, size_t * data_length, off_t * data_offset, size_t * index) const
+	inline int find_key(const dtype & key, size_t * data_length, off_t * data_offset = NULL, size_t * index = NULL) const
 	{
 		return find_key(dtype_static_test(key, blob_cmp), index, data_length, data_offset);
 	}

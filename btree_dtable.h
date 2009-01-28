@@ -31,8 +31,10 @@ class btree_dtable : public dtable
 {
 public:
 	virtual iter * iterator() const;
+	virtual bool present(const dtype & key, bool * found) const;
 	virtual blob lookup(const dtype & key, bool * found) const;
 	virtual blob index(size_t index) const;
+	virtual bool contains_index(size_t index) const;
 	virtual size_t size() const;
 	
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
@@ -57,7 +59,7 @@ public:
 	
 	static inline bool static_indexed_access() { return true; }
 	
-	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow = NULL);
+	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
 	DECLARE_RO_FACTORY(btree_dtable);
 	
 private:

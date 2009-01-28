@@ -394,13 +394,13 @@ int simple_stable::remove(const dtype & key)
 	{
 		const column_info * c = get_column(columns->column());
 		r = adjust_column(columns->column(), -1, c->type);
-		/* XXX improve this */
+		/* XXX: improve this */
 		assert(r >= 0);
 		columns->next();
 	}
 	delete columns;
 	r = ct_data->remove(key);
-	/* XXX improve this */
+	/* XXX: improve this */
 	assert(r >= 0);
 	return r;
 }

@@ -30,6 +30,7 @@ class journal_dtable : public dtable, public sys_journal::journal_listener
 {
 public:
 	virtual iter * iterator() const;
+	virtual bool present(const dtype & key, bool * found) const;
 	virtual blob lookup(const dtype & key, bool * found) const;
 	
 	/* journal_dtable supports size() even though it is not otherwise indexable */

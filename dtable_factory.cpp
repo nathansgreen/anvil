@@ -20,13 +20,13 @@ int dtable_factory_base::setup(const istr & type, int dfd, const char * name, co
 	return factory ? factory->create(dfd, name, config, key_type) : -ENOENT;
 }
 
-int dtable_factory_base::setup(const istr & type, int dfd, const char * name, const params & config, dtable::iter * source, const dtable * shadow)
+int dtable_factory_base::setup(const istr & type, int dfd, const char * name, const params & config, dtable::iter * source, const ktable * shadow)
 {
 	const dtable_factory * factory = dtable_factory::lookup(type);
 	return factory ? factory->create(dfd, name, config, source, shadow) : -ENOENT;
 }
 
-int dtable_factory_base::setup(const istr & type, int dfd, const char * name, const params & config, const dtable * source, const dtable * shadow)
+int dtable_factory_base::setup(const istr & type, int dfd, const char * name, const params & config, const dtable * source, const ktable * shadow)
 {
 	const dtable_factory * factory = dtable_factory::lookup(type);
 	return factory ? factory->create(dfd, name, config, source, shadow) : -ENOENT;

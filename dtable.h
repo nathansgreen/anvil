@@ -18,7 +18,30 @@
 
 /* data tables */
 
-class dtable
+class ktable
+{
+public:
+	virtual bool present(const dtype & key, bool * found) const = 0;
+	/* contains(key) == dtable::find(key).exists(), but maybe more efficient */
+	inline bool contains(const dtype & key) const { bool found; return present(key, &found); }
+	inline dtype::ctype key_type() const { return ktype; }
+	inline const blob_comparator * get_blob_cmp() const { return blob_cmp; }
+	inline const istr & get_cmp_name() const { return cmp_name; }
+	inline ktable() : blob_cmp(NULL) {}
+	inline virtual ~ktable() {}
+	
+protected:
+	dtype::ctype ktype;
+	const blob_comparator * blob_cmp;
+	/* the required blob_comparator name, if any */
+	istr cmp_name;
+	
+private:
+	void operator=(const ktable &);
+	ktable(const ktable &);
+};
+
+class dtable : public ktable
 {
 public:
 	class key_iter
@@ -105,14 +128,14 @@ public:
 	virtual iter * iterator() const = 0;
 	virtual blob lookup(const dtype & key, bool * found) const = 0;
 	inline blob find(const dtype & key) const { bool found; return lookup(key, &found); }
-	/* index() and size() only work when iter::seek_index() works, see above */
+	/* index(), contains_index(), and size() only work when iter::seek_index() works, see above */
 	inline virtual blob index(size_t index) const { return blob(); }
+	inline virtual bool contains_index(size_t index) const { return false; }
 	inline virtual size_t size() const { return (size_t) -1; }
 	inline virtual bool writable() const { return false; }
 	inline virtual int insert(const dtype & key, const blob & blob, bool append = false) { return -ENOSYS; }
 	inline virtual int remove(const dtype & key) { return -ENOSYS; }
-	inline dtype::ctype key_type() const { return ktype; }
-	inline dtable() : blob_cmp(NULL) {}
+	inline dtable() {}
 	inline virtual ~dtable() {}
 	
 	/* when using blob keys and a custom blob comparator, this will be necessary */
@@ -127,8 +150,6 @@ public:
 		blob_cmp = cmp;
 		return 0;
 	}
-	inline const blob_comparator * get_blob_cmp() const { return blob_cmp; }
-	inline const istr & get_cmp_name() const { return cmp_name; }
 	
 	/* maintenance callback; does nothing by default */
 	inline virtual int maintain() { return 0; }
@@ -144,11 +165,6 @@ public:
 	}
 	
 protected:
-	dtype::ctype ktype;
-	const blob_comparator * blob_cmp;
-	/* the required blob_comparator name, if any */
-	istr cmp_name;
-	
 	inline void deinit()
 	{
 		if(blob_cmp)
@@ -160,22 +176,22 @@ protected:
 	}
 	
 	/* helper for create() methods: checks source and shadow to make sure they agree */
-	static inline bool source_shadow_ok(dtable::iter * source, const dtable * shadow)
+	static inline bool source_shadow_ok(dtable::iter * source, const ktable * shadow)
 	{
 		if(!shadow)
 			return true;
-		if(source->key_type() != shadow->ktype)
+		if(source->key_type() != shadow->key_type())
 			return false;
-		if(shadow->ktype == dtype::BLOB)
+		if(shadow->key_type() == dtype::BLOB)
 		{
 			const blob_comparator * source_cmp = source->get_blob_cmp();
 			/* TODO: check get_cmp_name() first? */
 			/* we don't require blob comparators to be the same
 			 * object, but both must either exist or not exist */
-			if(!source_cmp != !shadow->blob_cmp)
+			if(!source_cmp != !shadow->get_blob_cmp())
 				return false;
 			/* and if they exist, they must have the same name */
-			if(source_cmp && strcmp(source_cmp->name, shadow->blob_cmp->name))
+			if(source_cmp && strcmp(source_cmp->name, shadow->get_blob_cmp()->name))
 				return false;
 		}
 		return true;

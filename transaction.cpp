@@ -207,7 +207,7 @@ int tx_init(int dfd, size_t log_size)
 	if(ent)
 		goto fail;
 	
-	/* XXX currently we assume recovery of journals in lexicographic order */
+	/* XXX: currently we assume recovery of journals in lexicographic order */
 	std::sort(entries.begin(), entries.end(), strcmp_less());
 	
 	for(size_t i = 0; i < entries.size(); i++)

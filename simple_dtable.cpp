@@ -132,6 +132,18 @@ dtable::iter * simple_dtable::iterator() const
 	return new iter(this);
 }
 
+bool simple_dtable::present(const dtype & key, bool * found) const
+{
+	size_t data_length;
+	if(find_key(key, &data_length) < 0)
+	{
+		*found = false;
+		return false;
+	}
+	*found = true;
+	return data_length != (size_t) -1;
+}
+
 dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_offset) const
 {
 	assert(index < key_count);
@@ -236,6 +248,15 @@ blob simple_dtable::index(size_t index) const
 	return get_value(index);
 }
 
+bool simple_dtable::contains_index(size_t index) const
+{
+	size_t data_length;
+	if(index < 0 || index >= key_count)
+		return false;
+	get_key(index, &data_length);
+	return data_length != (size_t) -1;
+}
+
 int simple_dtable::init(int dfd, const char * file, const params & config)
 {
 	int r = -1;
@@ -314,7 +335,7 @@ void simple_dtable::deinit()
 	}
 }
 
-int simple_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow)
+int simple_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow)
 {
 	std::vector<istr> strings;
 	std::vector<blob> blobs;
@@ -336,7 +357,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, dta
 		source->next();
 		if(!meta.exists())
 			/* omit non-existent entries no longer needed */
-			if(!shadow || !shadow->find(key).exists())
+			if(!shadow || !shadow->contains(key))
 				continue;
 		key_count++;
 		assert(key.type == key_type);
@@ -428,7 +449,7 @@ int simple_dtable::create(int dfd, const char * file, const params & config, dta
 		source->next();
 		if(!meta.exists())
 			/* omit non-existent entries no longer needed */
-			if(!shadow || !shadow->find(key).exists())
+			if(!shadow || !shadow->contains(key))
 				continue;
 		switch(key.type)
 		{

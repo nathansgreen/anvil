@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -879,7 +879,7 @@ static bool toilet_row_matches(t_gtable * gtable, t_row_id id, t_simple_query * 
 		case T_BLOB:
 		{
 			assert(value.type == dtype::BLOB);
-			/* FIXME copies the blobs just to compare them */
+			/* FIXME: copies the blobs just to compare them */
 			blob b0(query->values[0]->v_blob.length, query->values[0]->v_blob.data), b1;
 			if(!query->values[1])
 				return !value.compare(b0);

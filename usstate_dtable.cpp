@@ -122,6 +122,20 @@ dtable::iter * usstate_dtable::iterator() const
 	return new iter(this);
 }
 
+bool usstate_dtable::present(const dtype & key, bool * found) const
+{
+	uint8_t value;
+	assert(key.type == dtype::UINT32);
+	if(key.u32 < min_key || min_key + array_size <= key.u32)
+	{
+		*found = false;
+		return false;
+	}
+	value = index_value(key.u32 - min_key);
+	*found = value < USSTATE_INDEX_HOLE;
+	return value < USSTATE_COUNT;
+}
+
 blob usstate_dtable::get_value(size_t index, bool * found) const
 {
 	uint8_t value = index_value(index);
@@ -199,6 +213,13 @@ blob usstate_dtable::index(size_t index) const
 	return get_value(index, &found);
 }
 
+bool usstate_dtable::contains_index(size_t index) const
+{
+	if(index >= array_size)
+		return false;
+	return index_value(index) < USSTATE_COUNT;
+}
+
 int usstate_dtable::init(int dfd, const char * file, const params & config)
 {
 	dtable_header header;
@@ -271,7 +292,7 @@ dtable::iter * usstate_dtable::filter_iterator(dtable::iter * source, const para
 	return filter;
 }
 
-int usstate_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow)
+int usstate_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow)
 {
 	int r;
 	rwfile out;
@@ -299,7 +320,7 @@ int usstate_dtable::create(int dfd, const char * file, const params & config, dt
 		source->next();
 		if(!meta.exists())
 			/* omit non-existent entries no longer needed */
-			if(!shadow || !shadow->find(key).exists())
+			if(!shadow || !shadow->contains(key))
 				continue;
 		assert(key.type == key_type);
 		if(!min_key_known)
@@ -335,7 +356,7 @@ int usstate_dtable::create(int dfd, const char * file, const params & config, dt
 		source->next();
 		if(!value.exists())
 			/* omit non-existent entries no longer needed */
-			if(!shadow || !shadow->find(key).exists())
+			if(!shadow || !shadow->contains(key))
 				continue;
 		while(index < key.u32 - header.min_key)
 		{

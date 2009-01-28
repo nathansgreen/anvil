@@ -253,10 +253,21 @@ dtable::iter * overlay_dtable::iterator() const
 	return new iter(this);
 }
 
+bool overlay_dtable::present(const dtype & key, bool * found) const
+{
+	for(size_t i = 0; i < table_count; i++)
+	{
+		bool result = tables[i]->present(key, found);
+		if(*found)
+			return result;
+	}
+	*found = false;
+	return false;
+}
+
 blob overlay_dtable::lookup(const dtype & key, bool * found) const
 {
-	size_t i;
-	for(i = 0; i < table_count; i++)
+	for(size_t i = 0; i < table_count; i++)
 	{
 		blob value = tables[i]->lookup(key, found);
 		if(*found)

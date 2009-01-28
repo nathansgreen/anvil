@@ -83,6 +83,18 @@ dtable::iter * memory_dtable::iterator() const
 	return new iter(this);
 }
 
+bool memory_dtable::present(const dtype & key, bool * found) const
+{
+	memory_dtable_hash::const_iterator it = mdt_hash.find(key);
+	if(it != mdt_hash.end())
+	{
+		*found = true;
+		return it->second->exists();
+	}
+	*found = false;
+	return false;
+}
+
 blob memory_dtable::lookup(const dtype & key, bool * found) const
 {
 	memory_dtable_hash::const_iterator it = mdt_hash.find(key);

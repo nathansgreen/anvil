@@ -114,6 +114,20 @@ dtable::iter * array_dtable::iterator() const
 	return new iter(this);
 }
 
+bool array_dtable::present(const dtype & key, bool * found) const
+{
+	uint8_t type;
+	assert(key.type == dtype::UINT32);
+	if(key.u32 < min_key || min_key + array_size <= key.u32)
+	{
+		*found = false;
+		return false;
+	}
+	type = index_type(key.u32 - min_key);
+	*found = type != ARRAY_INDEX_HOLE;
+	return type == ARRAY_INDEX_VALID;
+}
+
 blob array_dtable::get_value(size_t index, bool * found) const
 {
 	off_t offset;
@@ -200,6 +214,13 @@ blob array_dtable::index(size_t index) const
 	return get_value(index, &found);
 }
 
+bool array_dtable::contains_index(size_t index) const
+{
+	if(index >= array_size)
+		return false;
+	return index_type(index) == ARRAY_INDEX_VALID;
+}
+
 int array_dtable::init(int dfd, const char * file, const params & config)
 {
 	dtable_header header;
@@ -273,7 +294,7 @@ dtable::iter * array_dtable::filter_iterator(dtable::iter * source, const params
 	return filter;
 }
 
-int array_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow)
+int array_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow)
 {
 	int r;
 	rwfile out;
@@ -304,7 +325,7 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 		source->next();
 		if(!meta.exists())
 			/* omit non-existent entries no longer needed */
-			if(!shadow || !shadow->find(key).exists())
+			if(!shadow || !shadow->contains(key))
 				continue;
 		assert(key.type == key_type);
 		if(!min_key_known)
@@ -353,7 +374,7 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 		source->next();
 		if(!value.exists())
 			/* omit non-existent entries no longer needed */
-			if(!shadow || !shadow->find(key).exists())
+			if(!shadow || !shadow->contains(key))
 				continue;
 		while(index < key.u32 - header.min_key)
 		{

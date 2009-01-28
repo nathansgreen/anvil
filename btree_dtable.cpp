@@ -138,6 +138,14 @@ dtable::iter * btree_dtable::iterator() const
 	return value;
 }
 
+bool btree_dtable::present(const dtype & key, bool * found) const
+{
+	size_t index = btree_lookup(key, found);
+	if(!*found)
+		return false;
+	return base->contains_index(index);
+}
+
 blob btree_dtable::lookup(const dtype & key, bool * found) const
 {
 	size_t index = btree_lookup(key, found);
@@ -149,6 +157,11 @@ blob btree_dtable::lookup(const dtype & key, bool * found) const
 blob btree_dtable::index(size_t index) const
 {
 	return base->index(index);
+}
+
+bool btree_dtable::contains_index(size_t index) const
+{
+	return base->contains_index(index);
 }
 
 size_t btree_dtable::size() const
@@ -515,7 +528,7 @@ fail_iter:
 	return r;
 }
 
-int btree_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow)
+int btree_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow)
 {
 	int bt_dfd, r;
 	params base_config;

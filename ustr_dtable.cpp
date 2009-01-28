@@ -142,6 +142,18 @@ dtable::iter * ustr_dtable::iterator() const
 	return new iter(this);
 }
 
+bool ustr_dtable::present(const dtype & key, bool * found) const
+{
+	size_t data_length;
+	if(find_key(key, &data_length) < 0)
+	{
+		*found = false;
+		return false;
+	}
+	*found = true;
+	return data_length != (size_t) -1;
+}
+
 dtype ustr_dtable::get_key(size_t index, size_t * data_length, off_t * data_offset) const
 {
 	assert(index < key_count);
@@ -243,7 +255,7 @@ blob ustr_dtable::get_value(size_t index, size_t data_length, off_t data_offset)
 	read_length = fp->read(data_start_off + data_offset, &value[0], data_length);
 	value.set_size(read_length);
 	/* the data length stored in the key record is the unpacked size */
-	/* FIXME what if the packed blob is larger than the original? */
+	/* FIXME: what if the packed blob is larger than the original? */
 	return dup_index_size ? unpack_blob(value, data_length) : blob(value);
 }
 
@@ -279,6 +291,15 @@ blob ustr_dtable::index(size_t index) const
 	if(index < 0 || index >= key_count)
 		return blob();
 	return get_value(index);
+}
+
+bool ustr_dtable::contains_index(size_t index) const
+{
+	size_t data_length;
+	if(index < 0 || index >= key_count)
+		return false;
+	get_key(index, &data_length);
+	return data_length != (size_t) -1;
 }
 
 int ustr_dtable::init(int dfd, const char * file, const params & config)
@@ -464,7 +485,7 @@ blob ustr_dtable::pack_blob(const blob & source, const dtable_header & header, c
 	return buffer;
 }
 
-int ustr_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const dtable * shadow)
+int ustr_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow)
 {
 	std::vector<istr> strings;
 	std::vector<blob> blobs;
@@ -491,7 +512,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, dtabl
 		source->next();
 		if(!value.exists())
 			/* omit non-existent entries no longer needed */
-			if(!shadow || !shadow->find(key).exists())
+			if(!shadow || !shadow->contains(key))
 				continue;
 		key_count++;
 		assert(key.type == key_type);
@@ -561,7 +582,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, dtabl
 			source->next();
 			if(!value.exists())
 				/* omit non-existent entries no longer needed */
-				if(!shadow || !shadow->find(key).exists())
+				if(!shadow || !shadow->contains(key))
 					continue;
 			if(blob_size)
 			{
@@ -679,7 +700,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, dtabl
 		source->next();
 		if(!value.exists())
 			/* omit non-existent entries no longer needed */
-			if(!shadow || !shadow->find(key).exists())
+			if(!shadow || !shadow->contains(key))
 				continue;
 		switch(key.type)
 		{
@@ -755,7 +776,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, dtabl
 		blob value = source->value();
 		if(!value.exists())
 			/* omit non-existent entries no longer needed */
-			if(!shadow || !shadow->find(key).exists())
+			if(!shadow || !shadow->contains(key))
 			{
 				source->next();
 				continue;

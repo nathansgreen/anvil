@@ -31,6 +31,7 @@ class memory_dtable : public dtable
 {
 public:
 	virtual iter * iterator() const;
+	virtual bool present(const dtype & key, bool * found) const;
 	virtual blob lookup(const dtype & key, bool * found) const;
 	
 	inline virtual bool writable() const { return true; }
