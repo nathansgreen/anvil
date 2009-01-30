@@ -17,8 +17,13 @@
 #define ADTABLE_MAGIC 0x69AD02D3
 #define ADTABLE_VERSION 2
 
-/* array tables */
+/* The array_dtable stores an array of blobs, all the same size. The keys must
+ * be integers, and they are used to index into the file to retrieve the blobs.
+ * Gaps in the keys are supported either by reserving a special value to mean a
+ * hole, or by storing an additional byte before each value indicating whether
+ * it is a hole or not. Nonexistent values are handled similarly. */
 
+/* values for the tag byte */
 #define ARRAY_INDEX_HOLE 0
 #define ARRAY_INDEX_DNE 1
 #define ARRAY_INDEX_VALID 2
@@ -57,6 +62,7 @@ private:
 		uint32_t key_count;
 		uint32_t array_size;
 		uint32_t value_size;
+		uint8_t tag_byte;
 	} __attribute__((packed));
 	
 	class iter : public iter_source<array_dtable>
@@ -93,6 +99,10 @@ private:
 	size_t key_count;
 	size_t array_size;
 	size_t value_size;
+	bool tag_byte;
+	/* these are used if tag_byte is false */
+	blob hole_value;
+	blob dne_value;
 };
 
 #endif /* __ARRAY_DTABLE_H */
