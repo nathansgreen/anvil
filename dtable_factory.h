@@ -50,10 +50,6 @@ public:
 	/* returns true if the class this factory will construct supports indexed access */
 	virtual bool indexed_access() const = 0;
 	
-	/* returns an iterator that will skip over any source keys this dtable type can't store, adding them to rejects instead */
-	/* NOTE: the returned iterator does not claim ownership of the source iterator, but also might return the source itself */
-	virtual dtable::iter * filter_iterator(dtable::iter * source, const params & config, dtable * rejects) const = 0;
-	
 	virtual ~dtable_factory_base() {}
 	
 	/* wrapper for open() that does lookup() */
@@ -90,11 +86,6 @@ public:
 	inline virtual bool indexed_access() const
 	{
 		return T::static_indexed_access();
-	}
-	
-	inline virtual dtable::iter * filter_iterator(dtable::iter * source, const params & config, dtable * rejects) const
-	{
-		return T::filter_iterator(source, config, rejects);
 	}
 };
 

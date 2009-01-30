@@ -23,10 +23,10 @@ public:
 	virtual blob lookup(const dtype & key, bool * found) const;
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
-	inline exception_dtable() : base(NULL), alternatives(NULL) {}
+	inline exception_dtable() : base(NULL), alt(NULL) {}
 	inline virtual ~exception_dtable()
 	{
-		if(base || alternatives)
+		if(base || alt)
 			deinit();
 	}
 	
@@ -58,14 +58,17 @@ private:
 			bool valid;
 		};
 		
-		sub * base_iter;
-		sub * alternatives_iter;
-		sub * current_iter;
+		sub * base_sub;
+		sub * alt_sub;
+		sub * current_sub;
 		enum direction {FORWARD, BACKWARD} lastdir;
 	};
 	
+	/* we'll define it in the source file */
+	class reject_iter;
+	
 	const dtable * base;
-	const dtable * alternatives;
+	const dtable * alt;
 };
 
 #endif /* __EXCEPTION_DTABLE_H */

@@ -18,12 +18,9 @@
 #include "ctable.h"
 #include "stable.h"
 #include "sys_journal.h"
-#include "cache_dtable.h"
-#include "array_dtable.h"
-#include "exception_dtable.h"
+#include "ustr_dtable.h"
 #include "simple_dtable.h"
 #include "managed_dtable.h"
-#include "ustr_dtable.h"
 #include "simple_ctable.h"
 #include "simple_stable.h"
 #include "reverse_blob_comparator.h"
@@ -308,9 +305,6 @@ int command_edtable(int argc, const char * argv[])
 		"base_config" config [
 			"base" class(dt) array_dtable
 			"alt" class(dt) simple_dtable
-			"filter_config" config [
-				"blob_size" int 5
-			]
 		]
 		"digest_interval" int 2
 		"combine_interval" int 4

@@ -13,7 +13,6 @@
 
 #include "rwfile.h"
 #include "blob_buffer.h"
-#include "dtable_iter_filter.h"
 #include "array_dtable.h"
 
 array_dtable::iter::iter(const array_dtable * source)
@@ -47,7 +46,7 @@ bool array_dtable::iter::first()
 {
 	if(!dt_source->array_size)
 		return false;
-	index = dt_source->min_key;
+	index = 0;
 	return true;
 }
 
@@ -147,7 +146,7 @@ blob array_dtable::get_value(size_t index, bool * found) const
 		offset = data_start + index * value_size;
 	blob_buffer value(value_size);
 	value.set_size(value_size, false);
-	data_length = fp->read(offset + sizeof(uint8_t), &value[0], value_size);
+	data_length = fp->read(offset, &value[0], value_size);
 	assert(data_length == value_size);
 	if(!tag_byte)
 	{
@@ -170,7 +169,7 @@ uint8_t array_dtable::index_type(size_t index, off_t * offset) const
 	assert(index < array_size);
 	assert(data_length == sizeof(type));
 	if(offset)
-		*offset = file_off;
+		*offset = file_off + sizeof(type);
 	return type;
 }
 
@@ -304,43 +303,6 @@ void array_dtable::deinit()
 	}
 }
 
-class array_dtable::array_filter
-{
-protected:
-	inline int init(const params & config)
-	{
-		int r, size;
-		r = config.get("blob_size", &size, -1);
-		if(r < 0 || size < 0)
-			return r;
-		blob_size = size;
-		return 0;
-	}
-	inline bool accept(const dtable::iter * iter)
-	{
-		metablob meta = iter->meta();
-		return !meta.exists() || meta.size() == blob_size;
-	}
-private:
-	size_t blob_size;
-};
-
-dtable::iter * array_dtable::filter_iterator(dtable::iter * source, const params & config, dtable * rejects)
-{
-	typedef dtable_iter_filter<array_filter> iter;
-	iter * filter = new iter;
-	if(filter)
-	{
-		int r = filter->init(source, config, rejects);
-		if(r < 0)
-		{
-			delete filter;
-			filter = NULL;
-		}
-	}
-	return filter;
-}
-
 int array_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow)
 {
 	int r;
@@ -390,12 +352,14 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 	{
 		dtype key = source->key();
 		metablob meta = source->meta();
-		source->next();
 		if(!meta.exists())
 		{
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->contains(key))
+			{
+				source->next();
 				continue;
+			}
 			if(!dne_ok)
 				return -EINVAL;
 		}
@@ -418,8 +382,10 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 			}
 			/* all the items in this dtable must be the same size */
 			else if(meta.size() != header.value_size)
-				return -EINVAL;
+				if(!source->reject())
+					return -EINVAL;
 		}
+		source->next();
 	}
 	
 	header.magic = ADTABLE_MAGIC;
@@ -478,6 +444,9 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 				goto fail_unlink;
 			index++;
 		}
+		if(value.exists() && value.size() != header.value_size)
+			/* it was already successfully reject()ed above */
+			value = blob();
 		if(tag_byte)
 		{
 			uint8_t type = value.exists() ? ARRAY_INDEX_VALID : ARRAY_INDEX_DNE;
@@ -490,7 +459,10 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 			assert(dne_ok);
 			value = dne_value;
 		}
-		r = out.append(value);
+		if(value.exists())
+			r = out.append(value);
+		else
+			r = out.append(zero_data, header.value_size);
 		if(r < 0)
 			goto fail_unlink;
 		index++;

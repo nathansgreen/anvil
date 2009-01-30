@@ -50,77 +50,22 @@
 #define BTREE_KEYS_PER_LEAF_PAGE (BTREE_PAGE_SIZE / BTREE_KEY_INDEX_SIZE)
 
 btree_dtable::iter::iter(dtable::iter * base, const btree_dtable * source)
-	: iter_source<btree_dtable>(source), base_iter(base)
+	: iter_source<btree_dtable, dtable_wrap_iter>(base, source)
 {
-}
-
-bool btree_dtable::iter::valid() const
-{
-	return base_iter->valid();
-}
-
-bool btree_dtable::iter::next()
-{
-	return base_iter->next();
-}
-
-bool btree_dtable::iter::prev()
-{
-	return base_iter->prev();
-}
-
-bool btree_dtable::iter::first()
-{
-	return base_iter->first();
-}
-
-bool btree_dtable::iter::last()
-{
-	return base_iter->last();
-}
-
-dtype btree_dtable::iter::key() const
-{
-	return base_iter->key();
 }
 
 bool btree_dtable::iter::seek(const dtype & key)
 {
 	bool found;
-	base_iter->seek_index(dt_source->btree_lookup(key, &found));
+	base->seek_index(dt_source->btree_lookup(key, &found));
 	return found;
 }
 
 bool btree_dtable::iter::seek(const dtype_test & test)
 {
 	bool found;
-	base_iter->seek_index(dt_source->btree_lookup(test, &found));
+	base->seek_index(dt_source->btree_lookup(test, &found));
 	return found;
-}
-
-bool btree_dtable::iter::seek_index(size_t index)
-{
-	return base_iter->seek_index(index);
-}
-
-size_t btree_dtable::iter::get_index() const
-{
-	return base_iter->get_index();
-}
-
-metablob btree_dtable::iter::meta() const
-{
-	return base_iter->meta();
-}
-
-blob btree_dtable::iter::value() const
-{
-	return base_iter->value();
-}
-
-const dtable * btree_dtable::iter::source() const
-{
-	return base_iter->source();
 }
 
 dtable::iter * btree_dtable::iterator() const

@@ -42,7 +42,6 @@ public:
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
 	static inline bool static_indexed_access() { return true; }
-	static dtable::iter * filter_iterator(dtable::iter * source, const params & config, dtable * rejects);
 	inline virtual ~array_dtable()
 	{
 		if(fp)
@@ -52,9 +51,6 @@ public:
 	DECLARE_RO_FACTORY(array_dtable);
 	
 private:
-	/* we'll define it in the source file */
-	class array_filter;
-	
 	struct dtable_header {
 		uint32_t magic;
 		uint32_t version;

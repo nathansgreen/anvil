@@ -8,218 +8,213 @@
 
 #include "util.h"
 #include "journal_dtable.h"
+#include "dtable_wrap_iter.h"
 #include "exception_dtable.h"
 
 /* Currently the exception dtable will check if a key exists in a base table and
  * if not it will check an alternative table. Eddie proposed a version where a
  * specific value is stored in the base table to let us know to check the
  * alternative table, rather than requiring all base tables to be able to store
- * nonexistent blobs explicitly. We don't currently support this, but it should
- * be simple to add. */
+ * nonexistent blobs explicitly. We don't do it that way - instead, the base
+ * tables can be given a value to use to mean "nonexistent" and they do the
+ * conversion for us. (See array_dtable, for example.) */
 
 exception_dtable::iter::iter(const exception_dtable * source)
 	: iter_source<exception_dtable>(source), lastdir(FORWARD)
 {
-	base_iter = new sub;
-	alternatives_iter = new sub;
-	base_iter->iter = dt_source->base->iterator();
-	alternatives_iter->iter = dt_source->alternatives->iterator();
+	base_sub = new sub;
+	alt_sub = new sub;
+	base_sub->iter = dt_source->base->iterator();
+	alt_sub->iter = dt_source->alt->iterator();
 	first();
 }
 
 bool exception_dtable::iter::valid() const
 {
-	return current_iter->iter->valid();
+	return current_sub->iter->valid();
 }
 
 bool exception_dtable::iter::next()
 {
-	const blob_comparator * blob_cmp = dt_source->blob_cmp;
-	sub * other_iter = (current_iter == base_iter) ? alternatives_iter : base_iter;
 	if(lastdir != FORWARD)
 	{
-		while(other_iter->iter->valid() &&
-		      (other_iter->iter->key().compare(current_iter->iter->key(), blob_cmp) <= 0))
-			other_iter->valid = other_iter->iter->next();
+		if(base_sub->valid)
+			base_sub->valid = base_sub->iter->next();
+		else
+			base_sub->valid = base_sub->iter->valid();
+		if(alt_sub->valid)
+			alt_sub->valid = alt_sub->iter->next();
+		else
+			alt_sub->valid = alt_sub->iter->valid();
 		lastdir = FORWARD;
 	}
-	current_iter->valid = current_iter->iter->next();
-	if(current_iter->valid)
-	{
-		if(other_iter->valid)
-		{
-			int comp = current_iter->iter->key().compare(other_iter->iter->key(), blob_cmp);
-			if(!comp)
-				other_iter->valid = other_iter->iter->next();
-			if(comp <= 0)
-				return true;
-		}
-		else
-			return true;
-	}
 	
-	if(other_iter->valid)
+	if(current_sub == alt_sub)
+		alt_sub->valid = alt_sub->iter->next();
+	base_sub->valid = base_sub->iter->next();
+	if(base_sub->valid && alt_sub->valid)
 	{
-		current_iter = other_iter;
-		return true;
+		const blob_comparator * blob_cmp = dt_source->blob_cmp;
+		int c = base_sub->iter->key().compare(alt_sub->iter->key(), blob_cmp);
+		assert(c <= 0);
+		current_sub = (c < 0) ? base_sub : alt_sub;
 	}
-	
-	return false;
+	else
+		current_sub = base_sub;
+	return base_sub->valid;
 }
 
 bool exception_dtable::iter::prev()
 {
-	const blob_comparator * blob_cmp = dt_source->blob_cmp;
-	sub * other_iter = (current_iter == base_iter) ? alternatives_iter : base_iter;
 	if(lastdir != BACKWARD)
 	{
-		/* Are we at the last element ? */
-		if(!other_iter->valid)
-			other_iter->valid = other_iter->iter->prev();
-		while(other_iter->valid &&
-				 (other_iter->iter->key().compare(current_iter->iter->key(), blob_cmp) >= 0))
-		{
-			other_iter->valid = other_iter->iter->prev();
-			if(!other_iter->valid)
-				break;
-		}
+		base_sub->valid = base_sub->iter->prev();
+		alt_sub->valid = alt_sub->iter->prev();
 		lastdir = BACKWARD;
 	}
-	current_iter->valid = current_iter->iter->prev();
-	if(current_iter->valid)
-	{
-		if(other_iter->valid)
-		{
-			int comp = current_iter->iter->key().compare(other_iter->iter->key(), blob_cmp);
-			if(!comp)
-				other_iter->valid = other_iter->iter->prev();
-			if(comp >= 0)
-				return true;
-		}
-		else
-			return true;
-	}
 	
-	if(other_iter->valid)
+	if(current_sub == alt_sub)
+		alt_sub->valid = alt_sub->iter->prev();
+	base_sub->valid = base_sub->iter->prev();
+	if(base_sub->valid && alt_sub->valid)
 	{
-		current_iter = other_iter;
-		return true;
+		const blob_comparator * blob_cmp = dt_source->blob_cmp;
+		int c = base_sub->iter->key().compare(alt_sub->iter->key(), blob_cmp);
+		assert(c <= 0);
+		current_sub = (c < 0) ? base_sub : alt_sub;
 	}
-	
-	return false;
+	else
+		current_sub = base_sub;
+	return base_sub->valid;
 }
 
 bool exception_dtable::iter::first()
 {
-	bool base_first = base_iter->iter->first();
-	bool alternatives_first = alternatives_iter->iter->first();
-	if(!(base_first || alternatives_first))
-		return false;
-	if(base_first && alternatives_first)
-	{
-		const blob_comparator * blob_cmp = dt_source->blob_cmp;
-		if(base_iter->iter->key().compare(alternatives_iter->iter->key(), blob_cmp) <= 0)
-			current_iter = base_iter;
-		else
-			current_iter = alternatives_iter;
-	}
-	else
-		current_iter = base_first ? base_iter : alternatives_iter;
-	
-	base_iter->valid = base_first;
-	alternatives_iter->valid = alternatives_first;
-	
+	base_sub->valid = base_sub->iter->first();
+	alt_sub->valid = alt_sub->iter->first();
+	current_sub = base_sub;
 	lastdir = FORWARD;
 	
+	if(!base_sub->valid)
+		return false;
+	if(alt_sub->valid)
+	{
+		const blob_comparator * blob_cmp = dt_source->blob_cmp;
+		int c = base_sub->iter->key().compare(alt_sub->iter->key(), blob_cmp);
+		assert(c <= 0);
+		current_sub = (c < 0) ? base_sub : alt_sub;
+	}
 	return true;
 }
 
 bool exception_dtable::iter::last()
 {
-	bool base_last = base_iter->iter->last();
-	bool exception_last = alternatives_iter->iter->last();
-	if(!(base_last || exception_last))
+	base_sub->valid = base_sub->iter->last();
+	alt_sub->valid = alt_sub->iter->last();
+	current_sub = base_sub;
+	lastdir = BACKWARD;
+	
+	if(!base_sub->valid)
 		return false;
-	if(base_last && exception_last)
+	if(alt_sub->valid)
 	{
 		const blob_comparator * blob_cmp = dt_source->blob_cmp;
-		if(base_iter->iter->key().compare(alternatives_iter->iter->key(), blob_cmp) >= 0)
-			current_iter = base_iter;
-		else
-			current_iter = alternatives_iter;
+		int c = base_sub->iter->key().compare(alt_sub->iter->key(), blob_cmp);
+		assert(c >= 0);
+		current_sub = (c > 0) ? base_sub : alt_sub;
 	}
-	else
-		current_iter = base_last ? base_iter : alternatives_iter;
-	
-	lastdir = FORWARD;
 	return true;
 }
 
 dtype exception_dtable::iter::key() const
 {
-	return current_iter->iter->key();
+	return current_sub->iter->key();
 }
 
 bool exception_dtable::iter::seek(const dtype & key)
 {
-	bool base_seek = base_iter->iter->seek(key);
-	bool exception_seek = alternatives_iter->iter->seek(key);
-	
+	bool base_seek = base_sub->iter->seek(key);
+	bool alt_seek = alt_sub->iter->seek(key);
+	current_sub = base_sub;
 	lastdir = FORWARD;
 	
 	if(base_seek)
-		current_iter = base_iter;
-	else if(exception_seek)
-		current_iter = alternatives_iter;
+		base_sub->valid = true;
 	else
+		base_sub->valid = base_sub->iter->valid();
+	if(alt_seek)
+		alt_sub->valid = true;
+	else
+		alt_sub->valid = alt_sub->iter->valid();
+	
+	if(!base_sub->valid)
 		return false;
-	return true;
+	if(alt_sub->valid)
+	{
+		const blob_comparator * blob_cmp = dt_source->blob_cmp;
+		int c = base_sub->iter->key().compare(alt_sub->iter->key(), blob_cmp);
+		assert(c <= 0);
+		current_sub = (c < 0) ? base_sub : alt_sub;
+	}
+	return base_seek;
 }
 
 bool exception_dtable::iter::seek(const dtype_test & test)
 {
-	bool base_seek = base_iter->iter->seek(test);
-	bool exception_seek = alternatives_iter->iter->seek(test);
-	
+	bool base_seek = base_sub->iter->seek(test);
+	bool alt_seek = alt_sub->iter->seek(test);
+	current_sub = base_sub;
 	lastdir = FORWARD;
 	
 	if(base_seek)
-		current_iter = base_iter;
-	else if(exception_seek)
-		current_iter = alternatives_iter;
+		base_sub->valid = true;
 	else
+		base_sub->valid = base_sub->iter->valid();
+	if(alt_seek)
+		alt_sub->valid = true;
+	else
+		alt_sub->valid = alt_sub->iter->valid();
+	
+	if(!base_sub->valid)
 		return false;
-	return true;
+	if(alt_sub->valid)
+	{
+		const blob_comparator * blob_cmp = dt_source->blob_cmp;
+		int c = base_sub->iter->key().compare(alt_sub->iter->key(), blob_cmp);
+		assert(c <= 0);
+		current_sub = (c < 0) ? base_sub : alt_sub;
+	}
+	return base_seek;
 }
 
 metablob exception_dtable::iter::meta() const
 {
-	return current_iter->iter->meta();
+	return current_sub->iter->meta();
 }
 
 blob exception_dtable::iter::value() const
 {
-	return current_iter->iter->value();
+	return current_sub->iter->value();
 }
 
 const dtable * exception_dtable::iter::source() const
 {
-	return current_iter->iter->source();
+	return current_sub->iter->source();
 }
 
 exception_dtable::iter::~iter()
 {
-	if(base_iter)
+	if(base_sub)
 	{
-		delete base_iter->iter;
-		delete base_iter;
+		delete base_sub->iter;
+		delete base_sub;
 	}
-	if(alternatives_iter)
+	if(alt_sub)
 	{
-		delete alternatives_iter->iter;
-		delete alternatives_iter;
+		delete alt_sub->iter;
+		delete alt_sub;
 	}
-	current_iter = NULL;
+	current_sub = NULL;
 }
 
 dtable::iter * exception_dtable::iterator() const
@@ -232,7 +227,7 @@ bool exception_dtable::present(const dtype & key, bool * found) const
 	bool result = base->present(key, found);
 	if(*found)
 		return result;
-	return alternatives->present(key, found);
+	return alt->present(key, found);
 }
 
 blob exception_dtable::lookup(const dtype & key, bool * found) const
@@ -240,7 +235,7 @@ blob exception_dtable::lookup(const dtype & key, bool * found) const
 	blob value = base->lookup(key, found);
 	if(*found)
 		return value;
-	return alternatives->lookup(key, found);
+	return alt->lookup(key, found);
 }
 
 int exception_dtable::init(int dfd, const char * file, const params & config)
@@ -249,7 +244,7 @@ int exception_dtable::init(int dfd, const char * file, const params & config)
 	const dtable_factory * alt_factory;
 	params base_config, alt_config;
 	int excp_dfd;
-	if(base || alternatives)
+	if(base || alt)
 		deinit();
 	base_factory = dtable_factory::lookup(config, "base");
 	alt_factory = dtable_factory::lookup(config, "alt");
@@ -265,11 +260,11 @@ int exception_dtable::init(int dfd, const char * file, const params & config)
 	base = base_factory->open(excp_dfd, "base", base_config);
 	if(!base)
 		goto fail_base;
-	alternatives = alt_factory->open(excp_dfd, "alt", alt_config);
-	if(!alternatives)
+	alt = alt_factory->open(excp_dfd, "alt", alt_config);
+	if(!alt)
 		goto fail_alt;
 	ktype = base->key_type();
-	if(ktype != alternatives->key_type())
+	if(ktype != alt->key_type())
 		goto fail_ktype;
 	cmp_name = base->get_cmp_name();
 	
@@ -277,8 +272,8 @@ int exception_dtable::init(int dfd, const char * file, const params & config)
 	return 0;
 	
 fail_ktype:
-	delete alternatives;
-	alternatives = NULL;
+	delete alt;
+	alt = NULL;
 fail_alt:
 	delete base;
 	base = NULL;
@@ -289,24 +284,41 @@ fail_base:
 
 void exception_dtable::deinit()
 {
-	if(base || alternatives)
+	if(base || alt)
 	{
-		delete alternatives;
-		alternatives = NULL;
+		delete alt;
+		alt = NULL;
 		delete base;
 		base = NULL;
 		dtable::deinit();
 	}
 }
 
+class exception_dtable::reject_iter : public dtable_wrap_iter
+{
+public:
+	inline reject_iter(dtable::iter * base, dtable * rejects)
+		: dtable_wrap_iter(base), rejects(rejects)
+	{
+	}
+	
+	virtual bool reject()
+	{
+		return rejects->insert(base->key(), base->value()) >= 0;
+	}
+	
+private:
+	dtable * rejects;
+};
+
 int exception_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow)
 {
 	int excp_dfd, r;
 	sys_journal alt_journal;
 	journal_dtable alt_jdt;
-	dtable::iter * filtered;
+	reject_iter * handler;
 	sys_journal::listener_id id;
-	params base_config, alt_config, filter_config;
+	params base_config, alt_config;
 	const dtable_factory * base = dtable_factory::lookup(config, "base");
 	const dtable_factory * alt = dtable_factory::lookup(config, "alt");
 	if(!base || !alt)
@@ -314,8 +326,6 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
 	if(!config.get("alt_config", &alt_config, params()))
-		return -EINVAL;
-	if(!config.get("filter_config", &filter_config, params()))
 		return -EINVAL;
 	
 	if(!source_shadow_ok(source, shadow))
@@ -341,11 +351,11 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	if(source->get_blob_cmp())
 		alt_jdt.set_blob_cmp(source->get_blob_cmp());
 	
-	filtered = base->filter_iterator(source, filter_config, &alt_jdt);
-	if(!filtered)
-		goto fail_filter;
+	handler = new reject_iter(source, &alt_jdt);
+	if(!handler)
+		goto fail_handler;
 	
-	r = base->create(excp_dfd, "base", base_config, filtered, shadow);
+	r = base->create(excp_dfd, "base", base_config, handler, shadow);
 	if(r < 0)
 		goto fail_base;
 	
@@ -356,8 +366,7 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	if(r < 0)
 		goto fail_alt;
 	
-	if(filtered != source)
-		delete filtered;
+	delete handler;
 	alt_jdt.deinit(true);
 	alt_journal.deinit(true);
 	close(excp_dfd);
@@ -366,9 +375,8 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 fail_alt:
 	util::rm_r(excp_dfd, "base");
 fail_base:
-	if(filtered != source)
-		delete filtered;
-fail_filter:
+	delete handler;
+fail_handler:
 	alt_jdt.deinit(true);
 fail_id:
 	alt_journal.deinit(true);

@@ -107,13 +107,21 @@ public:
 		virtual blob value() const = 0;
 		virtual const dtable * source() const = 0;
 		
+		/* When a disk-based dtable's create() method is reading data from an
+		 * input iterator, it may find that it cannot store some particular
+		 * value. In that case, it should call reject() on the iterator. If
+		 * reject() returns true, the rejection has been handled in some way,
+		 * and the create() method can continue. Otherwise it should return
+		 * an error, as the value cannot be stored as requested. */
+		virtual bool reject() { return false; }
+		
 		inline iter() {}
 		virtual ~iter() {}
 	private:
 		void operator=(const iter &);
 		iter(const iter &);
 	};
-	/* for iterators that want to have wrappers implemented for them */
+	/* for iterators that want to have dtable wrappers implemented for them */
 	template<class T, class P = iter> class iter_source : public P
 	{
 	public:
@@ -121,6 +129,8 @@ public:
 		virtual const blob_comparator * get_blob_cmp() const { return dt_source->get_blob_cmp(); }
 		virtual const istr & get_cmp_name() const { return dt_source->get_cmp_name(); }
 		inline iter_source(const T * dt_source) : dt_source(dt_source) {}
+		/* for wrapper iterators, e.g. dtable_wrap_iter */
+		inline iter_source(iter * base, const T * dt_source) : P(base), dt_source(dt_source) {}
 	protected:
 		const T * dt_source;
 	};
@@ -157,13 +167,6 @@ public:
 	
 	/* subclasses can specify that they support indexed access */
 	static inline bool static_indexed_access() { return false; }
-	
-	/* see dtable_factory::filter_iterator() for details */
-	static inline iter * filter_iterator(iter * source, const params & config, dtable * rejects)
-	{
-		/* default: we can store everything, just return the original iterator */
-		return source;
-	}
 	
 protected:
 	inline void deinit()

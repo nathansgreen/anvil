@@ -36,7 +36,6 @@ public:
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
 	static inline bool static_indexed_access() { return true; }
-	static dtable::iter * filter_iterator(dtable::iter * source, const params & config, dtable * rejects);
 	inline virtual ~usstate_dtable()
 	{
 		if(fp)
@@ -53,9 +52,6 @@ private:
 		/* we're using one byte to store these things */
 		static_assert(USSTATE_INDEX_HOLE <= 255);
 	}
-	
-	/* we'll define it in the source file */
-	class usstate_filter;
 	
 	struct dtable_header {
 		uint32_t magic;

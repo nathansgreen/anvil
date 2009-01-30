@@ -13,7 +13,6 @@
 
 #include "rwfile.h"
 #include "blob_buffer.h"
-#include "dtable_iter_filter.h"
 #include "usstate_dtable.h"
 
 /* NOTE: this must be sorted, and we expect all codes to be length 2 */
@@ -255,43 +254,6 @@ void usstate_dtable::deinit()
 	}
 }
 
-class usstate_dtable::usstate_filter
-{
-protected:
-	inline int init(const params & config)
-	{
-		return 0;
-	}
-	inline bool accept(const dtable::iter * iter)
-	{
-		ssize_t number;
-		blob value = iter->value();
-		if(!value.exists())
-			return true;
-		if(value.size() != 2)
-			return false;
-		/* it's a shame we can't pass on this result to the encoder itself */
-		number = blob::locate(state_codes, USSTATE_COUNT, value);
-		return 0 <= number && number < USSTATE_COUNT;
-	}
-};
-
-dtable::iter * usstate_dtable::filter_iterator(dtable::iter * source, const params & config, dtable * rejects)
-{
-	typedef dtable_iter_filter<usstate_filter> iter;
-	iter * filter = new iter;
-	if(filter)
-	{
-		int r = filter->init(source, config, rejects);
-		if(r < 0)
-		{
-			delete filter;
-			filter = NULL;
-		}
-	}
-	return filter;
-}
-
 int usstate_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow)
 {
 	int r;
@@ -317,11 +279,13 @@ int usstate_dtable::create(int dfd, const char * file, const params & config, dt
 	{
 		dtype key = source->key();
 		metablob meta = source->meta();
-		source->next();
 		if(!meta.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->contains(key))
+			{
+				source->next();
 				continue;
+			}
 		assert(key.type == key_type);
 		if(!min_key_known)
 		{
@@ -332,7 +296,9 @@ int usstate_dtable::create(int dfd, const char * file, const params & config, dt
 		header.key_count++;
 		/* we'll do a full check later; for now just make sure the values are size 2 */
 		if(meta.exists() && meta.size() != 2)
-			return -EINVAL;
+			if(!source->reject())
+				return -EINVAL;
+		source->next();
 	}
 	
 	header.magic = USSDTABLE_MAGIC;
@@ -353,11 +319,13 @@ int usstate_dtable::create(int dfd, const char * file, const params & config, dt
 		uint8_t code;
 		dtype key = source->key();
 		blob value = source->value();
-		source->next();
 		if(!value.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->contains(key))
+			{
+				source->next();
 				continue;
+			}
 		while(index < key.u32 - header.min_key)
 		{
 			code = USSTATE_INDEX_HOLE;
@@ -366,14 +334,21 @@ int usstate_dtable::create(int dfd, const char * file, const params & config, dt
 				goto fail_unlink;
 			index++;
 		}
+		if(value.exists() && value.size() != 2)
+			/* it was already successfully reject()ed above */
+			value = blob();
 		if(value.exists())
 		{
 			ssize_t index = blob::locate(state_codes, USSTATE_COUNT, value);
 			/* this is the full check we didn't do earlier */
 			if(index < 0 || index >= USSTATE_COUNT)
 			{
-				r = -EINVAL;
-				goto fail_unlink;
+				if(!source->reject())
+				{
+					r = -EINVAL;
+					goto fail_unlink;
+				}
+				index = USSTATE_INDEX_DNE;
 			}
 			code = index;
 		}
@@ -382,6 +357,7 @@ int usstate_dtable::create(int dfd, const char * file, const params & config, dt
 		r = out.append<uint8_t>(&code);
 		if(r < 0)
 			goto fail_unlink;
+		source->next();
 		index++;
 	}
 	

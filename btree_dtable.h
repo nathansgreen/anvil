@@ -17,6 +17,7 @@
 #include "rofile.h"
 #include "dtable.h"
 #include "dtable_factory.h"
+#include "dtable_wrap_iter.h"
 
 /* The btree dtable must be created with another read-only dtable, and builds a
  * btree key index for it. The base dtable must support indexed access. */
@@ -135,27 +136,13 @@ private:
 		int add(size_t pointer);
 	};
 	
-	class iter : public iter_source<btree_dtable>
+	class iter : public iter_source<btree_dtable, dtable_wrap_iter>
 	{
 	public:
-		virtual bool valid() const;
-		virtual bool next();
-		virtual bool prev();
-		virtual bool first();
-		virtual bool last();
-		virtual dtype key() const;
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
-		virtual bool seek_index(size_t index);
-		virtual size_t get_index() const;
-		virtual metablob meta() const;
-		virtual blob value() const;
-		virtual const dtable * source() const;
 		inline iter(dtable::iter * base, const btree_dtable * source);
 		virtual ~iter() {}
-		
-	private:
-		dtable::iter * base_iter;
 	};
 	
 	dtable * base;
