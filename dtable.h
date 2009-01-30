@@ -136,7 +136,8 @@ public:
 	inline virtual int insert(const dtype & key, const blob & blob, bool append = false) { return -ENOSYS; }
 	inline virtual int remove(const dtype & key) { return -ENOSYS; }
 	inline dtable() {}
-	inline virtual ~dtable() {}
+	/* subclass destructors should [indirectly] call dtable::deinit(), but do it here too */
+	inline virtual ~dtable() { if(blob_cmp) deinit(); }
 	
 	/* when using blob keys and a custom blob comparator, this will be necessary */
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)

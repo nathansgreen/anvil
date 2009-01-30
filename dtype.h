@@ -299,6 +299,7 @@ private:
 typedef magic_test<dtype> dtype_test;
 
 /* not actually a dtype_test, but usable the same way with a template */
+/* XXX: get rid of this - some dtables may have constant-time behavior finding known keys, e.g. array_dtable */
 class dtype_static_test
 {
 public:
