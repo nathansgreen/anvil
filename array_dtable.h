@@ -63,6 +63,7 @@ private:
 		uint32_t array_size;
 		uint32_t value_size;
 		uint8_t tag_byte;
+		uint8_t hole, dne;
 	} __attribute__((packed));
 	
 	class iter : public iter_source<array_dtable>
@@ -103,6 +104,8 @@ private:
 	/* these are used if tag_byte is false */
 	blob hole_value;
 	blob dne_value;
+	/* the start of the data array */
+	off_t data_start;
 };
 
 #endif /* __ARRAY_DTABLE_H */

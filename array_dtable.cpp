@@ -144,7 +144,7 @@ blob array_dtable::get_value(size_t index, bool * found) const
 		}
 	}
 	else
-		offset = sizeof(dtable_header) + index * value_size;
+		offset = data_start + index * value_size;
 	blob_buffer value(value_size);
 	value.set_size(value_size, false);
 	data_length = fp->read(offset + sizeof(uint8_t), &value[0], value_size);
@@ -165,7 +165,7 @@ uint8_t array_dtable::index_type(size_t index, off_t * offset) const
 	assert(tag_byte);
 	uint8_t type;
 	/* value_size + 1 due to the tag byte */
-	off_t file_off = sizeof(dtable_header) + index * (value_size + 1);
+	off_t file_off = data_start + index * (value_size + 1);
 	size_t data_length = fp->read(file_off, &type, sizeof(type));
 	assert(index < array_size);
 	assert(data_length == sizeof(type));
@@ -260,28 +260,26 @@ int array_dtable::init(int dfd, const char * file, const params & config)
 	value_size = header.value_size;
 	tag_byte = header.tag_byte;
 	
-	if(!tag_byte)
+	data_start = sizeof(header);
+	if(header.hole)
 	{
-		if(!config.get("hole_value", &hole_value))
-		{
-			/* might be a string */
-			istr string;
-			if(!config.get("hole_value", &string))
-				goto fail;
-			hole_value = blob(string);
-		}
-		if(hole_value.exists() && hole_value.size() != value_size)
-			goto fail;
-		if(!config.get("dne_value", &dne_value))
-		{
-			/* might be a string */
-			istr string;
-			if(!config.get("dne_value", &string))
-				goto fail;
-			dne_value = blob(string);
-		}
-		if(dne_value.exists() && dne_value.size() != value_size)
-			goto fail;
+		size_t data_length;
+		blob_buffer buffer(value_size);
+		buffer.set_size(value_size, false);
+		data_length = fp->read(data_start, &buffer[0], value_size);
+		assert(data_length == value_size);
+		data_start += value_size;
+		hole_value = buffer;
+	}
+	if(header.dne)
+	{
+		size_t data_length;
+		blob_buffer buffer(value_size);
+		buffer.set_size(value_size, false);
+		data_length = fp->read(data_start, &buffer[0], value_size);
+		assert(data_length == value_size);
+		data_start += value_size;
+		dne_value = buffer;
 	}
 	
 	return 0;
@@ -353,19 +351,39 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 	uint32_t index = 0, max_key = 0;
 	bool min_key_known = false;
 	bool value_size_known = false;
+	bool hole_ok = true, dne_ok = true;
+	blob hole_value, dne_value;
+	bool tag_byte;
 	
 	if(!source)
 		return -EINVAL;
 	key_type = source->key_type();
 	if(key_type != dtype::UINT32)
-			return -EINVAL;
+		return -EINVAL;
 	if(!source_shadow_ok(source, shadow))
 		return -EINVAL;
+	
+	/* deal with hole and nonexistent value configuration */
+	if(!config.get_blob_or_string("hole_value", &hole_value))
+		return -EINVAL;
+	if(!config.get_blob_or_string("dne_value", &dne_value))
+		return -EINVAL;
+	if(!config.get("tag_byte", &tag_byte, true))
+		return -EINVAL;
+	if(hole_value.exists() && dne_value.exists())
+		tag_byte = false;
+	if(!tag_byte)
+	{
+		hole_ok = hole_value.exists();
+		dne_ok = dne_value.exists();
+	}
 	
 	header.min_key = 0;
 	header.key_count = 0;
 	header.value_size = 0;
-	header.tag_byte = 1;
+	header.tag_byte = tag_byte;
+	header.hole = hole_value.exists();
+	header.dne = dne_value.exists();
 	/* just to be sure */
 	source->first();
 	while(source->valid())
@@ -374,15 +392,21 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 		metablob meta = source->meta();
 		source->next();
 		if(!meta.exists())
+		{
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->contains(key))
 				continue;
+			if(!dne_ok)
+				return -EINVAL;
+		}
 		assert(key.type == key_type);
 		if(!min_key_known)
 		{
 			header.min_key = key.u32;
 			min_key_known = true;
 		}
+		else if(!hole_ok && key.u32 != max_key + 1)
+			return -EINVAL;
 		max_key = key.u32;
 		header.key_count++;
 		if(meta.exists())
@@ -409,6 +433,18 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 	r = out.append(&header);
 	if(r < 0)
 		goto fail_unlink;
+	if(header.hole)
+	{
+		r = out.append(hole_value);
+		if(r < 0)
+			goto fail_unlink;
+	}
+	if(header.dne)
+	{
+		r = out.append(dne_value);
+		if(r < 0)
+			goto fail_unlink;
+	}
 	
 	zero_data = new uint8_t[header.value_size];
 	if(!zero_data)
@@ -418,7 +454,6 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 	source->first();
 	while(source->valid())
 	{
-		uint8_t type;
 		dtype key = source->key();
 		blob value = source->value();
 		source->next();
@@ -428,19 +463,33 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 				continue;
 		while(index < key.u32 - header.min_key)
 		{
-			type = ARRAY_INDEX_HOLE;
-			r = out.append<uint8_t>(&type);
-			if(r < 0)
-				goto fail_unlink;
-			r = out.append(zero_data, header.value_size);
+			assert(hole_ok);
+			if(tag_byte)
+			{
+				uint8_t type = ARRAY_INDEX_HOLE;
+				r = out.append<uint8_t>(&type);
+				if(r < 0)
+					goto fail_unlink;
+				r = out.append(zero_data, header.value_size);
+			}
+			else
+				r = out.append(hole_value);
 			if(r < 0)
 				goto fail_unlink;
 			index++;
 		}
-		type = value.exists() ? ARRAY_INDEX_VALID : ARRAY_INDEX_DNE;
-		r = out.append<uint8_t>(&type);
-		if(r < 0)
-			goto fail_unlink;
+		if(tag_byte)
+		{
+			uint8_t type = value.exists() ? ARRAY_INDEX_VALID : ARRAY_INDEX_DNE;
+			r = out.append<uint8_t>(&type);
+			if(r < 0)
+				goto fail_unlink;
+		}
+		else if(!value.exists())
+		{
+			assert(dne_ok);
+			value = dne_value;
+		}
 		r = out.append(value);
 		if(r < 0)
 			goto fail_unlink;

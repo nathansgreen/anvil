@@ -42,6 +42,19 @@ public:
 	bool get(const istr & name, blob * value, const blob & dfl = blob()) const;
 	bool get(const istr & name, params * value, const params & dfl = params()) const;
 	
+	/* a wrapper that allows blobs and optionally strings */
+	inline bool get_blob_or_string(const istr & name, blob * value, const blob & dfl = blob()) const
+	{
+		if(!get(name, value, dfl))
+		{
+			istr str;
+			if(!get(name, &str))
+				return false;
+			*value = blob(str);
+		}
+		return true;
+	}
+	
 	inline bool contains(const istr & name) const
 	{
 		return values.count(name) > 0;
