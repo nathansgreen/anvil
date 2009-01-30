@@ -4,7 +4,7 @@
 
 #include <errno.h>
 
-#include "hack_map.h"
+#include "hack_avl_map.h"
 #include "memory_dtable.h"
 
 bool memory_dtable::iter::valid() const

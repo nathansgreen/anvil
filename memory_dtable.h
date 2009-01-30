@@ -14,7 +14,7 @@
 #endif
 
 #include <ext/hash_map>
-#include <map>
+#include "avl/map.h"
 
 #include "blob.h"
 #include "istr.h"
@@ -55,7 +55,7 @@ public:
 	}
 	
 private:
-	typedef std::map<dtype, blob, dtype_comparator_refobject> memory_dtable_map;
+	typedef avl::map<dtype, blob, dtype_comparator_refobject> memory_dtable_map;
 	typedef __gnu_cxx::hash_map<const dtype, blob *, dtype_hashing_comparator, dtype_hashing_comparator> memory_dtable_hash;
 	
 	inline int add_node(const dtype & key, const blob & value);

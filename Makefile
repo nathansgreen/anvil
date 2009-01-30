@@ -8,6 +8,7 @@ CPPSOURCES+=simple_dtable.cpp simple_ctable.cpp simple_stable.cpp simple_ext_ind
 CPPSOURCES+=btree_dtable.cpp cache_dtable.cpp journal_dtable.cpp overlay_dtable.cpp ustr_dtable.cpp
 CPPSOURCES+=managed_dtable.cpp array_dtable.cpp exception_dtable.cpp usstate_dtable.cpp token_stream.cpp
 CPPSOURCES+=dtable_factory.cpp ctable_factory.cpp index_factory.cpp toilet.cpp toilet++.cpp
+CPPSOURCES+=stlavlmap/tree.cpp
 SOURCES=$(CSOURCES) $(CPPSOURCES)
 
 HEADERS=$(wildcard *.h)
@@ -43,10 +44,10 @@ endif
 all: config.mak tags main io_count.so
 
 %.o: %.c
-	gcc -c $< -O2 $(CFLAGS)
+	gcc -c $< -o $@ -O2 $(CFLAGS)
 
 %.o: %.cpp
-	g++ -c $< -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
+	g++ -c $< -o $@ -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
 
 libtoilet.so: libtoilet.o $(FSTITCH_LIB)
 	g++ -shared -o $@ $< -ldl $(LDFLAGS)
@@ -76,7 +77,7 @@ medic: medic.o md5.o
 	gcc -o $@ $^
 
 clean:
-	rm -f config.h config.mak main libtoilet.so libtoilet.a io_count.so medic *.o .depend tags
+	rm -f config.h config.mak main libtoilet.so libtoilet.a io_count.so medic *.o stlavlmap/*.o .depend tags
 
 clean-all: clean
 	php/clean

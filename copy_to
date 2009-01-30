@@ -26,15 +26,13 @@ then
 	host $MACHINE > /dev/null || arg_error "$0"
 fi
 
-rsync --rsh=ssh -vaSz --exclude=*.o \
-	--exclude=/main --exclude=/core \
-	--exclude=/tags --exclude=/php/ \
-	--exclude=/config.* --exclude=/.depend \
-	--exclude=/fstitch --exclude=/.copy_to \
+rsync --rsh=ssh -vaSz --exclude=*.o --exclude=*.ko \
+	--exclude=/main --exclude=/core --exclude=/tags \
+	--exclude=/php/ --exclude=/config.* --exclude=/.depend \
+	--exclude=/fstitch --exclude=/.copy_to --exclude=/medic \
 	--exclude=/.toilet_history --exclude=/scratch \
 	--exclude=/libtoilet.so --exclude=/io_count.so \
 	--exclude=.*.swp --exclude=.*.swo --exclude=.*.swn \
-	--exclude=/reboot/*.*o --exclude=/reboot/.tmp_versions \
-	--exclude=/reboot/.*.cmd --exclude=/reboot/reboot.mod.c \
-	--exclude=/reboot/Module.symvers --exclude=/medic \
+	--exclude=/reboot/.tmp_versions --exclude=/reboot/reboot.mod.c \
+	--exclude=/reboot/.*.cmd --exclude=/reboot/Module.symvers \
 	. $MACHINE:$TARGET/
