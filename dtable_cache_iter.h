@@ -14,6 +14,7 @@
 #endif
 
 #include "dtable.h"
+#include "dtable_wrap_iter.h"
 
 /* The dtable caching iterator caches the keys and values it returns, so that
  * subsequent calls return the same value without asking the underlying iterator
@@ -26,33 +27,33 @@ class dtable_cache_key_iter : public dtable::key_iter
 public:
 	virtual bool valid() const
 	{
-		return iter->valid();
+		return base->valid();
 	}
 	virtual bool next()
 	{
 		kill_cache();
-		return iter->next();
+		return base->next();
 	}
 	virtual bool prev()
 	{
 		kill_cache();
-		return iter->prev();
+		return base->prev();
 	}
 	virtual bool first()
 	{
 		kill_cache();
-		return iter->first();
+		return base->first();
 	}
 	virtual bool last()
 	{
 		kill_cache();
-		return iter->last();
+		return base->last();
 	}
 	virtual dtype key() const
 	{
 		if(!key_cached)
 		{
-			cached_key = iter->key();
+			cached_key = base->key();
 			key_cached = true;
 		}
 		return cached_key;
@@ -60,38 +61,38 @@ public:
 	virtual bool seek(const dtype & key)
 	{
 		kill_cache();
-		return iter->seek(key);
+		return base->seek(key);
 	}
 	virtual bool seek(const dtype_test & test)
 	{
 		kill_cache();
-		return iter->seek(test);
+		return base->seek(test);
 	}
 	virtual bool seek_index(size_t index)
 	{
 		kill_cache();
-		return iter->seek_index(index);
+		return base->seek_index(index);
 	}
 	virtual dtype::ctype key_type() const
 	{
-		return iter->key_type();
+		return base->key_type();
 	}
 	virtual const blob_comparator * get_blob_cmp() const
 	{
-		return iter->get_blob_cmp();
+		return base->get_blob_cmp();
 	}
 	virtual const istr & get_cmp_name() const
 	{
-		return iter->get_cmp_name();
+		return base->get_cmp_name();
 	}
 	
-	inline dtable_cache_key_iter(dtable::key_iter * iter)
-		: iter(iter), key_cached(false), cached_key(0u)
+	inline dtable_cache_key_iter(dtable::key_iter * base)
+		: base(base), key_cached(false), cached_key(0u)
 	{
 	}
 	virtual ~dtable_cache_key_iter()
 	{
-		delete iter;
+		delete base;
 	}
 	
 private:
@@ -102,7 +103,7 @@ private:
 		cached_key = dtype(0u);
 	}
 	
-	dtable::key_iter * iter;
+	dtable::key_iter * base;
 	mutable bool key_cached;
 	mutable dtype cached_key;
 	
@@ -112,38 +113,34 @@ private:
 
 /* it would be nice if this could inherit from dtable_cache_key_iter
  * above, but then we'd have to deal with multiple inheritance */
-class dtable_cache_iter : public dtable::iter
+class dtable_cache_iter : public dtable_wrap_iter
 {
 public:
-	virtual bool valid() const
-	{
-		return iter->valid();
-	}
 	virtual bool next()
 	{
 		kill_cache();
-		return iter->next();
+		return base->next();
 	}
 	virtual bool prev()
 	{
 		kill_cache();
-		return iter->prev();
+		return base->prev();
 	}
 	virtual bool first()
 	{
 		kill_cache();
-		return iter->first();
+		return base->first();
 	}
 	virtual bool last()
 	{
 		kill_cache();
-		return iter->last();
+		return base->last();
 	}
 	virtual dtype key() const
 	{
 		if(!key_cached)
 		{
-			cached_key = iter->key();
+			cached_key = base->key();
 			key_cached = true;
 		}
 		return cached_key;
@@ -151,56 +148,33 @@ public:
 	virtual bool seek(const dtype & key)
 	{
 		kill_cache();
-		return iter->seek(key);
+		return base->seek(key);
 	}
 	virtual bool seek(const dtype_test & test)
 	{
 		kill_cache();
-		return iter->seek(test);
+		return base->seek(test);
 	}
 	virtual bool seek_index(size_t index)
 	{
 		kill_cache();
-		return iter->seek_index(index);
-	}
-	virtual dtype::ctype key_type() const
-	{
-		return iter->key_type();
-	}
-	virtual const blob_comparator * get_blob_cmp() const
-	{
-		return iter->get_blob_cmp();
-	}
-	virtual const istr & get_cmp_name() const
-	{
-		return iter->get_cmp_name();
-	}
-	virtual metablob meta() const
-	{
-		return iter->meta();
+		return base->seek_index(index);
 	}
 	virtual blob value() const
 	{
 		if(!value_cached)
 		{
-			cached_value = iter->value();
+			cached_value = base->value();
 			value_cached = true;
 		}
 		return cached_value;
 	}
-	virtual const dtable * source() const
-	{
-		return iter->source();
-	}
 	
-	inline dtable_cache_iter(dtable::iter * iter)
-		: iter(iter), key_cached(false), value_cached(false), cached_key(0u)
+	inline dtable_cache_iter(dtable::iter * base)
+		: dtable_wrap_iter(base, true), key_cached(false), value_cached(false), cached_key(0u)
 	{
 	}
-	virtual ~dtable_cache_iter()
-	{
-		delete iter;
-	}
+	virtual ~dtable_cache_iter() {}
 	
 private:
 	inline void kill_cache()
@@ -212,7 +186,6 @@ private:
 		cached_value = blob();
 	}
 	
-	dtable::iter * iter;
 	mutable bool key_cached, value_cached;
 	mutable dtype cached_key;
 	mutable blob cached_value;
