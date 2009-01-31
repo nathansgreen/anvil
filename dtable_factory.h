@@ -48,7 +48,7 @@ public:
 	}
 	
 	/* returns true if the class this factory will construct supports indexed access */
-	virtual bool indexed_access() const = 0;
+	virtual bool indexed_access(const params & config) const = 0;
 	
 	virtual ~dtable_factory_base() {}
 	
@@ -83,9 +83,9 @@ public:
 		return disk;
 	}
 	
-	inline virtual bool indexed_access() const
+	inline virtual bool indexed_access(const params & config) const
 	{
-		return T::static_indexed_access();
+		return T::static_indexed_access(config);
 	}
 };
 

@@ -304,7 +304,12 @@ public:
 	
 	virtual bool reject()
 	{
-		return rejects->insert(base->key(), base->value()) >= 0;
+		blob value = base->value();
+		/* we can't tolerate failure to store nonexistent
+		 * values; it's how we know there is an exception */
+		if(!value.exists())
+			return false;
+		return rejects->insert(base->key(), value) >= 0;
 	}
 	
 private:

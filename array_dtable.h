@@ -41,7 +41,7 @@ public:
 	inline array_dtable() : fp(NULL), min_key(0), array_size(0), value_size(0) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
-	static inline bool static_indexed_access() { return true; }
+	static inline bool static_indexed_access(const params & config) { return true; }
 	inline virtual ~array_dtable()
 	{
 		if(fp)

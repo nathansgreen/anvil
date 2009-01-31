@@ -51,7 +51,7 @@ public:
 			deinit();
 	}
 	
-	static inline bool static_indexed_access() { return true; }
+	static inline bool static_indexed_access(const params & config) { return true; }
 	
 	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
 	DECLARE_RO_FACTORY(simple_dtable);

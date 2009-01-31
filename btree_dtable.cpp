@@ -124,10 +124,10 @@ int btree_dtable::init(int dfd, const char * file, const params & config)
 	factory = dtable_factory::lookup(config, "base");
 	if(!factory)
 		return -EINVAL;
-	if(!factory->indexed_access())
-		return -ENOSYS;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
+	if(!factory->indexed_access(base_config))
+		return -ENOSYS;
 	bt_dfd = openat(dfd, file, 0);
 	if(bt_dfd < 0)
 		return bt_dfd;
@@ -481,10 +481,10 @@ int btree_dtable::create(int dfd, const char * file, const params & config, dtab
 	const dtable_factory * base = dtable_factory::lookup(config, "base");
 	if(!base)
 		return -EINVAL;
-	if(!base->indexed_access())
-		return -ENOSYS;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
+	if(!base->indexed_access(base_config))
+		return -ENOSYS;
 	
 	if(!source_shadow_ok(source, shadow))
 		return -EINVAL;

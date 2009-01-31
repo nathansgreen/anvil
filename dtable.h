@@ -166,7 +166,7 @@ public:
 	inline virtual int maintain() { return 0; }
 	
 	/* subclasses can specify that they support indexed access */
-	static inline bool static_indexed_access() { return false; }
+	static inline bool static_indexed_access(const params & config) { return false; }
 	
 protected:
 	inline void deinit()

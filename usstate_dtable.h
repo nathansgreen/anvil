@@ -13,14 +13,10 @@
 #include "dtable.h"
 #include "rofile.h"
 #include "dtable_factory.h"
-
-#define USSDTABLE_MAGIC 0xC8FFEFA3
-#define USSDTABLE_VERSION 0
+#include "dtable_wrap_iter.h"
 
 /* 50 states plus DC and Puerto Rico */
 #define USSTATE_COUNT 52
-#define USSTATE_INDEX_DNE USSTATE_COUNT
-#define USSTATE_INDEX_HOLE (USSTATE_COUNT + 1)
 
 class usstate_dtable : public dtable
 {
@@ -30,71 +26,67 @@ public:
 	virtual blob lookup(const dtype & key, bool * found) const;
 	virtual blob index(size_t index) const;
 	virtual bool contains_index(size_t index) const;
-	inline virtual size_t size() const { return key_count; }
+	virtual size_t size() const;
+	/* writable, insert, remove? */
 	
-	inline usstate_dtable() : fp(NULL), min_key(0), array_size(0), value_size(0) {}
+	inline virtual int set_blob_cmp(const blob_comparator * cmp)
+	{
+		int value = base->set_blob_cmp(cmp);
+		if(value >= 0)
+		{
+			value = dtable::set_blob_cmp(cmp);
+			assert(value >= 0);
+		}
+		return value;
+	}
+	
+	/* usstate_dtable supports indexed access if its base does */
+	static bool static_indexed_access(const params & config);
+	
+	inline usstate_dtable() : base(NULL) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
-	static inline bool static_indexed_access() { return true; }
 	inline virtual ~usstate_dtable()
 	{
-		if(fp)
+		if(base)
 			deinit();
 	}
 	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
 	DECLARE_RO_FACTORY(usstate_dtable);
 	
 private:
-	static const blob state_codes[USSTATE_COUNT + 1];
+	static const blob state_codes[USSTATE_COUNT];
 	
 	inline void static_asserts()
 	{
 		/* we're using one byte to store these things */
-		static_assert(USSTATE_INDEX_HOLE <= 255);
+		static_assert(USSTATE_COUNT <= 255);
 	}
 	
-	struct dtable_header {
-		uint32_t magic;
-		uint32_t version;
-		uint32_t min_key;
-		uint32_t key_count;
-		uint32_t array_size;
-	} __attribute__((packed));
-	
-	class iter : public iter_source<usstate_dtable>
+	class iter : public iter_source<usstate_dtable, dtable_wrap_iter>
 	{
 	public:
-		virtual bool valid() const;
-		virtual bool next();
-		virtual bool prev();
-		virtual bool last();
-		virtual bool first();
-		virtual dtype key() const;
-		virtual bool seek(const dtype & key);
-		virtual bool seek(const dtype_test & test);
-		virtual bool seek_index(size_t index);
-		virtual size_t get_index() const;
 		virtual metablob meta() const;
 		virtual blob value() const;
-		virtual const dtable * source() const;
-		inline iter(const usstate_dtable * source);
+		inline iter(dtable::iter * base, const usstate_dtable * source);
 		virtual ~iter() {}
-		
-	private:
-		size_t index;
 	};
 	
-	dtype get_key(size_t index) const;
-	blob get_value(size_t index, bool * found) const;
-	int find_key(const dtype_test & test, size_t * index) const;
-	uint8_t index_value(size_t index) const;
-	inline bool is_hole(size_t index) const { return index_value(index) == USSTATE_INDEX_HOLE; }
+	class rev_iter : public dtable_wrap_iter
+	{
+	public:
+		virtual metablob meta() const;
+		virtual blob value() const;
+		virtual bool reject();
+		inline rev_iter(dtable::iter * base);
+		virtual ~rev_iter() {}
+		mutable bool failed;
+	};
 	
-	rofile * fp;
-	uint32_t min_key;
-	size_t key_count;
-	size_t array_size;
-	size_t value_size;
+	static blob unpack(blob packed);
+	static bool pack(blob * unpacked);
+	
+	dtable * base;
 };
 
 #endif /* __USSTATE_DTABLE_H */
