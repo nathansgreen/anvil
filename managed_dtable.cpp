@@ -11,6 +11,7 @@
 #include "openat.h"
 #include "transaction.h"
 
+#include "util.h"
 #include "managed_dtable.h"
 
 int managed_dtable::init(int dfd, const char * name, const params & config, sys_journal * sys_journal)
@@ -245,6 +246,8 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 	if(r < 0)
 		return r;
 	sprintf(name, "md_data.%u", header.ddt_next);
+	/* there might be one around from a previous failed combine */
+	util::rm_r(md_dfd, name);
 	if(use_fastbase)
 		r = fastbase->create(md_dfd, name, fastbase_config, source, shadow);
 	else
