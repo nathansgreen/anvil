@@ -107,6 +107,11 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		delayed_query = NULL;
 	else
 		goto fail_query;
+	/* if the journal did not provide it, try to get the comparator name
+	 * from the first disk dtable - journal_dtable doesn't save the name if
+	 * it's empty, since you could in principle change it at that point */
+	if(!cmp_name && disks.size())
+		cmp_name = disks[0].disk->get_cmp_name();
 	
 	/* no more failure possible */
 	tx_close(meta);

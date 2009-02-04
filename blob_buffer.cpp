@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -99,29 +99,27 @@ int blob_buffer::overwrite(size_t offset, const void * data, size_t length)
 
 int blob_buffer::set_size(size_t size, bool clear)
 {
-	if(size > buffer_capacity)
+	int r;
+	if(size > buffer_capacity || !buffer_capacity)
 	{
-		int r = set_capacity(size);
+		r = set_capacity(size);
 		if(r < 0)
 			return r;
 	}
-	assert(!size || internal);
-	if(internal)
-	{
-		int r = touch();
-		if(r < 0)
-			return r;
-		if(size > internal->size && clear)
-			memset(&internal->bytes[internal->size], 0, size - internal->size);
-		internal->size = size;
-	}
+	assert(internal);
+	r = touch();
+	if(r < 0)
+		return r;
+	if(size > internal->size && clear)
+		memset(&internal->bytes[internal->size], 0, size - internal->size);
+	internal->size = size;
 	return 0;
 }
 
 int blob_buffer::set_capacity(size_t capacity)
 {
 	blob::blob_internal * copy;
-	if(buffer_capacity == capacity)
+	if(buffer_capacity == capacity && capacity)
 		return 0;
 	if(!internal)
 	{
