@@ -47,7 +47,7 @@ public:
 		return 0;
 	}
 	
-	DECLARE_CT_FACTORY(simple_ctable);
+	DECLARE_CT_WRAP_FACTORY(simple_ctable);
 	
 	inline simple_ctable() : wdt_source(NULL) {}
 	inline virtual ~simple_ctable() {}

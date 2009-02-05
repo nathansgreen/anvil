@@ -658,7 +658,7 @@ tpp_ctable * tpp_ctable_open(const char * type, tpp_dtable * dt_source, const tp
 {
 	tpp_dtable_union source_safer(dt_source);
 	tpp_params_union_const config_safer(config);
-	ctable * cpp = ctable_factory::load(type, source_safer, *config_safer);
+	ctable * cpp = ctable_factory::encap(type, source_safer, *config_safer);
 	return tpp_ctable_union(cpp);
 }
 
@@ -666,7 +666,7 @@ tpp_ctable * tpp_ctable_open_const(const char * type, const tpp_dtable * dt_sour
 {
 	tpp_dtable_union_const source_safer(dt_source);
 	tpp_params_union_const config_safer(config);
-	ctable * cpp = ctable_factory::load(type, source_safer, *config_safer);
+	ctable * cpp = ctable_factory::encap(type, source_safer, *config_safer);
 	return tpp_ctable_union(cpp);
 }
 

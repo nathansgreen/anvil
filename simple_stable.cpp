@@ -437,7 +437,7 @@ int simple_stable::init(int dfd, const char * name, const params & config)
 	_dt_data = data->open(md_dfd, "st_data", data_config);
 	if(!_dt_data)
 		goto fail_data;
-	ct_data = columns->open(_dt_data, columns_config);
+	ct_data = columns->wrap(_dt_data, columns_config);
 	if(!ct_data)
 		goto fail_columns;
 	

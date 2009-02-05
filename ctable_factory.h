@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -14,56 +14,102 @@
 #include "factory.h"
 #include "ctable.h"
 
-/* although ctable itself does not suggest that it be implemented on top of dtables,
- * ctable_factory basically does require that for any ctables built via factories */
 class ctable_factory_base
 {
 public:
-	//virtual ctable * open(int dfd, const char * name, const params & config) const = 0;
-	virtual ctable * open(const dtable * dt_source, const params & config) const = 0;
-	virtual ctable * open(dtable * dt_source, const params & config) const = 0;
+	virtual ctable * open(int dfd, const char * name, const params & config) const { return NULL; }
+	
+	virtual ctable * wrap(const dtable * dt_source, const params & config) const { return NULL; }
+	virtual ctable * wrap(dtable * dt_source, const params & config) const { return NULL; }
+	
+	virtual int create(int dfd, const char * name, const params & config, dtype::ctype key_type) const { return -ENOSYS; }
+	
+	/* if the open() and create() methods are implemented */
+	virtual bool can_open() const { return false; }
+	/* if the wrap() methods are implemented */
+	virtual bool can_wrap() const { return false; }
 	
 	virtual ~ctable_factory_base() {}
 	
-	/* wrappers for open() that do lookup() */
-	static ctable * load(const istr & type, const dtable * dt_source, const params & config);
-	static ctable * load(const istr & type, dtable * dt_source, const params & config);
+	/* wrapper for open() that does lookup() */
+	static ctable * load(const istr & type, int dfd, const char * name, const params & config);
+	/* wrappers for wrap() that do lookup() */
+	static ctable * encap(const istr & type, const dtable * dt_source, const params & config);
+	static ctable * encap(const istr & type, dtable * dt_source, const params & config);
+	/* wrapper for create() that does lookup() */
+	static int setup(const istr & type, int dfd, const char * name, const params & config, dtype::ctype key_type);
 };
 
 typedef factory<ctable_factory_base> ctable_factory;
 
 template<class T>
-class ctable_static_factory : public ctable_factory
+class ctable_open_factory : public ctable_factory
 {
 public:
-	ctable_static_factory(const istr & class_name) : ctable_factory(class_name) {}
+	ctable_open_factory(const istr & class_name) : ctable_factory(class_name) {}
 	
-	virtual ctable * open(const dtable * dt_source, const params & config) const
+	inline virtual ctable * open(int dfd, const char * name, const params & config) const
 	{
-		T * table = new T;
-		int r = table->init(dt_source, config);
+		T * disk = new T;
+		int r = disk->init(dfd, name, config);
 		if(r < 0)
 		{
-			delete table;
-			table = NULL;
+			delete disk;
+			disk = NULL;
 		}
-		return table;
+		else
+			/* do we care about failure here? */
+			disk->maintain();
+		return disk;
 	}
 	
-	virtual ctable * open(dtable * dt_source, const params & config) const
+	inline virtual int create(int dfd, const char * name, const params & config, dtype::ctype key_type) const
 	{
-		T * table = new T;
-		int r = table->init(dt_source, config);
-		if(r < 0)
-		{
-			delete table;
-			table = NULL;
-		}
-		return table;
+		return T::create(dfd, name, config, key_type);
 	}
+	
+	virtual bool can_open() const { return true; }
 };
 
-#define DECLARE_CT_FACTORY(class_name) static const ctable_static_factory<class_name> factory;
-#define DEFINE_CT_FACTORY(class_name) const ctable_static_factory<class_name> class_name::factory(#class_name);
+template<class T>
+class ctable_wrap_factory : public ctable_factory
+{
+public:
+	ctable_wrap_factory(const istr & class_name) : ctable_factory(class_name) {}
+	
+	inline virtual ctable * wrap(const dtable * dt_source, const params & config) const
+	{
+		T * table = new T;
+		int r = table->init(dt_source, config);
+		if(r < 0)
+		{
+			delete table;
+			table = NULL;
+		}
+		return table;
+	}
+	
+	inline virtual ctable * wrap(dtable * dt_source, const params & config) const
+	{
+		T * table = new T;
+		int r = table->init(dt_source, config);
+		if(r < 0)
+		{
+			delete table;
+			table = NULL;
+		}
+		return table;
+	}
+	
+	virtual bool can_wrap() const { return true; }
+};
+
+/* for ctables which are stored on disk in some way, like most dtables */
+#define DECLARE_CT_OPEN_FACTORY(class_name) static const ctable_open_factory<class_name> factory;
+#define DEFINE_CT_OPEN_FACTORY(class_name) const ctable_open_factory<class_name> class_name::factory(#class_name);
+
+/* for ctables which wrap a dtable at runtime but not on disk */
+#define DECLARE_CT_WRAP_FACTORY(class_name) static const ctable_wrap_factory<class_name> factory;
+#define DEFINE_CT_WRAP_FACTORY(class_name) const ctable_wrap_factory<class_name> class_name::factory(#class_name);
 
 #endif /* __CTABLE_FACTORY_H */

@@ -248,4 +248,4 @@ int simple_ctable::remove(const dtype & key, const istr & column)
 	return r;
 }
 
-DEFINE_CT_FACTORY(simple_ctable);
+DEFINE_CT_WRAP_FACTORY(simple_ctable);
