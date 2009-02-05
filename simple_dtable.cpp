@@ -208,6 +208,8 @@ int simple_dtable::find_key(const T & test, size_t * index, size_t * data_length
 
 blob simple_dtable::get_value(size_t index, size_t data_length, off_t data_offset) const
 {
+	if(!data_length)
+		return blob::empty;
 	blob_buffer value(data_length);
 	value.set_size(data_length, false);
 	assert(data_length == value.size());

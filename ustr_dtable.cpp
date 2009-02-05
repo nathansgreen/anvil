@@ -249,6 +249,8 @@ blob ustr_dtable::unpack_blob(const blob & source, size_t unpacked_size) const
 blob ustr_dtable::get_value(size_t index, size_t data_length, off_t data_offset) const
 {
 	ssize_t read_length;
+	if(!data_length)
+		return blob::empty;
 	blob_buffer value(data_length);
 	value.set_size(data_length, false);
 	assert(data_length == value.size());
@@ -443,6 +445,8 @@ blob ustr_dtable::pack_blob(const blob & source, const dtable_header & header, c
 {
 	size_t escape = header.dup_escape_len + header.dup_index_size;
 	size_t packed_size = pack_size(source, header, dups);
+	if(!packed_size)
+		return blob::empty;
 	blob_buffer buffer(packed_size);
 	for(size_t i = 0; i < source.size(); i++)
 	{

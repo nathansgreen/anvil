@@ -13,7 +13,6 @@
 
 #include "util.h"
 #include "rwfile.h"
-#include "blob_buffer.h"
 #include "usstate_dtable.h"
 
 /* NOTE: this must be sorted, and we expect all codes to be length 2 */

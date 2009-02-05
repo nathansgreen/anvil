@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -6,6 +6,7 @@
 #include <string.h>
 #include <errno.h>
 
+#include "util.h"
 #include "blob_buffer.h"
 #include "stringtbl.h"
 
@@ -43,7 +44,6 @@ int stringtbl::init(const rofile * fp, off_t start)
 	size = sizeof(header) + bytes[2] * count;
 	for(ssize_t i = 0; i < count; i++)
 	{
-		uint32_t value = 0;
 		uint8_t buffer[8];
 		r = fp->read(offset, buffer, bytes[2]);
 		if(r != bytes[2])
@@ -52,10 +52,7 @@ int stringtbl::init(const rofile * fp, off_t start)
 			return (r < 0) ? r : -1;
 		}
 		offset += bytes[2];
-		/* read big endian order */
-		for(r = 0; r < bytes[0]; r++)
-			value = (value << 8) | buffer[r];
-		size += value;
+		size += util::read_bytes(buffer, 0, bytes[0]);
 	}
 	for(ssize_t i = 0; i < ST_LRU; i++)
 	{
@@ -86,7 +83,7 @@ const char * stringtbl::get(ssize_t index) const
 {
 	int i, bc = 0;
 	off_t offset;
-	ssize_t length = 0;
+	ssize_t length;
 	uint8_t buffer[8];
 	char * string;
 	if(index < 0 || index >= count)
@@ -99,13 +96,8 @@ const char * stringtbl::get(ssize_t index) const
 	i = fp->read(offset, buffer, bytes[2]);
 	if(i != bytes[2])
 		return NULL;
-	/* read big endian order */
-	for(i = 0; i < bytes[0]; i++)
-		length = (length << 8) | buffer[bc++];
-	offset = 0;
-	for(i = 0; i < bytes[1]; i++)
-		offset = (offset << 8) | buffer[bc++];
-	offset += start;
+	length = util::read_bytes(buffer, &bc, bytes[0]);
+	offset = util::read_bytes(buffer, &bc, bytes[1]) + start;
 	/* now we have the length and offset */
 	string = (char *) malloc(length + 1);
 	if(!string)
@@ -131,7 +123,7 @@ const blob & stringtbl::get_blob(ssize_t index) const
 {
 	int i, bc = 0;
 	off_t offset;
-	ssize_t length = 0;
+	ssize_t length;
 	uint8_t buffer[8];
 	if(index < 0 || index >= count)
 		return blob::dne;
@@ -143,16 +135,12 @@ const blob & stringtbl::get_blob(ssize_t index) const
 	i = fp->read(offset, buffer, bytes[2]);
 	if(i != bytes[2])
 		return blob::dne;
-	/* read big endian order */
-	for(i = 0; i < bytes[0]; i++)
-		length = (length << 8) | buffer[bc++];
-	offset = 0;
-	for(i = 0; i < bytes[1]; i++)
-		offset = (offset << 8) | buffer[bc++];
-	offset += start;
+	length = util::read_bytes(buffer, &bc, bytes[0]);
+	offset = util::read_bytes(buffer, &bc, bytes[1]) + start;
 	/* now we have the length and offset */
 	blob_buffer data(length);
 	data.set_size(length, false);
+	assert(length);
 	i = fp->read(offset, &data[0], length);
 	if(i != length)
 		return blob::dne;
@@ -256,25 +244,11 @@ int stringtbl::create(rwfile * fp, const std::vector<istr> & strings)
 	/* write the length/offset table */
 	for(i = 0; i < count; i++)
 	{
-		int j, bc = 0;
+		int bc = 0;
 		uint8_t buffer[8];
-		uint32_t value;
 		size = strlen(strings[i]);
-		value = size;
-		bc += header.bytes[0];
-		/* write big endian order */
-		for(j = 0; j < header.bytes[0]; j++)
-		{
-			buffer[bc - j - 1] = value & 0xFF;
-			value >>= 8;
-		}
-		value = max;
-		bc += header.bytes[1];
-		for(j = 0; j < header.bytes[1]; j++)
-		{
-			buffer[bc - j - 1] = value & 0xFF;
-			value >>= 8;
-		}
+		util::layout_bytes(buffer, &bc, size, header.bytes[0]);
+		util::layout_bytes(buffer, &bc, max, header.bytes[1]);
 		max += size;
 		r = fp->append(buffer, bc);
 		if(r != bc)
@@ -333,25 +307,11 @@ int stringtbl::create(rwfile * fp, const std::vector<blob> & blobs)
 	/* write the length/offset table */
 	for(ssize_t i = 0; i < count; i++)
 	{
-		int j, bc = 0;
+		int bc = 0;
 		uint8_t buffer[8];
-		uint32_t value;
 		size = blobs[i].size();
-		value = size;
-		bc += header.bytes[0];
-		/* write big endian order */
-		for(j = 0; j < header.bytes[0]; j++)
-		{
-			buffer[bc - j - 1] = value & 0xFF;
-			value >>= 8;
-		}
-		value = max;
-		bc += header.bytes[1];
-		for(j = 0; j < header.bytes[1]; j++)
-		{
-			buffer[bc - j - 1] = value & 0xFF;
-			value >>= 8;
-		}
+		util::layout_bytes(buffer, &bc, size, header.bytes[0]);
+		util::layout_bytes(buffer, &bc, max, header.bytes[1]);
 		max += size;
 		r = fp->append(buffer, bc);
 		if(r != bc)

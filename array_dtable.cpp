@@ -144,6 +144,12 @@ blob array_dtable::get_value(size_t index, bool * found) const
 	}
 	else
 		offset = data_start + index * value_size;
+	if(!value_size)
+	{
+		/* we can do nothing but assume it was found */
+		*found = true;
+		return blob::empty;
+	}
 	blob_buffer value(value_size);
 	value.set_size(value_size, false);
 	data_length = fp->read(offset, &value[0], value_size);
@@ -280,6 +286,10 @@ int array_dtable::init(int dfd, const char * file, const params & config)
 		data_start += value_size;
 		dne_value = buffer;
 	}
+	if(header.hole && header.dne)
+		/* cannot have the same value for these */
+		if(!hole_value.compare(dne_value))
+			goto fail;
 	
 	return 0;
 	
@@ -333,7 +343,12 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 	if(!config.get("tag_byte", &tag_byte, true))
 		return -EINVAL;
 	if(hole_value.exists() && dne_value.exists())
+	{
 		tag_byte = false;
+		/* cannot have the same value for these */
+		if(!hole_value.compare(dne_value))
+			return -EINVAL;
+	}
 	if(!tag_byte)
 	{
 		hole_ok = hole_value.exists();

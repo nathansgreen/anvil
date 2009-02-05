@@ -14,6 +14,10 @@
 #include "util.h"
 #include "managed_dtable.h"
 
+/* FIXME: we need to explicitly store the blob comparator name in the
+ * managed_dtable; counting on subordinate dtables to store it is insufficient,
+ * since we might have no disk dtables and an empty journal_dtable */
+
 int managed_dtable::init(int dfd, const char * name, const params & config, sys_journal * sys_journal)
 {
 	istr fast_config = "fastbase_config";
