@@ -67,7 +67,9 @@ tx
 info
 dtable
 edtable
+ussdtable
 ctable
+cctable
 stable
 iterator
 blob_cmp

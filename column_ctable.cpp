@@ -257,6 +257,7 @@ void column_ctable::deinit()
 	columns = 0;
 }
 
+/* TODO: accept generic "base" and "config" so we don't have to specify each column, only the special ones */
 int column_ctable::init(int dfd, const char * file, const params & config)
 {
 	int cct_dfd, r;
@@ -305,9 +306,9 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 	offset = sizeof(meta);
 	for(size_t i = 0; i < columns; i++)
 	{
-		uint32_t length, size;
-		size = meta_file->read(offset, &length);
-		if(size != length)
+		uint32_t length;
+		r = meta_file->read(offset, &length);
+		if(r < 0)
 			goto fail_names;
 		offset += sizeof(length);
 		column_name[i] = meta_file->read_string(offset, length);
@@ -418,7 +419,7 @@ int column_ctable::create(int dfd, const char * file, const params & config, dty
 		sprintf(base_string, "column%d_name", i);
 		r = config.get(base_string, &base_name);
 		assert(r && base_name);
-		r = base->create(cct_dfd, "base", base_config, key_type);
+		r = base->create(cct_dfd, base_name, base_config, key_type);
 		if(r < 0)
 			goto fail_loop;
 		length = base_name.length();

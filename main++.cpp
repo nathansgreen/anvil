@@ -21,6 +21,7 @@
 #include "ustr_dtable.h"
 #include "simple_dtable.h"
 #include "managed_dtable.h"
+#include "memory_dtable.h"
 #include "simple_ctable.h"
 #include "simple_stable.h"
 #include "reverse_blob_comparator.h"
@@ -29,7 +30,9 @@ extern "C" {
 int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_edtable(int argc, const char * argv[]);
+int command_ussdtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
+int command_cctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
@@ -373,6 +376,43 @@ int command_edtable(int argc, const char * argv[])
 	return 0;
 }
 
+int command_ussdtable(int argc, const char * argv[])
+{
+	int r;
+	params config;
+	dtable * table;
+	memory_dtable mdt;
+	const dtable_factory * base = dtable_factory::lookup("usstate_dtable");
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) simple_dtable
+	]), &config);
+	
+	mdt.init(dtype::UINT32, true);
+	mdt.insert(1u, "MA");
+	mdt.insert(2u, "CA");
+	run_iterator(&mdt);
+	
+	r = base->create(AT_FDCWD, "usst_test", config, &mdt);
+	printf("uss::create = %d\n", r);
+	table = base->open(AT_FDCWD, "usst_test", config);
+	printf("uss::open = %p\n", table);
+	run_iterator(table);
+	delete table;
+	
+	table = dtable_factory::load("simple_dtable", AT_FDCWD, "usst_test", params());
+	printf("dtable_factory::load = %p\n", table);
+	run_iterator(table);
+	delete table;
+	
+	mdt.insert(3u, "other");
+	r = base->create(AT_FDCWD, "usst_fail", config, &mdt);
+	printf("uss::create = %d (expect failure)\n", r);
+	
+	return 0;
+}
+
 int command_ctable(int argc, const char * argv[])
 {
 	int r;
@@ -425,6 +465,46 @@ int command_ctable(int argc, const char * argv[])
 	printf("tx_end = %d\n", r);
 	delete sct;
 	delete mdt;
+	
+	return 0;
+}
+
+int command_cctable(int argc, const char * argv[])
+{
+	int r;
+	ctable * ct;
+	const ctable_factory * base = ctable_factory::lookup("column_ctable");
+	
+	params config;
+	r = params::parse(LITERAL(
+	config [
+		"columns" int 3
+		"column0_base" class(dt) simple_dtable
+		"column0_name" string "first"
+		"column1_base" class(dt) simple_dtable
+		"column1_name" string "last"
+		"column2_base" class(dt) usstate_dtable
+		"column2_config" config [
+			"base" class(dt) array_dtable
+			"base_config" config [
+				"hole_value" blob FE
+				"dne_value" blob FF
+			]
+		]
+		"column2_name" string "state"
+	]), &config);
+	
+	r = base->create(AT_FDCWD, "ccts_test", config, dtype::UINT32);
+	printf("cct::create = %d\n", r);
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	ct = base->open(AT_FDCWD, "ccts_test", config);
+	printf("cct::open = %p\n", ct);
+	/* TODO: add some nontrivial tests here */
+	delete ct;
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
 	
 	return 0;
 }

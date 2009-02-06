@@ -46,7 +46,12 @@ public:
 	}
 	
 	inline memory_dtable() : ready(false), full_rm(false), mdt_map(blob_cmp), mdt_hash(10, blob_cmp, blob_cmp) {}
-	int init(dtype::ctype key_type, bool full_remove);
+	int init(dtype::ctype key_type, bool full_remove = false);
+	inline void reinit()
+	{
+		mdt_hash.clear();
+		mdt_map.clear();
+	}
 	void deinit();
 	inline virtual ~memory_dtable()
 	{

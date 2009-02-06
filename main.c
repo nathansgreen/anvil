@@ -594,7 +594,9 @@ static int command_tx(int argc, const char * argv[])
 int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_edtable(int argc, const char * argv[]);
+int command_ussdtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
+int command_cctable(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
@@ -627,7 +629,9 @@ struct {
 	{"info", "Print some information about toilet.", command_info},
 	{"dtable", "Test dtable functionality.", command_dtable},
 	{"edtable", "Test exception dtable functionality.", command_edtable},
+	{"ussdtable", "Test usstate dtable functionality.", command_ussdtable},
 	{"ctable", "Test ctable functionality.", command_ctable},
+	{"cctable", "Test column ctable functionality.", command_cctable},
 	{"stable", "Test stable functionality.", command_stable},
 	{"iterator", "Test iterator functionality.", command_iterator},
 	{"blob_cmp", "Test blob_cmp functionality.", command_blob_cmp},

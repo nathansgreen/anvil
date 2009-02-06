@@ -335,11 +335,41 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 	if(!source_shadow_ok(source, shadow))
 		return -EINVAL;
 	
+	if(!config.get("value_size", &r, 0) || r < 0)
+		return -EINVAL;
+	if(r)
+	{
+		header.value_size = r;
+		value_size_known = true;
+	}
+	else
+		header.value_size = 0;
+	
 	/* deal with hole and nonexistent value configuration */
 	if(!config.get_blob_or_string("hole_value", &hole_value))
 		return -EINVAL;
+	if(hole_value.exists())
+	{
+		if(!value_size_known)
+		{
+			header.value_size = hole_value.size();
+			value_size_known = true;
+		}
+		else if(hole_value.size() != header.value_size)
+			return -EINVAL;
+	}
 	if(!config.get_blob_or_string("dne_value", &dne_value))
 		return -EINVAL;
+	if(dne_value.exists())
+	{
+		if(!value_size_known)
+		{
+			header.value_size = dne_value.size();
+			value_size_known = true;
+		}
+		else if(dne_value.size() != header.value_size)
+			return -EINVAL;
+	}
 	if(!config.get("tag_byte", &tag_byte, true))
 		return -EINVAL;
 	if(hole_value.exists() && dne_value.exists())
@@ -357,7 +387,6 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 	
 	header.min_key = 0;
 	header.key_count = 0;
-	header.value_size = 0;
 	header.tag_byte = tag_byte;
 	header.hole = hole_value.exists();
 	header.dne = dne_value.exists();
