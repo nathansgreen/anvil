@@ -8,9 +8,6 @@
 #include <stdio.h>
 
 #include "factory.h"
-#include "dtable_factory.h"
-#include "ctable_factory.h"
-#include "index_factory.h"
 
 /* Can we be guaranteed that the constructor for this map will be called before
  * the factory constructors that call add() below? Not officially, but in
@@ -19,6 +16,8 @@
  * constructors are called in the opposite order as they are linked together. */
 template<class T>
 typename factory<T>::factory_map factory<T>::factories;
+
+/* TODO: use factory_map::find()/insert() here instead of factory_map::count()/operator[]() */
 
 template<class T>
 int factory<T>::add(const istr & class_name, const factory * factory)
