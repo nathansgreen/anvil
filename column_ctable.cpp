@@ -292,11 +292,11 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 	for(size_t i = 0; i < columns; i++)
 	{
 		char base_string[32];
-		sprintf(base_string, "column%d_base", i);
+		sprintf(base_string, "column%d_base", (int) i);
 		base = dtable_factory::lookup(config, base_string);
 		if(!base)
 			goto fail_names;
-		sprintf(base_string, "column%d_config", i);
+		sprintf(base_string, "column%d_config", (int) i);
 		if(!config.get(base_string, &base_config, params()))
 			goto fail_names;
 		column_table[i] = NULL;
@@ -320,10 +320,10 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 	for(size_t i = 0; i < columns; i++)
 	{
 		char base_string[32];
-		sprintf(base_string, "column%d_base", i);
+		sprintf(base_string, "column%d_base", (int) i);
 		base = dtable_factory::lookup(config, base_string);
 		assert(base);
-		sprintf(base_string, "column%d_config", i);
+		sprintf(base_string, "column%d_config", (int) i);
 		r = config.get(base_string, &base_config, params());
 		assert(r);
 		column_table[i] = base->open(cct_dfd, column_name[i], base_config);
