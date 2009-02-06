@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -89,6 +89,16 @@ public:
 	/* read some data from the file */
 	/* this should be const, but due to the shared cache, it's easier not to bother */
 	ssize_t read(off_t offset, void * data, ssize_t size);
+	
+	/* read a string; copies twice, but hopefully it's not big */
+	inline istr read_string(off_t offset, ssize_t length)
+	{
+		char string[length];
+		ssize_t r = read(offset, string, length);
+		if(r != length)
+			return NULL;
+		return istr(string, length);
+	}
 	
 	/* append the structure to the file */
 	template<class T>
