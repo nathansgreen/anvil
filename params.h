@@ -42,6 +42,8 @@ public:
 	bool get(const istr & name, blob * value, const blob & dfl = blob()) const;
 	bool get(const istr & name, params * value, const params & dfl = params()) const;
 	
+	bool has(const istr & name) const;
+	
 	/* a wrapper that allows blobs and optionally strings */
 	inline bool get_blob_or_string(const istr & name, blob * value, const blob & dfl = blob()) const
 	{

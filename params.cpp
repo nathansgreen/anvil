@@ -29,7 +29,7 @@ bool params::get(const istr & name, bool * value, bool dfl) const
 	}
 	if(p->type != param::BOOL)
 		return false;
-	*value = p->i;
+	*value = p->b;
 	return true;
 }
 
@@ -101,6 +101,12 @@ bool params::get(const istr & name, params * value, const params & dfl) const
 		return false;
 	*value = p->p;
 	return true;
+}
+
+bool params::has(const istr & name) const
+{
+	const param * p;
+	return simple_find(name, &p);
 }
 
 void params::print() const

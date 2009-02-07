@@ -915,7 +915,7 @@ void tpp_dtable_cache::close(tpp_dtable * dtable)
 			if(!recent[i])
 				break;
 		if(i == RECENT_OPEN_DTABLES)
-			close(recent[RECENT_OPEN_DTABLES - 1]);
+			close(recent[--i]);
 		for(; i; i--)
 			recent[i] = recent[i - 1];
 		recent[0] = dtable;
