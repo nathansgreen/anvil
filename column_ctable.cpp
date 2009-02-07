@@ -257,13 +257,12 @@ void column_ctable::deinit()
 	columns = 0;
 }
 
-/* TODO: accept generic "base" and "config" so we don't have to specify each column, only the special ones */
 int column_ctable::init(int dfd, const char * file, const params & config)
 {
 	int cct_dfd, r;
-	const dtable_factory * base;
+	const dtable_factory * base = NULL;
 	params base_config;
-	istr base_name;
+	bool have_base;
 	
 	off_t offset;
 	ctable_header meta;
@@ -289,16 +288,31 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 	if(!column_table)
 		goto fail_tables;
 	
+	have_base = config.has("base");
+	if(have_base && !(base = dtable_factory::lookup(config, "base")))
+		goto fail_config;
+	if(!config.get("base_config", &base_config))
+		goto fail_config;
+	
 	/* check that we have all the config we need */
 	for(size_t i = 0; i < columns; i++)
 	{
-		char base_string[32];
-		sprintf(base_string, "column%d_base", (int) i);
-		base = dtable_factory::lookup(config, base_string);
-		if(!base)
+		istr name;
+		char string[32];
+		params column_config;
+		sprintf(string, "column%d_base", (int) i);
+		name = string;
+		if(config.has(name))
+		{
+			/* typecheck and lookup class */
+			if(!dtable_factory::lookup(config, name))
+				goto fail_names;
+		}
+		else if(!have_base)
 			goto fail_names;
-		sprintf(base_string, "column%d_config", (int) i);
-		if(!config.get(base_string, &base_config, params()))
+		sprintf(string, "column%d_config", (int) i);
+		/* typecheck */
+		if(!config.get(string, &column_config, params()))
 			goto fail_names;
 		column_table[i] = NULL;
 	}
@@ -320,14 +334,22 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 	
 	for(size_t i = 0; i < columns; i++)
 	{
-		char base_string[32];
-		sprintf(base_string, "column%d_base", (int) i);
-		base = dtable_factory::lookup(config, base_string);
-		assert(base);
-		sprintf(base_string, "column%d_config", (int) i);
-		r = config.get(base_string, &base_config, params());
+		istr name;
+		char string[32];
+		params column_config;
+		const dtable_factory * column;
+		sprintf(string, "column%d_base", (int) i);
+		name = string;
+		if(config.has(name))
+			column = dtable_factory::lookup(config, name);
+		else
+			column = base;
+		assert(column);
+		sprintf(string, "column%d_config", (int) i);
+		name = string;
+		r = config.get(name, &column_config, base_config);
 		assert(r);
-		column_table[i] = base->open(cct_dfd, column_name[i], base_config);
+		column_table[i] = column->open(cct_dfd, column_name[i], column_config);
 		if(!column_table[i])
 			goto fail_load;
 	}
@@ -342,6 +364,7 @@ fail_load:
 			delete column_table[i];
 fail_names:
 	column_map.empty();
+fail_config:
 	delete[] column_table;
 fail_tables:
 	delete[] column_name;
@@ -356,9 +379,10 @@ fail_open:
 int column_ctable::create(int dfd, const char * file, const params & config, dtype::ctype key_type)
 {
 	int cct_dfd, columns, r;
-	const dtable_factory * base;
+	const dtable_factory * base = NULL;
 	params base_config;
-	istr base_name;
+	istr column_name;
+	bool have_base;
 	std::set<istr, strcmp_less> names;
 	
 	ctable_header meta;
@@ -368,23 +392,38 @@ int column_ctable::create(int dfd, const char * file, const params & config, dty
 		return -EINVAL;
 	if(columns < 1)
 		return -EINVAL;
+	
+	have_base = config.has("base");
+	if(have_base && !(base = dtable_factory::lookup(config, "base")))
+		return -EINVAL;
+	if(!config.get("base_config", &base_config))
+		return -EINVAL;
+	
 	/* check that we have all the config we need */
 	for(int i = 0; i < columns; i++)
 	{
-		char base_string[32];
-		sprintf(base_string, "column%d_base", i);
-		base = dtable_factory::lookup(config, base_string);
-		if(!base)
+		char string[32];
+		params column_config;
+		sprintf(string, "column%d_base", i);
+		column_name = string;
+		if(config.has(column_name))
+		{
+			/* typecheck and lookup class */
+			if(!dtable_factory::lookup(config, column_name))
+				return -EINVAL;
+		}
+		else if(!have_base)
 			return -EINVAL;
-		sprintf(base_string, "column%d_config", i);
-		if(!config.get(base_string, &base_config, params()))
+		sprintf(string, "column%d_config", i);
+		/* typecheck */
+		if(!config.get(string, &column_config, params()))
 			return -EINVAL;
-		sprintf(base_string, "column%d_name", i);
-		if(!config.get(base_string, &base_name) || !base_name)
+		sprintf(string, "column%d_name", i);
+		if(!config.get(string, &column_name) || !column_name)
 			return -EINVAL;
-		if(names.count(base_name))
+		if(names.count(column_name))
 			return -EEXIST;
-		names.insert(base_name);
+		names.insert(column_name);
 	}
 	names.clear();
 	
@@ -408,25 +447,31 @@ int column_ctable::create(int dfd, const char * file, const params & config, dty
 	/* create the columns and record their names */
 	for(int i = 0; i < columns; i++)
 	{
+		char string[32];
 		uint32_t length;
-		char base_string[32];
-		sprintf(base_string, "column%d_base", i);
-		base = dtable_factory::lookup(config, base_string);
-		assert(base);
-		sprintf(base_string, "column%d_config", i);
-		r = config.get(base_string, &base_config, params());
+		params column_config;
+		const dtable_factory * column;
+		sprintf(string, "column%d_base", i);
+		column_name = string;
+		if(config.has(column_name))
+			column = dtable_factory::lookup(config, column_name);
+		else
+			column = base;
+		assert(column);
+		sprintf(string, "column%d_config", i);
+		r = config.get(string, &column_config, base_config);
 		assert(r);
-		sprintf(base_string, "column%d_name", i);
-		r = config.get(base_string, &base_name);
-		assert(r && base_name);
-		r = base->create(cct_dfd, base_name, base_config, key_type);
+		sprintf(string, "column%d_name", i);
+		r = config.get(string, &column_name);
+		assert(r && column_name);
+		r = column->create(cct_dfd, column_name, column_config, key_type);
 		if(r < 0)
 			goto fail_loop;
-		length = base_name.length();
+		length = column_name.length();
 		r = meta_file.append(&length);
 		if(r < 0)
 			goto fail_loop;
-		r = meta_file.append(base_name);
+		r = meta_file.append(column_name);
 		if(r < 0)
 			goto fail_loop;
 	}

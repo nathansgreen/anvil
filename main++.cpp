@@ -479,10 +479,10 @@ int command_cctable(int argc, const char * argv[])
 	r = params::parse(LITERAL(
 	config [
 		"columns" int 3
-		"column0_base" class(dt) simple_dtable
+		"base" class(dt) simple_dtable
 		"column0_name" string "first"
-		"column1_base" class(dt) simple_dtable
 		"column1_name" string "last"
+		"column2_name" string "state"
 		"column2_base" class(dt) usstate_dtable
 		"column2_config" config [
 			"base" class(dt) array_dtable
@@ -491,7 +491,6 @@ int command_cctable(int argc, const char * argv[])
 				"dne_value" blob FF
 			]
 		]
-		"column2_name" string "state"
 	]), &config);
 	
 	r = base->create(AT_FDCWD, "ccts_test", config, dtype::UINT32);
