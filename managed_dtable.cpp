@@ -143,7 +143,7 @@ fail_header:
 fail_meta:
 	close(md_dfd);
 	md_dfd = -1;
-	return r;
+	return (r < 0) ? r : -1;
 }
 
 void managed_dtable::deinit()

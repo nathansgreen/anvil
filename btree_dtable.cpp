@@ -153,7 +153,7 @@ int btree_dtable::init(int dfd, const char * file, const params & config)
 	if(header.key_size != BTREE_KEY_SIZE || header.index_size != BTREE_INDEX_SIZE)
 		goto fail_format;
 	/* 1 -> uint32, and even with an empty table there will be a root page */
-	if(header.key_type != 1 || !header.root_page || !header.last_full)
+	if(header.key_type != 1 || !header.root_page)
 		goto fail_format;
 	
 	close(bt_dfd);
