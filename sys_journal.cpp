@@ -275,6 +275,7 @@ int sys_journal::init(int dfd, const char * file, bool create, bool filter_on_em
 	SYSJ_DEBUG("%d, %s, %d, %d", dfd, file, create, fail_missing);
 	if(meta_fd >= 0)
 		deinit();
+	live_entries = 0;
 	this->filter_on_empty = filter_on_empty;
 	meta_fd = tx_open(dfd, file, O_RDWR);
 	if(meta_fd < 0)

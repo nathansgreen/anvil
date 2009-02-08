@@ -1383,6 +1383,7 @@ static int command_performance_stable(int argc, const char * argv[])
 					goto fail_iter;
 			}
 		}
+		delete iter;
 		printf("OK!\n");
 	}
 	
@@ -1553,6 +1554,7 @@ static int command_performance_dtable(int argc, const char * argv[])
 			else if(table_copy[row] != (uint32_t) -1)
 				goto fail_iter;
 		}
+		delete iter;
 		printf("OK!\n");
 	}
 	

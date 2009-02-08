@@ -289,6 +289,7 @@ void tx_deinit(void)
 	}
 	if(current_journal)
 	{
+		current_journal->erase();
 		current_journal->release();
 		current_journal = NULL;
 	}

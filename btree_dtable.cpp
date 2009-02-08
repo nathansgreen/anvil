@@ -52,6 +52,7 @@
 btree_dtable::iter::iter(dtable::iter * base, const btree_dtable * source)
 	: iter_source<btree_dtable, dtable_wrap_iter>(base, source)
 {
+	claim_base = true;
 }
 
 bool btree_dtable::iter::seek(const dtype & key)

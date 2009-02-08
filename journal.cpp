@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -569,7 +569,7 @@ int journal::reopen(int dfd, const istr & path, const istr & commit_name, journa
 #if !(HAVE_FSTITCH)
 	const char * commit_number;
 #endif
-
+	
 	if(prev && !prev->last_commit)
 		return -EINVAL;
 	j = new journal(path, dfd, prev);

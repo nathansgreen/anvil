@@ -41,7 +41,6 @@ public:
 	
 protected:
 	dtable::iter * base;
-private:
 	bool claim_base;
 };
 

@@ -26,6 +26,7 @@ const blob usstate_dtable::state_codes[USSTATE_COUNT] = {
 usstate_dtable::iter::iter(dtable::iter * base, const usstate_dtable * source)
 	: iter_source<usstate_dtable, dtable_wrap_iter>(base, source)
 {
+	claim_base = true;
 }
 
 metablob usstate_dtable::iter::meta() const
