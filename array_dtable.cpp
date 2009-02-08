@@ -179,6 +179,17 @@ uint8_t array_dtable::index_type(size_t index, off_t * offset) const
 	return type;
 }
 
+bool array_dtable::is_hole(size_t index) const
+{
+	if(!tag_byte)
+	{
+		bool found;
+		get_value(index, &found);
+		return !found;
+	}
+	return index_type(index) == ARRAY_INDEX_HOLE;
+}
+
 int array_dtable::find_key(const dtype_test & test, size_t * index) const
 {
 	/* binary search */
