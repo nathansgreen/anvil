@@ -253,7 +253,12 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 	/* make the transaction (which modifies the metadata below) depend on having written the new file */
 	r = tx_start_external();
 	if(r < 0)
+	{
+		delete source;
+		if(shadow)
+			delete shadow;
 		return r;
+	}
 	sprintf(name, "md_data.%u", header.ddt_next);
 	/* there might be one around from a previous failed combine */
 	util::rm_r(md_dfd, name);
