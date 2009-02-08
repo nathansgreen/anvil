@@ -52,7 +52,7 @@ public:
 	inline virtual int insert(const dtype & key, const blob & blob, bool append = false)
 	{
 		int r;
-		if(!blob.exists() && !find(key).exists())
+		if(!blob.exists() && !contains(key))
 			return 0;
 		r = journal->insert(key, blob, append);
 		if(r >= 0 && digest_size && journal->size() >= digest_size)
