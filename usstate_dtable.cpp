@@ -173,7 +173,8 @@ blob usstate_dtable::rev_iter::value() const
 		{
 			ok = base->reject();
 			/* it's too bad we can't report this sooner */
-			failed = true;
+			if(!ok)
+				failed = true;
 			value = blob();
 		}
 	}

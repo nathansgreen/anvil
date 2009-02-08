@@ -21,6 +21,8 @@
 class usstate_dtable : public dtable
 {
 public:
+	static const blob state_codes[USSTATE_COUNT];
+	
 	virtual iter * iterator() const;
 	virtual bool present(const dtype & key, bool * found) const;
 	virtual blob lookup(const dtype & key, bool * found) const;
@@ -55,8 +57,6 @@ public:
 	DECLARE_RO_FACTORY(usstate_dtable);
 	
 private:
-	static const blob state_codes[USSTATE_COUNT];
-	
 	inline void static_asserts()
 	{
 		/* we're using one byte to store these things */
