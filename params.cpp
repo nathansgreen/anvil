@@ -146,7 +146,7 @@ void params::print() const
 			case param::PRM:
 				printf("prm [ ");
 				(*iter).second.p.print();
-				printf(" ] ");
+				printf("] ");
 				break;
 		}
 	}
