@@ -428,17 +428,10 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 			return -EINVAL;
 		max_key = key.u32;
 		header.key_count++;
-		if(meta.exists())
+		if(meta.exists() && !value_size_known)
 		{
-			if(!value_size_known)
-			{
-				header.value_size = meta.size();
-				value_size_known = true;
-			}
-			/* all the items in this dtable must be the same size */
-			else if(meta.size() != header.value_size)
-				if(!source->reject())
-					return -EINVAL;
+			header.value_size = meta.size();
+			value_size_known = true;
 		}
 		source->next();
 	}
@@ -477,11 +470,13 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 	{
 		dtype key = source->key();
 		blob value = source->value();
-		source->next();
 		if(!value.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->contains(key))
+			{
+				source->next();
 				continue;
+			}
 		while(index < key.u32 - header.min_key)
 		{
 			assert(hole_ok);
@@ -500,8 +495,13 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 			index++;
 		}
 		if(value.exists() && value.size() != header.value_size)
-			/* it was already successfully reject()ed above */
-			value = blob();
+		{
+			/* all the items in this dtable must be the same size */
+			if(!source->reject(&value))
+				goto fail_unlink;
+			if(value.exists() && value.size() != header.value_size)
+				goto fail_unlink;
+		}
 		if(tag_byte)
 		{
 			uint8_t type = value.exists() ? ARRAY_INDEX_VALID : ARRAY_INDEX_DNE;
@@ -520,6 +520,7 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 			r = out.append(zero_data, header.value_size);
 		if(r < 0)
 			goto fail_unlink;
+		source->next();
 		index++;
 	}
 	

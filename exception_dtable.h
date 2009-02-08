@@ -69,6 +69,7 @@ private:
 	
 	const dtable * base;
 	const dtable * alt;
+	blob reject_value;
 };
 
 #endif /* __EXCEPTION_DTABLE_H */

@@ -111,9 +111,10 @@ public:
 		 * input iterator, it may find that it cannot store some particular
 		 * value. In that case, it should call reject() on the iterator. If
 		 * reject() returns true, the rejection has been handled in some way,
-		 * and the create() method can continue. Otherwise it should return
-		 * an error, as the value cannot be stored as requested. */
-		virtual bool reject() { return false; }
+		 * and the create() method can continue by storing the replacement
+		 * value. Otherwise, or if the replacement value cannot be stored, it
+		 * should return an error, as it cannot store the requested value. */
+		virtual bool reject(blob * replacement) { return false; }
 		
 		inline iter() {}
 		virtual ~iter() {}
