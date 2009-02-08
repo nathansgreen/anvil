@@ -509,7 +509,7 @@ static int tx_unlink_playback(struct tx_name_hdr * header, size_t length, bool r
 	istr name(&header->strings[header->dir_len], header->name_len);
 	dfd = open(dir, 0);
 	if(dfd < 0)
-		return dfd;
+		return (errno == ENOENT) ? 0 : dfd;
 	if(recursive)
 		r = util::rm_r(dfd, name);
 	else
