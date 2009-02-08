@@ -77,16 +77,19 @@ private:
 	public:
 		virtual metablob meta() const;
 		virtual blob value() const;
-		virtual bool reject();
-		inline rev_iter(dtable::iter * base);
+		virtual bool reject(blob * replacement);
+		inline rev_iter(dtable::iter * base, blob reject_value);
 		virtual ~rev_iter() {}
 		mutable bool failed;
+	private:
+		blob reject_value;
 	};
 	
-	static blob unpack(blob packed);
-	static bool pack(blob * unpacked);
+	static blob unpack(blob packed, const blob & reject_value);
+	static bool pack(blob * unpacked, const blob & reject_value);
 	
 	dtable * base;
+	blob reject_value;
 };
 
 #endif /* __USSTATE_DTABLE_H */

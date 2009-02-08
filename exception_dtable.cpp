@@ -233,9 +233,12 @@ bool exception_dtable::present(const dtype & key, bool * found) const
 blob exception_dtable::lookup(const dtype & key, bool * found) const
 {
 	blob value = base->lookup(key, found);
-	if(*found)
+	/* we don't use the blob comparator here; it must match exactly */
+	if(!*found || value.compare(reject_value))
 		return value;
-	return alt->lookup(key, found);
+	value = alt->lookup(key, found);
+	assert(*found);
+	return value;
 }
 
 int exception_dtable::init(int dfd, const char * file, const params & config)
@@ -253,6 +256,12 @@ int exception_dtable::init(int dfd, const char * file, const params & config)
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
 	if(!config.get("alt_config", &alt_config, params()))
+		return -EINVAL;
+	if(!config.get_blob_or_string("reject_value", &reject_value))
+		return -EINVAL;
+	/* the reject value must exist, because nonexistent values
+	 * can get pruned out if the shadow does not require them */
+	if(!reject_value.exists())
 		return -EINVAL;
 	excp_dfd = openat(dfd, file, 0);
 	if(excp_dfd < 0)
@@ -286,6 +295,7 @@ void exception_dtable::deinit()
 {
 	if(base || alt)
 	{
+		reject_value = blob();
 		delete alt;
 		alt = NULL;
 		delete base;
@@ -297,23 +307,25 @@ void exception_dtable::deinit()
 class exception_dtable::reject_iter : public dtable_wrap_iter
 {
 public:
-	inline reject_iter(dtable::iter * base, dtable * rejects)
-		: dtable_wrap_iter(base), rejects(rejects)
+	inline reject_iter(dtable::iter * base, dtable * rejects, blob reject_value)
+		: dtable_wrap_iter(base), rejects(rejects), reject_value(reject_value)
 	{
+		/* the reject value must exist, because nonexistent values
+		 * can get pruned out if the shadow does not require them */
+		assert(reject_value.exists());
 	}
 	
-	virtual bool reject()
+	virtual bool reject(blob * replacement)
 	{
 		blob value = base->value();
-		/* we can't tolerate failure to store nonexistent
-		 * values; it's how we know there is an exception */
-		if(!value.exists())
-			return false;
+		if(replacement)
+			*replacement = reject_value;
 		return rejects->insert(base->key(), value) >= 0;
 	}
 	
 private:
 	dtable * rejects;
+	blob reject_value;
 };
 
 int exception_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow)
@@ -324,6 +336,7 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	reject_iter * handler;
 	sys_journal::listener_id id;
 	params base_config, alt_config;
+	blob reject_value;
 	const dtable_factory * base = dtable_factory::lookup(config, "base");
 	const dtable_factory * alt = dtable_factory::lookup(config, "alt");
 	if(!base || !alt)
@@ -331,6 +344,12 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
 	if(!config.get("alt_config", &alt_config, params()))
+		return -EINVAL;
+	if(!config.get_blob_or_string("reject_value", &reject_value))
+		return -EINVAL;
+	/* the reject value must exist, because nonexistent values
+	 * can get pruned out if the shadow does not require them */
+	if(!reject_value.exists())
 		return -EINVAL;
 	
 	if(!source_shadow_ok(source, shadow))
@@ -342,6 +361,7 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	excp_dfd = openat(dfd, file, 0);
 	if(excp_dfd < 0)
 		goto fail_open;
+	/* we should really save the reject_value in a meta file here */
 	
 	r = alt_journal.init(excp_dfd, "alt_journal", true);
 	if(r < 0)
@@ -356,7 +376,7 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	if(source->get_blob_cmp())
 		alt_jdt.set_blob_cmp(source->get_blob_cmp());
 	
-	handler = new reject_iter(source, &alt_jdt);
+	handler = new reject_iter(source, &alt_jdt, reject_value);
 	if(!handler)
 		goto fail_handler;
 	
@@ -365,8 +385,6 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 		goto fail_base;
 	
 	/* no shadow - this only has exceptions */
-	/* NOTE: this might need to change if we use something other than
-	 * nonexistent blobs to signal the need to check this dtable */
 	r = alt->create(excp_dfd, "alt", alt_config, &alt_jdt, NULL);
 	if(r < 0)
 		goto fail_alt;

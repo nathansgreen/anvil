@@ -309,6 +309,7 @@ int command_edtable(int argc, const char * argv[])
 		"base_config" config [
 			"base" class(dt) array_dtable
 			"alt" class(dt) simple_dtable
+			"reject_value" string "_____"
 		]
 		"digest_interval" int 2
 		"combine_interval" int 4
@@ -535,8 +536,10 @@ int command_cctable(int argc, const char * argv[])
 						"hole_value" blob FE
 						"dne_value" blob FF
 					]
+					"reject_value" blob FD
 				]
 				"alt" class(dt) simple_dtable
+				"reject_value" blob FD
 			]
 			"digest_interval" int 2
 		]

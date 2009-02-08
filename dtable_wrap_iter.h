@@ -34,7 +34,7 @@ public:
 	inline virtual metablob meta() const { return base->meta(); }
 	inline virtual blob value() const { return base->value(); }
 	inline virtual const dtable * source() const { return base->source(); }
-	inline virtual bool reject() { return base->reject(); }
+	inline virtual bool reject(blob * replacement) { return base->reject(replacement); }
 	
 	inline dtable_wrap_iter(dtable::iter * base, bool claim_base = false) : base(base), claim_base(claim_base) {}
 	inline virtual ~dtable_wrap_iter() { if(base && claim_base) delete base; }

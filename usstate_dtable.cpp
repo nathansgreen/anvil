@@ -36,7 +36,7 @@ metablob usstate_dtable::iter::meta() const
 
 blob usstate_dtable::iter::value() const
 {
-	return unpack(base->value());
+	return unpack(base->value(), dt_source->reject_value);
 }
 
 dtable::iter * usstate_dtable::iterator() const
@@ -54,7 +54,7 @@ dtable::iter * usstate_dtable::iterator() const
 	return value;
 }
 
-blob usstate_dtable::unpack(blob packed)
+blob usstate_dtable::unpack(blob packed, const blob & reject_value)
 {
 	uint8_t value;
 	if(packed.size() != 1)
@@ -62,18 +62,26 @@ blob usstate_dtable::unpack(blob packed)
 	value = packed[0];
 	if(value < USSTATE_COUNT)
 		return state_codes[value];
+	if(!packed.compare(reject_value))
+		return reject_value;
 	return blob();
 }
 
-bool usstate_dtable::pack(blob * unpacked)
+bool usstate_dtable::pack(blob * unpacked, const blob & reject_value)
 {
 	uint8_t byte;
-	ssize_t index;
-	if(unpacked->size() != 2)
-		return false;
-	index = blob::locate(state_codes, USSTATE_COUNT, *unpacked);
+	ssize_t index = -1;
+	if(unpacked->size() == 2)
+		index = blob::locate(state_codes, USSTATE_COUNT, *unpacked);
 	if(index < 0)
-		return false;
+	{
+		if(!unpacked->compare(reject_value))
+		{
+			*unpacked = reject_value;
+			return true;
+		}
+		return !unpacked->exists();
+	}
 	assert(index < USSTATE_COUNT);
 	byte = index;
 	*unpacked = blob(sizeof(byte), &byte);
@@ -89,7 +97,7 @@ blob usstate_dtable::lookup(const dtype & key, bool * found) const
 {
 	blob value = base->lookup(key, found);
 	if(value.exists())
-		value = unpack(value);
+		value = unpack(value, reject_value);
 	return value;
 }
 
@@ -97,7 +105,7 @@ blob usstate_dtable::index(size_t index) const
 {
 	blob value = base->index(index);
 	if(value.exists())
-		value = unpack(value);
+		value = unpack(value, reject_value);
 	return value;
 }
 
@@ -134,6 +142,10 @@ int usstate_dtable::init(int dfd, const char * file, const params & config)
 		return -EINVAL;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
+	if(!config.get_blob_or_string("reject_value", &reject_value))
+		return -EINVAL;
+	if(reject_value.exists() && reject_value.size() != 1)
+		return -EINVAL;
 	base = factory->open(dfd, file, base_config);
 	if(!base)
 		return -1;
@@ -146,14 +158,15 @@ void usstate_dtable::deinit()
 {
 	if(base)
 	{
+		reject_value = blob();
 		delete base;
 		base = NULL;
 		dtable::deinit();
 	}
 }
 
-usstate_dtable::rev_iter::rev_iter(dtable::iter * base)
-	: dtable_wrap_iter(base), failed(false)
+usstate_dtable::rev_iter::rev_iter(dtable::iter * base, blob reject_value)
+	: dtable_wrap_iter(base), failed(false), reject_value(reject_value)
 {
 }
 
@@ -167,26 +180,21 @@ blob usstate_dtable::rev_iter::value() const
 {
 	blob value = base->value();
 	if(value.exists())
-	{
-		bool ok = pack(&value);
-		if(!ok)
-		{
-			ok = base->reject();
-			/* it's too bad we can't report this sooner */
-			if(!ok)
+		if(!pack(&value, reject_value))
+			if(!base->reject(&value))
+			{
+				/* it's too bad we can't report this sooner */
 				failed = true;
-			value = blob();
-		}
-	}
+				value = blob();
+			}
 	return value;
 }
 
-bool usstate_dtable::rev_iter::reject()
+bool usstate_dtable::rev_iter::reject(blob * replacement)
 {
-	/* we can't tolerate failure to store nonexistent values */
-	if(failed || !value().exists())
+	if(failed)
 		return false;
-	return base->reject();
+	return base->reject(replacement);
 }
 
 int usstate_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow)
@@ -194,16 +202,21 @@ int usstate_dtable::create(int dfd, const char * file, const params & config, dt
 	int r;
 	rev_iter * rev;
 	params base_config;
+	blob reject_value;
 	const dtable_factory * base = dtable_factory::lookup(config, "base");
 	if(!base)
 		return -EINVAL;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
+	if(!config.get_blob_or_string("reject_value", &reject_value))
+		return -EINVAL;
+	if(reject_value.exists() && reject_value.size() != 1)
+		return -EINVAL;
 	
 	if(!source_shadow_ok(source, shadow))
 		return -EINVAL;
 	
-	rev = new rev_iter(source);
+	rev = new rev_iter(source, reject_value);
 	if(!rev)
 		return -ENOMEM;
 	
