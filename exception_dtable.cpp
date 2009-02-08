@@ -233,9 +233,11 @@ bool exception_dtable::present(const dtype & key, bool * found) const
 blob exception_dtable::lookup(const dtype & key, bool * found) const
 {
 	blob value = base->lookup(key, found);
-	if(*found)
+	if(!*found || value.exists())
 		return value;
-	return alt->lookup(key, found);
+	value = alt->lookup(key, found);
+	*found = true;
+	return value;
 }
 
 int exception_dtable::init(int dfd, const char * file, const params & config)
@@ -377,6 +379,7 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	close(excp_dfd);
 	return 0;
 	
+	/* FIXME: this should just rm_r delete stuff */
 fail_alt:
 	util::rm_r(excp_dfd, "base");
 fail_base:
