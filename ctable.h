@@ -11,6 +11,7 @@
 
 #include "blob.h"
 #include "dtable.h"
+#include "transaction.h"
 #include "blob_comparator.h"
 
 /* column tables */
@@ -62,6 +63,35 @@ public:
 	
 	/* maintenance callback; does nothing by default */
 	inline virtual int maintain() { return 0; }
+	
+	struct colval
+	{
+		istr name;
+		blob value;
+	};
+	/* default implementations of multi-column methods */
+	virtual int insert(const dtype & key, const colval * values, size_t count, bool append = false)
+	{
+		int r = tx_start_r();
+		if(r < 0)
+			return r;
+		for(size_t i = 0; i < count; i++)
+			if((r = insert(key, values[i].name, values[i].value, append)) < 0)
+				break;
+		tx_end_r();
+		return r;
+	}
+	virtual int remove(const dtype & key, const istr * columns, size_t count)
+	{
+		int r = tx_start_r();
+		if(r < 0)
+			return r;
+		for(size_t i = 0; i < count; i++)
+			if((r = remove(key, columns[i])) < 0)
+				break;
+		tx_end_r();
+		return r;
+	}
 	
 protected:
 	const dtable * dt_source;
