@@ -15,6 +15,8 @@
 #include "dtable_factory.h"
 #include "column_ctable.h"
 
+/* FIXME: column_ctable fails if you do not have all extant blobs for a row */
+
 column_ctable::iter::iter(const column_ctable * base)
 	: base(base)
 {
@@ -187,18 +189,11 @@ bool column_ctable::contains(const dtype & key) const
 
 int column_ctable::insert(const dtype & key, const istr & column, const blob & value, bool append)
 {
-	int r, r2;
 	name_map::iterator number = column_map.find(column);
 	if(number == column_map.end())
 		return -ENOENT;
 	assert(number->second < columns);
-	r = tx_start_r();
-	if(r < 0)
-		return r;
-	r = column_table[number->second]->insert(key, value, append);
-	r2 = tx_end_r();
-	assert(r2 >= 0);
-	return r;
+	return column_table[number->second]->insert(key, value, append);
 }
 
 int column_ctable::remove(const dtype & key, const istr & column)
