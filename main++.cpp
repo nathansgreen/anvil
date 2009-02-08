@@ -21,6 +21,7 @@
 #include "ustr_dtable.h"
 #include "simple_dtable.h"
 #include "managed_dtable.h"
+#include "usstate_dtable.h"
 #include "memory_dtable.h"
 #include "simple_ctable.h"
 #include "simple_stable.h"
@@ -388,6 +389,9 @@ int command_ussdtable(int argc, const char * argv[])
 	config [
 		"base" class(dt) simple_dtable
 	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
 	
 	mdt.init(dtype::UINT32, true);
 	mdt.insert(1u, "MA");
@@ -473,15 +477,18 @@ int command_cctable(int argc, const char * argv[])
 {
 	int r;
 	ctable * ct;
+	ctable::colval values[3] = {{"last"}, {"first"}, {"state"}};
 	const ctable_factory * base = ctable_factory::lookup("column_ctable");
+	blob first[8] = {"Amy", "Bill", "Charlie", "Diana", "Edward", "Flora", "Gail", "Henry"};
+	blob last[6] = {"Nobel", "O'Toole", "Patterson", "Quayle", "Roberts", "Smith"};
 	
 	params config;
 	r = params::parse(LITERAL(
 	config [
 		"columns" int 3
 		"base" class(dt) simple_dtable
-		"column0_name" string "first"
-		"column1_name" string "last"
+		"column0_name" string "last"
+		"column1_name" string "first"
 		"column2_name" string "state"
 		"column2_base" class(dt) usstate_dtable
 		"column2_config" config [
@@ -492,15 +499,83 @@ int command_cctable(int argc, const char * argv[])
 			]
 		]
 	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
 	
-	r = base->create(AT_FDCWD, "ccts_test", config, dtype::UINT32);
+	r = base->create(AT_FDCWD, "cctr_test", config, dtype::UINT32);
 	printf("cct::create = %d\n", r);
+	
+	ct = base->open(AT_FDCWD, "cctr_test", config);
+	printf("cct::open = %p\n", ct);
+	delete ct;
+	
+	config = params();
+	r = params::parse(LITERAL(
+	config [
+		"columns" int 3
+		"base" class(dt) managed_dtable
+		"base_config" config [
+			"base" class(dt) simple_dtable
+			"digest_interval" int 2
+			"combine_interval" int 8
+			"combine_count" int 5
+		]
+		"column0_name" string "last"
+		"column1_name" string "first"
+		"column2_name" string "state"
+		"column2_base" class(dt) managed_dtable
+		"column2_config" config [
+			"base" class(dt) exception_dtable
+			"base_config" config [
+				"base" class(dt) usstate_dtable
+				"base_config" config [
+					"base" class(dt) array_dtable
+					"base_config" config [
+						"hole_value" blob FE
+						"dne_value" blob FF
+					]
+				]
+				"alt" class(dt) simple_dtable
+			]
+			"digest_interval" int 2
+		]
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	ct = base->open(AT_FDCWD, "ccts_test", config);
+	
+	r = base->create(AT_FDCWD, "cctw_test", config, dtype::UINT32);
+	printf("cct::create = %d\n", r);
+	
+	ct = base->open(AT_FDCWD, "cctw_test", config);
 	printf("cct::open = %p\n", ct);
-	/* TODO: add some nontrivial tests here */
+	for(uint32_t i = 0; i < 20; i++)
+	{
+		values[0].value = last[rand() % 6];
+		values[1].value = first[rand() % 8];
+		values[2].value = usstate_dtable::state_codes[rand() % USSTATE_COUNT];
+		if(!(rand() % 10))
+			values[2].value = "Timbuktu";
+		r = ct->insert(i, values, 3);
+	}
+	run_iterator(ct);
+	delete ct;
+	
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	printf("Waiting 3 seconds for digest interval...\n");
+	sleep(3);
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	ct = base->open(AT_FDCWD, "cctw_test", config);
+	printf("cct::open = %p\n", ct);
+	run_iterator(ct);
 	delete ct;
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
