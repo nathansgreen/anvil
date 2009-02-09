@@ -24,43 +24,43 @@ public:
 	
 	inline virtual bool writable() const
 	{
-		return wdt_source ? wdt_source->writable() : false;
+		return base->writable();
 	}
 	
 	virtual int insert(const dtype & key, const istr & column, const blob & value, bool append = false);
 	virtual int remove(const dtype & key, const istr & column);
 	inline virtual int remove(const dtype & key)
 	{
-		return wdt_source->remove(key);
+		return base->remove(key);
 	}
-	
-	inline int init(const dtable * source, const params & config = params())
-	{
-		dt_source = source;
-		wdt_source = NULL;
-		return 0;
-	}
-	inline int init(dtable * source, const params & config = params())
-	{
-		dt_source = source;
-		wdt_source = source;
-		return 0;
-	}
-	
-	DECLARE_CT_WRAP_FACTORY(simple_ctable);
-	
-	inline simple_ctable() : wdt_source(NULL) {}
-	inline virtual ~simple_ctable() {}
 	
 	virtual int maintain()
 	{
-		return wdt_source ? wdt_source->maintain() : 0;
+		return base->maintain();
 	}
 	
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
 	{
-		return wdt_source ? wdt_source->set_blob_cmp(cmp) : -EINVAL;
+		int value = base->set_blob_cmp(cmp);
+		if(value >= 0)
+		{
+			value = ctable::set_blob_cmp(cmp);
+			assert(value >= 0);
+		}
+		return value;
 	}
+	
+	inline simple_ctable() : base(NULL) {}
+	int init(int dfd, const char * file, const params & config);
+	void deinit();
+	inline virtual ~simple_ctable()
+	{
+		if(base)
+			deinit();
+	}
+	
+	static int create(int dfd, const char * file, const params & config, dtype::ctype key_type);
+	DECLARE_CT_FACTORY(simple_ctable);
 	
 private:
 	class iter : public ctable::iter
@@ -96,7 +96,7 @@ private:
 		sub_blob::iter * columns;
 	};
 	
-	dtable * wdt_source;
+	dtable * base;
 };
 
 #endif /* __SIMPLE_CTABLE_H */

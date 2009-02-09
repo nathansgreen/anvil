@@ -35,19 +35,21 @@ public:
 	virtual int remove(const dtype & key, const istr & column);
 	virtual int remove(const dtype & key);
 	
-	int init(int dfd, const char * file, const params & config = params());
-	void deinit();
-	
-	inline column_ctable() : columns(0), column_name(NULL), column_table(NULL) {}
-	inline virtual ~column_ctable() { if(columns) deinit(); }
+	virtual int set_blob_cmp(const blob_comparator * cmp);
 	
 	virtual int maintain();
 	
-	virtual int set_blob_cmp(const blob_comparator * cmp);
-	
-	DECLARE_CT_OPEN_FACTORY(column_ctable);
+	inline column_ctable() : columns(0), column_name(NULL), column_table(NULL) {}
+	int init(int dfd, const char * file, const params & config = params());
+	void deinit();
+	inline virtual ~column_ctable()
+	{
+		if(columns)
+			deinit();
+	}
 	
 	static int create(int dfd, const char * file, const params & config, dtype::ctype key_type);
+	DECLARE_CT_FACTORY(column_ctable);
 	
 private:
 	struct ctable_header

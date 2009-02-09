@@ -44,7 +44,7 @@ public:
 	
 	int init(int dfd, const char * name, const params & config);
 	void deinit();
-	inline simple_stable() : md_dfd(-1), dt_meta(NULL), _dt_data(NULL), ct_data(NULL) {}
+	inline simple_stable() : md_dfd(-1), dt_meta(NULL), ct_data(NULL) {}
 	inline virtual ~simple_stable()
 	{
 		if(md_dfd >= 0)
@@ -132,7 +132,6 @@ private:
 	
 	int md_dfd;
 	dtable * dt_meta;
-	dtable * _dt_data;
 	ctable * ct_data;
 };
 

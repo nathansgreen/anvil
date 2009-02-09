@@ -210,8 +210,8 @@ int tpp_dtable_iter_value(const tpp_dtable_iter * c, tpp_blob * value);
 void tpp_dtable_iter_kill(tpp_dtable_iter * c);
 
 /* ctable */
-tpp_ctable * tpp_ctable_open(const char * type, tpp_dtable * dt_source, const tpp_params * config);
-tpp_ctable * tpp_ctable_open_const(const char * type, const tpp_dtable * dt_source, const tpp_params * config);
+int tpp_ctable_create(const char * type, int dfd, const char * name, const tpp_params * config, tpp_dtype_type key_type);
+tpp_ctable * tpp_ctable_open(const char * type, int dfd, const char * name, const tpp_params * config);
 void tpp_ctable_kill(tpp_ctable * c);
 
 int tpp_ctable_find(const tpp_ctable * c, const tpp_dtype * key, const tpp_istr * column, tpp_blob * value);

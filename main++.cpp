@@ -423,24 +423,32 @@ int command_ussdtable(int argc, const char * argv[])
 int command_ctable(int argc, const char * argv[])
 {
 	int r;
-	managed_dtable * mdt;
 	simple_ctable * sct;
 	
 	params config;
-	config.set_class("base", ustr_dtable);
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) managed_dtable
+		"base_config" config [
+			"base" class(dt) ustr_dtable
+			"digest_interval" int 1
+			"combine_interval" int 1
+			"combine_count" int 3
+		]
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = managed_dtable::create(AT_FDCWD, "msct_test", config, dtype::UINT32);
-	printf("dtable::create = %d\n", r);
+	r = simple_ctable::create(AT_FDCWD, "msct_test", config, dtype::UINT32);
+	printf("ctable::create = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
-	mdt = new managed_dtable;
 	sct = new simple_ctable;
-	r = mdt->init(AT_FDCWD, "msct_test", config);
-	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
-	r = sct->init(mdt);
+	r = sct->init(AT_FDCWD, "msct_test", config);
 	printf("sct->init = %d\n", r);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -450,8 +458,10 @@ int command_ctable(int argc, const char * argv[])
 	r = sct->insert(8u, "world", blob("cheezburger"));
 	printf("sct->insert(8, world) = %d\n", r);
 	run_iterator(sct);
-	r = mdt->combine();
-	printf("mdt->combine() = %d\n", r);
+	printf("Waiting 1 second for digest interval...\n");
+	sleep(1);
+	r = sct->maintain();
+	printf("sct->maintain() = %d\n", r);
 	run_iterator(sct);
 	r = sct->remove(8u, "hello");
 	printf("sct->remove(8, hello) = %d\n", r);
@@ -465,13 +475,14 @@ int command_ctable(int argc, const char * argv[])
 	r = sct->insert(12u, "foo", blob("zot"));
 	printf("sct->insert(12, foo) = %d\n", r);
 	run_iterator(sct);
-	r = mdt->combine();
-	printf("mdt->combine() = %d\n", r);
+	printf("Waiting 1 second for digest interval...\n");
+	sleep(1);
+	r = sct->maintain();
+	printf("sct->maintain() = %d\n", r);
 	run_iterator(sct);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	delete sct;
-	delete mdt;
 	
 	return 0;
 }
@@ -805,17 +816,19 @@ int command_stable(int argc, const char * argv[])
 				"digest_interval" int 2
 			]
 		]
-		"data" class(dt) cache_dtable
+		"data" class(ct) simple_ctable
 		"data_config" config [
-			"cache_size" int 40000
-			"base" class(dt) managed_dtable
+			"base" class(dt) cache_dtable
 			"base_config" config [
-				"base" class(dt) ustr_dtable
-				"fastbase" class(dt) simple_dtable
-				"digest_interval" int 2
+				"cache_size" int 40000
+				"base" class(dt) managed_dtable
+				"base_config" config [
+					"base" class(dt) ustr_dtable
+					"fastbase" class(dt) simple_dtable
+					"digest_interval" int 2
+				]
 			]
 		]
-		"columns" class(ct) simple_ctable
 	]), &config);
 	printf("params::parse = %d\n", r);
 	config.print();
@@ -1240,19 +1253,21 @@ int command_blob_cmp(int argc, const char * argv[])
 				"combine_count" int 6
 			]
 		]
-		"data" class(dt) cache_dtable
+		"data" class(ct) simple_ctable
 		"data_config" config [
-			"cache_size" int 40000
-			"base" class(dt) managed_dtable
+			"base" class(dt) cache_dtable
 			"base_config" config [
-				"base" class(dt) ustr_dtable
-				"fastbase" class(dt) simple_dtable
-				"digest_interval" int 2
-				"combine_interval" int 8
-				"combine_count" int 6
+				"cache_size" int 40000
+				"base" class(dt) managed_dtable
+				"base_config" config [
+					"base" class(dt) ustr_dtable
+					"fastbase" class(dt) simple_dtable
+					"digest_interval" int 2
+					"combine_interval" int 8
+					"combine_count" int 6
+				]
 			]
 		]
-		"columns" class(ct) simple_ctable
 	]), &config);
 	printf("params::parse = %d\n", r);
 	config.print();
@@ -1418,19 +1433,21 @@ static int command_performance_stable(int argc, const char * argv[])
 				"combine_count" int 6
 			]
 		]
-		"data" class(dt) cache_dtable
+		"data" class(ct) simple_ctable
 		"data_config" config [
-			"cache_size" int 40000
-			"base" class(dt) managed_dtable
+			"base" class(dt) cache_dtable
 			"base_config" config [
-				"base" class(dt) ustr_dtable
-				"fastbase" class(dt) simple_dtable
-				"digest_interval" int 2
-				"combine_interval" int 8
-				"combine_count" int 6
+				"cache_size" int 40000
+				"base" class(dt) managed_dtable
+				"base_config" config [
+					"base" class(dt) ustr_dtable
+					"fastbase" class(dt) simple_dtable
+					"digest_interval" int 2
+					"combine_interval" int 8
+					"combine_count" int 6
+				]
 			]
 		]
-		"columns" class(ct) simple_ctable
 	]), &config);
 	printf("params::parse = %d\n", r);
 	config.print();

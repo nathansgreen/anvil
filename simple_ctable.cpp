@@ -3,6 +3,7 @@
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
 #include "sub_blob.h"
+#include "dtable_factory.h"
 #include "simple_ctable.h"
 
 simple_ctable::iter::iter(dtable::iter * src)
@@ -188,22 +189,22 @@ blob simple_ctable::iter::value() const
 
 dtable::key_iter * simple_ctable::keys() const
 {
-	return dt_source->iterator();
+	return base->iterator();
 }
 
 ctable::iter * simple_ctable::iterator() const
 {
-	return new iter(dt_source->iterator());
+	return new iter(base->iterator());
 }
 
 ctable::iter * simple_ctable::iterator(const dtype & key) const
 {
-	return new iter(dt_source->find(key));
+	return new iter(base->find(key));
 }
 
 blob simple_ctable::find(const dtype & key, const istr & column) const
 {
-	blob row = dt_source->find(key);
+	blob row = base->find(key);
 	if(!row.exists())
 		return row;
 	/* not super efficient, but we can fix it later */
@@ -213,7 +214,7 @@ blob simple_ctable::find(const dtype & key, const istr & column) const
 
 bool simple_ctable::contains(const dtype & key) const
 {
-	return dt_source->find(key).exists();
+	return base->find(key).exists();
 }
 
 /* if we made a better find(), this could avoid flattening every time */
@@ -221,12 +222,12 @@ int simple_ctable::insert(const dtype & key, const istr & column, const blob & v
 {
 	int r = 0;
 	/* TODO: improve this... it is probably killing us */
-	blob row = wdt_source->find(key);
+	blob row = base->find(key);
 	if(row.exists() || value.exists())
 	{
 		sub_blob columns(row);
 		columns.set(column, value);
-		r = wdt_source->insert(key, columns.flatten(), append);
+		r = base->insert(key, columns.flatten(), append);
 	}
 	return r;
 }
@@ -237,7 +238,7 @@ int simple_ctable::remove(const dtype & key, const istr & column)
 	if(r >= 0)
 	{
 		/* TODO: improve this... it is probably killing us */
-		blob row = wdt_source->find(key);
+		blob row = base->find(key);
 		sub_blob columns(row);
 		sub_blob::iter * iter = columns.iterator();
 		bool last = !iter->valid();
@@ -248,4 +249,44 @@ int simple_ctable::remove(const dtype & key, const istr & column)
 	return r;
 }
 
-DEFINE_CT_WRAP_FACTORY(simple_ctable);
+int simple_ctable::init(int dfd, const char * file, const params & config)
+{
+	const dtable_factory * factory;
+	params base_config;
+	if(base)
+		deinit();
+	factory = dtable_factory::lookup(config, "base");
+	if(!factory)
+		return -ENOENT;
+	if(!config.get("base_config", &base_config, params()))
+		return -EINVAL;
+	base = factory->open(dfd, file, base_config);
+	if(!base)
+		return -1;
+	ktype = base->key_type();
+	cmp_name = base->get_cmp_name();
+	return 0;
+}
+
+void simple_ctable::deinit()
+{
+	if(base)
+	{
+		delete base;
+		base = NULL;
+		ctable::deinit();
+	}
+}
+
+int simple_ctable::create(int dfd, const char * file, const params & config, dtype::ctype key_type)
+{
+	params base_config;
+	const dtable_factory * base = dtable_factory::lookup(config, "base");
+	if(!base)
+		return -ENOENT;
+	if(!config.get("base_config", &base_config, params()))
+		return -EINVAL;
+	return base->create(dfd, file, base_config, key_type);
+}
+
+DEFINE_CT_FACTORY(simple_ctable);

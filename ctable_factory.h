@@ -19,23 +19,12 @@ class ctable_factory_base
 public:
 	virtual ctable * open(int dfd, const char * name, const params & config) const { return NULL; }
 	
-	virtual ctable * wrap(const dtable * dt_source, const params & config) const { return NULL; }
-	virtual ctable * wrap(dtable * dt_source, const params & config) const { return NULL; }
-	
 	virtual int create(int dfd, const char * name, const params & config, dtype::ctype key_type) const { return -ENOSYS; }
-	
-	/* if the open() and create() methods are implemented */
-	virtual bool can_open() const { return false; }
-	/* if the wrap() methods are implemented */
-	virtual bool can_wrap() const { return false; }
 	
 	virtual ~ctable_factory_base() {}
 	
 	/* wrapper for open() that does lookup() */
 	static ctable * load(const istr & type, int dfd, const char * name, const params & config);
-	/* wrappers for wrap() that do lookup() */
-	static ctable * encap(const istr & type, const dtable * dt_source, const params & config);
-	static ctable * encap(const istr & type, dtable * dt_source, const params & config);
 	/* wrapper for create() that does lookup() */
 	static int setup(const istr & type, int dfd, const char * name, const params & config, dtype::ctype key_type);
 };
@@ -67,49 +56,10 @@ public:
 	{
 		return T::create(dfd, name, config, key_type);
 	}
-	
-	virtual bool can_open() const { return true; }
-};
-
-template<class T>
-class ctable_wrap_factory : public ctable_factory
-{
-public:
-	ctable_wrap_factory(const istr & class_name) : ctable_factory(class_name) {}
-	
-	inline virtual ctable * wrap(const dtable * dt_source, const params & config) const
-	{
-		T * table = new T;
-		int r = table->init(dt_source, config);
-		if(r < 0)
-		{
-			delete table;
-			table = NULL;
-		}
-		return table;
-	}
-	
-	inline virtual ctable * wrap(dtable * dt_source, const params & config) const
-	{
-		T * table = new T;
-		int r = table->init(dt_source, config);
-		if(r < 0)
-		{
-			delete table;
-			table = NULL;
-		}
-		return table;
-	}
-	
-	virtual bool can_wrap() const { return true; }
 };
 
 /* for ctables which are stored on disk in some way, like most dtables */
-#define DECLARE_CT_OPEN_FACTORY(class_name) static const ctable_open_factory<class_name> factory;
-#define DEFINE_CT_OPEN_FACTORY(class_name) const ctable_open_factory<class_name> class_name::factory(#class_name);
-
-/* for ctables which wrap a dtable at runtime but not on disk */
-#define DECLARE_CT_WRAP_FACTORY(class_name) static const ctable_wrap_factory<class_name> factory;
-#define DEFINE_CT_WRAP_FACTORY(class_name) const ctable_wrap_factory<class_name> class_name::factory(#class_name);
+#define DECLARE_CT_FACTORY(class_name) static const ctable_open_factory<class_name> factory;
+#define DEFINE_CT_FACTORY(class_name) const ctable_open_factory<class_name> class_name::factory(#class_name);
 
 #endif /* __CTABLE_FACTORY_H */

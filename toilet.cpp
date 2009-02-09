@@ -269,16 +269,18 @@ static int toilet_new_gtable_type(t_toilet * toilet, const char * name, dtype::c
 				"base" class(dt) simple_dtable
 			]
 		]
-		"data" class(dt) cache_dtable
+		"data" class(ct) simple_ctable
 		"data_config" config [
-			"cache_size" int 40000
-			"base" class(dt) managed_dtable
+			"base" class(dt) cache_dtable
 			"base_config" config [
-				"base" class ustr_dtable
-				"fastbase" class simple_dtable
+				"cache_size" int 40000
+				"base" class(dt) managed_dtable
+				"base_config" config [
+					"base" class ustr_dtable
+					"fastbase" class simple_dtable
+				]
 			]
 		]
-		"columns" class(ct) simple_ctable
 	]), &config);
 	if(r < 0)
 		return -EILSEQ;
@@ -349,16 +351,18 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 				"base" class(dt) simple_dtable
 			]
 		]
-		"data" class(dt) cache_dtable
+		"data" class(ct) simple_ctable
 		"data_config" config [
-			"cache_size" int 40000
-			"base" class(dt) managed_dtable
+			"base" class(dt) cache_dtable
 			"base_config" config [
-				"base" class ustr_dtable
-				"fastbase" class simple_dtable
+				"cache_size" int 40000
+				"base" class(dt) managed_dtable
+				"base_config" config [
+					"base" class ustr_dtable
+					"fastbase" class simple_dtable
+				]
 			]
 		]
-		"columns" class(ct) simple_ctable
 	]), &config);
 	if(r < 0)
 		return NULL;

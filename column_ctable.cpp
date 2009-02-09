@@ -216,24 +216,24 @@ int column_ctable::remove(const dtype & key)
 	return 0;
 }
 
-int column_ctable::maintain()
-{
-	int r = 0;
-	for(size_t i = 0; i < columns; i++)
-	{
-		int r2 = column_table[i]->maintain();
-		if(r2 < 0)
-			r = r2;
-	}
-	return r;
-}
-
 int column_ctable::set_blob_cmp(const blob_comparator * cmp)
 {
 	int r = 0;
 	for(size_t i = 0; i < columns; i++)
 	{
 		int r2 = column_table[i]->set_blob_cmp(cmp);
+		if(r2 < 0)
+			r = r2;
+	}
+	return r;
+}
+
+int column_ctable::maintain()
+{
+	int r = 0;
+	for(size_t i = 0; i < columns; i++)
+	{
+		int r2 = column_table[i]->maintain();
 		if(r2 < 0)
 			r = r2;
 	}
@@ -348,6 +348,8 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 		if(!column_table[i])
 			goto fail_load;
 	}
+	
+	cmp_name = column_table[0]->get_cmp_name();
 	
 	delete meta_file;
 	close(cct_dfd);
@@ -487,4 +489,4 @@ fail_open:
 	return -1;
 }
 
-DEFINE_CT_OPEN_FACTORY(column_ctable);
+DEFINE_CT_FACTORY(column_ctable);

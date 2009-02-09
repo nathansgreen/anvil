@@ -413,20 +413,17 @@ dtype::ctype simple_stable::key_type() const
 int simple_stable::init(int dfd, const char * name, const params & config)
 {
 	int r = -1;
-	params meta_config, data_config, columns_config;
+	params meta_config, data_config;
 	const dtable_factory * meta = dtable_factory::lookup(config, "meta");
-	const dtable_factory * data = dtable_factory::lookup(config, "data");
-	const ctable_factory * columns = ctable_factory::lookup(config, "columns");
+	const ctable_factory * data = ctable_factory::lookup(config, "data");
 	if(md_dfd >= 0)
 		deinit();
 	assert(column_map.empty());
-	if(!meta || !data || !columns)
-		return -EINVAL;
+	if(!meta || !data)
+		return -ENOENT;
 	if(!config.get("meta_config", &meta_config, params()))
 		return -EINVAL;
 	if(!config.get("data_config", &data_config, params()))
-		return -EINVAL;
-	if(!config.get("columns_config", &columns_config, params()))
 		return -EINVAL;
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
@@ -434,12 +431,9 @@ int simple_stable::init(int dfd, const char * name, const params & config)
 	dt_meta = meta->open(md_dfd, "st_meta", meta_config);
 	if(!dt_meta)
 		goto fail_meta;
-	_dt_data = data->open(md_dfd, "st_data", data_config);
-	if(!_dt_data)
-		goto fail_data;
-	ct_data = columns->wrap(_dt_data, columns_config);
+	ct_data = data->open(md_dfd, "st_data", data_config);
 	if(!ct_data)
-		goto fail_columns;
+		goto fail_data;
 	
 	/* check sanity? */
 	r = load_columns();
@@ -450,8 +444,6 @@ int simple_stable::init(int dfd, const char * name, const params & config)
 	
 fail_check:
 	delete ct_data;
-fail_columns:
-	delete _dt_data;
 fail_data:
 	delete dt_meta;
 fail_meta:
@@ -466,10 +458,8 @@ void simple_stable::deinit()
 		return;
 	column_map.clear();
 	delete ct_data;
-	delete _dt_data;
 	delete dt_meta;
 	ct_data = NULL;
-	_dt_data = NULL;
 	dt_meta = NULL;
 	close(md_dfd);
 	md_dfd = -1;
@@ -480,9 +470,9 @@ int simple_stable::create(int dfd, const char * name, const params & config, dty
 	int md_dfd, r;
 	params meta_config, data_config;
 	const dtable_factory * meta = dtable_factory::lookup(config, "meta");
-	const dtable_factory * data = dtable_factory::lookup(config, "data");
+	const ctable_factory * data = ctable_factory::lookup(config, "data");
 	if(!meta || !data)
-		return -EINVAL;
+		return -ENOENT;
 	if(!config.get("meta_config", &meta_config, params()))
 		return -EINVAL;
 	if(!config.get("data_config", &data_config, params()))

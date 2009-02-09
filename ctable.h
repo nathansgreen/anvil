@@ -53,13 +53,24 @@ public:
 	virtual int remove(const dtype & key, const istr & column) = 0;
 	/* remove the whole row */
 	virtual int remove(const dtype & key) = 0;
-	inline dtype::ctype key_type() const { return dt_source->key_type(); }
-	inline ctable() : dt_source(NULL) {}
-	inline virtual ~ctable() {}
+	inline dtype::ctype key_type() const { return ktype; }
+	inline const blob_comparator * get_blob_cmp() const { return blob_cmp; }
+	inline const istr & get_cmp_name() const { return cmp_name; }
+	inline ctable() : blob_cmp(NULL) {}
+	/* subclass destructors should [indirectly] call ctable::deinit() to avoid this assert */
+	inline virtual ~ctable() { assert(!blob_cmp); }
 	
-	inline virtual int set_blob_cmp(const blob_comparator * cmp) { return -ENOSYS; }
-	inline virtual const blob_comparator * get_blob_cmp() const { return dt_source->get_blob_cmp(); }
-	inline virtual const istr & get_cmp_name() const { return dt_source->get_cmp_name(); }
+	inline virtual int set_blob_cmp(const blob_comparator * cmp)
+	{
+		const char * match = blob_cmp ? blob_cmp->name : cmp_name;
+		if(match && strcmp(match, cmp->name))
+			return -EINVAL;
+		cmp->retain();
+		if(blob_cmp)
+			blob_cmp->release();
+		blob_cmp = cmp;
+		return 0;
+	}
 	
 	/* maintenance callback; does nothing by default */
 	inline virtual int maintain() { return 0; }
@@ -94,7 +105,20 @@ public:
 	}
 	
 protected:
-	const dtable * dt_source;
+	dtype::ctype ktype;
+	const blob_comparator * blob_cmp;
+	/* the required blob_comparator name, if any */
+	istr cmp_name;
+	
+	inline void deinit()
+	{
+		if(blob_cmp)
+		{
+			blob_cmp->release();
+			blob_cmp = NULL;
+		}
+		cmp_name = NULL;
+	}
 	
 private:
 	void operator=(const ctable &);

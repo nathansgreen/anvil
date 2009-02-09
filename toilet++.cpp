@@ -654,19 +654,17 @@ void tpp_dtable_iter_kill(tpp_dtable_iter * c)
 	delete safer.cpp;
 }
 
-tpp_ctable * tpp_ctable_open(const char * type, tpp_dtable * dt_source, const tpp_params * config)
+int tpp_ctable_create(const char * type, int dfd, const char * name, const tpp_params * config, tpp_dtype_type key_type)
 {
-	tpp_dtable_union source_safer(dt_source);
 	tpp_params_union_const config_safer(config);
-	ctable * cpp = ctable_factory::encap(type, source_safer, *config_safer);
-	return tpp_ctable_union(cpp);
+	/* same values; see dtype.h */
+	return ctable_factory::setup(type, dfd, name, *config_safer, (dtype::ctype) key_type);
 }
 
-tpp_ctable * tpp_ctable_open_const(const char * type, const tpp_dtable * dt_source, const tpp_params * config)
+tpp_ctable * tpp_ctable_open(const char * type, int dfd, const char * name, const tpp_params * config)
 {
-	tpp_dtable_union_const source_safer(dt_source);
 	tpp_params_union_const config_safer(config);
-	ctable * cpp = ctable_factory::encap(type, source_safer, *config_safer);
+	ctable * cpp = ctable_factory::load(type, dfd, name, *config_safer);
 	return tpp_ctable_union(cpp);
 }
 
