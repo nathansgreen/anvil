@@ -140,7 +140,7 @@ int usstate_dtable::init(int dfd, const char * file, const params & config)
 		deinit();
 	factory = dtable_factory::lookup(config, "base");
 	if(!factory)
-		return -EINVAL;
+		return -ENOENT;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
 	if(!config.get_blob_or_string("reject_value", &reject_value))
@@ -206,7 +206,7 @@ int usstate_dtable::create(int dfd, const char * file, const params & config, dt
 	blob reject_value;
 	const dtable_factory * base = dtable_factory::lookup(config, "base");
 	if(!base)
-		return -EINVAL;
+		return -ENOENT;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
 	if(!config.get_blob_or_string("reject_value", &reject_value))
