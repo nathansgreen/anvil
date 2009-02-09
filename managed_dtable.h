@@ -89,15 +89,16 @@ public:
 	 * dtable, and a new journal dtable */
 	inline int combine(size_t count = 0)
 	{
-		if(--count > disks.size())
-			return combine(0, disks.size());
-		return combine(disks.size() - count, disks.size());
+		size_t journal = disks.size();
+		if(--count > journal)
+			return combine(0, journal);
+		return combine(journal - count, journal);
 	}
 	
 	/* digests the journal dtable into a new disk dtable */
 	inline int digest(bool use_fastbase = true)
 	{
-		size_t journal = disk_dtables();
+		size_t journal = disks.size();
 		return combine(journal, journal, use_fastbase);
 	}
 	
