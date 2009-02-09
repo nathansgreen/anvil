@@ -315,7 +315,7 @@ int command_edtable(int argc, const char * argv[])
 		]
 		"digest_interval" int 2
 		"combine_interval" int 4
-		"combine_count" int 3
+		"combine_count" int 4
 	]), &config);
 	printf("params::parse = %d\n", r);
 	config.print();
@@ -522,7 +522,7 @@ int command_cctable(int argc, const char * argv[])
 			"base" class(dt) simple_dtable
 			"digest_interval" int 2
 			"combine_interval" int 8
-			"combine_count" int 5
+			"combine_count" int 6
 		]
 		"column0_name" string "last"
 		"column1_name" string "first"
@@ -668,7 +668,7 @@ int command_consistency(int argc, const char * argv[])
 			"base" class(dt) array_dtable
 			"digest_interval" int 5
 			"combine_interval" int 20
-			"combine_count" int 5
+			"combine_count" int 6
 		]
 		"column0_name" string "0" "column1_name" string "1" "column2_name" string "2" "column3_name" string "3" "column4_name" string "4"
 		"column5_name" string "5" "column6_name" string "6" "column7_name" string "7" "column8_name" string "8" "column9_name" string "9"
@@ -780,6 +780,7 @@ int command_consistency(int argc, const char * argv[])
 	printf("Waiting 5 seconds for digest interval...\n");
 	sleep(5);
 	ct->maintain();
+	delete ct;
 	
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
@@ -1236,7 +1237,7 @@ int command_blob_cmp(int argc, const char * argv[])
 				"base" class(dt) simple_dtable
 				"digest_interval" int 2
 				"combine_interval" int 8
-				"combine_count" int 5
+				"combine_count" int 6
 			]
 		]
 		"data" class(dt) cache_dtable
@@ -1248,7 +1249,7 @@ int command_blob_cmp(int argc, const char * argv[])
 				"fastbase" class(dt) simple_dtable
 				"digest_interval" int 2
 				"combine_interval" int 8
-				"combine_count" int 5
+				"combine_count" int 6
 			]
 		]
 		"columns" class(ct) simple_ctable
@@ -1414,7 +1415,7 @@ static int command_performance_stable(int argc, const char * argv[])
 				"base" class(dt) simple_dtable
 				"digest_interval" int 2
 				"combine_interval" int 8
-				"combine_count" int 5
+				"combine_count" int 6
 			]
 		]
 		"data" class(dt) cache_dtable
@@ -1426,7 +1427,7 @@ static int command_performance_stable(int argc, const char * argv[])
 				"fastbase" class(dt) simple_dtable
 				"digest_interval" int 2
 				"combine_interval" int 8
-				"combine_count" int 5
+				"combine_count" int 6
 			]
 		]
 		"columns" class(ct) simple_ctable
@@ -1627,7 +1628,7 @@ static int command_performance_dtable(int argc, const char * argv[])
 			"fastbase" class(dt) simple_dtable
 			"digest_interval" int 2
 			"combine_interval" int 8
-			"combine_count" int 5
+			"combine_count" int 6
 		]
 	]), &config);
 	printf("params::parse = %d\n", r);

@@ -433,8 +433,8 @@ int managed_dtable::create(int dfd, const char * name, const params & config, dt
 		default:
 			return -EINVAL;
 	}
-	/* default count: combine 5 dtables */
-	if(!config.get("combine_count", &r, 5) || r < 2)
+	/* default count: combine 6 dtables */
+	if(!config.get("combine_count", &r, 6) || r < 2)
 		return -EINVAL;
 	header.combine_count = r;
 	header.journal_id = sys_journal::get_unique_id();
