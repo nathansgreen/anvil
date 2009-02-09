@@ -74,6 +74,8 @@ stable
 iterator
 blob_cmp
 #bdbtest
+#consistency
+#consistency check
 EOF
 mkdir /mnt/test/journals
 echo "done."

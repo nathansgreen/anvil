@@ -8,6 +8,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <string.h>
 #include <inttypes.h>
 #include <sys/time.h>
 
@@ -34,6 +35,7 @@ int command_edtable(int argc, const char * argv[]);
 int command_ussdtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_cctable(int argc, const char * argv[]);
+int command_consistency(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
@@ -580,6 +582,205 @@ int command_cctable(int argc, const char * argv[])
 	printf("cct::open = %p\n", ct);
 	run_iterator(ct);
 	delete ct;
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	return 0;
+}
+
+#define CONS_TEST_COLS 50
+#define CONS_TEST_ROWS 500
+#define CONS_TEST_SUM 100000000
+
+#define CONS_TEST_CELLS (CONS_TEST_COLS * CONS_TEST_ROWS)
+#define CONS_TEST_INITIAL (CONS_TEST_SUM / CONS_TEST_CELLS)
+
+#define CONS_TEST_SPREAD 100
+#define CONS_TEST_TX_SIZE 2000
+#define CONS_TEST_ITERATIONS 1000000
+
+#define CONS_TEST_BUCKET_SIZE 100
+#define CONS_TEST_BUCKET_HEIGHT 20
+#define CONS_TEST_BUCKET_ZOOM 4
+#define CONS_TEST_BUCKET_MAX (CONS_TEST_INITIAL * 2)
+#define CONS_TEST_BUCKETS ((CONS_TEST_BUCKET_MAX + CONS_TEST_BUCKET_SIZE - 1) / CONS_TEST_BUCKET_SIZE)
+#define CONS_TEST_BUCKET_SCALE (CONS_TEST_CELLS / CONS_TEST_BUCKET_HEIGHT / CONS_TEST_BUCKET_ZOOM)
+
+static bool consistency_check(const ctable * ct, size_t * buckets)
+{
+	ctable::iter * iter = ct->iterator();
+	size_t total_entries = 0;
+	uint32_t key_total = 0;
+	uint32_t value_total = 0;
+	memset(buckets, 0, sizeof(*buckets) * CONS_TEST_BUCKETS);
+	while(iter->valid())
+	{
+		uint32_t number;
+		dtype key = iter->key();
+		blob value = iter->value();
+		iter->next();
+		assert(key.type == dtype::UINT32);
+		total_entries++;
+		key_total += key.u32;
+		assert(value.size() == sizeof(uint32_t));
+		number = value.index<uint32_t>(0);
+		value_total += number;
+		if(number > CONS_TEST_BUCKET_MAX)
+			number = CONS_TEST_BUCKET_MAX;
+		buckets[number / CONS_TEST_BUCKET_SIZE]++;
+	}
+	delete iter;
+	if(total_entries != CONS_TEST_CELLS)
+		return false;
+	/* try to make sure the iterator is working properly while we're at it */
+	if(key_total != (CONS_TEST_ROWS - 1) * CONS_TEST_ROWS / 2 * CONS_TEST_COLS)
+		return false;
+	return value_total == CONS_TEST_SUM;
+}
+
+static void print_buckets(const size_t * buckets)
+{
+	for(size_t j = CONS_TEST_BUCKET_HEIGHT; j; j--)
+	{
+		for(size_t i = 0; i < CONS_TEST_BUCKETS; i++)
+			printf("%c", (buckets[i] >= j * CONS_TEST_BUCKET_SCALE) ? '*' : ' ');
+		printf("\n");
+	}
+}
+
+int command_consistency(int argc, const char * argv[])
+{
+	ctable * ct;
+	params config;
+	size_t buckets[CONS_TEST_BUCKETS];
+	uint32_t initial = CONS_TEST_INITIAL;
+	blob value(sizeof(initial), &initial);
+	ctable::colval values[CONS_TEST_COLS] = {{"0"}, {"1"}, {"2"}, {"3"}, {"4"}, {"5"}, {"6"}, {"7"}, {"8"}, {"9"},
+	                               {"10"}, {"11"}, {"12"}, {"13"}, {"14"}, {"15"}, {"16"}, {"17"}, {"18"}, {"19"},
+	                               {"20"}, {"21"}, {"22"}, {"23"}, {"24"}, {"25"}, {"26"}, {"27"}, {"28"}, {"29"},
+	                               {"30"}, {"31"}, {"32"}, {"33"}, {"34"}, {"35"}, {"36"}, {"37"}, {"38"}, {"39"},
+	                               {"40"}, {"41"}, {"42"}, {"43"}, {"44"}, {"45"}, {"46"}, {"47"}, {"48"}, {"49"}};
+	int r = params::parse(LITERAL(
+	config [
+		"columns" int 50
+		"base" class(dt) managed_dtable
+		"base_config" config [
+			"base" class(dt) array_dtable
+			"digest_interval" int 5
+			"combine_interval" int 20
+			"combine_count" int 5
+		]
+		"column0_name" string "0" "column1_name" string "1" "column2_name" string "2" "column3_name" string "3" "column4_name" string "4"
+		"column5_name" string "5" "column6_name" string "6" "column7_name" string "7" "column8_name" string "8" "column9_name" string "9"
+		"column10_name" string "10" "column11_name" string "11" "column12_name" string "12" "column13_name" string "13" "column14_name" string "14"
+		"column15_name" string "15" "column16_name" string "16" "column17_name" string "17" "column18_name" string "18" "column19_name" string "19"
+		"column20_name" string "20" "column21_name" string "21" "column22_name" string "22" "column23_name" string "23" "column24_name" string "24"
+		"column25_name" string "25" "column26_name" string "26" "column27_name" string "27" "column28_name" string "28" "column29_name" string "29"
+		"column30_name" string "30" "column31_name" string "31" "column32_name" string "32" "column33_name" string "33" "column34_name" string "34"
+		"column35_name" string "35" "column36_name" string "36" "column37_name" string "37" "column38_name" string "38" "column39_name" string "39"
+		"column40_name" string "40" "column41_name" string "41" "column42_name" string "42" "column43_name" string "43" "column44_name" string "44"
+		"column45_name" string "45" "column46_name" string "46" "column47_name" string "47" "column48_name" string "48" "column49_name" string "49"
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
+	
+	if(argc > 1 && !strcmp(argv[1], "check"))
+	{
+		r = tx_start();
+		printf("tx_start = %d\n", r);
+		
+		ct = ctable_factory::load("column_ctable", AT_FDCWD, "cons_test", config);
+		printf("load = %p\n", ct);
+		
+		printf("Consistency check: ");
+		fflush(stdout);
+		printf("%s\n", consistency_check(ct, buckets) ? "OK!" : "failed.");
+		print_buckets(buckets);
+		
+		r = tx_end(0);
+		printf("tx_end = %d\n", r);
+		return 0;
+	}
+	
+	for(size_t i = 0; i < 50; i++)
+		values[i].value = value;
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	
+	r = ctable_factory::setup("column_ctable", AT_FDCWD, "cons_test", config, dtype::UINT32);
+	printf("setup = %d\n", r);
+	
+	ct = ctable_factory::load("column_ctable", AT_FDCWD, "cons_test", config);
+	printf("load = %p\n", ct);
+	for(uint32_t i = 0; i < 500; i++)
+	{
+		r = ct->insert(i, values, CONS_TEST_COLS);
+		assert(r >= 0);
+	}
+	delete ct;
+	
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	
+	ct = ctable_factory::load("column_ctable", AT_FDCWD, "cons_test", config);
+	printf("load = %p\n", ct);
+	
+	printf("Consistency check: ");
+	fflush(stdout);
+	printf("%s\n", consistency_check(ct, buckets) ? "OK!" : "failed.");
+	print_buckets(buckets);
+	
+	for(uint32_t i = 0; i < CONS_TEST_ITERATIONS; i++)
+	{
+		char column[24];
+		uint32_t key = rand() % CONS_TEST_ROWS;
+		sprintf(column, "%d", rand() % CONS_TEST_COLS);
+		blob value = ct->find(key, column);
+		assert(value.size() == sizeof(uint32_t));
+		initial = value.index<uint32_t>(0) - CONS_TEST_SPREAD;
+		value = blob(sizeof(initial), &initial);
+		r = ct->insert(key, column, value);
+		assert(r >= 0);
+		for(int j = 0; j < CONS_TEST_SPREAD; j++)
+		{
+			key = rand() % CONS_TEST_ROWS;
+			sprintf(column, "%d", rand() % CONS_TEST_COLS);
+			value = ct->find(key, column);
+			assert(value.size() == sizeof(uint32_t));
+			initial = value.index<uint32_t>(0) + 1;
+			value = blob(sizeof(initial), &initial);
+			r = ct->insert(key, column, value);
+			assert(r >= 0);
+		}
+		if(!(i % 1000))
+			ct->maintain();
+		if((i % CONS_TEST_TX_SIZE) == CONS_TEST_TX_SIZE - 1)
+		{
+			r = tx_end(0);
+			assert(r >= 0);
+			r = tx_start();
+			assert(r >= 0);
+			printf(".");
+			fflush(stdout);
+		}
+		if((i % (CONS_TEST_ITERATIONS / 10)) == CONS_TEST_ITERATIONS / 10 - 1)
+			printf(" %d%% done\n", (i + 1) / (CONS_TEST_ITERATIONS / 100));
+	}
+	
+	printf("Consistency check: ");
+	fflush(stdout);
+	printf("%s\n", consistency_check(ct, buckets) ? "OK!" : "failed.");
+	print_buckets(buckets);
+	
+	printf("Waiting 5 seconds for digest interval...\n");
+	sleep(5);
+	ct->maintain();
+	
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
