@@ -16,8 +16,7 @@
 #include "params.h"
 #include "blob_comparator.h"
 
-/* data tables */
-
+/* key tables (used for shadow checks) */
 class ktable
 {
 public:
@@ -41,6 +40,7 @@ private:
 	ktable(const ktable &);
 };
 
+/* data tables */
 class dtable : public ktable
 {
 public:
@@ -190,13 +190,14 @@ protected:
 		if(shadow->key_type() == dtype::BLOB)
 		{
 			const blob_comparator * source_cmp = source->get_blob_cmp();
+			const blob_comparator * shadow_cmp = shadow->get_blob_cmp();
 			/* TODO: check get_cmp_name() first? */
 			/* we don't require blob comparators to be the same
 			 * object, but both must either exist or not exist */
-			if(!source_cmp != !shadow->get_blob_cmp())
+			if(!source_cmp != !shadow_cmp)
 				return false;
 			/* and if they exist, they must have the same name */
-			if(source_cmp && strcmp(source_cmp->name, shadow->get_blob_cmp()->name))
+			if(source_cmp && strcmp(source_cmp->name, shadow_cmp->name))
 				return false;
 		}
 		return true;
