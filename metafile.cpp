@@ -35,6 +35,8 @@
 #define MF_TX_UNLINK 2
 #define MF_TX_RM_R 3
 
+#define MF_TEMP_EXT ".mf-tmp"
+
 metafile::mf_map_t metafile::mf_map;
 
 istr metafile::full_path(int dfd, const char * name)
@@ -162,13 +164,22 @@ int metafile::record_processor(void * data, size_t length, void * param)
 			char * path_data = (char *) &data_len[1];
 			void * file_data = (void *) &path_data[*path_len];
 			istr path = istr(path_data, *path_len);
+			istr temp_path = path + MF_TEMP_EXT;
 			assert(path[0] == '/');
-			fd = ::open(path, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+			fd = ::open(temp_path, O_WRONLY | O_TRUNC | O_CREAT, 0644);
 			if(fd < 0)
 				return fd;
 			r = ::write(fd, file_data, *data_len);
 			::close(fd);
-			return (r == (int) *data_len) ? 0 : -1;
+			if(r != (int) *data_len)
+			{
+				::unlink(temp_path);
+				return -1;
+			}
+			r = rename(temp_path, path);
+			if(r < 0)
+				::unlink(temp_path);
+			return r;
 		}
 		case MF_TX_UNLINK:
 		case MF_TX_RM_R:
