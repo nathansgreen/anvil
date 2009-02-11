@@ -139,7 +139,7 @@ fail_disks:
 		delete disks[i].disk;
 	disks.clear();
 fail_header:
-	close(meta);
+	tx_close(meta);
 fail_meta:
 	close(md_dfd);
 	md_dfd = -1;
