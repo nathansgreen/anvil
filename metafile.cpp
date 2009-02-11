@@ -22,7 +22,6 @@
 
 #include "istr.h"
 #include "util.h"
-#include "blob_buffer.h"
 
 /* The routines in this file implement a simple small-file transaction interface
  * on top of a generic journal module. Here we keep a journal directory with the
@@ -36,141 +35,6 @@
 #define MF_TX_UNLINK 2
 #define MF_TX_RM_R 3
 
-struct metafile
-{
-public:
-	static metafile * open(int dfd, const char * name, bool create);
-	
-	inline size_t size() const
-	{
-		return data.size();
-	}
-	
-	inline bool dirty() const
-	{
-		return is_dirty;
-	}
-	
-	inline size_t read(void * buf, size_t length, size_t offset) const
-	{
-		if(offset >= data.size())
-			return 0;
-		if(offset + length > data.size())
-			length = data.size() - offset;
-		util::memcpy(buf, &data[offset], length);
-		return length;
-	}
-	
-	inline void truncate()
-	{
-		is_dirty = true;
-		data.set_size(0);
-	}
-	
-	inline int write(const void * buf, size_t length, size_t offset)
-	{
-		is_dirty = true;
-		return data.overwrite(offset, buf, length);
-	}
-	
-	int flush();
-	
-	inline void close()
-	{
-		if(!--usage)
-			delete this;
-	}
-	
-	static int unlink(int dfd, const char * name, bool recursive);
-	
-	/* transactions */
-	typedef mftx_id tx_id;
-	
-	static int tx_init(int dfd, size_t log_size);
-	static void tx_deinit();
-	
-	static int tx_start();
-	static tx_id tx_end(bool assign_id);
-	
-	static int tx_start_external();
-	static int tx_end_external(bool success);
-	
-	static int tx_sync(tx_id id);
-	static int tx_forget(tx_id id);
-	
-	static int tx_start_r();
-	static int tx_end_r();
-	
-private:
-	inline metafile(const istr & path)
-		: path(path), usage(1), is_dirty(false)
-	{
-		assert(path);
-		mf_map[path] = this;
-		prev = &first;
-		next = first;
-		first = this;
-		if(next)
-			next->prev = &next;
-	}
-	
-	inline ~metafile()
-	{
-		int r = flush();
-		assert(r >= 0);
-		mf_map.erase(path);
-		*prev = next;
-		if(next)
-			next->prev = prev;
-	}
-	
-	const istr path;
-	blob_buffer data;
-	size_t usage;
-	metafile * next;
-	metafile ** prev;
-	bool is_dirty;
-	
-	/* static stuff */
-	static metafile * first;
-	typedef std::map<istr, metafile *, strcmp_less> mf_map_t;
-	static mf_map_t mf_map;
-	
-	static istr metafile::full_path(int dfd, const char * name);
-	
-	static inline int flush_all()
-	{
-		int r = 0;
-		for(metafile * m = first; m && r >= 0; m = m->next)
-			r = m->flush();
-		return r;
-	}
-	
-	/* transactions */
-	static int journal_dir;
-	static journal * last_journal;
-	static journal * current_journal;
-	static uint32_t tx_recursion;
-	static size_t tx_log_size;
-	
-	static tx_id last_tx_id;
-	typedef std::map<tx_id, journal *> tx_map_t;
-	static tx_map_t tx_map; 
-	
-	static inline bool ends_with(const char * string, const char * suffix)
-	{
-		size_t str_len = strlen(string);
-		size_t suf_len = strlen(suffix);
-		if(str_len < suf_len)
-			return false;
-		return !strcmp(&string[str_len - suf_len], suffix);
-	}
-	
-	static int switch_journal(void);
-	static int tx_record_processor(void * data, size_t length, void * param);
-};
-
-metafile * metafile::first = NULL;
 metafile::mf_map_t metafile::mf_map;
 
 istr metafile::full_path(int dfd, const char * name)
@@ -279,7 +143,7 @@ size_t metafile::tx_log_size = 0;
 metafile::tx_id metafile::last_tx_id = -1;
 metafile::tx_map_t metafile::tx_map;
 
-int metafile::tx_record_processor(void * data, size_t length, void * param)
+int metafile::record_processor(void * data, size_t length, void * param)
 {
 	int r, fd;
 	uint8_t * type = (uint8_t *) data;
@@ -327,6 +191,15 @@ int metafile::tx_record_processor(void * data, size_t length, void * param)
 		}
 	}
 	return -ENOSYS;
+}
+
+bool metafile::ends_with(const char * string, const char * suffix)
+{
+	size_t str_len = strlen(string);
+	size_t suf_len = strlen(suffix);
+	if(str_len < suf_len)
+		return false;
+	return !strcmp(&string[str_len - suf_len], suffix);
 }
 
 /* scans journal dir, recovers transactions */
@@ -395,7 +268,7 @@ int metafile::tx_init(int dfd, size_t log_size)
 				goto fail;
 			continue;
 		}
-		error = current_journal->playback(tx_record_processor, NULL, NULL);
+		error = current_journal->playback(record_processor, NULL, NULL);
 		if(error < 0)
 			goto fail;
 		error = current_journal->erase();
@@ -473,7 +346,7 @@ int metafile::tx_start()
 	return 0;
 }
 
-int metafile::switch_journal(void)
+int metafile::switch_journal()
 {
 	int r = current_journal->erase();
 	if(r < 0)
@@ -490,16 +363,19 @@ metafile::tx_id metafile::tx_end(bool assign_id)
 		return -ENOENT;
 	if(tx_recursion != 1)
 		return -EBUSY;
-	r = flush_all();
-	if(r < 0)
-		return r;
+	for(mf_map_t::iterator itr = mf_map.begin(); itr != mf_map.end(); ++itr)
+	{
+		r = itr->second->flush();
+		if(r < 0)
+			return r;
+	}
 	if(assign_id)
 		if(!tx_map.insert(std::make_pair(last_tx_id, current_journal)).second)
 			return -ENOENT;
 	r = current_journal->commit();
 	if(r < 0)
 		goto fail;
-	r = current_journal->playback(tx_record_processor, NULL, NULL);
+	r = current_journal->playback(record_processor, NULL, NULL);
 	if(r < 0)
 		/* not clear how to uncommit the journal... */
 		goto fail;

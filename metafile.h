@@ -60,6 +60,113 @@ struct mftx_handle {
 
 #ifdef __cplusplus
 }
+
+#include "blob_buffer.h"
+
+struct metafile
+{
+public:
+	static metafile * open(int dfd, const char * name, bool create);
+	
+	inline size_t size() const
+	{
+		return data.size();
+	}
+	
+	inline bool dirty() const
+	{
+		return is_dirty;
+	}
+	
+	inline size_t read(void * buf, size_t length, size_t offset) const
+	{
+		if(offset >= data.size())
+			return 0;
+		if(offset + length > data.size())
+			length = data.size() - offset;
+		util::memcpy(buf, &data[offset], length);
+		return length;
+	}
+	
+	inline void truncate()
+	{
+		is_dirty = true;
+		data.set_size(0);
+	}
+	
+	inline int write(const void * buf, size_t length, size_t offset)
+	{
+		is_dirty = true;
+		return data.overwrite(offset, buf, length);
+	}
+	
+	int flush();
+	
+	inline void close()
+	{
+		if(!--usage)
+			delete this;
+	}
+	
+	static int unlink(int dfd, const char * name, bool recursive);
+	
+	/* transactions */
+	typedef mftx_id tx_id;
+	
+	static int tx_init(int dfd, size_t log_size);
+	static void tx_deinit();
+	
+	static int tx_start();
+	static tx_id tx_end(bool assign_id);
+	
+	static int tx_start_external();
+	static int tx_end_external(bool success);
+	
+	static int tx_sync(tx_id id);
+	static int tx_forget(tx_id id);
+	
+	static int tx_start_r();
+	static int tx_end_r();
+	
+private:
+	inline metafile(const istr & path)
+		: path(path), usage(1), is_dirty(false)
+	{
+		assert(path);
+		mf_map[path] = this;
+	}
+	
+	inline ~metafile()
+	{
+		int r = flush();
+		assert(r >= 0);
+		mf_map.erase(path);
+	}
+	
+	const istr path;
+	blob_buffer data;
+	size_t usage;
+	bool is_dirty;
+	
+	/* static stuff */
+	typedef std::map<istr, metafile *, strcmp_less> mf_map_t;
+	static mf_map_t mf_map;
+	
+	static int journal_dir;
+	static journal * last_journal;
+	static journal * current_journal;
+	static uint32_t tx_recursion;
+	static size_t tx_log_size;
+	
+	static tx_id last_tx_id;
+	typedef std::map<tx_id, journal *> tx_map_t;
+	static tx_map_t tx_map; 
+	
+	static int switch_journal();
+	static istr metafile::full_path(int dfd, const char * name);
+	static bool ends_with(const char * string, const char * suffix);
+	static int record_processor(void * data, size_t length, void * param);
+};
 #endif
 
 #endif /* __METAFILE_H */
