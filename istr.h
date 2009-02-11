@@ -49,6 +49,20 @@ public:
 		shared->string[length] = 0;
 	}
 	
+	/* concatenate the strings together */
+	inline istr(const char * x, const char * y, const char * z = NULL)
+	{
+		size_t length = strlen(x) + strlen(y) + (z ? strlen(z) : 0);
+		/* doing a little memory trick so can't just use new */
+		shared = (share *) malloc(sizeof(*shared) + length + 1);
+		shared->count = 1;
+		strcpy(shared->string, x);
+		strcat(shared->string, y);
+		if(z)
+			strcat(shared->string, z);
+		assert(strlen(shared->string) == length);
+	}
+	
 	inline istr(const istr & x)
 	{
 		shared = x.shared;
