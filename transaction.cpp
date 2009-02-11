@@ -764,29 +764,6 @@ ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset)
 	return r;
 }
 
-int tx_vnprintf(tx_fd fd, off_t offset, size_t max, const char * format, va_list ap)
-{
-	char buffer[512];
-	int r;
-       	uint32_t length = vsnprintf(buffer, sizeof(buffer), format, ap);
-	if(length >= sizeof(buffer) || (max != (size_t) -1 && length > max))
-		return -E2BIG;
-	r = tx_write(fd, buffer, length, offset);
-	if(r < 0)
-		return r;
-	return length;
-}
-
-int tx_nprintf(tx_fd fd, off_t offset, size_t max, const char * format, ...)
-{
-	int r;
-	va_list ap;
-	va_start(ap, format);
-	r = tx_vnprintf(fd, offset, max, format, ap);
-	va_end(ap);
-	return r;
-}
-
 int tx_close(tx_fd fd)
 {
 	/* still in use by other openers? */

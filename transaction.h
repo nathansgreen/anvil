@@ -46,8 +46,6 @@ int tx_emptyfile(tx_fd fd);
 ssize_t tx_read(tx_fd fd, void * buf, size_t length, off_t offset);
 /* while the same signature as pwrite(), only returns 0 vs. < 0 (not #bytes written) */
 ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset);
-int tx_vnprintf(tx_fd fd, off_t offset, size_t max, const char * format, va_list ap);
-int tx_nprintf(tx_fd fd, off_t offset, size_t max, const char * format, ...);
 int tx_close(tx_fd fd);
 
 /* see the detailed comments about this function in transaction.cpp before you use it */
