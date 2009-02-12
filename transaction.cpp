@@ -220,15 +220,6 @@ int metafile::record_processor(void * data, size_t length, void * param)
 	return -ENOSYS;
 }
 
-bool metafile::ends_with(const char * string, const char * suffix)
-{
-	size_t str_len = strlen(string);
-	size_t suf_len = strlen(suffix);
-	if(str_len < suf_len)
-		return false;
-	return !strcmp(&string[str_len - suf_len], suffix);
-}
-
 /* scans journal dir, recovers transactions */
 int metafile::tx_init(int dfd, size_t log_size)
 {
@@ -261,7 +252,7 @@ int metafile::tx_init(int dfd, size_t log_size)
 	
 	while((ent = readdir(dir)))
 	{
-		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") || ends_with(ent->d_name, J_COMMIT_EXT))
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
 			continue;
 		entries.push_back(ent->d_name);
 	}
