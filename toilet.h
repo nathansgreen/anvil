@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -210,7 +210,7 @@ void toilet_blobcmp_release(t_blobcmp ** blobcmp);
 #include <map>
 #include <set>
 
-#include "transaction.h"
+#include "metafile.h"
 
 #include "istr.h"
 #include "stable.h"

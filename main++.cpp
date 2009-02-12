@@ -13,7 +13,7 @@
 #include <sys/time.h>
 
 #include "openat.h"
-#include "transaction.h"
+#include "metafile.h"
 
 #include "dtable.h"
 #include "ctable.h"

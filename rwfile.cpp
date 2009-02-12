@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -10,7 +10,7 @@
 
 #include "openat.h"
 
-#include "transaction.h"
+#include "metafile.h"
 #include "rwfile.h"
 
 int rwfile::create(int dfd, const char * file, bool tx_external, mode_t mode)

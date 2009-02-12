@@ -9,7 +9,7 @@
 #include <fcntl.h>
 
 #include "openat.h"
-#include "transaction.h"
+#include "metafile.h"
 
 #include "sys_journal.h"
 
@@ -273,22 +273,22 @@ int sys_journal::init(int dfd, const char * file, bool create, bool filter_on_em
 	data_header header;
 	bool do_playback = false;
 	SYSJ_DEBUG("%d, %s, %d, %d", dfd, file, create, fail_missing);
-	if(meta_fd >= 0)
+	if(meta_fd)
 		deinit();
 	live_entries = 0;
 	this->filter_on_empty = filter_on_empty;
-	meta_fd = tx_open(dfd, file, O_RDWR);
-	if(meta_fd < 0)
+	meta_fd = tx_open(dfd, file, 0);
+	if(!meta_fd)
 	{
-		if(!create || (meta_fd != -ENOENT && errno != ENOENT))
-			return (int) meta_fd;
+		if(!create || errno != ENOENT)
+			return -1;
 		
 		/* due to O_CREAT not being part of the transaction, we might
 		 * get an empty file as a result of this, which later will
 		 * cause an error below instead of here... hence create: */
-		meta_fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
-		if(meta_fd < 0)
-			return (int) meta_fd;
+		meta_fd = tx_open(dfd, file, 1);
+		if(!meta_fd)
+			return -1;
 	create:
 		istr data_name = istr(file) + ".0";
 		
@@ -314,7 +314,7 @@ int sys_journal::init(int dfd, const char * file, bool create, bool filter_on_em
 		fail_create:
 			tx_close(meta_fd);
 			tx_unlink(dfd, file, 0);
-			meta_fd = -1;
+			meta_fd = NULL;
 			return r;
 		}
 	}
@@ -323,16 +323,16 @@ int sys_journal::init(int dfd, const char * file, bool create, bool filter_on_em
 		char seq[16];
 		if(tx_read(meta_fd, &info, sizeof(info), 0) != sizeof(info))
 		{
-			if(tx_emptyfile(meta_fd))
+			if(!tx_size(meta_fd))
 				goto create;
 			tx_close(meta_fd);
-			meta_fd = -1;
+			meta_fd = NULL;
 			return -1;
 		}
 		if(info.magic != SYSJ_META_MAGIC || info.version != SYSJ_META_VERSION)
 		{
 			tx_close(meta_fd);
-			meta_fd = -1;
+			meta_fd = NULL;
 			return -EINVAL;
 		}
 		snprintf(seq, sizeof(seq), ".%u", info.seq);
@@ -341,7 +341,7 @@ int sys_journal::init(int dfd, const char * file, bool create, bool filter_on_em
 		if(r < 0)
 		{
 			tx_close(meta_fd);
-			meta_fd = -1;
+			meta_fd = NULL;
 			return r;
 		}
 		r = data.read(0, &header);
@@ -349,14 +349,14 @@ int sys_journal::init(int dfd, const char * file, bool create, bool filter_on_em
 		{
 			data.close();
 			tx_close(meta_fd);
-			meta_fd = -1;
+			meta_fd = NULL;
 			return r;
 		}
 		if(header.magic != SYSJ_DATA_MAGIC || header.version != SYSJ_DATA_VERSION)
 		{
 			data.close();
 			tx_close(meta_fd);
-			meta_fd = -1;
+			meta_fd = NULL;
 			return -EINVAL;
 		}
 		do_playback = true;
@@ -500,7 +500,7 @@ int sys_journal::playback(journal_listener * target, bool fail_missing, bool cou
 void sys_journal::deinit(bool erase)
 {
 	SYSJ_DEBUG("");
-	if(meta_fd >= 0)
+	if(meta_fd)
 	{
 		int r;
 		if(dirty)
@@ -522,7 +522,7 @@ void sys_journal::deinit(bool erase)
 			tx_unlink(meta_dfd, data_name, 0);
 			tx_unlink(meta_dfd, meta_name, 0);
 		}
-		meta_fd = -1;
+		meta_fd = NULL;
 		meta_name = NULL;
 		if(meta_dfd >= 0 && meta_dfd != AT_FDCWD)
 		{
@@ -559,23 +559,23 @@ sys_journal::unique_id sys_journal::id;
 int sys_journal::set_unique_id_file(int dfd, const char * file, bool create)
 {
 	int r;
-	if(id.fd >= 0)
+	if(id.fd)
 		tx_close(id.fd);
-	id.fd = tx_open(dfd, file, O_RDWR);
-	if(id.fd < 0)
+	id.fd = tx_open(dfd, file, 0);
+	if(!id.fd)
 	{
-		if(!create || (id.fd != -ENOENT && errno != ENOENT))
-			return (int) id.fd;
-		id.fd = tx_open(dfd, file, O_RDWR | O_CREAT, 0644);
-		if(id.fd < 0)
-			return (int) id.fd;
+		if(!create || errno != ENOENT)
+			return -1;
+		id.fd = tx_open(dfd, file, 1);
+		if(!id.fd)
+			return -1;
 create_empty:
 		id.next = 0;
 		r = tx_write(id.fd, &id.next, sizeof(id.next), 0);
 		if(r < 0)
 		{
 			tx_close(id.fd);
-			id.fd = -1;
+			id.fd = NULL;
 			unlinkat(dfd, file, 0);
 			return r;
 		}
@@ -588,7 +588,7 @@ create_empty:
 			if(!r && create)
 				goto create_empty;
 			tx_close(id.fd);
-			id.fd = -1;
+			id.fd = NULL;
 			return (r < 0) ? r : -1;
 		}
 	}

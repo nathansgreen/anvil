@@ -12,16 +12,13 @@
 #include <string.h>
 #include <assert.h>
 
-#include <map>
 #include <vector>
 #include <algorithm> /* for std::sort */
 
+#include "util.h"
 #include "openat.h"
 #include "journal.h"
 #include "metafile.h"
-
-#include "istr.h"
-#include "util.h"
 
 /* The routines in this file implement a simple small-file transaction interface
  * on top of a generic journal module. Here we keep a journal directory with the
@@ -57,9 +54,11 @@ metafile * metafile::open(int dfd, const char * name, bool create)
 	istr path = full_path(dfd, name);
 	if(!path)
 		return NULL;
+	MF_S_DEBUG("%s", path.str());
 	itr = mf_map.find(path);
 	if(itr != mf_map.end())
 	{
+		MF_S_DEBUG("cached");
 		itr->second->usage++;
 		return itr->second;
 	}
@@ -85,7 +84,7 @@ metafile * metafile::open(int dfd, const char * name, bool create)
 			goto fail_close;
 		if(fp->data.set_size(st.st_size, false) < 0)
 			goto fail_delete;
-		if(pread(fd, &fp->data[0], st.st_size, 0) != st.st_size)
+		if(st.st_size && pread(fd, &fp->data[0], st.st_size, 0) != st.st_size)
 			goto fail_delete;
 	}
 	
@@ -102,6 +101,7 @@ fail_close:
 int metafile::flush()
 {
 	int r = 0;
+	MF_DEBUG("%d", is_dirty);
 	if(is_dirty)
 	{
 		uint8_t type = MF_TX_WRITE;
@@ -125,6 +125,19 @@ int metafile::unlink(int dfd, const char * name, bool recursive)
 	istr path = full_path(dfd, name);
 	if(!path)
 		return -1;
+	MF_S_DEBUG("%s", path.str());
+	mf_map_t::iterator itr = mf_map.find(path);
+	if(itr != mf_map.end())
+	{
+		if(itr->second->usage)
+		{
+			fprintf(stderr, "Warning: tried to unlink open metafile %s\n", path.str());
+			return -EBUSY;
+		}
+		/* flush it, in case something later fails */
+		itr->second->flush();
+		delete itr->second;
+	}
 	uint8_t type = recursive ? MF_TX_RM_R : MF_TX_UNLINK;
 	uint16_t path_len = path.length();
 	journal::ovec ov[3] = {{&type, sizeof(type)},
@@ -142,7 +155,8 @@ journal * metafile::current_journal = NULL;
 uint32_t metafile::tx_recursion = 0;
 size_t metafile::tx_log_size = 0;
 
-metafile::tx_id metafile::last_tx_id = -1;
+tx_id metafile::last_tx_id = -1;
+tx_pre_end * metafile::pre_end_handlers = NULL;
 metafile::tx_map_t metafile::tx_map;
 
 int metafile::record_processor(void * data, size_t length, void * param)
@@ -166,6 +180,7 @@ int metafile::record_processor(void * data, size_t length, void * param)
 			istr path = istr(path_data, *path_len);
 			istr temp_path = path + MF_TEMP_EXT;
 			assert(path[0] == '/');
+			MF_S_DEBUG("write %s", path.str());
 			fd = ::open(temp_path, O_WRONLY | O_TRUNC | O_CREAT, 0644);
 			if(fd < 0)
 				return fd;
@@ -192,6 +207,7 @@ int metafile::record_processor(void * data, size_t length, void * param)
 			char * path_data = (char *) &path_len[1];
 			istr path = istr(path_data, *path_len);
 			assert(path[0] == '/');
+			MF_S_DEBUG("unlink %s", path.str());
 			if(*type == MF_TX_RM_R)
 				r = util::rm_r(AT_FDCWD, path);
 			else
@@ -337,6 +353,7 @@ void metafile::tx_deinit()
 
 int metafile::tx_start()
 {
+	MF_S_DEBUG("%d", tx_recursion);
 	if(!current_journal)
 	{
 		char name[16];
@@ -367,19 +384,33 @@ int metafile::switch_journal()
 	return 0;
 }
 
-metafile::tx_id metafile::tx_end(bool assign_id)
+tx_id metafile::tx_end(bool assign_id)
 {
 	int r;
+	mf_map_t::iterator itr;
 	if(!current_journal)
 		return -ENOENT;
 	if(tx_recursion != 1)
 		return -EBUSY;
-	for(mf_map_t::iterator itr = mf_map.begin(); itr != mf_map.end(); ++itr)
+	while(pre_end_handlers)
 	{
-		r = itr->second->flush();
+		pre_end_handlers->handle(pre_end_handlers->data);
+		pre_end_handlers = pre_end_handlers->_next;
+	}
+	itr = mf_map.begin();
+	while(itr != mf_map.end())
+	{
+		metafile * mf = itr->second;
+		/* advance the iterator before the possible delete
+		 * below, which will remove it from the map */
+		++itr;
+		r = mf->flush();
 		if(r < 0)
 			return r;
+		if(!mf->usage)
+			delete mf;
 	}
+	MF_S_DEBUG("%d", tx_recursion);
 	if(assign_id)
 		if(!tx_map.insert(std::make_pair(last_tx_id, current_journal)).second)
 			return -ENOENT;
@@ -418,6 +449,21 @@ int metafile::tx_end_external(bool success)
 	if(!current_journal)
 		return -EINVAL;
 	return current_journal->end_external(success);
+}
+
+void metafile::tx_register_pre_end(tx_pre_end * handle)
+{
+	handle->_next = pre_end_handlers;
+	pre_end_handlers = handle;
+}
+
+void metafile::tx_unregister_pre_end(tx_pre_end * handle)
+{
+	struct tx_pre_end ** prev = &pre_end_handlers;
+	while(*prev && *prev != handle)
+		prev = &(*prev)->_next;
+	if(*prev)
+		*prev = handle->_next;
 }
 
 int metafile::tx_sync(tx_id id)
@@ -469,96 +515,106 @@ int metafile::tx_end_r()
 
 /* now the C interface to all this */
 
-mf_fp mf_open(int dfd, const char * name, int create)
+tx_fd tx_open(int dfd, const char * name, int create)
 {
 	return metafile::open(dfd, name, create);
 }
 
-size_t mf_size(const mf_fp file)
+size_t tx_size(const tx_fd file)
 {
 	return file->size();
 }
 
-int mf_dirty(const mf_fp file)
+int tx_dirty(const tx_fd file)
 {
 	return file->dirty();
 }
 
-size_t mf_read(const mf_fp file, void * buf, size_t length, off_t offset)
+size_t tx_read(const tx_fd file, void * buf, size_t length, off_t offset)
 {
 	/* off_t vs. size_t for offset? */
 	return file->read(buf, length, offset);
 }
 
-int mf_truncate(mf_fp file)
+int tx_truncate(tx_fd file)
 {
 	file->truncate();
 	return 0;
 }
 
-int mf_write(mf_fp file, const void * buf, size_t length, off_t offset)
+int tx_write(tx_fd file, const void * buf, size_t length, off_t offset)
 {
 	/* off_t vs. size_t for offset? */
 	return file->write(buf, length, offset);
 }
 
-int mf_close(mf_fp file)
+int tx_close(tx_fd file)
 {
 	file->close();
 	return 0;
 }
 
-int mf_unlink(int dfd, const char * name, int recursive)
+int tx_unlink(int dfd, const char * name, int recursive)
 {
 	return metafile::unlink(dfd, name, recursive);
 }
 
-int mftx_init(int dfd, size_t log_size)
+int tx_init(int dfd, size_t log_size)
 {
 	return metafile::tx_init(dfd, log_size);
 }
 
-void mftx_deinit(void)
+void tx_deinit(void)
 {
 	metafile::tx_deinit();
 }
 
-int mftx_start(void)
+int tx_start(void)
 {
 	return metafile::tx_start();
 }
 
-mftx_id mftx_end(int assign_id)
+tx_id tx_end(int assign_id)
 {
 	return metafile::tx_end(assign_id);
 }
 
-int mftx_start_external(void)
+int tx_start_external(void)
 {
 	return metafile::tx_start_external();
 }
 
-int mftx_end_external(int success)
+int tx_end_external(int success)
 {
 	return metafile::tx_end_external(success);
 }
 
-int mftx_sync(mftx_id id)
+void tx_register_pre_end(struct tx_pre_end * handle)
+{
+	metafile::tx_register_pre_end(handle);
+}
+
+void tx_unregister_pre_end(struct tx_pre_end * handle)
+{
+	metafile::tx_unregister_pre_end(handle);
+}
+
+int tx_sync(tx_id id)
 {
 	return metafile::tx_sync(id);
 }
 
-int mftx_forget(mftx_id id)
+int tx_forget(tx_id id)
 {
 	return metafile::tx_forget(id);
 }
 
-int mftx_start_r(void)
+int tx_start_r(void)
 {
 	return metafile::tx_start_r();
 }
 
-int mftx_end_r(void)
+int tx_end_r(void)
 {
 	return metafile::tx_end_r();
 }

@@ -13,7 +13,7 @@
 #include "openat.h"
 #include "blowfish.h"
 #include "toilet.h"
-#include "transaction.h"
+#include "metafile.h"
 #include "params.h"
 
 #include "simple_dtable.h"

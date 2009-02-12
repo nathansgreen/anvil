@@ -14,54 +14,81 @@ extern "C" {
 #endif
 
 /* metafile transactions */
-typedef int32_t mftx_id;
+typedef int32_t tx_id;
 
-int mftx_init(int dfd, size_t log_size);
-void mftx_deinit(void);
+struct tx_pre_end {
+	/* fill in the data and handle fields */
+	void * data;
+	void (*handle)(void * data);
+	/* but leave this one alone */
+	struct tx_pre_end * _next;
+};
 
-int mftx_start(void);
-/* mftx_start_external() causes subsequent file operations until mftx_end_external()
+int tx_init(int dfd, size_t log_size);
+void tx_deinit(void);
+
+int tx_start(void);
+tx_id tx_end(int assign_id);
+
+/* tx_start_external() causes subsequent file operations until tx_end_external()
  * to become dependencies of this transaction - see journal::start_external() */
-int mftx_start_external(void);
-int mftx_end_external(int success);
-mftx_id mftx_end(int assign_id);
+int tx_start_external(void);
+int tx_end_external(int success);
 
-int mftx_sync(mftx_id id);
-int mftx_forget(mftx_id id);
+/* adds a pre-end handler to the current transaction */
+void tx_register_pre_end(struct tx_pre_end * handle);
+/* does a linear search; avoid if possible */
+void tx_unregister_pre_end(struct tx_pre_end * handle);
+
+int tx_sync(tx_id id);
+int tx_forget(tx_id id);
 
 /* metafiles */
-typedef struct metafile * mf_fp;
+typedef struct metafile * tx_fd;
 
-mf_fp mf_open(int dfd, const char * name, int create);
-size_t mf_size(const mf_fp file);
-int mf_dirty(const mf_fp file);
+tx_fd tx_open(int dfd, const char * name, int create);
+size_t tx_size(const tx_fd file);
+int tx_dirty(const tx_fd file);
 /* reads some part of the file */
-size_t mf_read(const mf_fp file, void * buf, size_t length, off_t offset);
+size_t tx_read(const tx_fd file, void * buf, size_t length, off_t offset);
 /* truncates the file to 0 size */
-int mf_truncate(mf_fp file);
+int tx_truncate(tx_fd file);
 /* writes some part of the metafile as part of the current transaction */
-int mf_write(mf_fp file, const void * buf, size_t length, off_t offset);
-int mf_close(mf_fp file);
+int tx_write(tx_fd file, const void * buf, size_t length, off_t offset);
+int tx_close(tx_fd file);
 
-int mf_unlink(int dfd, const char * name, int recursive);
+int tx_unlink(int dfd, const char * name, int recursive);
 
 /* simple recursive transactions: the "real" transaction is the outermost one */
-int mftx_start_r(void);
-int mftx_end_r(void);
+int tx_start_r(void);
+int tx_end_r(void);
 
-struct mftx_handle {
+struct tx_handle {
 	uint32_t in_tx;
 };
-#define MFTX_HANDLE_INIT(handle) do { (handle).in_tx = 0; } while(0)
-#define MFTX_IN_TX(handle) ((handle).in_tx > 0)
-#define MFTX_START(handle) ({ int r = 0; if(!(handle).in_tx++) { r = tx_start_r(); if(r < 0) (handle).in_tx--; } assert((handle).in_tx); r; })
-#define MFTX_END(handle) ({ int r = 0; assert((handle).in_tx); if(!--(handle).in_tx) { r = tx_end_r(); if(r < 0) (handle).in_tx++; } r; })
-#define MFTX_CLEANUP(handle) do { if((handle).in_tx) { int r = tx_end_r(); assert(r >= 0); } (handle).in_tx = 0; } while(0)
+#define TX_HANDLE_INIT(handle) do { (handle).in_tx = 0; } while(0)
+#define TX_IN_TX(handle) ((handle).in_tx > 0)
+#define TX_START(handle) ({ int r = 0; if(!(handle).in_tx++) { r = tx_start_r(); if(r < 0) (handle).in_tx--; } assert((handle).in_tx); r; })
+#define TX_END(handle) ({ int r = 0; assert((handle).in_tx); if(!--(handle).in_tx) { r = tx_end_r(); if(r < 0) (handle).in_tx++; } r; })
+#define TX_CLEANUP(handle) do { if((handle).in_tx) { int r = tx_end_r(); assert(r >= 0); } (handle).in_tx = 0; } while(0)
 
 #ifdef __cplusplus
 }
 
+#include <map>
+
+#include "journal.h"
 #include "blob_buffer.h"
+
+#define DEBUG_MF 0
+
+#if DEBUG_MF
+#define MF_DEBUG(format, args...) printf("mf::%s @%p:%s (" format ")\n", __FUNCTION__, this, path.str(), ##args)
+#define MF_S_DEBUG(format, args...) printf("mf::%s (" format ")\n", __FUNCTION__, ##args)
+#else
+#define MF_DEBUG(format, args...)
+#define MF_S_DEBUG(format, args...)
+#endif
 
 struct metafile
 {
@@ -80,6 +107,7 @@ public:
 	
 	inline size_t read(void * buf, size_t length, size_t offset) const
 	{
+		MF_DEBUG("%zu:%zu", offset, length);
 		if(offset >= data.size())
 			return 0;
 		if(offset + length > data.size())
@@ -96,6 +124,7 @@ public:
 	
 	inline int write(const void * buf, size_t length, size_t offset)
 	{
+		MF_DEBUG("%zu:%zu", offset, length);
 		is_dirty = true;
 		return data.overwrite(offset, buf, length);
 	}
@@ -104,15 +133,14 @@ public:
 	
 	inline void close()
 	{
-		if(!--usage)
+		MF_DEBUG("%d", usage);
+		if(!--usage && !is_dirty)
 			delete this;
 	}
 	
 	static int unlink(int dfd, const char * name, bool recursive);
 	
 	/* transactions */
-	typedef mftx_id tx_id;
-	
 	static int tx_init(int dfd, size_t log_size);
 	static void tx_deinit();
 	
@@ -121,6 +149,9 @@ public:
 	
 	static int tx_start_external();
 	static int tx_end_external(bool success);
+	
+	static void tx_register_pre_end(tx_pre_end * handle);
+	static void tx_unregister_pre_end(tx_pre_end * handle);
 	
 	static int tx_sync(tx_id id);
 	static int tx_forget(tx_id id);
@@ -138,8 +169,12 @@ private:
 	
 	inline ~metafile()
 	{
-		int r = flush();
-		assert(r >= 0);
+		MF_DEBUG("");
+		if(is_dirty)
+		{
+			int r = flush();
+			assert(r >= 0);
+		}
 		mf_map.erase(path);
 	}
 	
@@ -159,11 +194,12 @@ private:
 	static size_t tx_log_size;
 	
 	static tx_id last_tx_id;
+	static tx_pre_end * pre_end_handlers;
 	typedef std::map<tx_id, journal *> tx_map_t;
 	static tx_map_t tx_map; 
 	
 	static int switch_journal();
-	static istr metafile::full_path(int dfd, const char * name);
+	static istr full_path(int dfd, const char * name);
 	static bool ends_with(const char * string, const char * suffix);
 	static int record_processor(void * data, size_t length, void * param);
 };

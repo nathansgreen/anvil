@@ -11,7 +11,7 @@
 
 #include "blob.h"
 #include "dtable.h"
-#include "transaction.h"
+#include "metafile.h"
 #include "blob_comparator.h"
 
 /* column tables */
