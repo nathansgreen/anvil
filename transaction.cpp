@@ -220,6 +220,19 @@ int metafile::record_processor(void * data, size_t length, void * param)
 	return -ENOSYS;
 }
 
+/* C's atexit() handlers get called before C++ destructors, which
+ * is bad for us since we want this to happen pretty late during
+ * shutdown. So, build late atexit() out of a C++ destructor. */
+class cpp_atexit
+{
+	~cpp_atexit()
+	{
+		tx_deinit();
+	}
+	static cpp_atexit singleton;
+};
+cpp_atexit cpp_atexit::singleton;
+
 /* scans journal dir, recovers transactions */
 int metafile::tx_init(int dfd, size_t log_size)
 {
@@ -230,9 +243,6 @@ int metafile::tx_init(int dfd, size_t log_size)
 	
 	if(journal_dir >= 0)
 		return -EBUSY;
-	copy = atexit(tx_deinit);
-	if(copy < 0)
-		return copy;
 	
 	journal_dir = openat(dfd, "journals", O_RDONLY);
 	if(journal_dir < 0)
