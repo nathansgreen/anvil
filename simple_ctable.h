@@ -20,6 +20,7 @@ public:
 	virtual iter * iterator() const;
 	virtual iter * iterator(const dtype & key) const;
 	virtual blob find(const dtype & key, const istr & column) const;
+	virtual blob find(const dtype & key, size_t column) const;
 	virtual bool contains(const dtype & key) const;
 	
 	inline virtual bool writable() const
@@ -28,7 +29,9 @@ public:
 	}
 	
 	virtual int insert(const dtype & key, const istr & column, const blob & value, bool append = false);
+	virtual int insert(const dtype & key, size_t column, const blob & value, bool append = false);
 	virtual int remove(const dtype & key, const istr & column);
+	virtual int remove(const dtype & key, size_t column);
 	inline virtual int remove(const dtype & key)
 	{
 		return base->remove(key);
