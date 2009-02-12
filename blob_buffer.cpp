@@ -146,8 +146,8 @@ int blob_buffer::set_capacity(size_t capacity)
 		copy = (blob::blob_internal *) realloc(internal, sizeof(*internal) + capacity);
 		if(!copy)
 			return -ENOMEM;
-		if(internal->size > capacity)
-			internal->size = capacity;
+		if(copy->size > capacity)
+			copy->size = capacity;
 	}
 	internal = copy;
 	buffer_capacity = capacity;
