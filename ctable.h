@@ -46,11 +46,14 @@ public:
 	virtual iter * iterator() const = 0;
 	virtual iter * iterator(const dtype & key) const = 0;
 	virtual blob find(const dtype & key, const istr & column) const = 0;
+	virtual blob find(const dtype & key, size_t column) const = 0;
 	virtual bool contains(const dtype & key) const = 0;
 	virtual bool writable() const = 0;
 	virtual int insert(const dtype & key, const istr & column, const blob & value, bool append = false) = 0;
+	virtual int insert(const dtype & key, size_t column, const blob & value, bool append = false) = 0;
 	/* remove just a column */
 	virtual int remove(const dtype & key, const istr & column) = 0;
+	virtual int remove(const dtype & key, size_t column) = 0;
 	/* remove the whole row */
 	virtual int remove(const dtype & key) = 0;
 	inline dtype::ctype key_type() const { return ktype; }
@@ -80,6 +83,11 @@ public:
 		istr name;
 		blob value;
 	};
+	struct ncolval
+	{
+		size_t index;
+		blob value;
+	};
 	/* default implementations of multi-column methods */
 	virtual int insert(const dtype & key, const colval * values, size_t count, bool append = false)
 	{
@@ -92,7 +100,29 @@ public:
 		tx_end_r();
 		return r;
 	}
+	virtual int insert(const dtype & key, const ncolval * values, size_t count, bool append = false)
+	{
+		int r = tx_start_r();
+		if(r < 0)
+			return r;
+		for(size_t i = 0; i < count; i++)
+			if((r = insert(key, values[i].index, values[i].value, append)) < 0)
+				break;
+		tx_end_r();
+		return r;
+	}
 	virtual int remove(const dtype & key, const istr * columns, size_t count)
+	{
+		int r = tx_start_r();
+		if(r < 0)
+			return r;
+		for(size_t i = 0; i < count; i++)
+			if((r = remove(key, columns[i])) < 0)
+				break;
+		tx_end_r();
+		return r;
+	}
+	virtual int remove(const dtype & key, size_t * columns, size_t count)
 	{
 		int r = tx_start_r();
 		if(r < 0)

@@ -175,11 +175,17 @@ ctable::iter * column_ctable::iterator(const dtype & key) const
 
 blob column_ctable::find(const dtype & key, const istr & column) const
 {
-	/* should we support indexed columns somehow? */
 	name_map::const_iterator number = column_map.find(column);
 	if(number == column_map.end())
 		return blob();
+	assert(number->second < columns);
 	return column_table[number->second]->find(key);
+}
+
+blob column_ctable::find(const dtype & key, size_t column) const
+{
+	assert(column < columns);
+	return column_table[column]->find(key);
 }
 
 bool column_ctable::contains(const dtype & key) const
@@ -196,7 +202,18 @@ int column_ctable::insert(const dtype & key, const istr & column, const blob & v
 	return column_table[number->second]->insert(key, value, append);
 }
 
+int column_ctable::insert(const dtype & key, size_t column, const blob & value, bool append)
+{
+	assert(column < columns);
+	return column_table[column]->insert(key, value, append);
+}
+
 int column_ctable::remove(const dtype & key, const istr & column)
+{
+	return insert(key, column, blob());
+}
+
+int column_ctable::remove(const dtype & key, size_t column)
 {
 	return insert(key, column, blob());
 }
