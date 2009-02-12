@@ -2,8 +2,8 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#ifndef __METAFILE_H
-#define __METAFILE_H
+#ifndef __TRANSACTION_H
+#define __TRANSACTION_H
 
 #include <stdarg.h>
 #include <stdint.h>
@@ -205,4 +205,4 @@ private:
 };
 #endif
 
-#endif /* __METAFILE_H */
+#endif /* __TRANSACTION_H */

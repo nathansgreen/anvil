@@ -9,7 +9,7 @@
 #include <assert.h>
 
 #include "openat.h"
-#include "metafile.h"
+#include "transaction.h"
 
 #include "util.h"
 #include "managed_dtable.h"

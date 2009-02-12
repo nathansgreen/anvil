@@ -11,7 +11,7 @@
 #include "util.h"
 #include "rwfile.h"
 #include "rofile.h"
-#include "metafile.h"
+#include "transaction.h"
 #include "dtable_factory.h"
 #include "column_ctable.h"
 

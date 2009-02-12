@@ -210,7 +210,7 @@ void toilet_blobcmp_release(t_blobcmp ** blobcmp);
 #include <map>
 #include <set>
 
-#include "metafile.h"
+#include "transaction.h"
 
 #include "istr.h"
 #include "stable.h"

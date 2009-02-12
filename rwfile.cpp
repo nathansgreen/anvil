@@ -10,7 +10,7 @@
 
 #include "openat.h"
 
-#include "metafile.h"
+#include "transaction.h"
 #include "rwfile.h"
 
 int rwfile::create(int dfd, const char * file, bool tx_external, mode_t mode)

@@ -16,7 +16,7 @@
 #include <readline/history.h>
 
 #include "openat.h"
-#include "metafile.h"
+#include "transaction.h"
 #include "toilet.h"
 
 static t_toilet * open_toilet = NULL;

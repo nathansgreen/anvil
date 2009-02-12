@@ -18,7 +18,7 @@
 #include "util.h"
 #include "openat.h"
 #include "journal.h"
-#include "metafile.h"
+#include "transaction.h"
 
 /* The routines in this file implement a simple small-file transaction interface
  * on top of a generic journal module. Here we keep a journal directory with the

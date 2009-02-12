@@ -10,7 +10,7 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
-#include "metafile.h"
+#include "transaction.h"
 
 #ifndef __cplusplus
 #error journal++.h is a C++ header file
