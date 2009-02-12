@@ -67,7 +67,7 @@ struct tx_handle {
 	uint32_t in_tx;
 };
 #define TX_HANDLE_INIT(handle) do { (handle).in_tx = 0; } while(0)
-#define TX_IN_TX(handle) ((handle).in_tx > 0)
+#define IN_TX(handle) ((handle).in_tx > 0)
 #define TX_START(handle) ({ int r = 0; if(!(handle).in_tx++) { r = tx_start_r(); if(r < 0) (handle).in_tx--; } assert((handle).in_tx); r; })
 #define TX_END(handle) ({ int r = 0; assert((handle).in_tx); if(!--(handle).in_tx) { r = tx_end_r(); if(r < 0) (handle).in_tx++; } r; })
 #define TX_CLEANUP(handle) do { if((handle).in_tx) { int r = tx_end_r(); assert(r >= 0); } (handle).in_tx = 0; } while(0)
