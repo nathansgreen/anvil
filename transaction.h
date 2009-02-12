@@ -202,6 +202,9 @@ private:
 	static istr full_path(int dfd, const char * name);
 	static bool ends_with(const char * string, const char * suffix);
 	static int record_processor(void * data, size_t length, void * param);
+	
+	void operator=(const metafile &);
+	metafile(const metafile &);
 };
 #endif
 
