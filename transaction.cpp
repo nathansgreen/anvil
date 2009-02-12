@@ -6,162 +6,222 @@
 
 #include <errno.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <string.h>
 #include <assert.h>
 
-#include <map>
 #include <vector>
 #include <algorithm> /* for std::sort */
 
+#include "util.h"
 #include "openat.h"
 #include "journal.h"
 #include "transaction.h"
 
-#include "istr.h"
-#include "util.h"
-#include "params.h"
-
-/* The routines in this file implement a file system transaction interface on
- * top of a generic journal module. Here we keep a journal directory with the
+/* The routines in this file implement a simple small-file transaction interface
+ * on top of a generic journal module. Here we keep a journal directory with the
  * journal transactions, and manage initiating recovery when necessary. There
- * are some limits to the allowed file system operations; in particular, all
+ * are important limits to the allowed file operations; in particular, all
  * access to the files must be done through this module since writes to files
  * will not actually be done until the journal commits and thus they will not be
  * available for reading directly from the file system. */
 
-typedef uint32_t tx_fid;
+#define MF_TX_WRITE 1
+#define MF_TX_UNLINK 2
+#define MF_TX_RM_R 3
 
-/* these structures are easier for reading... */
+#define MF_TEMP_EXT ".mf-tmp"
 
-struct tx_name_hdr {
-	uint16_t dir_len;
-	uint16_t name_len;
-	mode_t mode;
-	char strings[0];
-};
+metafile::mf_map_t metafile::mf_map;
 
-struct tx_write_hdr {
-	tx_fid fid;
-	size_t length;
-	off_t offset;
-	union {
-		struct tx_name_hdr name[0];
-		uint8_t data[0];
-	};
-};
-
-struct tx_hdr {
-	enum { WRITE, UNLINK, RM_R } type;
-	union {
-		struct tx_write_hdr write[0];
-		struct tx_name_hdr unlink[0];
-	};
-};
-
-/* ...and these are better for writing */
-
-struct tx_write {
-	struct tx_hdr type;
-	struct tx_write_hdr write;
-};
-
-struct tx_full_write {
-	struct tx_write write;
-	struct tx_name_hdr name;
-};
-
-struct tx_unlink {
-	struct tx_hdr type;
-	struct tx_name_hdr unlink;
-};
-
-static int journal_dir = -1;
-static journal * last_journal = NULL;
-static journal * current_journal = NULL;
-static uint32_t tx_recursion = 0;
-static size_t tx_log_size = 0;
-
-static tx_id last_tx_id = -1;
-typedef std::map<tx_id, journal *> tx_map_t;
-static tx_map_t * tx_map; 
-
-struct write_log {
-	struct write_log * next;
-	size_t length;
-	off_t offset;
-	/* must be the last member */
-	uint8_t data[0];
-	
-	/* wrap the malloc() memory trick */
-	static inline write_log * alloc(size_t length, off_t offset, const void * data)
-	{
-		write_log * log = (write_log *) malloc(sizeof(write_log) + length);
-		if(log)
-		{
-			log->next = NULL;
-			log->length = length;
-			log->offset = offset;
-			memcpy(log->data, data, length);
-		}
-		return log;
-	}
-	
-	inline void free()
-	{
-		::free(this);
-	}
-	
-private:
-	/* make sure these are never used */
-	write_log(); ~write_log();
-	write_log(const write_log & x);
-	write_log & operator=(const write_log & x);
-};
-
-/* TX_FDS should be a power of 2 */
-#define TX_FDS 1024
-static struct {
-	int fd, writes, usage;
-	char * dir;
-	char * name;
-	mode_t mode;
-	tx_id tid;
-	tx_fid fid;
-	write_log * log;
-	write_log ** last;
-} tx_fds[TX_FDS];
-
-#define FID_FD(x) ((x) % TX_FDS)
-
-static struct tx_pre_end * pre_end_handlers = NULL;
-
-/* operations on transactions */
-
-static int tx_record_processor(void * data, size_t length, void * param);
-
-static int ends_with(const char * string, const char * suffix)
+istr metafile::full_path(int dfd, const char * name)
 {
-	size_t str_len = strlen(string);
-	size_t suf_len = strlen(suffix);
-	if(str_len < suf_len)
-		return 0;
-	return !strcmp(&string[str_len - suf_len], suffix);
+	char * dir = getcwdat(dfd, NULL, 0);
+	if(!dir)
+		return NULL;
+	istr path(dir, "/", name);
+	free(dir);
+	return path;
 }
 
-static int recover_hook(void * param)
+metafile * metafile::open(int dfd, const char * name, bool create)
 {
-	for(tx_fd fd = 0; fd < TX_FDS; fd++)
-		if(tx_fds[fd].fd >= 0)
-			tx_close(fd);
-	return 0;
+	int fd;
+	metafile * fp = NULL;
+	mf_map_t::iterator itr;
+	istr path = full_path(dfd, name);
+	if(!path)
+		return NULL;
+	MF_S_DEBUG("%s", path.str());
+	itr = mf_map.find(path);
+	if(itr != mf_map.end())
+	{
+		MF_S_DEBUG("cached");
+		itr->second->usage++;
+		return itr->second;
+	}
+	/* open read-write just to make sure we can */
+	fd = openat(dfd, name, O_RDWR);
+	if(fd < 0)
+	{
+		/* side effect: may non-transactionally create an empty file */
+		fd = openat(dfd, name, O_RDWR | O_CREAT, 0644);
+		if(fd < 0)
+			return NULL;
+		fp = new metafile(path);
+		if(!fp)
+			goto fail_close;
+	}
+	else
+	{
+		struct stat st;
+		if(fstat(fd, &st) < 0)
+			goto fail_close;
+		fp = new metafile(path);
+		if(!fp)
+			goto fail_close;
+		if(fp->data.set_size(st.st_size, false) < 0)
+			goto fail_delete;
+		if(st.st_size && pread(fd, &fp->data[0], st.st_size, 0) != st.st_size)
+			goto fail_delete;
+	}
+	
+	::close(fd);
+	return fp;
+	
+fail_delete:
+	delete fp;
+fail_close:
+	::close(fd);
+	return NULL;
+}
+
+int metafile::flush()
+{
+	int r = 0;
+	MF_DEBUG("%d", is_dirty);
+	if(is_dirty)
+	{
+		uint8_t type = MF_TX_WRITE;
+		uint16_t path_len = path.length();
+		uint32_t data_len = data.size();
+		journal::ovec ov[5] = {{&type, sizeof(type)},
+		                       {&path_len, sizeof(path_len)},
+		                       {&data_len, sizeof(data_len)},
+		                       {&path[0], path_len},
+		                       {data_len ? &data[0] : NULL, data_len}};
+		assert(current_journal);
+		r = current_journal->appendv(ov, data_len ? 5 : 4);
+		if(r >= 0)
+			is_dirty = false;
+	}
+	return r;
+}
+
+int metafile::unlink(int dfd, const char * name, bool recursive)
+{
+	istr path = full_path(dfd, name);
+	if(!path)
+		return -1;
+	MF_S_DEBUG("%s", path.str());
+	mf_map_t::iterator itr = mf_map.find(path);
+	if(itr != mf_map.end())
+	{
+		if(itr->second->usage)
+		{
+			fprintf(stderr, "Warning: tried to unlink open metafile %s\n", path.str());
+			return -EBUSY;
+		}
+		/* flush it, in case something later fails */
+		itr->second->flush();
+		delete itr->second;
+	}
+	uint8_t type = recursive ? MF_TX_RM_R : MF_TX_UNLINK;
+	uint16_t path_len = path.length();
+	journal::ovec ov[3] = {{&type, sizeof(type)},
+	                       {&path_len, sizeof(path_len)},
+	                       {&path[0], path_len}};
+	assert(current_journal);
+	return current_journal->appendv(ov, 3);
+}
+
+/* transactions */
+
+int metafile::journal_dir = -1;
+journal * metafile::last_journal = NULL;
+journal * metafile::current_journal = NULL;
+uint32_t metafile::tx_recursion = 0;
+size_t metafile::tx_log_size = 0;
+
+tx_id metafile::last_tx_id = -1;
+tx_pre_end * metafile::pre_end_handlers = NULL;
+metafile::tx_map_t metafile::tx_map;
+
+int metafile::record_processor(void * data, size_t length, void * param)
+{
+	int r, fd;
+	uint8_t * type = (uint8_t *) data;
+	switch(*type)
+	{
+		case MF_TX_WRITE:
+		{
+			/* tx_write journal entry:
+			 * [0] type (MF_TX_WRITE)
+			 * [1-2] path length
+			 * [3-6] data length
+			 * [7-...] path
+			 * [...] data */
+			uint16_t * path_len = (uint16_t *) &type[1];
+			uint32_t * data_len = (uint32_t *) &path_len[1];
+			char * path_data = (char *) &data_len[1];
+			void * file_data = (void *) &path_data[*path_len];
+			istr path = istr(path_data, *path_len);
+			istr temp_path = path + MF_TEMP_EXT;
+			assert(path[0] == '/');
+			MF_S_DEBUG("write %s", path.str());
+			fd = ::open(temp_path, O_WRONLY | O_TRUNC | O_CREAT, 0644);
+			if(fd < 0)
+				return fd;
+			r = ::write(fd, file_data, *data_len);
+			::close(fd);
+			if(r != (int) *data_len)
+			{
+				::unlink(temp_path);
+				return -1;
+			}
+			r = rename(temp_path, path);
+			if(r < 0)
+				::unlink(temp_path);
+			return r;
+		}
+		case MF_TX_UNLINK:
+		case MF_TX_RM_R:
+		{
+			/* tx_unlink journal entry:
+			 * [0] type (MF_TX_UNLINK or MF_TX_RM_R)
+			 * [1-2] path length
+			 * [3-...] path */
+			uint16_t * path_len = (uint16_t *) &type[1];
+			char * path_data = (char *) &path_len[1];
+			istr path = istr(path_data, *path_len);
+			assert(path[0] == '/');
+			MF_S_DEBUG("unlink %s", path.str());
+			if(*type == MF_TX_RM_R)
+				r = util::rm_r(AT_FDCWD, path);
+			else
+				r = unlinkat(AT_FDCWD, path, 0);
+			if(r < 0 && errno == ENOENT)
+				r = 0;
+			return r;
+		}
+	}
+	return -ENOSYS;
 }
 
 /* scans journal dir, recovers transactions */
-int tx_init(int dfd, size_t log_size)
+int metafile::tx_init(int dfd, size_t log_size)
 {
 	DIR * dir;
 	int copy, error = -1;
@@ -170,13 +230,6 @@ int tx_init(int dfd, size_t log_size)
 	
 	if(journal_dir >= 0)
 		return -EBUSY;
-	for(tx_fd fd = 0; fd < TX_FDS; fd++)
-	{
-		tx_fds[fd].fd = -1;
-		tx_fds[fd].fid = fd;
-		tx_fds[fd].log = NULL;
-		tx_fds[fd].last = &tx_fds[fd].log;
-	}
 	copy = atexit(tx_deinit);
 	if(copy < 0)
 		return copy;
@@ -193,13 +246,13 @@ int tx_init(int dfd, size_t log_size)
 	dir = fdopendir(copy);
 	if(!dir)
 	{
-		close(copy);
+		::close(copy);
 		goto fail;
 	}
 	
 	while((ent = readdir(dir)))
 	{
-		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..") || ends_with(ent->d_name, J_COMMIT_EXT))
+		if(!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, ".."))
 			continue;
 		entries.push_back(ent->d_name);
 	}
@@ -215,12 +268,9 @@ int tx_init(int dfd, size_t log_size)
 		const char * name = entries[i];
 		const char * commit_name = NULL;
 		last_tx_id = strtol(name, NULL, 16);
-		if(i+1 < entries.size() && strstr(entries[i+1], name) && strstr(entries[i+1], J_COMMIT_EXT))
-		{
-			commit_name = entries[i+1];
-			i++;
-		}
-
+		if(i + 1 < entries.size() && strstr(entries[i + 1], name) && strstr(entries[i + 1], J_COMMIT_EXT))
+			commit_name = entries[++i];
+		
 		error = journal::reopen(journal_dir, name, commit_name, &current_journal, last_journal);
 		if(error < 0)
 			goto fail;
@@ -236,7 +286,7 @@ int tx_init(int dfd, size_t log_size)
 				goto fail;
 			continue;
 		}
-		error = current_journal->playback(tx_record_processor, recover_hook, NULL);
+		error = current_journal->playback(record_processor, NULL, NULL);
 		if(error < 0)
 			goto fail;
 		error = current_journal->erase();
@@ -249,22 +299,18 @@ int tx_init(int dfd, size_t log_size)
 	}
 	
 	tx_log_size = log_size;
-
-	tx_map = new tx_map_t;
-	if(!tx_map)
-	{
-		error = -ENOMEM;
-		goto fail;
-	}
+	
+	/* just be sure */
+	tx_map.clear();
 	return 0;
 	
 fail:
-	close(journal_dir);
+	::close(journal_dir);
 	journal_dir = -1;
 	return error;
 }
 
-void tx_deinit(void)
+void metafile::tx_deinit()
 {
 	if(journal_dir < 0)
 		return;
@@ -274,14 +320,13 @@ void tx_deinit(void)
 		tx_recursion = 1;
 		tx_end(0);
 	}
-	for(tx_map_t::iterator itr = tx_map->begin(); itr != tx_map->end(); ++itr)
+	for(tx_map_t::iterator itr = tx_map.begin(); itr != tx_map.end(); ++itr)
 	{
 		journal * j = itr->second;
 		if(j != last_journal)
 			j->release();
 	}
-	delete tx_map;
-	tx_map = NULL;
+	tx_map.clear();
 	if(last_journal)
 	{
 		last_journal->release();
@@ -293,12 +338,13 @@ void tx_deinit(void)
 		current_journal->release();
 		current_journal = NULL;
 	}
-	close(journal_dir);
+	::close(journal_dir);
 	journal_dir = -1;
 }
 
-int tx_start(void)
+int metafile::tx_start()
 {
+	MF_S_DEBUG("%d", tx_recursion);
 	if(!current_journal)
 	{
 		char name[16];
@@ -308,7 +354,7 @@ int tx_start(void)
 		current_journal = journal::create(journal_dir, name, last_journal);
 		if(!current_journal)
 			return -1;
-		if(last_journal && tx_map->find(last_tx_id) == tx_map->end())
+		if(last_journal && tx_map.find(last_tx_id) == tx_map.end())
 		{
 			last_journal->release();
 			last_journal = NULL;
@@ -319,36 +365,7 @@ int tx_start(void)
 	return 0;
 }
 
-void tx_register_pre_end(struct tx_pre_end * handle)
-{
-	handle->_next = pre_end_handlers;
-	pre_end_handlers = handle;
-}
-
-void tx_unregister_pre_end(struct tx_pre_end * handle)
-{
-	struct tx_pre_end ** prev = &pre_end_handlers;
-	while(*prev && *prev != handle)
-		prev = &(*prev)->_next;
-	if(*prev)
-		*prev = handle->_next;
-}
-
-int tx_start_external(void)
-{
-	if(!current_journal)
-		return -EINVAL;
-	return current_journal->start_external();
-}
-
-int tx_end_external(int success)
-{
-	if(!current_journal)
-		return -EINVAL;
-	return current_journal->end_external(success != 0);
-}
-
-static int switch_journal(void)
+int metafile::switch_journal()
 {
 	int r = current_journal->erase();
 	if(r < 0)
@@ -358,9 +375,10 @@ static int switch_journal(void)
 	return 0;
 }
 
-tx_id tx_end(int assign_id)
+tx_id metafile::tx_end(bool assign_id)
 {
 	int r;
+	mf_map_t::iterator itr;
 	if(!current_journal)
 		return -ENOENT;
 	if(tx_recursion != 1)
@@ -370,13 +388,27 @@ tx_id tx_end(int assign_id)
 		pre_end_handlers->handle(pre_end_handlers->data);
 		pre_end_handlers = pre_end_handlers->_next;
 	}
+	itr = mf_map.begin();
+	while(itr != mf_map.end())
+	{
+		metafile * mf = itr->second;
+		/* advance the iterator before the possible delete
+		 * below, which will remove it from the map */
+		++itr;
+		r = mf->flush();
+		if(r < 0)
+			return r;
+		if(!mf->usage)
+			delete mf;
+	}
+	MF_S_DEBUG("%d", tx_recursion);
 	if(assign_id)
-		if(!tx_map->insert(std::make_pair(last_tx_id, current_journal)).second)
+		if(!tx_map.insert(std::make_pair(last_tx_id, current_journal)).second)
 			return -ENOENT;
 	r = current_journal->commit();
 	if(r < 0)
 		goto fail;
-	r = current_journal->playback(tx_record_processor, NULL, NULL);
+	r = current_journal->playback(record_processor, NULL, NULL);
 	if(r < 0)
 		/* not clear how to uncommit the journal... */
 		goto fail;
@@ -392,479 +424,68 @@ tx_id tx_end(int assign_id)
 	
 fail:
 	if(assign_id) 
-		tx_map->erase(last_tx_id);
+		tx_map.erase(last_tx_id);
 	return r;
 }
 
-int tx_sync(tx_id id)
+int metafile::tx_start_external()
+{
+	if(!current_journal)
+		return -EINVAL;
+	return current_journal->start_external();
+}
+
+int metafile::tx_end_external(bool success)
+{
+	if(!current_journal)
+		return -EINVAL;
+	return current_journal->end_external(success);
+}
+
+void metafile::tx_register_pre_end(tx_pre_end * handle)
+{
+	handle->_next = pre_end_handlers;
+	pre_end_handlers = handle;
+}
+
+void metafile::tx_unregister_pre_end(tx_pre_end * handle)
+{
+	struct tx_pre_end ** prev = &pre_end_handlers;
+	while(*prev && *prev != handle)
+		prev = &(*prev)->_next;
+	if(*prev)
+		*prev = handle->_next;
+}
+
+int metafile::tx_sync(tx_id id)
 {
 	int r;
-	tx_map_t::iterator itr = tx_map->find(id);
-	if(itr == tx_map->end())
+	tx_map_t::iterator itr = tx_map.find(id);
+	if(itr == tx_map.end())
 		return -EINVAL;
 	journal * j = itr->second;
 	r = j->wait();
 	if(r < 0)
 		return r;
-	tx_map->erase(id);
+	tx_map.erase(id);
 	if(j != last_journal)
 		j->release();
 	return 0;
 }
 
-int tx_forget(tx_id id)
+int metafile::tx_forget(tx_id id)
 {
-	tx_map_t::iterator itr = tx_map->find(id);
-	if(itr == tx_map->end())
+	tx_map_t::iterator itr = tx_map.find(id);
+	if(itr == tx_map.end())
 		return -EINVAL;
 	journal * j = itr->second;
-	tx_map->erase(id);
+	tx_map.erase(id);
 	if(j != last_journal)
 		j->release();
 	return 0;
 }
 
-/* transaction playback */
-
-/* When doing normal playback, the files will all be open already (but possibly
- * with negative write counts, indicating they've been "closed" during the
- * transaction). We can thus just go directly to their tx_fds entries and use
- * the file descriptors there. The tx_fd of each file is unique since files are
- * not actually closed until the end of the transaction, which is useful for
- * playback so we don't need to keep any additional mappings. During recovery,
- * we may need to open the files, but the other nice properties still apply.
- * However, in that case we need to close them again afterward. This is handled
- * outside this function, by the recovery routines. */
-static int tx_write_playback(struct tx_write_hdr * header, size_t length)
-{
-	void * data;
-	tx_fd fd = FID_FD(header->fid);
-	/* this condition should only be true during recovery... */
-	if(tx_fds[fd].fd < 0)
-	{
-		int dfd;
-		/* need to open the file; must be a full header with pathnames */
-		assert(header->length + sizeof(struct tx_full_write) + header->name->dir_len + header->name->name_len == length);
-		tx_fds[fd].dir = strndup(header->name->strings, header->name->dir_len);
-		if(!tx_fds[fd].dir)
-			return -ENOMEM;
-		tx_fds[fd].name = strndup(&header->name->strings[header->name->dir_len], header->name->name_len);
-		if(!tx_fds[fd].name)
-		{
-			free(tx_fds[fd].dir);
-			return -ENOMEM;
-		}
-		dfd = open(tx_fds[fd].dir, 0);
-		if(dfd < 0)
-		{
-			free(tx_fds[fd].name);
-			free(tx_fds[fd].dir);
-			return dfd;
-		}
-		tx_fds[fd].fd = openat(dfd, tx_fds[fd].name, O_RDWR | O_CREAT, header->name->mode);
-		close(dfd);
-		if(tx_fds[fd].fd < 0)
-		{
-			free(tx_fds[fd].name);
-			free(tx_fds[fd].dir);
-			return tx_fds[fd].fd;
-		}
-		tx_fds[fd].tid = last_tx_id;
-		/* important so that tx_close() will work after recovery! */
-		tx_fds[fd].writes = 0;
-		tx_fds[fd].usage = 1;
-		data = &header->name->strings[header->name->dir_len + header->name->name_len];
-		assert(!tx_fds[fd].log);
-	}
-	else
-	{
-		write_log * log = tx_fds[fd].log;
-		if(header->length + sizeof(struct tx_write) == length)
-			/* not a full header with pathnames */
-			data = header->data;
-		else
-		{
-			/* full header with pathnames */
-			assert(header->length + sizeof(struct tx_full_write) + header->name->dir_len + header->name->name_len == length);
-			data = &header->name->strings[header->name->dir_len + header->name->name_len];
-		}
-		if(log)
-		{
-			assert(log->length == header->length && log->offset == header->offset);
-			if(!(tx_fds[fd].log = log->next))
-				tx_fds[fd].last = &tx_fds[fd].log;
-			log->free();
-		}
-		/* else we are doing a second or later write during recovery */
-	}
-	pwrite(tx_fds[fd].fd, data, header->length, header->offset);
-	if(tx_fds[fd].writes < 0 && !++tx_fds[fd].writes)
-		tx_close(fd);
-	return 0;
-}
-
-static int tx_unlink_playback(struct tx_name_hdr * header, size_t length, bool recursive)
-{
-	int r, dfd;
-	istr dir(header->strings, header->dir_len);
-	istr name(&header->strings[header->dir_len], header->name_len);
-	dfd = open(dir, 0);
-	if(dfd < 0)
-		return (errno == ENOENT) ? 0 : dfd;
-	if(recursive)
-		r = util::rm_r(dfd, name);
-	else
-		r = unlinkat(dfd, name, 0);
-	if(r < 0 && errno == ENOENT)
-		r = 0;
-	close(dfd);
-	return r;
-}
-
-static int tx_record_processor(void * data, size_t length, void * param)
-{
-	struct tx_hdr * header = (tx_hdr *) data;
-	switch(header->type)
-	{
-		case tx_hdr::WRITE:
-			return tx_write_playback(header->write, length);
-		case tx_hdr::UNLINK:
-		case tx_hdr::RM_R:
-			return tx_unlink_playback(header->unlink, length, header->type == tx_hdr::RM_R);
-	}
-	return -ENOSYS;
-}
-
-/* operations on files within a transaction */
-
-static int same_path(const char * d1, const char * f1, const char * d2, const char * f2)
-{
-	size_t d1l = strlen(d1);
-	size_t d2l = strlen(d2);
-	/* support directory names with trailing / */
-	if(d1[d1l - 1] == '/')
-		d1l--;
-	if(d2[d2l - 1] == '/')
-		d2l--;
-	/* already lined up? then just compare each part */
-	if(d1l == d2l)
-		return !strncmp(d1, d2, d1l) && !strcmp(f1, f2);
-	/* handle d1l > d2l by switching 1<->2 */
-	if(d1l > d2l)
-	{
-		const char * ss;
-		size_t sl = d1l;
-		d1l = d2l; d2l = sl;
-		ss = d1; d1 = d2; d2 = ss;
-		ss = f1; f1 = f2; f2 = ss;
-	}
-	assert(d1l < d2l);
-	if(strncmp(d1, d2, d1l))
-		return 0;
-	if(d2[d1l] != '/')
-		return 0;
-	d2 = &d2[d1l + 1];
-	d2l -= d1l + 1;
-	if(strncmp(d2, f1, d2l))
-		return 0;
-	if(f1[d2l] != '/')
-		return 0;
-	f1 = &f1[d2l + 1];
-	return !strcmp(f1, f2);
-}
-
-static tx_fd get_tx_fd(const char * dir, const char * name)
-{
-	tx_fd min = -1;
-	for(tx_fd fd = 0; fd < TX_FDS; fd++)
-		if(tx_fds[fd].fd < 0)
-		{
-			/* if it's currently closed, check if it's the lowest */
-			if(min == -1)
-				min = fd;
-		}
-		else
-		{
-			/* if it's currently open, check if it's the same file */
-			if(same_path(tx_fds[fd].dir, tx_fds[fd].name, dir, name))
-			{
-				if(tx_fds[fd].writes < 0)
-					tx_fds[fd].writes = -tx_fds[fd].writes;
-				tx_fds[fd].usage++;
-				return fd;
-			}
-		}
-	return min;
-}
-
-/* XXX: flags must either be stored in the journal, or some flags like O_TRUNC and O_EXCL must be disallowed */
-/* Note that using O_CREAT here will create the file immediately, rather than
- * during transaction playback. Also see the note below about tx_unlink(). */
-tx_fd tx_open(int dfd, const char * name, int flags, ...)
-{
-	int fd;
-	char * dir;
-	if(journal_dir < 0)
-		return -EBUSY;
-	dir = getcwdat(dfd, NULL, 0);
-	if(!dir)
-		return (errno > 0) ? -errno : -1;
-	fd = get_tx_fd(dir, name);
-	if(fd < 0)
-	{
-		free(dir);
-		return fd;
-	}
-	if(tx_fds[fd].fd >= 0)
-	{
-		free(dir);
-		/* already open */
-		return fd;
-	}
-	if((flags & O_WRONLY) && !(flags & O_RDWR))
-	{
-		/* we may want to read from this file descriptor later, before
-		 * the transaction is over, but we'll cache this one to use then
-		 * so make it O_RDWR even though O_WRONLY was requested */
-		flags &= ~O_WRONLY;
-		flags |= O_RDWR;
-	}
-	if(flags & O_CREAT)
-	{
-		va_list ap;
-		va_start(ap, flags);
-		tx_fds[fd].mode = va_arg(ap, int);
-		va_end(ap);
-	}
-	else
-		tx_fds[fd].mode = 0;
-	tx_fds[fd].dir = dir;
-	tx_fds[fd].name = strdup(name);
-	if(!tx_fds[fd].name)
-	{
-		free(dir);
-		return -ENOMEM;
-	}
-	tx_fds[fd].fd = openat(dfd, name, flags, tx_fds[fd].mode);
-	if(tx_fds[fd].fd < 0)
-	{
-		free(tx_fds[fd].name);
-		free(dir);
-		return tx_fds[fd].fd;
-	}
-	tx_fds[fd].writes = 0;
-	tx_fds[fd].usage = 1;
-	/* i.e., not this tx ID for sure */
-	tx_fds[fd].tid = last_tx_id - 1;
-	return fd;
-}
-
-int tx_emptyfile(tx_fd fd)
-{
-	int r;
-	struct stat st;
-	if(tx_fds[fd].log)
-		return 1;
-	r = fstat(tx_fds[fd].fd, &st);
-	if(r < 0)
-		return r;
-	return !st.st_size;
-}
-
-ssize_t tx_read(tx_fd fd, void * buf, size_t length, off_t offset)
-{
-	const off_t end = offset + length;
-	ssize_t size = pread(tx_fds[fd].fd, buf, length, offset);
-	if(size < 0)
-		return size;
-	if((size_t) size < length)
-		/* can't use void * in arithmetic... */
-		memset(&((uint8_t *) buf)[size], 0, length - size);
-	/* this will build up the correct result by applying all uncommitted writes in order */
-	for(write_log * log = tx_fds[fd].log; log; log = log->next)
-	{
-		if(log->offset >= offset)
-		{
-			if(log->offset < end)
-			{
-				off_t start = log->offset - offset;
-				size_t min = length - start;
-				if(log->length < min)
-					min = log->length;
-				/* can't use void * in arithmetic... */
-				memcpy(&((uint8_t *) buf)[start], log->data, min);
-				if(start + min > (size_t) size)
-					size = start + min;
-			}
-		}
-		else if(log->offset + (off_t) log->length > offset)
-		{
-			off_t start = offset - log->offset;
-			size_t min = log->length - start;
-			if(length < min)
-				min = length;
-			memcpy(buf, &log->data[start], min);
-			if(min > (size_t) size)
-				size = min;
-		}
-	}
-	return size;
-}
-
-/* note that tx_write(), unlike write(), does not report the number of bytes written */
-ssize_t tx_write(tx_fd fd, const void * buf, size_t length, off_t offset)
-{
-	struct tx_full_write full;
-	struct tx_write * header = &full.write;
-	struct journal::ovec ov[4];
-	size_t count = 1;
-	int r;
-	/* assert for now; makes it easier to find errors */
-	assert(current_journal && tx_recursion);
-	if(!current_journal || !tx_recursion)
-		return -EBUSY;
-	assert(tx_fds[fd].fd >= 0);
-	header->type.type = tx_hdr::WRITE;
-	header->write.length = length;
-	header->write.offset = offset;
-	ov[0].ov_base = header;
-	ov[0].ov_len = sizeof(*header);
-	if(tx_fds[fd].tid != last_tx_id)
-	{
-		ov[0].ov_len = sizeof(full);
-		full.name.dir_len = strlen(tx_fds[fd].dir);
-		ov[1].ov_base = tx_fds[fd].dir;
-		ov[1].ov_len = full.name.dir_len;
-		full.name.name_len = strlen(tx_fds[fd].name);
-		ov[2].ov_base = tx_fds[fd].name;
-		ov[2].ov_len = full.name.name_len;
-		full.name.mode = tx_fds[fd].mode;
-		count = 3;
-		tx_fds[fd].tid = last_tx_id;
-		tx_fds[fd].fid += TX_FDS;
-		tx_fds[fd].writes = 0;
-	}
-	header->write.fid = tx_fds[fd].fid;
-	ov[count].ov_base = buf;
-	ov[count++].ov_len = length;
-	*tx_fds[fd].last = write_log::alloc(length, offset, buf);
-	if(!*tx_fds[fd].last)
-		return -ENOMEM;
-	tx_fds[fd].writes++;
-	r = current_journal->appendv(ov, count);
-	if(r < 0)
-	{
-		tx_fds[fd].writes--;
-		if(count == 4)
-			/* i.e., not this tx ID for sure */
-			tx_fds[fd].tid--;
-	}
-	else
-		tx_fds[fd].last = &(*tx_fds[fd].last)->next;
-	return r;
-}
-
-int tx_vnprintf(tx_fd fd, off_t offset, size_t max, const char * format, va_list ap)
-{
-	char buffer[512];
-	int r;
-       	uint32_t length = vsnprintf(buffer, sizeof(buffer), format, ap);
-	if(length >= sizeof(buffer) || (max != (size_t) -1 && length > max))
-		return -E2BIG;
-	r = tx_write(fd, buffer, length, offset);
-	if(r < 0)
-		return r;
-	return length;
-}
-
-int tx_nprintf(tx_fd fd, off_t offset, size_t max, const char * format, ...)
-{
-	int r;
-	va_list ap;
-	va_start(ap, format);
-	r = tx_vnprintf(fd, offset, max, format, ap);
-	va_end(ap);
-	return r;
-}
-
-int tx_close(tx_fd fd)
-{
-	/* still in use by other openers? */
-	if(--tx_fds[fd].usage > 0)
-		return 0;
-	if(tx_fds[fd].tid == last_tx_id && tx_fds[fd].writes && current_journal)
-	{
-		if(tx_fds[fd].writes > 0)
-			tx_fds[fd].writes = -tx_fds[fd].writes;
-		else
-		{
-			fprintf(stderr, "Extra close of tx_fd %d?\n", fd);
-			return -EINVAL;
-		}
-	}
-	else
-	{
-		int r = close(tx_fds[fd].fd);
-		if(r < 0)
-			return r;
-		while(tx_fds[fd].log)
-		{
-			write_log * log = tx_fds[fd].log;
-			tx_fds[fd].log = log->next;
-			log->free();
-		}
-		tx_fds[fd].last = &tx_fds[fd].log;
-		free(tx_fds[fd].name);
-		free(tx_fds[fd].dir);
-		tx_fds[fd].fd = -1;
-	}
-	return 0;
-}
-
-/* Note that you cannot unlink and then recreate a file in a single transaction.
- * Most parts of that will work, but since the old file will have been opened as
- * the new file during the transaction (since the unlink will not have been
- * played back), the unlink that occurs during playback will unlink the file
- * which is still open as the new file. Further writes to the file will occur on
- * the unlinked file, which will be lost once it is closed. */
-int tx_unlink(int dfd, const char * name, int recursive)
-{
-	struct tx_unlink header;
-	struct journal::ovec ov[3];
-	char * dir;
-	int r;
-	if(!current_journal)
-		return -EBUSY;
-	if(!recursive)
-	{
-		struct stat64 st;
-		r = fstatat64(dfd, name, &st, AT_SYMLINK_NOFOLLOW);
-		if(r < 0)
-			return r;
-		if(S_ISDIR(st.st_mode))
-			return -EISDIR;
-		header.type.type = tx_hdr::UNLINK;
-	}
-	else
-		header.type.type = tx_hdr::RM_R;
-	ov[0].ov_base = &header;
-	ov[0].ov_len = sizeof(header);
-	dir = getcwdat(dfd, NULL, 0);
-	if(!dir)
-		return (errno > 0) ? -errno : -1;
-	header.unlink.dir_len = strlen(dir);
-	ov[1].ov_base = dir;
-	ov[1].ov_len = header.unlink.dir_len;
-	header.unlink.name_len = strlen(name);
-	ov[2].ov_base = name;
-	ov[2].ov_len = header.unlink.name_len;
-	header.unlink.mode = 0;
-	r = current_journal->appendv(ov, 3);
-	free(dir);
-	return r;
-}
-
-int tx_start_r(void)
+int metafile::tx_start_r()
 {
 	if(!tx_recursion)
 		return tx_start();
@@ -873,7 +494,7 @@ int tx_start_r(void)
 	return 0;
 }
 
-int tx_end_r(void)
+int metafile::tx_end_r()
 {
 	if(!tx_recursion)
 		return -EBUSY;
@@ -881,4 +502,110 @@ int tx_end_r(void)
 		return tx_end(0);
 	tx_recursion--;
 	return 0;
+}
+
+/* now the C interface to all this */
+
+tx_fd tx_open(int dfd, const char * name, int create)
+{
+	return metafile::open(dfd, name, create);
+}
+
+size_t tx_size(const tx_fd file)
+{
+	return file->size();
+}
+
+int tx_dirty(const tx_fd file)
+{
+	return file->dirty();
+}
+
+size_t tx_read(const tx_fd file, void * buf, size_t length, off_t offset)
+{
+	/* off_t vs. size_t for offset? */
+	return file->read(buf, length, offset);
+}
+
+int tx_truncate(tx_fd file)
+{
+	file->truncate();
+	return 0;
+}
+
+int tx_write(tx_fd file, const void * buf, size_t length, off_t offset)
+{
+	/* off_t vs. size_t for offset? */
+	return file->write(buf, length, offset);
+}
+
+int tx_close(tx_fd file)
+{
+	file->close();
+	return 0;
+}
+
+int tx_unlink(int dfd, const char * name, int recursive)
+{
+	return metafile::unlink(dfd, name, recursive);
+}
+
+int tx_init(int dfd, size_t log_size)
+{
+	return metafile::tx_init(dfd, log_size);
+}
+
+void tx_deinit(void)
+{
+	metafile::tx_deinit();
+}
+
+int tx_start(void)
+{
+	return metafile::tx_start();
+}
+
+tx_id tx_end(int assign_id)
+{
+	return metafile::tx_end(assign_id);
+}
+
+int tx_start_external(void)
+{
+	return metafile::tx_start_external();
+}
+
+int tx_end_external(int success)
+{
+	return metafile::tx_end_external(success);
+}
+
+void tx_register_pre_end(struct tx_pre_end * handle)
+{
+	metafile::tx_register_pre_end(handle);
+}
+
+void tx_unregister_pre_end(struct tx_pre_end * handle)
+{
+	metafile::tx_unregister_pre_end(handle);
+}
+
+int tx_sync(tx_id id)
+{
+	return metafile::tx_sync(id);
+}
+
+int tx_forget(tx_id id)
+{
+	return metafile::tx_forget(id);
+}
+
+int tx_start_r(void)
+{
+	return metafile::tx_start_r();
+}
+
+int tx_end_r(void)
+{
+	return metafile::tx_end_r();
 }

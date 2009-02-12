@@ -151,20 +151,19 @@ int journal::checksum(off_t start, off_t end, uint8_t * checksum)
 	 * I already had MD5 lying around so I used it here */
 	MD5_CTX ctx;
 	uint8_t buffer[4096];
-	ssize_t size;
+	ssize_t size = end - start;
 	MD5Init(&ctx);
-	size = data_file.read(start, buffer, sizeof(buffer));
+	if(size > (ssize_t) sizeof(buffer))
+		size = sizeof(buffer);
+	size = data_file.read(start, buffer, size);
 	while(size > 0 && end > start)
 	{
-		if(size > end)
-		{
-			size = end;
-			end = 0;
-		}
-		else
-			end -= size;
+		start += size;
 		MD5Update(&ctx, buffer, size);
-		size = data_file.read(start, buffer, sizeof(buffer));
+		size = end - start;
+		if(size > (ssize_t) sizeof(buffer))
+			size = sizeof(buffer);
+		size = data_file.read(start, buffer, size);
 	}
 	if(size < 0)
 		return -1;
@@ -476,7 +475,7 @@ int journal::verify()
 		return -1;
 	for(uint32_t i = 0; i < commits; i++)
 	{
-		if(pread(crfd, &cr, sizeof(cr), commits * sizeof(cr)) != sizeof(cr))
+		if(pread(crfd, &cr, sizeof(cr), i * sizeof(cr)) != sizeof(cr))
 			return -1;
 		if(checksum(cr.offset, cr.offset + cr.length, actual) < 0)
 			return -1;

@@ -550,36 +550,36 @@ static int command_tx(int argc, const char * argv[])
 	tx_fd fd, fd2;
 	char buf[17];
 	
-	fd = tx_open(AT_FDCWD, "testfile", O_RDWR | O_CREAT, 0644);
-	printf("tx_open(testfile) = %d\n", fd);
+	fd = tx_open(AT_FDCWD, "testfile", 1);
+	printf("tx_open(testfile) = %p\n", fd);
 	r = tx_start();
 	printf("tx_start() = %d\n", r);
 	
 	r = tx_write(fd, "0123456789ABCDEF", 16, 0);
-	printf("tx_write(%d, 0123456789ABCDEF, 16, 0) = %d\n", fd, r);
+	printf("tx_write(%p, 0123456789ABCDEF, 16, 0) = %d\n", fd, r);
 	r = tx_write(fd, "FEDCBA9876543210", 16, 14);
-	printf("tx_write(%d, FEDCBA9876543210, 16, 14) = %d\n", fd, r);
+	printf("tx_write(%p, FEDCBA9876543210, 16, 14) = %d\n", fd, r);
 	r = tx_read(fd, buf, 16, 8);
 	buf[r < 0 ? 0 : r > 16 ? 16 : r] = 0;
-	printf("tx_read(%d, 16, 8) = %d \"%s\"\n", fd, r, buf);
+	printf("tx_read(%p, 16, 8) = %d \"%s\"\n", fd, r, buf);
 	
-	fd2 = tx_open(AT_FDCWD, "testfile", O_RDWR | O_CREAT, 0644);
-	printf("tx_open(testfile) = %d\n", fd2);
+	fd2 = tx_open(AT_FDCWD, "testfile", 1);
+	printf("tx_open(testfile) = %p\n", fd2);
 	r = tx_close(fd2);
-	printf("tx_close(%d) = %d\n", fd2, r);
+	printf("tx_close(%p) = %d\n", fd2, r);
 	r = tx_read(fd, buf, 16, 7);
 	buf[r < 0 ? 0 : r > 16 ? 16 : r] = 0;
-	printf("tx_read(%d, 16, 7) = %d \"%s\"\n", fd, r, buf);
+	printf("tx_read(%p, 16, 7) = %d \"%s\"\n", fd, r, buf);
 	
 	r = tx_end(0);
 	printf("tx_end() = %d\n", r);
 	
 	r = tx_read(fd, buf, 16, 6);
 	buf[r < 0 ? 0 : r > 16 ? 16 : r] = 0;
-	printf("tx_read(%d, 16, 6) = %d \"%s\"\n", fd, r, buf);
+	printf("tx_read(%p, 16, 6) = %d \"%s\"\n", fd, r, buf);
 	
 	r = tx_close(fd);
-	printf("tx_close(%d) = %d\n", fd, r);
+	printf("tx_close(%p) = %d\n", fd, r);
 	
 	r = tx_start();
 	printf("tx_start() = %d\n", r);

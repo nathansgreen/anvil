@@ -95,7 +95,7 @@ public:
 		return playback(listener);
 	}
 	
-	inline sys_journal() : meta_dfd(-1), meta_fd(-1), dirty(false), registered(false)
+	inline sys_journal() : meta_dfd(-1), meta_fd(NULL), dirty(false), registered(false)
 	{
 		handle.data = this;
 		handle.handle = flush_tx_static;
@@ -105,7 +105,7 @@ public:
 	void deinit(bool erase = false);
 	inline ~sys_journal()
 	{
-		if(meta_fd >= 0)
+		if(meta_fd)
 			deinit();
 	}
 	
@@ -144,7 +144,7 @@ private:
 	{
 		tx_fd fd;
 		listener_id next;
-		inline unique_id() : fd(-1), next(NO_ID) {}
+		inline unique_id() : fd(NULL), next(NO_ID) {}
 		inline ~unique_id()
 		{
 			if(fd >= 0)

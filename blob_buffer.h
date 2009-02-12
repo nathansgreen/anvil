@@ -1,4 +1,4 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
+/* This file is part of Toilet. Toilet is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -44,6 +44,13 @@ public:
 		return internal->bytes[i];
 	}
 	
+	inline const uint8_t & operator[](size_t i) const
+	{
+		assert(internal);
+		assert(i < internal->size);
+		return internal->bytes[i];
+	}
+	
 	/* will *not* extend size or capacity */
 	template <class T>
 	inline const T & index(size_t i, size_t off = 0) const
@@ -68,7 +75,7 @@ public:
 	
 	inline int overwrite(size_t offset, const dtype & x)
 	{
-		/* hmm... the x.exists() test above will be uselessly inlined */
+		/* hmm... the x.size() test above will be uselessly inlined */
 		return overwrite(offset, x.flatten());
 	}
 	

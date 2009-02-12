@@ -50,12 +50,9 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
 		return md_dfd;
-	meta = tx_open(md_dfd, "md_meta", O_RDONLY);
-	if(meta < 0)
-	{
-		r = meta;
+	meta = tx_open(md_dfd, "md_meta", 0);
+	if(!meta)
 		goto fail_meta;
-	}
 	
 	if(tx_read(meta, &header, sizeof(header), 0) != sizeof(header))
 		goto fail_header;
@@ -139,7 +136,7 @@ fail_disks:
 		delete disks[i].disk;
 	disks.clear();
 fail_header:
-	close(meta);
+	tx_close(meta);
 fail_meta:
 	close(md_dfd);
 	md_dfd = -1;
@@ -292,11 +289,11 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 	for(size_t i = last + 1; i < disks.size(); i++)
 		copy.push_back(disks[i]);
 	
-	fd = tx_open(md_dfd, "md_meta", O_RDWR);
-	if(fd < 0)
+	fd = tx_open(md_dfd, "md_meta", 0);
+	if(!fd)
 	{
 		unlinkat(md_dfd, name, 0);
-		return (int) fd;
+		return -1;
 	}
 	
 	if(reset_journal)
@@ -308,6 +305,7 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 	header.ddt_count = copy.size();
 	header.ddt_next++;
 	
+	/* TODO: really the file should be truncated, but it's not important */
 	r = tx_write(fd, &header, sizeof(header), 0);
 	if(r < 0)
 	{
@@ -334,7 +332,6 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 			return r;
 		}
 	}
-	/* TODO: really the file should be truncated, but it's not important */
 	tx_close(fd);
 	
 	disks.swap(copy);
@@ -462,12 +459,12 @@ int managed_dtable::create(int dfd, const char * name, const params & config, dt
 		unlinkat(dfd, name, AT_REMOVEDIR);
 		return sdfd;
 	}
-	fd = tx_open(sdfd, "md_meta", O_WRONLY | O_CREAT, 0644);
-	if(fd < 0)
+	fd = tx_open(sdfd, "md_meta", 1);
+	if(!fd)
 	{
 		close(sdfd);
 		unlinkat(dfd, name, AT_REMOVEDIR);
-		return (int) fd;
+		return -1;
 	}
 	r = tx_write(fd, &header, sizeof(header), 0);
 	tx_close(fd);
