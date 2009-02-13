@@ -147,7 +147,7 @@ private:
 		inline unique_id() : fd(NULL), next(NO_ID) {}
 		inline ~unique_id()
 		{
-			if(fd >= 0)
+			if(fd)
 				tx_close(fd);
 		}
 	};
