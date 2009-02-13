@@ -369,8 +369,8 @@ struct tpp_dtable_cache
 	const char * type;
 	const tpp_params * config;
 	
-#define OPEN_DTABLE_ITERS 2
-#define RECENT_OPEN_DTABLES 4
+#define OPEN_DTABLE_ITERS 8
+#define RECENT_OPEN_DTABLES 32
 	struct open_dtable
 	{
 		tpp_dtable * dtable;
