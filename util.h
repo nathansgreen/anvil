@@ -42,6 +42,16 @@ public:
 		}
 	}
 	
+	static inline void layout_bytes(uint8_t * array, size_t index, uint32_t value, uint8_t size)
+	{
+		/* write big endian order */
+		while(size-- > 0)
+		{
+			array[index + size] = value & 0xFF;
+			value >>= 8;
+		}
+	}
+	
 	template<class T>
 	static inline uint32_t read_bytes(const uint8_t * array, T * index, uint8_t size)
 	{
