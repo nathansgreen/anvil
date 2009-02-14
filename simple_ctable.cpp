@@ -225,10 +225,10 @@ int simple_ctable::insert(const dtype & key, const istr & column, const blob & v
 	if(number == column_map.end())
 		return -ENOENT;
 	assert(number->second < columns);
-	/* TODO: improve this... it is probably killing us */
 	blob row = base->find(key);
 	if(row.exists() || value.exists())
 	{
+		/* TODO: improve this... it is probably killing us */
 		index_blob sub(columns, row);
 		sub.set(number->second, value);
 		r = base->insert(key, sub.flatten(), append);
@@ -240,10 +240,10 @@ int simple_ctable::insert(const dtype & key, size_t column, const blob & value, 
 {
 	int r = 0;
 	assert(column < columns);
-	/* TODO: improve this... it is probably killing us */
 	blob row = base->find(key);
 	if(row.exists() || value.exists())
 	{
+		/* TODO: improve this... it is probably killing us */
 		index_blob sub(columns, row);
 		sub.set(column, value);
 		r = base->insert(key, sub.flatten(), append);
@@ -251,16 +251,67 @@ int simple_ctable::insert(const dtype & key, size_t column, const blob & value, 
 	return r;
 }
 
-/* FIXME: provide a more efficient implementation of multi-insert */
+int simple_ctable::insert(const dtype & key, const colval * values, size_t count, bool append)
+{
+	int r = 0;
+	bool exist = false;
+	blob row = base->find(key);
+	for(size_t i = 0; i < count; i++)
+		if(values[i].value.exists())
+		{
+			exist = true;
+			break;
+		}
+	if(row.exists() || exist)
+	{
+		/* TODO: improve this... it is probably killing us */
+		index_blob sub(columns, row);
+		for(size_t i = 0; i < count; i++)
+		{
+			name_map::const_iterator number = column_map.find(values[i].name);
+			if(number == column_map.end())
+				return -ENOENT;
+			assert(number->second < columns);
+			sub.set(number->second, values[i].value);
+		}
+		r = base->insert(key, sub.flatten(), append);
+	}
+	return r;
+}
+
+int simple_ctable::insert(const dtype & key, const ncolval * values, size_t count, bool append)
+{
+	int r = 0;
+	bool exist = false;
+	blob row = base->find(key);
+	for(size_t i = 0; i < count; i++)
+		if(values[i].value.exists())
+		{
+			exist = true;
+			break;
+		}
+	if(row.exists() || exist)
+	{
+		/* TODO: improve this... it is probably killing us */
+		index_blob sub(columns, row);
+		for(size_t i = 0; i < count; i++)
+		{
+			assert(values[i].index < columns);
+			sub.set(values[i].index, values[i].value);
+		}
+		r = base->insert(key, sub.flatten(), append);
+	}
+	return r;
+}
 
 int simple_ctable::remove(const dtype & key, const istr & column)
 {
 	int r = insert(key, column, blob());
 	if(r >= 0)
 	{
-		/* TODO: improve this... it is probably killing us */
 		bool exist = false;
 		blob row = base->find(key);
+		/* TODO: improve this... it is probably killing us */
 		index_blob sub(columns, row);
 		for(size_t i = 0; i < columns; i++)
 			if(sub.get(i).exists())
@@ -279,9 +330,63 @@ int simple_ctable::remove(const dtype & key, size_t column)
 	int r = insert(key, column, blob());
 	if(r >= 0)
 	{
-		/* TODO: improve this... it is probably killing us */
 		bool exist = false;
 		blob row = base->find(key);
+		/* TODO: improve this... it is probably killing us */
+		index_blob sub(columns, row);
+		for(size_t i = 0; i < columns; i++)
+			if(sub.get(i).exists())
+			{
+				exist = true;
+				break;
+			}
+		if(!exist)
+			remove(key);
+	}
+	return r;
+}
+
+int simple_ctable::remove(const dtype & key, const istr * names, size_t count)
+{
+	colval erase[count];
+	for(size_t i = 0; i < count; i++)
+	{
+		erase[i].name = names[i];
+		erase[i].value = blob();
+	}
+	int r = insert(key, erase, count);
+	if(r >= 0)
+	{
+		bool exist = false;
+		blob row = base->find(key);
+		/* TODO: improve this... it is probably killing us */
+		index_blob sub(columns, row);
+		for(size_t i = 0; i < columns; i++)
+			if(sub.get(i).exists())
+			{
+				exist = true;
+				break;
+			}
+		if(!exist)
+			remove(key);
+	}
+	return r;
+}
+
+int simple_ctable::remove(const dtype & key, size_t * indices, size_t count)
+{
+	ncolval erase[count];
+	for(size_t i = 0; i < count; i++)
+	{
+		erase[i].index = indices[i];
+		erase[i].value = blob();
+	}
+	int r = insert(key, erase, count);
+	if(r >= 0)
+	{
+		bool exist = false;
+		blob row = base->find(key);
+		/* TODO: improve this... it is probably killing us */
 		index_blob sub(columns, row);
 		for(size_t i = 0; i < columns; i++)
 			if(sub.get(i).exists())

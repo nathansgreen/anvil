@@ -34,8 +34,12 @@ public:
 	
 	virtual int insert(const dtype & key, const istr & column, const blob & value, bool append = false);
 	virtual int insert(const dtype & key, size_t column, const blob & value, bool append = false);
+	virtual int insert(const dtype & key, const colval * values, size_t count, bool append = false);
+	virtual int insert(const dtype & key, const ncolval * values, size_t count, bool append = false);
 	virtual int remove(const dtype & key, const istr & column);
 	virtual int remove(const dtype & key, size_t column);
+	virtual int remove(const dtype & key, const istr * columns, size_t count);
+	virtual int remove(const dtype & key, size_t * columns, size_t count);
 	inline virtual int remove(const dtype & key)
 	{
 		return base->remove(key);
