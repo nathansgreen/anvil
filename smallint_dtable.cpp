@@ -167,7 +167,7 @@ blob smallint_dtable::rev_iter::value() const
 	blob value = base->value();
 	if(value.exists())
 		if(!pack(&value, byte_count))
-			if(!base->reject(&value))
+			if(!base->reject(&value) || !pack(&value, byte_count))
 			{
 				/* it's too bad we can't report this sooner */
 				failed = true;
