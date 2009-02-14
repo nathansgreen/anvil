@@ -237,7 +237,12 @@ blob exception_dtable::lookup(const dtype & key, bool * found) const
 	if(!*found || value.compare(reject_value))
 		return value;
 	value = alt->lookup(key, found);
-	assert(*found);
+	if(!*found)
+	{
+		/* we might have just been storing the reject value as itself */
+		*found = true;
+		return reject_value;
+	}
 	return value;
 }
 
