@@ -435,7 +435,11 @@ int btree_dtable::write_btree(int dfd, const char * name, const dtable * base)
 	
 	/* for the moment, we only support integer keys */
 	if(base->key_type() != dtype::UINT32)
+	{
+		/* assert this for the time being, to help catch mistakes */
+		assert(base->key_type() == dtype::UINT32);
 		return -ENOSYS;
+	}
 	
 	fd = openat(dfd, name, O_WRONLY | O_CREAT, 0644);
 	if(fd < 0)
@@ -522,7 +526,7 @@ fail_create:
 	close(bt_dfd);
 fail_open:
 	unlinkat(dfd, file, AT_REMOVEDIR);
-	return -1;
+	return (r < 0) ? r : -1;
 }
 
 DEFINE_RO_FACTORY(btree_dtable);
