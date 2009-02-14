@@ -37,7 +37,7 @@ metablob usstate_dtable::iter::meta() const
 
 blob usstate_dtable::iter::value() const
 {
-	return unpack(base->value(), dt_source->reject_value);
+	return unpack(base->value(), dt_source->passthrough_value);
 }
 
 dtable::iter * usstate_dtable::iterator() const
@@ -55,7 +55,7 @@ dtable::iter * usstate_dtable::iterator() const
 	return value;
 }
 
-blob usstate_dtable::unpack(blob packed, const blob & reject_value)
+blob usstate_dtable::unpack(blob packed, const blob & passthrough_value)
 {
 	uint8_t value;
 	if(packed.size() != 1)
@@ -63,12 +63,12 @@ blob usstate_dtable::unpack(blob packed, const blob & reject_value)
 	value = packed[0];
 	if(value < USSTATE_COUNT)
 		return state_codes[value];
-	if(!packed.compare(reject_value))
-		return reject_value;
+	if(!packed.compare(passthrough_value))
+		return passthrough_value;
 	return blob();
 }
 
-bool usstate_dtable::pack(blob * unpacked, const blob & reject_value)
+bool usstate_dtable::pack(blob * unpacked, const blob & passthrough_value)
 {
 	uint8_t byte;
 	ssize_t index = -1;
@@ -76,9 +76,9 @@ bool usstate_dtable::pack(blob * unpacked, const blob & reject_value)
 		index = blob::locate(state_codes, USSTATE_COUNT, *unpacked);
 	if(index < 0)
 	{
-		if(!unpacked->compare(reject_value))
+		if(!unpacked->compare(passthrough_value))
 		{
-			*unpacked = reject_value;
+			*unpacked = passthrough_value;
 			return true;
 		}
 		return !unpacked->exists();
@@ -98,7 +98,7 @@ blob usstate_dtable::lookup(const dtype & key, bool * found) const
 {
 	blob value = base->lookup(key, found);
 	if(value.exists())
-		value = unpack(value, reject_value);
+		value = unpack(value, passthrough_value);
 	return value;
 }
 
@@ -106,7 +106,7 @@ blob usstate_dtable::index(size_t index) const
 {
 	blob value = base->index(index);
 	if(value.exists())
-		value = unpack(value, reject_value);
+		value = unpack(value, passthrough_value);
 	return value;
 }
 
@@ -143,9 +143,9 @@ int usstate_dtable::init(int dfd, const char * file, const params & config)
 		return -ENOENT;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
-	if(!config.get_blob_or_string("reject_value", &reject_value))
+	if(!config.get_blob_or_string("passthrough_value", &passthrough_value))
 		return -EINVAL;
-	if(reject_value.exists() && reject_value.size() != 1)
+	if(passthrough_value.exists() && passthrough_value.size() != 1)
 		return -EINVAL;
 	base = factory->open(dfd, file, base_config);
 	if(!base)
@@ -159,15 +159,15 @@ void usstate_dtable::deinit()
 {
 	if(base)
 	{
-		reject_value = blob();
+		passthrough_value = blob();
 		delete base;
 		base = NULL;
 		dtable::deinit();
 	}
 }
 
-usstate_dtable::rev_iter::rev_iter(dtable::iter * base, blob reject_value)
-	: dtable_wrap_iter(base), failed(false), reject_value(reject_value)
+usstate_dtable::rev_iter::rev_iter(dtable::iter * base, blob passthrough_value)
+	: dtable_wrap_iter(base), failed(false), passthrough_value(passthrough_value)
 {
 }
 
@@ -181,7 +181,7 @@ blob usstate_dtable::rev_iter::value() const
 {
 	blob value = base->value();
 	if(value.exists())
-		if(!pack(&value, reject_value))
+		if(!pack(&value, passthrough_value))
 			if(!base->reject(&value))
 			{
 				/* it's too bad we can't report this sooner */
@@ -203,21 +203,21 @@ int usstate_dtable::create(int dfd, const char * file, const params & config, dt
 	int r;
 	rev_iter * rev;
 	params base_config;
-	blob reject_value;
+	blob passthrough_value;
 	const dtable_factory * base = dtable_factory::lookup(config, "base");
 	if(!base)
 		return -ENOENT;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
-	if(!config.get_blob_or_string("reject_value", &reject_value))
+	if(!config.get_blob_or_string("passthrough_value", &passthrough_value))
 		return -EINVAL;
-	if(reject_value.exists() && reject_value.size() != 1)
+	if(passthrough_value.exists() && passthrough_value.size() != 1)
 		return -EINVAL;
 	
 	if(!source_shadow_ok(source, shadow))
 		return -EINVAL;
 	
-	rev = new rev_iter(source, reject_value);
+	rev = new rev_iter(source, passthrough_value);
 	if(!rev)
 		return -ENOMEM;
 	

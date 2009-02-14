@@ -11,7 +11,6 @@
 
 #include "blob.h"
 #include "dtable.h"
-#include "rofile.h"
 #include "dtable_factory.h"
 #include "dtable_wrap_iter.h"
 
@@ -78,18 +77,18 @@ private:
 		virtual metablob meta() const;
 		virtual blob value() const;
 		virtual bool reject(blob * replacement);
-		inline rev_iter(dtable::iter * base, blob reject_value);
+		inline rev_iter(dtable::iter * base, blob passthrough_value);
 		virtual ~rev_iter() {}
 		mutable bool failed;
 	private:
-		blob reject_value;
+		blob passthrough_value;
 	};
 	
-	static blob unpack(blob packed, const blob & reject_value);
-	static bool pack(blob * unpacked, const blob & reject_value);
+	static blob unpack(blob packed, const blob & passthrough_value);
+	static bool pack(blob * unpacked, const blob & passthrough_value);
 	
 	dtable * base;
-	blob reject_value;
+	blob passthrough_value;
 };
 
 #endif /* __USSTATE_DTABLE_H */

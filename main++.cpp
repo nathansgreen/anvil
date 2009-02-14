@@ -553,7 +553,7 @@ int command_cctable(int argc, const char * argv[])
 						"hole_value" blob FE
 						"dne_value" blob FF
 					]
-					"reject_value" blob FD
+					"passthrough_value" blob FD
 				]
 				"alt" class(dt) simple_dtable
 				"reject_value" blob FD
