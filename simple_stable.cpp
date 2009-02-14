@@ -9,6 +9,7 @@
 
 #include "openat.h"
 
+#include "util.h"
 #include "blob_buffer.h"
 #include "simple_stable.h"
 
@@ -499,8 +500,7 @@ int simple_stable::create(int dfd, const char * name, const params & config, dty
 	return 0;
 	
 fail_data:
-	/* kill st_meta */
-	abort();
+	util::rm_r(md_dfd, "st_meta");
 fail_meta:
 	close(md_dfd);
 fail_open:

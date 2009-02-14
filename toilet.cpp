@@ -12,13 +12,11 @@
 
 #include "openat.h"
 #include "blowfish.h"
-#include "toilet.h"
-#include "transaction.h"
-#include "params.h"
 
-#include "simple_dtable.h"
-#include "managed_dtable.h"
-#include "simple_ctable.h"
+#include "toilet.h"
+#include "params.h"
+#include "transaction.h"
+#include "sys_journal.h"
 #include "simple_stable.h"
 
 static void rename_gmon_out(void)
