@@ -120,7 +120,7 @@ then
 	if [ ! -f /mnt/test/core ]
 	then
 		# Run some tests
-		echo "script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $TEST_TRACE exec $VALGRIND '"$WD/toilet"')
+		echo "${DEATH}script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $TEST_TRACE exec $VALGRIND '"$WD/toilet"')
 		find /mnt/test -type f -print0 | xargs -0 ls -l
 		
 		# Run the old demo

@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# Uncomment to use valgrind
+#export VALGRIND="valgrind --trace-children=yes --leak-check=full"
+
+# Uncomment to do IO counting
+#export IO_COUNT='LD_PRELOAD=$WD/io_count.so'
+
+# Uncomment to enable oprofile
+#OPROF="LD_LIBRARY_PATH=/usr/lib/debug"
+
+make || exit $?
+
+DIR=test.local
+
+echo -n "Creating test directory... "
+rm -rf $DIR
+mkdir $DIR
+cat > $DIR/tests << EOF
+tx
+info
+dtable
+edtable
+ussdtable
+ctable
+cctable
+stable
+iterator
+blob_cmp
+#bdbtest
+#consistency
+#consistency check
+EOF
+mkdir $DIR/journals
+echo "done."
+
+if [ "$OPROF" ]
+then
+	sudo opcontrol --init
+	sudo opcontrol --reset
+	sudo opcontrol "--vmlinux=/usr/src/linux-`uname -r`/vmlinux"
+	sudo opcontrol --start
+fi
+
+# Run the performance test
+echo "performance seek" | (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF $PERF_TRACE exec $VALGRIND '"$WD/toilet"')
+find $DIR -type f -print0 | xargs -0 ls -l
+
+if [ "$OPROF" ]
+then
+	sudo opcontrol --shutdown
+	sudo opcontrol --deinit
+	opreport --symbols main > oprofile
+else
+	rm -f oprofile
+fi
+
+if [ ! -f $DIR/core ]
+then
+	# Run the blob_cmp performance test
+	echo "blob_cmp perf" | (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF $BLOB_TRACE exec $VALGRIND '"$WD/toilet"')
+	find $DIR -type f -print0 | xargs -0 ls -l
+	
+	if [ ! -f $DIR/core ]
+	then
+		# Run some tests
+		echo "script tests" | (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF $TEST_TRACE exec $VALGRIND '"$WD/toilet"')
+		find $DIR -type f -print0 | xargs -0 ls -l
+		
+		# Allow custom commands
+		#(WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF $HAND_TRACE exec $VALGRIND '"$WD/toilet"')
+		#find $DIR -type f -print0 | xargs -0 ls -l
+		
+		# Filter the system journal
+		true | (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF $SYSJ_TRACE exec $VALGRIND '"$WD/toilet"')
+		ls -l $DIR/sys_journal*
+		
+		# If we comment out all the commands above, we
+		# need something here so bash doesn't complain
+		true
+	fi
+fi
+
+echo -ne \\007
+
+rm -f gmon.out* gmon.sum*
+if [ -f $DIR/gmon.out ]
+then
+	echo -n "Processing gprof data... "
+	cp $DIR/gmon.out* .
+	for gmon in gmon.out*
+	do
+		gprof main $gmon > ${gmon/out/sum}
+	done
+	echo "done."
+fi
+if [ -f $DIR/core ]
+then
+	echo "Starting debugger on core."
+	gdb -q -c $DIR/core main
+fi
