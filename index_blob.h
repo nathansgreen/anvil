@@ -16,6 +16,7 @@
 class index_blob
 {
 public:
+	inline index_blob() : modified(false), resized(false), indices(NULL), count(0) {}
 	index_blob(size_t count);
 	index_blob(size_t count, const blob & x);
 	index_blob(const index_blob & x);
@@ -36,13 +37,15 @@ public:
 		modified = true;
 		indices[index].value = value;
 		indices[index].modified = true;
+		return 0;
 	}
 	
 	blob flatten() const;
 	
 	inline ~index_blob()
 	{
-		delete[] indices;
+		if(indices)
+			delete[] indices;
 	}
 	
 private:

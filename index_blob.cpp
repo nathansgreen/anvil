@@ -36,23 +36,34 @@ index_blob::index_blob(const index_blob & x)
 	: modified(false), resized(false), count(x.count)
 {
 	base = x.flatten();
-	indices = new sub[count];
-	for(size_t i = 0; i < count; i++)
-		indices[i].value = x.indices[i].value;
+	if(count)
+	{
+		indices = new sub[count];
+		for(size_t i = 0; i < count; i++)
+			indices[i].value = x.indices[i].value;
+	}
+	else
+		indices = NULL;
 }
 
 index_blob & index_blob::operator=(const index_blob & x)
 {
 	if(this == &x)
 		return *this;
-	delete[] indices;
+	if(indices)
+		delete[] indices;
 	base = x.flatten();
 	modified = false;
 	resized = false;
 	count = x.count;
-	indices = new sub[count];
-	for(size_t i = 0; i < count; i++)
-		indices[i].value = x.indices[i].value;
+	if(count)
+	{
+		indices = new sub[count];
+		for(size_t i = 0; i < count; i++)
+			indices[i].value = x.indices[i].value;
+	}
+	else
+		indices = NULL;
 	return *this;
 }
 
