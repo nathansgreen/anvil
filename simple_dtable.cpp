@@ -114,7 +114,7 @@ metablob simple_dtable::iter::meta() const
 {
 	size_t data_length;
 	dt_source->get_key(index, &data_length);
-	return data_length ? metablob(data_length) : metablob();
+	return (data_length != (size_t) -1) ? metablob(data_length) : metablob();
 }
 
 blob simple_dtable::iter::value() const
