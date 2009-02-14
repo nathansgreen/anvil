@@ -32,6 +32,7 @@ int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_edtable(int argc, const char * argv[]);
 int command_ussdtable(int argc, const char * argv[]);
+int command_sidtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_cctable(int argc, const char * argv[]);
 int command_consistency(int argc, const char * argv[]);
@@ -415,6 +416,55 @@ int command_ussdtable(int argc, const char * argv[])
 	mdt.insert(3u, "other");
 	r = base->create(AT_FDCWD, "usst_fail", config, &mdt);
 	printf("uss::create = %d (expect failure)\n", r);
+	
+	return 0;
+}
+
+int command_sidtable(int argc, const char * argv[])
+{
+	int r;
+	params config;
+	uint32_t value;
+	dtable * table;
+	memory_dtable mdt;
+	const dtable_factory * base = dtable_factory::lookup("smallint_dtable");
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) array_dtable
+		"base_config" config [
+			"value_size" int 1
+			"tag_byte" bool false
+		]
+		"bytes" int 1
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
+	
+	mdt.init(dtype::UINT32, true);
+	value = 42;
+	mdt.insert(1u, blob(sizeof(value), &value));
+	value = 192;
+	mdt.insert(2u, blob(sizeof(value), &value));
+	run_iterator(&mdt);
+	
+	r = base->create(AT_FDCWD, "sidt_test", config, &mdt);
+	printf("sid::create = %d\n", r);
+	table = base->open(AT_FDCWD, "sidt_test", config);
+	printf("sid::open = %p\n", table);
+	run_iterator(table);
+	delete table;
+	
+	table = dtable_factory::load("array_dtable", AT_FDCWD, "sidt_test", params());
+	printf("dtable_factory::load = %p\n", table);
+	run_iterator(table);
+	delete table;
+	
+	value = 320;
+	mdt.insert(3u, blob(sizeof(value), &value));
+	r = base->create(AT_FDCWD, "sidt_fail", config, &mdt);
+	printf("sid::create = %d (expect failure)\n", r);
 	
 	return 0;
 }

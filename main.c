@@ -595,6 +595,7 @@ int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_edtable(int argc, const char * argv[]);
 int command_ussdtable(int argc, const char * argv[]);
+int command_sidtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_cctable(int argc, const char * argv[]);
 int command_consistency(int argc, const char * argv[]);
@@ -631,6 +632,7 @@ struct {
 	{"dtable", "Test dtable functionality.", command_dtable},
 	{"edtable", "Test exception dtable functionality.", command_edtable},
 	{"ussdtable", "Test usstate dtable functionality.", command_ussdtable},
+	{"sidtable", "Test smallint dtable functionality.", command_sidtable},
 	{"ctable", "Test ctable functionality.", command_ctable},
 	{"cctable", "Test column ctable functionality.", command_cctable},
 	{"consistency", "Test toilet consistency model.", command_consistency},
