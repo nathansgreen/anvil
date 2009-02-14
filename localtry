@@ -43,7 +43,7 @@ then
 fi
 
 # Run the performance test
-echo "performance seek" | (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF $PERF_TRACE exec $VALGRIND '"$WD/toilet"')
+echo "performance seek" | (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF exec $VALGRIND '"$WD/toilet"')
 find $DIR -type f -print0 | xargs -0 ls -l
 
 if [ "$OPROF" ]
@@ -58,21 +58,21 @@ fi
 if [ ! -f $DIR/core ]
 then
 	# Run the blob_cmp performance test
-	echo "blob_cmp perf" | (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF $BLOB_TRACE exec $VALGRIND '"$WD/toilet"')
+	echo "blob_cmp perf" | (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF exec $VALGRIND '"$WD/toilet"')
 	find $DIR -type f -print0 | xargs -0 ls -l
 	
 	if [ ! -f $DIR/core ]
 	then
 		# Run some tests
-		echo "script tests" | (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF $TEST_TRACE exec $VALGRIND '"$WD/toilet"')
+		echo "script tests" | (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF exec $VALGRIND '"$WD/toilet"')
 		find $DIR -type f -print0 | xargs -0 ls -l
 		
 		# Allow custom commands
-		#(WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF $HAND_TRACE exec $VALGRIND '"$WD/toilet"')
+		#(WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF exec $VALGRIND '"$WD/toilet"')
 		#find $DIR -type f -print0 | xargs -0 ls -l
 		
 		# Filter the system journal
-		true | (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF $SYSJ_TRACE exec $VALGRIND '"$WD/toilet"')
+		true | (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval $IO_COUNT $OPROF exec $VALGRIND '"$WD/toilet"')
 		ls -l $DIR/sys_journal*
 		
 		# If we comment out all the commands above, we
