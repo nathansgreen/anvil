@@ -9,6 +9,7 @@
 #include "index_factory.h"
 #include "blob_buffer.h"
 #include "params.h"
+#include "util.h"
 
 bool params::simple_find(const istr & name, const param ** p) const
 {
@@ -107,6 +108,33 @@ bool params::has(const istr & name) const
 {
 	const param * p;
 	return simple_find(name, &p);
+}
+
+bool params::get_blob_or_string(const istr & name, blob * value, const blob & dfl) const
+{
+	if(!get(name, value, dfl))
+	{
+		istr str;
+		if(!get(name, &str))
+			return false;
+		*value = blob(str);
+	}
+	return true;
+}
+
+bool params::get_int_or_blob(const istr & name, int * value, int dfl) const
+{
+	if(!get(name, value, dfl))
+	{
+		blob blb;
+		if(!get(name, &blb))
+			return false;
+		/* invalid size blobs count as type failures */
+		if(!blb.size() || blb.size() > sizeof(uint32_t))
+			return false;
+		*value = util::read_bytes(&blb[0], 0, blb.size());
+	}
+	return true;
 }
 
 void params::print() const

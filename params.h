@@ -45,17 +45,10 @@ public:
 	bool has(const istr & name) const;
 	
 	/* a wrapper that allows blobs and optionally strings */
-	inline bool get_blob_or_string(const istr & name, blob * value, const blob & dfl = blob()) const
-	{
-		if(!get(name, value, dfl))
-		{
-			istr str;
-			if(!get(name, &str))
-				return false;
-			*value = blob(str);
-		}
-		return true;
-	}
+	bool get_blob_or_string(const istr & name, blob * value, const blob & dfl = blob()) const;
+	
+	/* a wrapper that allows integers and optionally big-endian blobs */
+	bool get_int_or_blob(const istr & name, int * value, int dfl = 0) const;
 	
 	inline bool contains(const istr & name) const
 	{
