@@ -15,6 +15,13 @@ index_blob::index_blob(size_t count, const blob & x)
 	: base(x), modified(false), resized(false), count(count)
 {
 	indices = new sub[count];
+	if(!x.exists())
+	{
+		/* same as default constructor */
+		modified = true;
+		resized = true;
+		return;
+	}
 	size_t offset = count * sizeof(uint32_t);
 	for(size_t i = 0; i < count; i++)
 	{

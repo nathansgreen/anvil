@@ -4,145 +4,142 @@
 
 #define _ATFILE_SOURCE
 
+#include <set>
+
 #include "openat.h"
 
-#include "sub_blob.h"
+#include "rwfile.h"
+#include "rofile.h"
+#include "index_blob.h"
 #include "dtable_factory.h"
 #include "simple_ctable.h"
 
-simple_ctable::iter::iter(dtable::iter * src)
-	: source(src), columns(NULL)
+simple_ctable::iter::iter(const simple_ctable * base, dtable::iter * source)
+	: base(base), source(source), index(0)
 {
 	advance();
-}
-
-simple_ctable::iter::iter(const blob & value)
-	: source(NULL), columns(NULL)
-{
-	if(value.exists())
-	{
-		row = sub_blob(value);
-		columns = row.iterator();
-	}
 }
 
 bool simple_ctable::iter::valid() const
 {
-	return columns ? columns->valid() : false;
+	return index < base->columns;
 }
 
 bool simple_ctable::iter::next()
 {
-	if(columns)
-	{
-		if(columns->next())
-			return true;
-		delete columns;
-		columns = NULL;
-	}
-	if(!source)
-		return false;
-	for(;;)
-	{
-		if(!source->next())
-			return false;
-		blob value = source->value();
-		if(!value.exists())
-			continue;
-		row = sub_blob(value);
-		columns = row.iterator();
-		if(columns->valid())
-			return true;
-		delete columns;
-		columns = NULL;
-	}
+	if(next_column())
+		return true;
+	return advance(true);
 }
 
 bool simple_ctable::iter::prev()
 {
-	if(columns)
-	{
-		if(columns->prev())
-			return true;
-		delete columns;
-		columns = NULL;
-	}
-	if(!source)
+	if(prev_column())
+		return true;
+	return retreat(true);
+}
+
+bool simple_ctable::iter::next_column(bool reset)
+{
+	if(reset)
+		index = (size_t) -1;
+	else if(index >= base->columns)
 		return false;
+	while(++index < base->columns)
+		if(row.get(index).exists())
+			return true;
+	return false;
+}
+
+bool simple_ctable::iter::prev_column(bool reset)
+{
+	if(reset)
+		index = base->columns;
+	else if(index >= base->columns)
+		return false;
+	while(index)
+		if(row.get(--index).exists())
+			return true;
+	return false;
+}
+
+bool simple_ctable::iter::advance(bool initial)
+{
 	for(;;)
 	{
-		if(!source->prev())
+		if(!next_row(initial))
 			return false;
-		blob value = source->value();
-		if(!value.exists())
-			continue;
-		row = sub_blob(value);
-		columns = row.iterator();
-		if(!columns)
-			return false;
-		columns->last();
-		if(columns->valid())
+		if(next_column(true))
 			return true;
-		delete columns;
-		columns = NULL;
+		if(!initial)
+			source->next();
 	}
 }
 
-void simple_ctable::iter::advance()
+bool simple_ctable::iter::retreat(bool initial)
 {
-	while(source->valid())
+	for(;;)
 	{
-		blob value = source->value();
-		if(value.exists())
-		{
-			row = sub_blob(value);
-			columns = row.iterator();
-			if(columns->valid())
-				break;
-			delete columns;
-			columns = NULL;
-		}
-		source->next();
+		if(!prev_row(initial))
+			break;
+		if(prev_column(true))
+			return true;
+		if(!initial && !source->prev())
+			break;
 	}
+	/* need to go back forward to where we were */
+	advance();
+	return false;
+}
+
+bool simple_ctable::iter::next_row(bool initial)
+{
+	bool valid;
+	if(initial && !source->next())
+		return false;
+	valid = source->valid();
+	while(valid && !source->meta().exists())
+		valid = source->next();
+	if(!valid)
+	{
+		row = index_blob();
+		index = base->columns;
+	}
+	else
+		/* we'll set index later, in a call to next_column() */
+		row = index_blob(base->columns, source->value());
+	return valid;
+}
+
+bool simple_ctable::iter::prev_row(bool initial)
+{
+	bool valid;
+	if(initial && !source->prev())
+		return false;
+	valid = source->valid();
+	while(valid && !source->meta().exists())
+		valid = source->prev();
+	if(!valid)
+	{
+		row = index_blob();
+		index = base->columns;
+	}
+	else
+		/* we'll set index later, in a call to next_column() */
+		row = index_blob(base->columns, source->value());
+	return valid;
 }
 
 bool simple_ctable::iter::first()
 {
-	if(!source)
-		return false;
-	if(columns)
-	{
-		delete columns;
-		columns = NULL;
-	}
-	if(!source->first())
-		return false;
-	advance();
-	return columns ? columns->valid() : false;
+	source->first();
+	return advance();
 }
 
 bool simple_ctable::iter::last()
 {
-	if(!source)
-		return false;
-	if(columns)
-	{
-		delete columns;
-		columns = NULL;
-	}
-	if(!source->last())
-		return false;
-	blob value = source->value();
-	row = sub_blob(value);
-	columns = row.iterator();
-	if(!columns)
-		return false;
-	columns->last();
-	if(columns->valid())
-		return true;
-	delete columns;
-	columns = NULL;
-	return false;
+	source->last();
+	return retreat();
 }
 
 dtype simple_ctable::iter::key() const
@@ -152,43 +149,32 @@ dtype simple_ctable::iter::key() const
 
 bool simple_ctable::iter::seek(const dtype & key)
 {
-	bool found;
-	if(columns)
-	{
-		delete columns;
-		columns = NULL;
-	}
-	found = source->seek(key);
-	advance();
-	return found;
+	source->seek(key);
+	return advance();
 }
 
 bool simple_ctable::iter::seek(const dtype_test & test)
 {
-	bool found;
-	if(columns)
-	{
-		delete columns;
-		columns = NULL;
-	}
-	found = source->seek(test);
-	advance();
-	return found;
+	source->seek(test);
+	return advance();
 }
 
 dtype::ctype simple_ctable::iter::key_type() const
 {
+	assert(source);
 	return source->key_type();
 }
 
 const istr & simple_ctable::iter::column() const
 {
-	return columns->column();
+	assert(index < base->columns);
+	return base->column_name[index];
 }
 
 blob simple_ctable::iter::value() const
 {
-	return columns->value();
+	assert(index < base->columns);
+	return row.get(index);
 }
 
 dtable::key_iter * simple_ctable::keys() const
@@ -198,28 +184,32 @@ dtable::key_iter * simple_ctable::keys() const
 
 ctable::iter * simple_ctable::iterator() const
 {
-	return new iter(base->iterator());
-}
-
-ctable::iter * simple_ctable::iterator(const dtype & key) const
-{
-	return new iter(base->find(key));
+	return new iter(this, base->iterator());
 }
 
 blob simple_ctable::find(const dtype & key, const istr & column) const
 {
+	name_map::const_iterator number = column_map.find(column);
+	if(number == column_map.end())
+		return blob();
+	assert(number->second < columns);
 	blob row = base->find(key);
 	if(!row.exists())
 		return row;
 	/* not super efficient, but we can fix it later */
-	sub_blob columns(row);
-	return columns.get(column);
+	index_blob sub(columns, row);
+	return sub.get(number->second);
 }
 
 blob simple_ctable::find(const dtype & key, size_t column) const
 {
-	/* XXX */
-	abort();
+	assert(column < columns);
+	blob row = base->find(key);
+	if(!row.exists())
+		return row;
+	/* not super efficient, but we can fix it later */
+	index_blob sub(columns, row);
+	return sub.get(column);
 }
 
 bool simple_ctable::contains(const dtype & key) const
@@ -231,22 +221,37 @@ bool simple_ctable::contains(const dtype & key) const
 int simple_ctable::insert(const dtype & key, const istr & column, const blob & value, bool append)
 {
 	int r = 0;
+	name_map::const_iterator number = column_map.find(column);
+	if(number == column_map.end())
+		return -ENOENT;
+	assert(number->second < columns);
 	/* TODO: improve this... it is probably killing us */
 	blob row = base->find(key);
 	if(row.exists() || value.exists())
 	{
-		sub_blob columns(row);
-		columns.set(column, value);
-		r = base->insert(key, columns.flatten(), append);
+		index_blob sub(columns, row);
+		sub.set(number->second, value);
+		r = base->insert(key, sub.flatten(), append);
 	}
 	return r;
 }
 
 int simple_ctable::insert(const dtype & key, size_t column, const blob & value, bool append)
 {
-	/* XXX */
-	abort();
+	int r = 0;
+	assert(column < columns);
+	/* TODO: improve this... it is probably killing us */
+	blob row = base->find(key);
+	if(row.exists() || value.exists())
+	{
+		index_blob sub(columns, row);
+		sub.set(column, value);
+		r = base->insert(key, sub.flatten(), append);
+	}
+	return r;
 }
+
+/* FIXME: provide a more efficient implementation of multi-insert */
 
 int simple_ctable::remove(const dtype & key, const istr & column)
 {
@@ -254,12 +259,16 @@ int simple_ctable::remove(const dtype & key, const istr & column)
 	if(r >= 0)
 	{
 		/* TODO: improve this... it is probably killing us */
+		bool exist = false;
 		blob row = base->find(key);
-		sub_blob columns(row);
-		sub_blob::iter * iter = columns.iterator();
-		bool last = !iter->valid();
-		delete iter;
-		if(last)
+		index_blob sub(columns, row);
+		for(size_t i = 0; i < columns; i++)
+			if(sub.get(i).exists())
+			{
+				exist = true;
+				break;
+			}
+		if(!exist)
 			remove(key);
 	}
 	return r;
@@ -267,15 +276,35 @@ int simple_ctable::remove(const dtype & key, const istr & column)
 
 int simple_ctable::remove(const dtype & key, size_t column)
 {
-	/* XXX */
-	abort();
+	int r = insert(key, column, blob());
+	if(r >= 0)
+	{
+		/* TODO: improve this... it is probably killing us */
+		bool exist = false;
+		blob row = base->find(key);
+		index_blob sub(columns, row);
+		for(size_t i = 0; i < columns; i++)
+			if(sub.get(i).exists())
+			{
+				exist = true;
+				break;
+			}
+		if(!exist)
+			remove(key);
+	}
+	return r;
 }
 
 int simple_ctable::init(int dfd, const char * file, const params & config)
 {
 	const dtable_factory * factory;
 	params base_config;
-	int ct_dfd;
+	int ct_dfd, r;
+	
+	off_t offset;
+	ctable_header meta;
+	rofile * meta_file;
+	
 	if(base)
 		deinit();
 	factory = dtable_factory::lookup(config, "base");
@@ -286,19 +315,63 @@ int simple_ctable::init(int dfd, const char * file, const params & config)
 	ct_dfd = openat(dfd, file, 0);
 	if(ct_dfd < 0)
 		return ct_dfd;
+	
+	meta_file = rofile::open<4, 2>(ct_dfd, "sct_meta");
+	if(!meta_file)
+		goto fail_open;
+	r = meta_file->read(0, &meta);
+	if(r < 0)
+		goto fail_header;
+	if(meta.magic != SIMPLE_CTABLE_MAGIC || meta.version != SIMPLE_CTABLE_VERSION)
+		goto fail_header;
+	columns = meta.columns;
+	
+	column_name = new istr[columns];
+	if(!column_name)
+		goto fail_header;
+	
+	offset = sizeof(meta);
+	for(size_t i = 0; i < columns; i++)
+	{
+		uint32_t length;
+		r = meta_file->read(offset, &length);
+		if(r < 0)
+			goto fail_names;
+		offset += sizeof(length);
+		column_name[i] = meta_file->read_string(offset, length);
+		if(!column_name[i])
+			goto fail_names;
+		offset += length;
+		column_map[column_name[i]] = i;
+	}
+	
 	base = factory->open(ct_dfd, "base", base_config);
-	close(ct_dfd);
 	if(!base)
-		return -1;
+		goto fail_names;
 	ktype = base->key_type();
 	cmp_name = base->get_cmp_name();
+	
+	delete meta_file;
+	close(ct_dfd);
 	return 0;
+	
+fail_names:
+	column_map.empty();
+	delete[] column_name;
+fail_header:
+	delete meta_file;
+fail_open:
+	close(ct_dfd);
+	return -1;
 }
 
 void simple_ctable::deinit()
 {
 	if(base)
 	{
+		delete[] column_name;
+		column_map.empty();
+		columns = 0;
 		delete base;
 		base = NULL;
 		ctable::deinit();
@@ -307,13 +380,37 @@ void simple_ctable::deinit()
 
 int simple_ctable::create(int dfd, const char * file, const params & config, dtype::ctype key_type)
 {
-	int ct_dfd, r;
+	int ct_dfd, columns, r;
 	params base_config;
+	std::set<istr, strcmp_less> names;
+	
+	ctable_header meta;
+	rwfile meta_file;
+	
 	const dtable_factory * base = dtable_factory::lookup(config, "base");
 	if(!base)
 		return -ENOENT;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
+	
+	if(!config.get("columns", &columns, 0))
+		return -EINVAL;
+	if(columns < 1)
+		return -EINVAL;
+	
+	/* check that we have all the names */
+	for(int i = 0; i < columns; i++)
+	{
+		char string[32];
+		istr column_name;
+		sprintf(string, "column%d_name", i);
+		if(!config.get(string, &column_name) || !column_name)
+			return -EINVAL;
+		if(names.count(column_name))
+			return -EEXIST;
+		names.insert(column_name);
+	}
+	names.clear();
 	
 	r = mkdirat(dfd, file, 0755);
 	if(r < 0)
@@ -322,13 +419,46 @@ int simple_ctable::create(int dfd, const char * file, const params & config, dty
 	if(ct_dfd < 0)
 		goto fail_open;
 	
+	meta.magic = SIMPLE_CTABLE_MAGIC;
+	meta.version = SIMPLE_CTABLE_VERSION;
+	meta.columns = columns;
+	r = meta_file.create(ct_dfd, "sct_meta");
+	if(r < 0)
+		goto fail_meta;
+	r = meta_file.append(&meta);
+	if(r < 0)
+		goto fail_create;
+	
+	/* record column names */
+	for(int i = 0; i < columns; i++)
+	{
+		uint32_t length;
+		char string[32];
+		istr column_name;
+		sprintf(string, "column%d_name", i);
+		r = config.get(string, &column_name);
+		assert(r && column_name);
+		length = column_name.length();
+		r = meta_file.append(&length);
+		if(r < 0)
+			goto fail_create;
+		r = meta_file.append(column_name);
+		if(r < 0)
+			goto fail_create;
+	}
+	
 	r = base->create(ct_dfd, "base", base_config, key_type);
 	if(r < 0)
 		goto fail_create;
+	
+	meta_file.close();
 	close(ct_dfd);
 	return 0;
 	
 fail_create:
+	meta_file.close();
+	unlinkat(dfd, "sct_meta", 0);
+fail_meta:
 	close(ct_dfd);
 fail_open:
 	unlinkat(dfd, file, AT_REMOVEDIR);

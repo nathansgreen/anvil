@@ -161,18 +161,6 @@ ctable::iter * column_ctable::iterator() const
 	return new iter(this);
 }
 
-ctable::iter * column_ctable::iterator(const dtype & key) const
-{
-	ctable::iter * i;
-	bool found;
-	if(!contains(key))
-		return NULL;
-	i = iterator();
-	found = i->seek(key);
-	assert(found);
-	return i;
-}
-
 blob column_ctable::find(const dtype & key, const istr & column) const
 {
 	name_map::const_iterator number = column_map.find(column);
@@ -259,14 +247,16 @@ int column_ctable::maintain()
 
 void column_ctable::deinit()
 {
-	if(!columns)
-		return;
-	for(size_t i = 0; i < columns; i++)
-		delete column_table[i];
-	delete[] column_table;
-	delete[] column_name;
-	column_map.empty();
-	columns = 0;
+	if(columns)
+	{
+		for(size_t i = 0; i < columns; i++)
+			delete column_table[i];
+		delete[] column_table;
+		delete[] column_name;
+		column_map.empty();
+		columns = 0;
+		ctable::deinit();
+	}
 }
 
 int column_ctable::init(int dfd, const char * file, const params & config)

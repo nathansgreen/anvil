@@ -435,6 +435,10 @@ int command_ctable(int argc, const char * argv[])
 			"combine_interval" int 1
 			"combine_count" int 3
 		]
+		"columns" int 3
+		"column0_name" string "hello"
+		"column1_name" string "world"
+		"column2_name" string "foo"
 	]), &config);
 	printf("params::parse = %d\n", r);
 	config.print();
@@ -828,6 +832,10 @@ int command_stable(int argc, const char * argv[])
 					"digest_interval" int 2
 				]
 			]
+			"columns" int 3
+			"column0_name" string "twice"
+			"column1_name" string "funky"
+			"column2_name" string "zapf"
 		]
 	]), &config);
 	printf("params::parse = %d\n", r);
@@ -1267,6 +1275,8 @@ int command_blob_cmp(int argc, const char * argv[])
 					"combine_count" int 6
 				]
 			]
+			"columns" int 1
+			"column0_name" string "sum"
 		]
 	]), &config);
 	printf("params::parse = %d\n", r);
@@ -1447,6 +1457,12 @@ static int command_performance_stable(int argc, const char * argv[])
 					"combine_count" int 6
 				]
 			]
+			"columns" int 5
+			"column0_name" string "c_one"
+			"column1_name" string "c_two"
+			"column2_name" string "c_three"
+			"column3_name" string "c_four"
+			"column4_name" string "c_five"
 		]
 	]), &config);
 	printf("params::parse = %d\n", r);

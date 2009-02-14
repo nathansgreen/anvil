@@ -9,16 +9,20 @@
 #error simple_ctable.h is a C++ header file
 #endif
 
+#include <map>
+
 #include "ctable.h"
-#include "sub_blob.h"
+#include "index_blob.h"
 #include "ctable_factory.h"
+
+#define SIMPLE_CTABLE_MAGIC 0x83E157C8
+#define SIMPLE_CTABLE_VERSION 0
 
 class simple_ctable : public ctable
 {
 public:
 	virtual dtable::key_iter * keys() const;
 	virtual iter * iterator() const;
-	virtual iter * iterator(const dtype & key) const;
 	virtual blob find(const dtype & key, const istr & column) const;
 	virtual blob find(const dtype & key, size_t column) const;
 	virtual bool contains(const dtype & key) const;
@@ -53,7 +57,7 @@ public:
 		return value;
 	}
 	
-	inline simple_ctable() : base(NULL) {}
+	inline simple_ctable() : columns(0), column_name(NULL), base(NULL) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
 	inline virtual ~simple_ctable()
@@ -66,6 +70,13 @@ public:
 	DECLARE_CT_FACTORY(simple_ctable);
 	
 private:
+	struct ctable_header
+	{
+		uint32_t magic;
+		uint32_t version;
+		uint32_t columns;
+	} __attribute__((packed));
+	
 	class iter : public ctable::iter
 	{
 	public:
@@ -80,25 +91,32 @@ private:
 		virtual dtype::ctype key_type() const;
 		virtual const istr & column() const;
 		virtual blob value() const;
-		inline iter(dtable::iter * src);
-		inline iter(const blob & value);
+		inline iter(const simple_ctable * base, dtable::iter * source);
 		virtual ~iter()
 		{
-			if(columns)
-				delete columns;
-			if(source)
-				delete source;
+			delete source;
 		}
 		
 	private:
-		inline void advance();
+		/* skip forward/backward past any nonexistent stuff */
+		inline bool next_column(bool reset = false);
+		inline bool prev_column(bool reset = false);
+		inline bool advance(bool initial = false);
+		inline bool retreat(bool initial = false);
+		inline bool next_row(bool initial);
+		inline bool prev_row(bool initial);
 		
+		const simple_ctable * base;
 		dtable::iter * source;
-		/* need to keep the row around so its iterator will work */
-		sub_blob row;
-		sub_blob::iter * columns;
+		index_blob row;
+		size_t index;
 	};
 	
+	typedef std::map<istr, size_t, strcmp_less> name_map;
+	
+	size_t columns;
+	istr * column_name;
+	name_map column_map;
 	dtable * base;
 };
 

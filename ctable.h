@@ -28,7 +28,6 @@ public:
 		virtual bool prev() = 0;
 		virtual bool first() = 0;
 		virtual bool last() = 0;
-		/* can't call key() or seek() if you got this iterator via iterator(key) */
 		virtual dtype key() const = 0;
 		virtual bool seek(const dtype & key) = 0;
 		virtual bool seek(const dtype_test & test) = 0;
@@ -44,7 +43,15 @@ public:
 	
 	virtual dtable::key_iter * keys() const = 0;
 	virtual iter * iterator() const = 0;
-	virtual iter * iterator(const dtype & key) const = 0;
+	inline virtual iter * iterator(const dtype & key) const
+	{
+		if(!contains(key))
+			return NULL;
+		iter * i = iterator();
+		bool found = i->seek(key);
+		assert(found);
+		return i;
+	}
 	virtual blob find(const dtype & key, const istr & column) const = 0;
 	virtual blob find(const dtype & key, size_t column) const = 0;
 	virtual bool contains(const dtype & key) const = 0;
