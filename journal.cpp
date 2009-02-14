@@ -16,6 +16,7 @@
 #include "journal.h"
 
 #include "istr.h"
+#include "util.h"
 #include "rwfile.h"
 
 /* This is the generic journal module. It uses Featherstitch dependencies to
@@ -72,10 +73,10 @@ int journal::appendv(const struct ovec * ovp, size_t count)
 		header.length += ovp[i].ov_len;
 	data = (uint8_t *) malloc(header.length + sizeof(header));
 	cursor = sizeof(header);
-	memcpy(data, &header, sizeof(header));
+	util::memcpy(data, &header, sizeof(header));
 	for(i = 0; i < count; i++)
 	{
-		memcpy(&data[cursor], ovp[i].ov_base, ovp[i].ov_len);
+		util::memcpy(&data[cursor], ovp[i].ov_base, ovp[i].ov_len);
 		cursor += ovp[i].ov_len;
 	}
 	assert(cursor == sizeof(header) + header.length);
@@ -313,7 +314,7 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 		return -1;
 	}
 #endif /* }}} */
-	memset(zero_checksum, 0, sizeof(zero_checksum));
+	util::memset(zero_checksum, 0, sizeof(zero_checksum));
 	while(pread(crfd, &cr, sizeof(cr), readoff) == sizeof(cr))
 	{
 		if(!cr.offset && !cr.length && !memcmp(&cr.checksum, &zero_checksum, J_CHECKSUM_LEN))
@@ -509,7 +510,7 @@ int journal::init_crfd(const istr & commit_name)
 	}
 
 	filesize = lseek(crfd, 0, SEEK_END);
-	memset(zero.checksum, 0, sizeof(zero.checksum));
+	util::memset(zero.checksum, 0, sizeof(zero.checksum));
 	/* find out where the last good commit record is */
 	while((r = pread(crfd, &cr, sizeof(cr), nextcr)))
 	{
@@ -537,7 +538,7 @@ int journal::init_crfd(const istr & commit_name)
 	{
 		/* zero out the rest of the file J_ADD_N_COMMITS records at a time */
 		uint8_t zbuffer[1000 * sizeof(zero)];
-		memset(zbuffer, 0, sizeof(zbuffer));
+		util::memset(zbuffer, 0, sizeof(zbuffer));
 		while((filesize - nextcr) < J_ADD_N_COMMITS * (int) sizeof(zbuffer))
 		{
 			r = pwrite(crfd, zbuffer, sizeof(zbuffer), filesize);

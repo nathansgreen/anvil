@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <stdarg.h>
 
+#include "util.h"
 #include "overlay_dtable.h"
 
 overlay_dtable::iter::iter(const overlay_dtable * source)
@@ -326,7 +327,7 @@ int overlay_dtable::init(const dtable ** dts, size_t count)
 	if(!tables)
 		return -ENOMEM;
 	table_count = count;
-	memcpy(tables, dts, sizeof(*dts) * count);
+	util::memcpy(tables, dts, sizeof(*dts) * count);
 	return 0;
 }
 

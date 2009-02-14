@@ -20,7 +20,7 @@ blob_buffer::blob_buffer(size_t size, const void * data)
 {
 	int r = set_capacity(size);
 	assert(r >= 0);
-	memcpy(internal->bytes, data, size);
+	util::memcpy(internal->bytes, data, size);
 	internal->size = size;
 }
 
@@ -89,7 +89,7 @@ int blob_buffer::overwrite(size_t offset, const void * data, size_t length)
 	if(offset + length > internal->size)
 	{
 		if(offset > internal->size)
-			memset(&internal->bytes[internal->size], 0, offset - internal->size);
+			util::memset(&internal->bytes[internal->size], 0, offset - internal->size);
 		internal->size = offset + length;
 	}
 	/* this call right here is expensive! */
@@ -111,7 +111,7 @@ int blob_buffer::set_size(size_t size, bool clear)
 	if(r < 0)
 		return r;
 	if(size > internal->size && clear)
-		memset(&internal->bytes[internal->size], 0, size - internal->size);
+		util::memset(&internal->bytes[internal->size], 0, size - internal->size);
 	internal->size = size;
 	return 0;
 }
@@ -138,7 +138,7 @@ int blob_buffer::set_capacity(size_t capacity)
 			return -ENOMEM;
 		copy->size = (internal->size > capacity) ? capacity : internal->size;
 		copy->shares = 1;
-		memcpy(copy->bytes, internal->bytes, copy->size);
+		util::memcpy(copy->bytes, internal->bytes, copy->size);
 		internal->shares--;
 	}
 	else
@@ -161,7 +161,7 @@ int blob_buffer::touch()
 		blob::blob_internal * copy = (blob::blob_internal *) malloc(sizeof(*internal) + internal->size);
 		if(!copy)
 			return -ENOMEM;
-		memcpy(copy, internal, sizeof(*internal) + internal->size);
+		util::memcpy(copy, internal, sizeof(*internal) + internal->size);
 		copy->shares = 1;
 		internal->shares--;
 		internal = copy;

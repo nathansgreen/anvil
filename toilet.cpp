@@ -13,6 +13,7 @@
 #include "openat.h"
 #include "blowfish.h"
 
+#include "util.h"
 #include "toilet.h"
 #include "params.h"
 #include "transaction.h"
@@ -148,7 +149,7 @@ t_toilet * toilet_open(const char * path, FILE * errors)
 	toilet = new t_toilet;
 	if(!toilet)
 		goto fail_new;
-	memset(&toilet->id, 0, sizeof(toilet->id));
+	util::memset(&toilet->id, 0, sizeof(toilet->id));
 	toilet->path = path;
 	toilet->path_fd = dir_fd;
 	toilet->errors = errors ? errors : stderr;
@@ -668,7 +669,7 @@ const t_value * toilet_row_value(t_row * row, const char * key, t_type type)
 			converted = (t_value *) malloc(sizeof(*converted));
 			converted->v_blob.length = value.blb.size();
 			converted->v_blob.data = malloc(converted->v_blob.length);
-			memcpy(converted->v_blob.data, &value.blb[0], converted->v_blob.length);
+			util::memcpy(converted->v_blob.data, &value.blb[0], converted->v_blob.length);
 			return converted;
 	}
 	abort();
@@ -730,7 +731,7 @@ int toilet_row_set_value_hint(t_row * row, const char * key, t_type type, const 
 				free(cache->v_blob.data);
 				cache->v_blob.length = value->v_blob.length;
 				cache->v_blob.data = malloc(value->v_blob.length);
-				memcpy(cache->v_blob.data, value->v_blob.data, value->v_blob.length);
+				util::memcpy(cache->v_blob.data, value->v_blob.data, value->v_blob.length);
 			}
 			tx_end_r();
 			return r;
@@ -1043,7 +1044,7 @@ t_blobcmp * toilet_new_blobcmp_copy(const char * name, blobcmp_func cmp, const v
 	blobcmp->kill = kill;
 	blobcmp->copied = true;
 	blobcmp->user = malloc(size);
-	memcpy(blobcmp->user, user, size);
+	util::memcpy(blobcmp->user, user, size);
 	return blobcmp;
 }
 

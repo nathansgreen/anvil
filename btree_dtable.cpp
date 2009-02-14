@@ -292,7 +292,7 @@ bool btree_dtable::page_stack::page::write(int fd, size_t page)
 void btree_dtable::page_stack::page::pad()
 {
 	assert(filled <= BTREE_PAGE_SIZE - sizeof(uint32_t));
-	memset(&data[filled], 0, BTREE_PAGE_SIZE - filled);
+	util::memset(&data[filled], 0, BTREE_PAGE_SIZE - filled);
 	/* we store the amount the page is filled into the last 32 bits */
 	*(uint32_t *) &data[BTREE_PAGE_SIZE - sizeof(uint32_t)] = filled;
 	filled = BTREE_PAGE_SIZE;

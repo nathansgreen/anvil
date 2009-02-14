@@ -177,7 +177,7 @@ dtype ustr_dtable::get_key(size_t index, size_t * data_length, off_t * data_offs
 		case dtype::DOUBLE:
 		{
 			double value;
-			memcpy(&value, bytes, sizeof(double));
+			util::memcpy(&value, bytes, sizeof(double));
 			return dtype(value);
 		}
 		case dtype::STRING:
@@ -367,7 +367,7 @@ int ustr_dtable::init(int dfd, const char * file, const params & config)
 	{
 		dup_index_size = header.dup_index_size;
 		dup_escape_len = header.dup_escape_len;
-		memcpy(dup_escape, header.dup_escape, sizeof(dup_escape));
+		util::memcpy(dup_escape, header.dup_escape, sizeof(dup_escape));
 		r = dup.init(fp, data_start_off + header.dup_offset);
 		if(r < 0)
 			goto fail_st;
@@ -623,7 +623,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, dtabl
 			/* prefer higher escape characters for no real reason */
 			if(byte_counts[i] <= byte_counts[min])
 				min = i;
-		memset(header.dup_escape, 0, sizeof(header.dup_escape));
+		util::memset(header.dup_escape, 0, sizeof(header.dup_escape));
 		header.dup_escape[0] = min;
 		
 		total_data_size += byte_counts[min] * (escape - 1);
@@ -634,7 +634,7 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, dtabl
 		header.dup_offset = 0;
 		header.dup_index_size = 0;
 		header.dup_escape_len = 0;
-		memset(header.dup_escape, 0, sizeof(header.dup_escape));
+		util::memset(header.dup_escape, 0, sizeof(header.dup_escape));
 	}
 	
 	/* now write the file */

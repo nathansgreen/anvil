@@ -10,6 +10,7 @@
 
 #include "openat.h"
 
+#include "util.h"
 #include "transaction.h"
 #include "rwfile.h"
 
@@ -197,7 +198,7 @@ ssize_t rwfile::append(const void * data, ssize_t size)
 	if(filled + size >= buffer_size)
 	{
 		/* we'll [over]fill the buffer, so fill it and write it */
-		memcpy(&buffer[filled], data, buffer_size - filled);
+		util::memcpy(&buffer[filled], data, buffer_size - filled);
 		size -= buffer_size - filled;
 		/* can't use void * in arithmetic... */
 		data = &((uint8_t *) data)[buffer_size - filled];
@@ -212,7 +213,7 @@ ssize_t rwfile::append(const void * data, ssize_t size)
 	}
 	
 	/* just copy to the buffer */
-	memcpy(&buffer[filled], data, size);
+	util::memcpy(&buffer[filled], data, size);
 	filled += size;
 	
 	return orig;
@@ -253,12 +254,12 @@ ssize_t rwfile::read(off_t offset, void * data, ssize_t size)
 	if(buffer_offset + size <= filled)
 	{
 		/* current buffer handles the read completely */
-		memcpy(data, &buffer[buffer_offset], size);
+		util::memcpy(data, &buffer[buffer_offset], size);
 		return size;
 	}
 	
 	/* get what we can from the current buffer */
-	memcpy(data, &buffer[buffer_offset], filled - buffer_offset);
+	util::memcpy(data, &buffer[buffer_offset], filled - buffer_offset);
 	buffer_offset = filled - buffer_offset;
 	offset += buffer_offset;
 	/* can't use void * in arithmetic... */
@@ -271,7 +272,7 @@ ssize_t rwfile::read(off_t offset, void * data, ssize_t size)
 	if(filled > 0)
 	{
 		ssize_t left = (size < filled) ? size : filled;
-		memcpy(data, buffer, left);
+		util::memcpy(data, buffer, left);
 		size -= left;
 	}
 	

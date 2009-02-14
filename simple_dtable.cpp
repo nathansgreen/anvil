@@ -167,7 +167,7 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 		case dtype::DOUBLE:
 		{
 			double value;
-			memcpy(&value, bytes, sizeof(double));
+			util::memcpy(&value, bytes, sizeof(double));
 			return dtype(value);
 		}
 		case dtype::STRING:

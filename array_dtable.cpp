@@ -11,6 +11,7 @@
 
 #include "openat.h"
 
+#include "util.h"
 #include "rwfile.h"
 #include "blob_buffer.h"
 #include "array_dtable.h"
@@ -463,7 +464,7 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 	zero_data = new uint8_t[header.value_size];
 	if(!zero_data)
 		return -1;
-	memset(zero_data, 0, header.value_size);
+	util::memset(zero_data, 0, header.value_size);
 	
 	source->first();
 	while(source->valid())

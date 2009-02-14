@@ -4,6 +4,7 @@
 
 #include <errno.h>
 
+#include "util.h"
 #include "hack_avl_map.h"
 #include "journal_dtable.h"
 
@@ -179,7 +180,7 @@ int journal_dtable::add_string(const istr & string, uint32_t * index)
 		return -ENOMEM;
 	entry->type = JDT_STRING;
 	entry->length = length;
-	memcpy(entry->string, string, length);
+	util::memcpy(entry->string, string, length);
 	r = journal_append(entry, sizeof(*entry) + length);
 	free(entry);
 	return r;
@@ -194,7 +195,7 @@ int journal_dtable::log_blob_cmp()
 		return -ENOMEM;
 	entry->type = JDT_BLOB_CMP;
 	entry->length = length;
-	memcpy(entry->name, blob_cmp->name, length);
+	util::memcpy(entry->name, blob_cmp->name, length);
 	r = journal_append(entry, sizeof(*entry) + length);
 	free(entry);
 	return 0;
@@ -208,7 +209,7 @@ template<class T> inline int journal_dtable::log(T * entry, const blob & blob, s
 	{
 		entry->size = blob.size();
 		if(entry->size)
-			memcpy(&entry->data[offset], &blob[0], entry->size);
+			util::memcpy(&entry->data[offset], &blob[0], entry->size);
 		size += entry->size;
 	}
 	else
@@ -275,7 +276,7 @@ int journal_dtable::log(const dtype & key, const blob & blob, bool append)
 			entry->append = append;
 			entry->key_size = key.blb.size();
 			if(entry->key_size)
-				memcpy(entry->data, &key.blb[0], entry->key_size);
+				util::memcpy(entry->data, &key.blb[0], entry->key_size);
 			return log(entry, blob, entry->key_size);
 		}
 	}
@@ -386,7 +387,7 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 			char * copy = (char *) malloc(string->length + 1);
 			if(!copy)
 				return -ENOMEM;
-			memcpy(copy, string->string, string->length);
+			util::memcpy(copy, string->string, string->length);
 			copy[string->length] = 0;
 			if(!strings.add(copy, &index))
 			{
