@@ -19,7 +19,6 @@
 #include "ctable.h"
 #include "stable.h"
 #include "sys_journal.h"
-#include "ustr_dtable.h"
 #include "simple_dtable.h"
 #include "managed_dtable.h"
 #include "usstate_dtable.h"
@@ -430,7 +429,7 @@ int command_ctable(int argc, const char * argv[])
 	config [
 		"base" class(dt) managed_dtable
 		"base_config" config [
-			"base" class(dt) ustr_dtable
+			"base" class(dt) simple_dtable
 			"digest_interval" int 1
 			"combine_interval" int 1
 			"combine_count" int 3
@@ -827,7 +826,10 @@ int command_stable(int argc, const char * argv[])
 				"cache_size" int 40000
 				"base" class(dt) managed_dtable
 				"base_config" config [
-					"base" class(dt) ustr_dtable
+					"base" class(dt) btree_dtable
+					"base_config" config [
+						"base" class(dt) simple_dtable
+					]
 					"fastbase" class(dt) simple_dtable
 					"digest_interval" int 2
 				]
@@ -1268,8 +1270,7 @@ int command_blob_cmp(int argc, const char * argv[])
 				"cache_size" int 40000
 				"base" class(dt) managed_dtable
 				"base_config" config [
-					"base" class(dt) ustr_dtable
-					"fastbase" class(dt) simple_dtable
+					"base" class(dt) simple_dtable
 					"digest_interval" int 2
 					"combine_interval" int 8
 					"combine_count" int 6
@@ -1450,7 +1451,10 @@ static int command_performance_stable(int argc, const char * argv[])
 				"cache_size" int 40000
 				"base" class(dt) managed_dtable
 				"base_config" config [
-					"base" class(dt) ustr_dtable
+					"base" class(dt) btree_dtable
+					"base_config" config [
+						"base" class(dt) simple_dtable
+					]
 					"fastbase" class(dt) simple_dtable
 					"digest_interval" int 2
 					"combine_interval" int 8

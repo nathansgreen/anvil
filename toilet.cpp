@@ -275,8 +275,7 @@ static int toilet_new_gtable_type(t_toilet * toilet, const char * name, dtype::c
 				"cache_size" int 40000
 				"base" class(dt) managed_dtable
 				"base_config" config [
-					"base" class ustr_dtable
-					"fastbase" class simple_dtable
+					"base" class(dt) simple_dtable
 				]
 			]
 		]
@@ -357,8 +356,7 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 				"cache_size" int 40000
 				"base" class(dt) managed_dtable
 				"base_config" config [
-					"base" class ustr_dtable
-					"fastbase" class simple_dtable
+					"base" class(dt) simple_dtable
 				]
 			]
 		]
