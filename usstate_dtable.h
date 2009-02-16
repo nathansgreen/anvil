@@ -71,6 +71,7 @@ private:
 		virtual ~iter() {}
 	};
 	
+	/* used in create() to wrap source iterators on the way down */
 	class rev_iter : public dtable_wrap_iter
 	{
 	public:

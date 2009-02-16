@@ -17,9 +17,6 @@
 /* The smallint dtable stores integers as 8, 16, or 24 bits (depending on
  * configuration). 32-bit integers which do not fit are rejected. */
 
-/* we need 255 for "exception" */
-#define SMALLINT_8BIT_MAX 254
-
 class smallint_dtable : public dtable
 {
 public:
@@ -66,6 +63,7 @@ private:
 		virtual ~iter() {}
 	};
 	
+	/* used in create() to wrap source iterators on the way down */
 	class rev_iter : public dtable_wrap_iter
 	{
 	public:
