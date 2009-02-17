@@ -19,12 +19,13 @@
 #include "util.h"
 #include "rwfile.h"
 
-/* This is the generic journal module. It uses Featherstitch dependencies to
- * keep a journal of uninterpreted records, which later can be played back
- * either to commit transactions or to recover them. The records do not
- * necessarily have to describe idempotent actions, but if they do not, the
- * client code must be able to figure out whether a record's action has already
- * been taken or not so as not to perform it twice in the event of recovery. */
+/* This is the generic journal module. It uses either ext3 ordered journal mode
+ * or Featherstitch dependencies to keep a journal of uninterpreted records,
+ * which later can be played back either to commit transactions or to recover
+ * them. The records do not necessarily have to describe idempotent actions, but
+ * if they do not, the client code must be able to figure out whether a record's
+ * action has already been taken or not so as not to perform it twice in the
+ * event of recovery. */
 
 struct data_header {
 	size_t length;
