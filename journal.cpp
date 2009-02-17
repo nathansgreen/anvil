@@ -300,7 +300,7 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 	}
 	patchgroup_release(playback);
 #endif /* }}} */
-	if(last_commit > 0 && commits)
+	if(last_commit && commits)
 		/* only replay the records from the last commit */
 		readoff = (commits - 1) * sizeof(cr);
 	else
@@ -346,6 +346,8 @@ int journal::playback(record_processor processor, commit_hook commit, void * par
 			if(r < 0)
 				goto playback_error;
 		}
+		if((size_t) readoff >= commits * sizeof(cr))
+			break;
 	}
 #if HAVE_FSTITCH /* {{{ */
 	patchgroup_disengage(playback);
@@ -567,7 +569,7 @@ int journal::reopen(int dfd, const istr & path, const istr & commit_name, journa
 	int r;
 	journal * j;
 	off_t offset;
-#if !(HAVE_FSTITCH)
+#if !HAVE_FSTITCH
 	const char * commit_number;
 #endif
 	
@@ -594,13 +596,13 @@ int journal::reopen(int dfd, const istr & path, const istr & commit_name, journa
 	if(r != (int) sizeof(j->prev_cr))
 		return (r < 0) ? r : -1;
 	j->commits = (offset / sizeof(j->prev_cr)) + 1;
-#if !(HAVE_FSTITCH)
+#if !HAVE_FSTITCH
 	/* get the last commit number from the file name */
 	commit_number = strstr(commit_name, J_COMMIT_EXT);
 	if(commit_number)
 	{
 		commit_number += strlen(J_COMMIT_EXT);
-		j->last_commit = atoi(commit_number);
+		j->commits = atoi(commit_number);
 		assert(j->last_commit <= j->commits);
 	}
 #endif
