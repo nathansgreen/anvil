@@ -5,6 +5,8 @@
 #ifndef __CTABLE_FACTORY_H
 #define __CTABLE_FACTORY_H
 
+#include <stdio.h>
+
 #ifndef __cplusplus
 #error ctable_factory.h is a C++ header file
 #endif
@@ -47,8 +49,12 @@ public:
 			disk = NULL;
 		}
 		else
+		{
 			/* do we care about failure here? */
-			disk->maintain();
+			r = disk->maintain();
+			if(r < 0)
+				fprintf(stderr, "Warning: failed to maintain \"%s\" after opening (%s)\n", name, this->name.str());
+		}
 		return disk;
 	}
 	
