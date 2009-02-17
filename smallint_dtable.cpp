@@ -64,7 +64,6 @@ bool smallint_dtable::pack(blob * unpacked, size_t byte_count)
 	{
 		uint32_t value = unpacked->index<uint32_t>(0);
 		if(value < VALUE_LIMIT(byte_count))
-		//if(util::byte_size(value) <= byte_count)
 		{
 			uint8_t bytes[sizeof(uint32_t)];
 			util::layout_bytes(bytes, 0, value, byte_count);
