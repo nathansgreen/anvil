@@ -15,7 +15,8 @@
  * all calls through to the base iterator. Thus wrappers can easily be made by
  * subclassing dtable_wrap_iter and overriding only the methods of interest. */
 
-class dtable_wrap_iter : public dtable::iter
+/* this version passes all calls through except index-related calls */
+class dtable_wrap_iter_noindex : public dtable::iter
 {
 public:
 	inline virtual bool valid() const { return base->valid(); }
@@ -26,8 +27,6 @@ public:
 	inline virtual dtype key() const { return base->key(); }
 	inline virtual bool seek(const dtype & key) { return base->seek(key); }
 	inline virtual bool seek(const dtype_test & test) { return base->seek(test); }
-	inline virtual bool seek_index(size_t index) { return base->seek_index(index); }
-	inline virtual size_t get_index() const { return base->get_index(); }
 	inline virtual dtype::ctype key_type() const { return base->key_type(); }
 	inline virtual const blob_comparator * get_blob_cmp() const { return base->get_blob_cmp(); }
 	inline virtual const istr & get_cmp_name() const { return base->get_cmp_name(); }
@@ -36,12 +35,23 @@ public:
 	inline virtual const dtable * source() const { return base->source(); }
 	inline virtual bool reject(blob * replacement) { return base->reject(replacement); }
 	
-	inline dtable_wrap_iter(dtable::iter * base, bool claim_base = false) : base(base), claim_base(claim_base) {}
-	inline virtual ~dtable_wrap_iter() { if(base && claim_base) delete base; }
+	inline dtable_wrap_iter_noindex(dtable::iter * base, bool claim_base = false) : base(base), claim_base(claim_base) {}
+	inline virtual ~dtable_wrap_iter_noindex() { if(base && claim_base) delete base; }
 	
 protected:
 	dtable::iter * base;
 	bool claim_base;
+};
+
+/* this version also passes on the index-related calls */
+class dtable_wrap_iter : public dtable_wrap_iter_noindex
+{
+public:
+	inline virtual bool seek_index(size_t index) { return base->seek_index(index); }
+	inline virtual size_t get_index() const { return base->get_index(); }
+	
+	inline dtable_wrap_iter(dtable::iter * base, bool claim_base = false) : dtable_wrap_iter_noindex(base, claim_base) {}
+	inline virtual ~dtable_wrap_iter() {}
 };
 
 #endif /* __DTABLE_WRAP_ITER_H */
