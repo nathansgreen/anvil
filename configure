@@ -25,8 +25,8 @@ function help()
 
 RECONFIG=no
 
-# Default to using Featherstitch for now
-FSTITCH=yes
+# Default to using ext3 at this point
+FSTITCH=no
 FSTITCH_PATH=
 
 while [ $# -gt 0 ]
