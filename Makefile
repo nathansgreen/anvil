@@ -1,15 +1,25 @@
 # Not many C source files left now...
 CSOURCES=blowfish.c md5.c openat.c
+
 # NOTE: list all factory-constructible classes (dtables, etc.) before the
 # corresponding factory registries. See factory_impl.h for the reason.
 # For the same reason, transaction.cpp must come after sys_journal.cpp here.
-CPPSOURCES=string_counter.cpp istr.cpp new.cpp rofile.cpp rwfile.cpp stringset.cpp stringtbl.cpp util.cpp
-CPPSOURCES+=blob.cpp blob_buffer.cpp params.cpp index_blob.cpp journal.cpp sys_journal.cpp transaction.cpp
-CPPSOURCES+=simple_dtable.cpp simple_ctable.cpp simple_stable.cpp simple_ext_index.cpp memory_dtable.cpp
-CPPSOURCES+=btree_dtable.cpp cache_dtable.cpp journal_dtable.cpp overlay_dtable.cpp smallint_dtable.cpp ustr_dtable.cpp
-CPPSOURCES+=managed_dtable.cpp array_dtable.cpp exception_dtable.cpp usstate_dtable.cpp column_ctable.cpp
-CPPSOURCES+=token_stream.cpp dtable_factory.cpp ctable_factory.cpp index_factory.cpp toilet.cpp toilet++.cpp
-CPPSOURCES+=stlavlmap/tree.cpp
+
+# library stuff
+CPPSOURCES=blob_buffer.cpp blob.cpp index_blob.cpp istr.cpp journal.cpp new.cpp params.cpp
+CPPSOURCES+=rofile.cpp rwfile.cpp string_counter.cpp stringset.cpp stringtbl.cpp sys_journal.cpp
+CPPSOURCES+=toilet.cpp toilet++.cpp token_stream.cpp transaction.cpp stlavlmap/tree.cpp util.cpp
+
+# dtables
+CPPSOURCES+=array_dtable.cpp btree_dtable.cpp cache_dtable.cpp deltaint_dtable.cpp exception_dtable.cpp
+CPPSOURCES+=journal_dtable.cpp managed_dtable.cpp memory_dtable.cpp overlay_dtable.cpp simple_dtable.cpp
+CPPSOURCES+=smallint_dtable.cpp usstate_dtable.cpp ustr_dtable.cpp
+
+# ctables, stables, and external indices
+CPPSOURCES+=column_ctable.cpp simple_ctable.cpp simple_stable.cpp simple_ext_index.cpp
+# factory registries
+CPPSOURCES+=dtable_factory.cpp ctable_factory.cpp index_factory.cpp
+
 SOURCES=$(CSOURCES) $(CPPSOURCES)
 
 HEADERS=$(wildcard *.h)

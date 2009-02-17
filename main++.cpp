@@ -33,6 +33,7 @@ int command_dtable(int argc, const char * argv[]);
 int command_edtable(int argc, const char * argv[]);
 int command_ussdtable(int argc, const char * argv[]);
 int command_sidtable(int argc, const char * argv[]);
+int command_didtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_cctable(int argc, const char * argv[]);
 int command_consistency(int argc, const char * argv[]);
@@ -466,6 +467,11 @@ int command_sidtable(int argc, const char * argv[])
 	r = base->create(AT_FDCWD, "sidt_fail", config, &mdt);
 	printf("sid::create = %d (expect failure)\n", r);
 	
+	return 0;
+}
+
+int command_didtable(int argc, const char * argv[])
+{
 	return 0;
 }
 
