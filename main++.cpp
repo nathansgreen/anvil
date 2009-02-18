@@ -8,6 +8,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <string.h>
 #include <inttypes.h>
 #include <sys/time.h>
@@ -67,20 +68,23 @@ static void print(dtype x)
 	}
 }
 
-static void print(blob x, const char * prefix = NULL)
+static void print(blob x, const char * prefix = NULL, ...)
 {
+	va_list ap;
+	va_start(ap, prefix);
 	if(!x.exists())
 	{
 		if(prefix)
-			printf("%s", prefix);
+			vprintf(prefix, ap);
 		printf("(non-existent)\n");
+		va_end(ap);
 		return;
 	}
 	for(size_t i = 0; i < x.size(); i += 16)
 	{
 		size_t m = i + 16;
 		if(prefix)
-			printf("%s", prefix);
+			vprintf(prefix, ap);
 		for(size_t j = i; j < m; j++)
 		{
 			if(j < x.size())
@@ -100,6 +104,7 @@ static void print(blob x, const char * prefix = NULL)
 		}
 		printf("|\n");
 	}
+	va_end(ap);
 }
 
 static void run_iterator(dtable * table)
@@ -472,6 +477,72 @@ int command_sidtable(int argc, const char * argv[])
 
 int command_didtable(int argc, const char * argv[])
 {
+	int r;
+	params config;
+	uint32_t key = 10, value = 0;
+	dtable * table;
+	memory_dtable mdt;
+	const dtable_factory * base = dtable_factory::lookup("deltaint_dtable");
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) simple_dtable
+		"ref" class(dt) simple_dtable
+		"skip" int 4
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
+	
+	mdt.init(dtype::UINT32, true);
+	for(int i = 0; i < 20; i++)
+	{
+		key += (rand() % 10) + 1;
+		value += rand() % 20;
+		mdt.insert(key, blob(sizeof(value), &value));
+	}
+	run_iterator(&mdt);
+	
+	r = base->create(AT_FDCWD, "didt_test", config, &mdt);
+	printf("did::create = %d\n", r);
+	table = base->open(AT_FDCWD, "didt_test", config);
+	printf("did::open = %p\n", table);
+	run_iterator(table);
+	printf("Check random equivalence... ");
+	fflush(stdout);
+	for(int i = 0; i < 300; i++)
+	{
+		/* we do it randomly so that no leftover
+		 * internal state should help us out */
+		key = rand() % 150;
+		blob value_mdt = mdt.find(key);
+		blob value_ddt = table->find(key);
+		if(value_mdt.compare(value_ddt))
+		{
+			printf("failed!\n");
+			print(value_mdt, "memory find %u: ", key);
+			print(value_ddt, " delta find %u: ", key);
+			delete table;
+			table = NULL;
+			break;
+		}
+	}
+	if(table)
+	{
+		delete table;
+		printf("OK!\n");
+	}
+	
+	table = dtable_factory::load("simple_dtable", AT_FDCWD, "didt_test/base", params());
+	printf("dtable_factory::load = %p\n", table);
+	run_iterator(table);
+	delete table;
+	
+	table = dtable_factory::load("simple_dtable", AT_FDCWD, "didt_test/ref", params());
+	printf("dtable_factory::load = %p\n", table);
+	run_iterator(table);
+	delete table;
+	
 	return 0;
 }
 

@@ -143,8 +143,36 @@ bool deltaint_dtable::present(const dtype & key, bool * found) const
 
 blob deltaint_dtable::lookup(const dtype & key, bool * found) const
 {
-	/* not implemented yet */
-	abort();
+	uint32_t value;
+	blob blob_value;
+	/* make sure it even exists */
+	if(!base->lookup(key, found).exists())
+		return blob();
+	*found = ref_iter->seek(key);
+	if(*found)
+		/* we're lucky, it's in the reference dtable */
+		return ref_iter->value();
+	/* didn't find it, so it went to the next element */
+	*found = ref_iter->prev();
+	assert(*found && ref_iter->valid());
+	/* now the ref iter points before the requested key */
+	*found = scan_iter->seek(ref_iter->key());
+	assert(*found && scan_iter->valid());
+	/* now the scan iter points at the same place as the ref iter */
+	blob_value = ref_iter->value();
+	assert(blob_value.size() == sizeof(value));
+	value = blob_value.index<uint32_t>(0);
+	/* reconstruct the value */
+	do {
+		*found = scan_iter->next();
+		assert(*found);
+		blob_value = scan_iter->value();
+		if(!blob_value.exists())
+			continue;
+		assert(blob_value.size() == sizeof(value));
+		value += blob_value.index<uint32_t>(0);
+	} while(scan_iter->key().compare(key, blob_cmp));
+	return blob(sizeof(value), &value);
 }
 
 int deltaint_dtable::init(int dfd, const char * file, const params & config)
@@ -177,9 +205,22 @@ int deltaint_dtable::init(int dfd, const char * file, const params & config)
 	
 	assert(ktype == reference->key_type());
 	
+	scan_iter = base->iterator();
+	if(!scan_iter)
+		goto fail_scan;
+	ref_iter = reference->iterator();
+	if(!ref_iter)
+		goto fail_iter;
+	
 	close(di_dfd);
 	return 0;
 	
+fail_iter:
+	delete scan_iter;
+	scan_iter = NULL;
+fail_scan:
+	delete reference;
+	reference = NULL;
 fail_reference:
 	delete base;
 	base = NULL;
@@ -192,6 +233,10 @@ void deltaint_dtable::deinit()
 {
 	if(base)
 	{
+		delete ref_iter;
+		ref_iter = NULL;
+		delete scan_iter;
+		scan_iter = NULL;
 		delete reference;
 		reference = NULL;
 		delete base;
