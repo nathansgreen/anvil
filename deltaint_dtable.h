@@ -18,12 +18,6 @@
  * and keeps a secondary dtable storing periodic reference values to aid in
  * random lookup and seeking. */
 
-/* This is starting to get to some fairly complicated reasoning about storing
- * exceptions; is there something we can do to simplify the problem? */
-/* Well, really, there should be an exception_dtable *under* this to handle big
- * jumps that aren't small deltas, assuming that after this we want to use
- * smallint_dtable and array_dtable. */
-
 class deltaint_dtable : public dtable
 {
 public:

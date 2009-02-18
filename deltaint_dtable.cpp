@@ -15,6 +15,9 @@
 #include "rwfile.h"
 #include "deltaint_dtable.h"
 
+/* TODO: I think we are not as tolerant of nonexistent values in the reference
+ * dtable as we need to be, in case it gets any in place of rejected values */
+
 deltaint_dtable::iter::iter(dtable::iter * base, const deltaint_dtable * source)
 	: iter_source<deltaint_dtable, dtable_wrap_iter_noindex>(base, source), current(0), exists(false)
 {
@@ -37,14 +40,12 @@ bool deltaint_dtable::iter::next()
 	if(valid)
 	{
 		blob value = base->value();
-		if(value.exists())
+		exists = value.exists();
+		if(exists)
 		{
 			assert(value.size() == sizeof(uint32_t));
 			current += value.index<uint32_t>(0);
-			exists = true;
 		}
-		else
-			exists = false;
 	}
 	else
 		exists = false;
@@ -53,18 +54,16 @@ bool deltaint_dtable::iter::next()
 
 bool deltaint_dtable::iter::prev()
 {
+	blob value = base->valid() ? base->value() : blob();
 	bool valid = base->prev();
 	if(valid)
 	{
-		blob value = base->value();
+		exists = base->meta().exists();
 		if(value.exists())
 		{
 			assert(value.size() == sizeof(uint32_t));
 			current -= value.index<uint32_t>(0);
-			exists = true;
 		}
-		else
-			exists = false;
 	}
 	/* else don't change exists */
 	return valid;
@@ -76,17 +75,14 @@ bool deltaint_dtable::iter::first()
 	if(valid)
 	{
 		blob value = base->value();
-		if(value.exists())
+		exists = value.exists();
+		if(exists)
 		{
 			assert(value.size() == sizeof(uint32_t));
 			current = value.index<uint32_t>(0);
-			exists = true;
 		}
 		else
-		{
 			current = 0;
-			exists = false;
-		}
 	}
 	else
 		exists = false;
@@ -95,20 +91,118 @@ bool deltaint_dtable::iter::first()
 
 bool deltaint_dtable::iter::last()
 {
-	/* not implemented yet */
-	abort();
+	blob value;
+	bool valid = dt_source->ref_iter->last();
+	if(!valid)
+		return false;
+	value = dt_source->ref_iter->value();
+	assert(value.size() == sizeof(uint32_t));
+	current = value.index<uint32_t>(0);
+	valid = base->seek(dt_source->ref_iter->key());
+	assert(valid && base->meta().exists());
+	exists = true;
+	while(next());
+	return prev();
 }
 
 bool deltaint_dtable::iter::seek(const dtype & key)
 {
-	/* not implemented yet */
-	abort();
+	int cmp;
+	bool found;
+	blob value;
+	found = dt_source->ref_iter->seek(key);
+	if(found)
+	{
+		/* we're lucky, it's in the reference dtable */
+		value = dt_source->ref_iter->value();
+		assert(value.size() == sizeof(uint32_t));
+		found = base->seek(key);
+		assert(found);
+		current = value.index<uint32_t>(0);
+		exists = true;
+		return true;
+	}
+	/* didn't find it, so it went to the next element */
+	found = dt_source->ref_iter->prev();
+	if(!found)
+	{
+		/* the "next" element was itself the first: the key was too small */
+		first();
+		return false;
+	}
+	assert(dt_source->ref_iter->valid());
+	/* now the ref iter points before the requested key */
+	found = base->seek(dt_source->ref_iter->key());
+	assert(found && base->valid());
+	/* now the base iter points at the same place as the ref iter */
+	value = dt_source->ref_iter->value();
+	assert(value.size() == sizeof(uint32_t));
+	current = value.index<uint32_t>(0);
+	/* reconstruct the current value */
+	do {
+		found = base->next();
+		if(!found)
+			/* we ran out of elements: the key was too large */
+			return false;
+		cmp = base->key().compare(key, dt_source->blob_cmp);
+		value = base->value();
+		exists = value.exists();
+		if(!exists)
+			continue;
+		assert(value.size() == sizeof(uint32_t));
+		current += value.index<uint32_t>(0);
+	} while(cmp < 0);
+	return !cmp;
 }
 
 bool deltaint_dtable::iter::seek(const dtype_test & test)
 {
-	/* not implemented yet */
-	abort();
+	int cmp;
+	bool found;
+	blob value;
+	found = dt_source->ref_iter->seek(test);
+	if(found)
+	{
+		/* we're lucky, it's in the reference dtable */
+		value = dt_source->ref_iter->value();
+		assert(value.size() == sizeof(uint32_t));
+		found = base->seek(test);
+		assert(found);
+		current = value.index<uint32_t>(0);
+		exists = true;
+		return true;
+	}
+	/* didn't find it, so it went to the next element */
+	found = dt_source->ref_iter->prev();
+	if(!found)
+	{
+		/* the "next" element was itself the first: the key was too small */
+		first();
+		return false;
+	}
+	assert(dt_source->ref_iter->valid());
+	/* now the ref iter points before the requested key */
+	found = base->seek(dt_source->ref_iter->key());
+	assert(found && base->valid());
+	/* now the base iter points at the same place as the ref iter */
+	value = dt_source->ref_iter->value();
+	assert(value.size() == sizeof(uint32_t));
+	current = value.index<uint32_t>(0);
+	/* reconstruct the current value */
+	do {
+		found = base->next();
+		if(!found)
+			/* we ran out of elements: the key was too large */
+			return false;
+		cmp = test(base->key());
+		value = base->value();
+		exists = value.exists();
+		if(!exists)
+			continue;
+		assert(value.size() == sizeof(uint32_t));
+		current += value.index<uint32_t>(0);
+	} while(cmp < 0);
+	return !cmp;
 }
 
 metablob deltaint_dtable::iter::meta() const
