@@ -128,6 +128,10 @@ public:
 			case DOUBLE:
 				return (dbl < x.dbl) ? -1 : dbl != x.dbl;
 			case STRING:
+				if(str == x.str)
+					return 0;
+				if(!str || !x.str)
+					return str ? 1 : -1;
 				return strcmp(str, x.str);
 			case BLOB:
 				return blob_cmp ? blob_cmp->compare(blb, x.blb) : blb.compare(x.blb);
@@ -151,12 +155,20 @@ public:
 	inline int compare(const char * x) const
 	{
 		assert(type == STRING);
+		if(str == x)
+			return 0;
+		if(!str || !x)
+			return str ? 1 : -1;
 		return strcmp(str, x);
 	}
 	
 	inline int compare(const istr & x) const
 	{
 		assert(type == STRING);
+		if(str == x)
+			return 0;
+		if(!str || !x)
+			return str ? 1 : -1;
 		return strcmp(str, x);
 	}
 	
