@@ -479,10 +479,25 @@ int command_didtable(int argc, const char * argv[])
 {
 	int r;
 	params config;
-	uint32_t key = 10, value = 0;
 	dtable * table;
+	size_t count = 0;
 	memory_dtable mdt;
+	uint32_t key = 10, value = 0;
 	const dtable_factory * base = dtable_factory::lookup("deltaint_dtable");
+	bool verbose = false, ok = true;
+	dtable::iter * ref_it;
+	dtable::iter * test_it;
+	
+	if(argc > 1 && !strcmp(argv[1], "-v"))
+	{
+		verbose = true;
+		argc--;
+		argv++;
+	}
+	if(argc > 1)
+		count = atoi(argv[1]);
+	if(!count)
+		count = 2000000;
 	
 	r = params::parse(LITERAL(
 	config [
@@ -508,7 +523,7 @@ int command_didtable(int argc, const char * argv[])
 	table = base->open(AT_FDCWD, "didt_test", config);
 	printf("did::open = %p\n", table);
 	run_iterator(table);
-	printf("Check random equivalence... ");
+	printf("Check random lookups... ");
 	fflush(stdout);
 	for(int i = 0; i < 300; i++)
 	{
@@ -532,6 +547,111 @@ int command_didtable(int argc, const char * argv[])
 		delete table;
 		printf("OK!\n");
 	}
+	
+	table = base->open(AT_FDCWD, "didt_test", config);
+	printf("did::open = %p\n", table);
+	
+	printf("Checking iterator behavior... ");
+	fflush(stdout);
+	ref_it = mdt.iterator();
+	test_it = table->iterator();
+	for(size_t i = 0; i < count && ok; i++)
+	{
+		ok = false;
+		if(ref_it->valid() != test_it->valid())
+			break;
+		if(test_it->valid())
+		{
+			if(ref_it->key().compare(test_it->key()))
+				break;
+			if(ref_it->value().compare(test_it->value()))
+				break;
+		}
+		ok = true;
+		switch(rand() % 5)
+		{
+			/* first() */
+			case 0:
+			{
+				bool ref_b = ref_it->first();
+				bool test_b = test_it->first();
+				assert(ref_b && test_b);
+				if(verbose)
+				{
+					printf("[");
+					fflush(stdout);
+				}
+				break;
+			}
+			/* last() */
+			case 1:
+			{
+				bool ref_b = ref_it->last();
+				bool test_b = test_it->last();
+				assert(ref_b && test_b);
+				if(verbose)
+				{
+					printf("]");
+					fflush(stdout);
+				}
+				break;
+			}
+			/* next() */
+			case 2:
+			{
+				bool ref_b = ref_it->next();
+				bool test_b = test_it->next();
+				if(ref_b != test_b)
+					ok = false;
+				if(verbose)
+				{
+					printf(">");
+					fflush(stdout);
+				}
+				break;
+			}
+			/* prev() */
+			case 3:
+			{
+				bool ref_b = ref_it->prev();
+				bool test_b = test_it->prev();
+				if(ref_b != test_b)
+					ok = false;
+				if(verbose)
+				{
+					printf("<");
+					fflush(stdout);
+				}
+				break;
+			}
+			/* seek() */
+			case 4:
+			{
+				uint32_t key = rand() % 150;
+				bool ref_b = ref_it->seek(key);
+				bool test_b = test_it->seek(key);
+				if(ref_b != test_b)
+					ok = false;
+				if(verbose)
+				{
+					printf("%02X", key);
+					fflush(stdout);
+				}
+				break;
+			}
+		}
+		if(!ok)
+			printf(verbose ? " behavior" : "behavior ");
+	}
+	if(verbose)
+		printf(" ");
+	if(ok)
+		printf("%zu operations OK!\n", count);
+	else
+		printf("failed!\n");
+	delete test_it;
+	delete ref_it;
+	delete table;
 	
 	table = dtable_factory::load("simple_dtable", AT_FDCWD, "didt_test/base", params());
 	printf("dtable_factory::load = %p\n", table);
