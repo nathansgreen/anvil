@@ -219,6 +219,14 @@ ssize_t rwfile::append(const void * data, ssize_t size)
 	return orig;
 }
 
+ssize_t rwfile::pad(ssize_t size)
+{
+	/* this should suffice for now; it can certainly be improved */
+	uint8_t zero[size];
+	util::memset(zero, 0, size);
+	return append(zero, size);
+}
+
 ssize_t rwfile::read(off_t offset, void * data, ssize_t size)
 {
 	off_t buffer_offset;

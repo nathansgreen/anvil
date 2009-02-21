@@ -329,7 +329,6 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 {
 	int r;
 	rwfile out;
-	uint8_t * zero_data;
 	dtable_header header;
 	dtype::ctype key_type;
 	uint32_t index = 0, max_key = 0;
@@ -461,11 +460,6 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 			goto fail_unlink;
 	}
 	
-	zero_data = new uint8_t[header.value_size];
-	if(!zero_data)
-		return -1;
-	util::memset(zero_data, 0, header.value_size);
-	
 	source->first();
 	while(source->valid())
 	{
@@ -487,7 +481,7 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 				r = out.append<uint8_t>(&type);
 				if(r < 0)
 					goto fail_unlink;
-				r = out.append(zero_data, header.value_size);
+				r = out.pad(header.value_size);
 			}
 			else
 				r = out.append(hole_value);
@@ -518,14 +512,12 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 		if(value.exists())
 			r = out.append(value);
 		else
-			r = out.append(zero_data, header.value_size);
+			r = out.pad(header.value_size);
 		if(r < 0)
 			goto fail_unlink;
 		source->next();
 		index++;
 	}
-	
-	delete[] zero_data;
 	
 	r = out.close();
 	if(r < 0)
