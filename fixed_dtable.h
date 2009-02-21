@@ -24,8 +24,8 @@
  * size and offset fields that are present in simple_dtable. These dtables are
  * read-only once they are created with the ::create() method. */
 
-#define FDTABLE_MAGIC 0xF029DDE3
-#define FDTABLE_VERSION 1
+#define FDTABLE_MAGIC 0x89B63A8E
+#define FDTABLE_VERSION 0
 
 class fixed_dtable : public dtable
 {

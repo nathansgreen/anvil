@@ -396,7 +396,7 @@ int command_ussdtable(int argc, const char * argv[])
 	
 	r = params::parse(LITERAL(
 	config [
-		"base" class(dt) simple_dtable
+		"base" class(dt) fixed_dtable
 	]), &config);
 	printf("params::parse = %d\n", r);
 	config.print();
@@ -414,7 +414,7 @@ int command_ussdtable(int argc, const char * argv[])
 	run_iterator(table);
 	delete table;
 	
-	table = dtable_factory::load("simple_dtable", AT_FDCWD, "usst_test", params());
+	table = dtable_factory::load("fixed_dtable", AT_FDCWD, "usst_test", params());
 	printf("dtable_factory::load = %p\n", table);
 	run_iterator(table);
 	delete table;
