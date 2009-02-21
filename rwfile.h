@@ -87,7 +87,7 @@ public:
 	ssize_t append(const void * data, ssize_t size);
 	
 	/* appends padding zeroes to the file */
-	ssize_t pad(ssize_t size);
+	int pad(ssize_t size);
 	
 	/* read some data from the file */
 	/* this should be const, but due to the shared cache, it's easier not to bother */

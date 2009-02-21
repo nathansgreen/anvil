@@ -407,14 +407,12 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 	{
 		dtype key = source->key();
 		metablob meta = source->meta();
+		source->next();
 		if(!meta.exists())
 		{
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->contains(key))
-			{
-				source->next();
 				continue;
-			}
 			if(!dne_ok)
 				return -EINVAL;
 		}
@@ -433,7 +431,6 @@ int array_dtable::create(int dfd, const char * file, const params & config, dtab
 			header.value_size = meta.size();
 			value_size_known = true;
 		}
-		source->next();
 	}
 	
 	header.magic = ADTABLE_MAGIC;

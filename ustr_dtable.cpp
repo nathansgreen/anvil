@@ -749,8 +749,8 @@ int ustr_dtable::create(int dfd, const char * file, const params & config, dtabl
 			continue;
 		if(dups.size())
 			value = pack_blob(value, header, dup_vector);
-		r = out.append(&value[0], value.size());
-		if(r != (int) value.size())
+		r = out.append(value);
+		if(r < 0)
 			goto fail_unlink;
 	}
 	

@@ -490,8 +490,8 @@ int simple_dtable::create(int dfd, const char * file, const params & config, dta
 		/* nonexistent blobs have size 0 */
 		if(!value.size())
 			continue;
-		r = out.append(&value[0], value.size());
-		if(r != (int) value.size())
+		r = out.append(value);
+		if(r < 0)
 			goto fail_unlink;
 	}
 	
