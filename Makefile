@@ -12,8 +12,8 @@ CPPSOURCES+=toilet.cpp toilet++.cpp token_stream.cpp transaction.cpp stlavlmap/t
 
 # dtables
 CPPSOURCES+=array_dtable.cpp btree_dtable.cpp cache_dtable.cpp deltaint_dtable.cpp exception_dtable.cpp
-CPPSOURCES+=journal_dtable.cpp managed_dtable.cpp memory_dtable.cpp overlay_dtable.cpp simple_dtable.cpp
-CPPSOURCES+=smallint_dtable.cpp usstate_dtable.cpp ustr_dtable.cpp
+CPPSOURCES+=fixed_dtable.cpp journal_dtable.cpp managed_dtable.cpp memory_dtable.cpp overlay_dtable.cpp
+CPPSOURCES+=simple_dtable.cpp smallint_dtable.cpp usstate_dtable.cpp ustr_dtable.cpp
 
 # ctables, stables, and external indices
 CPPSOURCES+=column_ctable.cpp simple_ctable.cpp simple_stable.cpp simple_ext_index.cpp
