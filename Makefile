@@ -113,4 +113,6 @@ config.mak: configure
 tags: $(SOURCES) main.c $(HEADERS)
 	ctags -R
 
+ifneq ($(MAKECMDGOALS),clean)
 -include .depend
+endif
