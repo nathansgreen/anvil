@@ -303,6 +303,115 @@ int command_dtable(int argc, const char * argv[])
 	return 0;
 }
 
+static int excp_perf(dtable * table)
+{
+	dtable::iter * it;
+	blob fixed("aoife");
+	blob exception("pandora");
+	int sum[2] = {0, 0};
+	struct timeval start, end;
+	int r = tx_start();
+	printf("tx_start = %d\n", r);
+	
+	printf("Populating table... ");
+	fflush(stdout);
+	for(int i = 0; i < 4000000; i++)
+	{
+		uint32_t key = i;
+		if(rand() % 500)
+			r = table->insert(key, fixed);
+		else
+			r = table->insert(key, exception);
+		if(r < 0)
+			goto fail_tx;
+	}
+	printf("done.\n");
+	
+	printf("Calculating verification data... ");
+	fflush(stdout);
+	for(it = table->iterator(); it->valid(); it->next())
+	{
+		dtype key = it->key();
+		blob value = it->value();
+		if(!value.compare(fixed))
+			sum[0] += key.u32;
+		else if(!value.compare(exception))
+			sum[1] += key.u32;
+		else
+		{
+			delete it;
+			goto fail_tx;
+		}
+	}
+	delete it;
+	printf("done.\n");
+	
+	printf("Waiting 2 seconds for digest interval...\n");
+	sleep(2);
+	printf("Maintaining... ");
+	fflush(stdout);
+	gettimeofday(&start, NULL);
+	r = table->maintain();
+	gettimeofday(&end, NULL);
+	end.tv_sec -= start.tv_sec;
+	if(end.tv_usec < start.tv_usec)
+	{
+		end.tv_usec += 1000000;
+		end.tv_sec--;
+	}
+	end.tv_usec -= start.tv_usec;
+	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
+	printf("maintain = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	printf("Verifying data... ");
+	fflush(stdout);
+	for(it = table->iterator(); it->valid(); it->next())
+	{
+		dtype key = it->key();
+		blob value = it->value();
+		if(!value.compare(fixed))
+			sum[0] -= key.u32;
+		else if(!value.compare(exception))
+			sum[1] -= key.u32;
+		else
+		{
+			delete it;
+			goto fail;
+		}
+	}
+	if(sum[0] || sum[1])
+		goto fail;
+	printf("OK!\n");
+	
+	printf("Random lookups... ");
+	fflush(stdout);
+	gettimeofday(&start, NULL);
+	for(int i = 0; i < 4000000; i++)
+	{
+		uint32_t key = rand() % 4000000;
+		blob value = table->find(key);
+	}
+	gettimeofday(&end, NULL);
+	end.tv_sec -= start.tv_sec;
+	if(end.tv_usec < start.tv_usec)
+	{
+		end.tv_usec += 1000000;
+		end.tv_sec--;
+	}
+	end.tv_usec -= start.tv_usec;
+	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
+	
+	return 0;
+	
+fail_tx:
+	tx_end(0);
+fail:
+	printf("fail!\n");
+	return -1;
+}
+
 int command_edtable(int argc, const char * argv[])
 {
 	int r;
@@ -382,6 +491,51 @@ int command_edtable(int argc, const char * argv[])
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	delete mdt;
+	
+	if(argc > 1 && !strcmp(argv[1], "perf"))
+	{
+		r = tx_start();
+		printf("tx_start = %d\n", r);
+		r = managed_dtable::create(AT_FDCWD, "excp_perf", config, dtype::UINT32);
+		printf("dtable::create = %d\n", r);
+		r = tx_end(0);
+		printf("tx_end = %d\n", r);
+		
+		/* run a test with it */
+		mdt = new managed_dtable;
+		r = mdt->init(AT_FDCWD, "excp_perf", config);
+		printf("mdt->init = %d\n", r);
+		excp_perf(mdt);
+		delete mdt;
+		
+		/* should we also run with exception_dtable but simple_dtable underneath, to
+		 * isolate the overhead without the performance benefits of array_dtable? */
+		config = params();
+		r = params::parse(LITERAL(
+		config [
+			"base" class(dt) simple_dtable
+			"digest_interval" int 2
+			"combine_interval" int 4
+			"combine_count" int 4
+		]), &config);
+		printf("params::parse = %d\n", r);
+		config.print();
+		printf("\n");
+		
+		r = tx_start();
+		printf("tx_start = %d\n", r);
+		r = managed_dtable::create(AT_FDCWD, "exbl_perf", config, dtype::UINT32);
+		printf("dtable::create = %d\n", r);
+		r = tx_end(0);
+		printf("tx_end = %d\n", r);
+		
+		/* run the same test */
+		mdt = new managed_dtable;
+		r = mdt->init(AT_FDCWD, "exbl_perf", config);
+		printf("mdt->init = %d\n", r);
+		excp_perf(mdt);
+		delete mdt;
+	}
 	
 	return 0;
 }
