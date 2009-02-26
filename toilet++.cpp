@@ -861,7 +861,7 @@ void tpp_blobcmp_release(tpp_blobcmp ** blobcmp)
 	*blobcmp = NULL;
 }
 
-tpp_dtable * tpp_dtable_cache::open(int index)
+tpp_dtable * tpp_dtable_cache::open(int index, const tpp_params * config)
 {
 	char number[24];
 	tpp_dtable * dtable;
@@ -967,9 +967,9 @@ tpp_dtable_cache::~tpp_dtable_cache()
 	assert(index_map.empty());
 }
 
-tpp_dtable_cache * tpp_dtable_cache_new(int dir_fd, const char * type, const tpp_params * config)
+tpp_dtable_cache * tpp_dtable_cache_new(int dir_fd, const char * type)
 {
-	return new tpp_dtable_cache(dir_fd, type, config);
+	return new tpp_dtable_cache(dir_fd, type);
 }
 
 void tpp_dtable_cache_kill(tpp_dtable_cache * c)
@@ -977,23 +977,23 @@ void tpp_dtable_cache_kill(tpp_dtable_cache * c)
 	delete c;
 }
 
-int tpp_dtable_cache_create(tpp_dtable_cache * c, int index, const tpp_dtable * source, const tpp_dtable * shadow)
+int tpp_dtable_cache_create(tpp_dtable_cache * c, int index, const tpp_params * config, const tpp_dtable * source, const tpp_dtable * shadow)
 {
 	char number[24];
 	snprintf(number, sizeof(number), "%d", index);
-	return tpp_dtable_create(c->type, c->dir_fd, number, c->config, source, shadow);
+	return tpp_dtable_create(c->type, c->dir_fd, number, config, source, shadow);
 }
 
-int tpp_dtable_cache_create_empty(tpp_dtable_cache * c, int index, tpp_dtype_type key_type)
+int tpp_dtable_cache_create_empty(tpp_dtable_cache * c, int index, const tpp_params * config, tpp_dtype_type key_type)
 {
 	char number[24];
 	snprintf(number, sizeof(number), "%d", index);
-	return tpp_dtable_create_empty(c->type, c->dir_fd, number, c->config, key_type);
+	return tpp_dtable_create_empty(c->type, c->dir_fd, number, config, key_type);
 }
 
-tpp_dtable * tpp_dtable_cache_open(tpp_dtable_cache * c, int index)
+tpp_dtable * tpp_dtable_cache_open(tpp_dtable_cache * c, int index, const tpp_params * config)
 {
-	return c->open(index);
+	return c->open(index, config);
 }
 
 void tpp_dtable_cache_close(tpp_dtable_cache * c, tpp_dtable * dtable)
