@@ -494,6 +494,26 @@ int command_edtable(int argc, const char * argv[])
 	
 	if(argc > 1 && !strcmp(argv[1], "perf"))
 	{
+		config = params();
+		r = params::parse(LITERAL(
+		config [
+			"base" class(dt) exception_dtable
+			"base_config" config [
+				"base" class(dt) btree_dtable
+				"base_config" config [
+					"base" class(dt) fixed_dtable
+				]
+				"alt" class(dt) simple_dtable
+				"reject_value" string "_____"
+			]
+			"digest_interval" int 2
+			"combine_interval" int 12
+			"combine_count" int 8
+		]), &config);
+		printf("params::parse = %d\n", r);
+		config.print();
+		printf("\n");
+		
 		r = tx_start();
 		printf("tx_start = %d\n", r);
 		r = managed_dtable::create(AT_FDCWD, "excp_perf", config, dtype::UINT32);
@@ -513,10 +533,13 @@ int command_edtable(int argc, const char * argv[])
 		config = params();
 		r = params::parse(LITERAL(
 		config [
-			"base" class(dt) simple_dtable
+			"base" class(dt) btree_dtable
+			"base_config" config [
+				"base" class(dt) simple_dtable
+			]
 			"digest_interval" int 2
-			"combine_interval" int 4
-			"combine_count" int 4
+			"combine_interval" int 12
+			"combine_count" int 8
 		]), &config);
 		printf("params::parse = %d\n", r);
 		config.print();
