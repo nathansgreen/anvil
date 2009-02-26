@@ -111,35 +111,12 @@ int memory_dtable::insert(const dtype & key, const blob & blob, bool append)
 {
 	if(key.type != ktype || (ktype == dtype::BLOB && !key.blb.exists()))
 		return -EINVAL;
-	/* empty hash table? just add it */
-	if(!mdt_hash.size())
-		return add_node(key, blob);
-	if(append)
-	{
-		memory_dtable_map::iterator end = mdt_map.end();
-		memory_dtable_map::iterator last = end;
-		int c = (--last)->first.compare(key, blob_cmp);
-		/* this is the expected case, if the hint was correct */
-		if(c < 0)
-			return add_node(key, blob, end);
-		if(!c)
-		{
-			last->second = blob;
-			return 0;
-		}
-	}
-	memory_dtable_hash::iterator it = mdt_hash.find(key);
-	if(it != mdt_hash.end())
-	{
-		*(it->second) = blob;
-		return 0;
-	}
-	return add_node(key, blob);
+	return set_node(key, blob, append);
 }
 
 int memory_dtable::remove(const dtype & key)
 {
-	if(full_rm)
+	if(full_remove)
 	{
 		if(mdt_hash.erase(key))
 			mdt_map.erase(key);
@@ -148,7 +125,7 @@ int memory_dtable::remove(const dtype & key)
 	return insert(key, blob());
 }
 
-int memory_dtable::init(dtype::ctype key_type, bool full_remove)
+int memory_dtable::init(dtype::ctype key_type, bool always_append, bool full_remove)
 {
 	if(ready)
 		deinit();
@@ -157,7 +134,8 @@ int memory_dtable::init(dtype::ctype key_type, bool full_remove)
 	assert(!cmp_name);
 	ktype = key_type;
 	ready = true;
-	full_rm = full_remove;
+	this->always_append = always_append;
+	this->full_remove = full_remove;
 	return 0;
 }
 
@@ -169,18 +147,25 @@ void memory_dtable::deinit()
 	ready = false;
 }
 
-int memory_dtable::add_node(const dtype & key, const blob & value)
+int memory_dtable::add_node(const dtype & key, const blob & value, bool append)
 {
-	blob & map_value = mdt_map[key];
-	map_value = value;
-	mdt_hash[key] = &map_value;
+	memory_dtable_map::value_type pair(key, value);
+	memory_dtable_map::iterator it;
+	if(append || always_append)
+		it = mdt_map.insert(mdt_map.end(), pair);
+	else
+		it = mdt_map.insert(pair).first;
+	mdt_hash[key] = &(it->second);
 	return 0;
 }
 
-int memory_dtable::add_node(const dtype & key, const blob & value, const memory_dtable_map::iterator & end)
+int memory_dtable::set_node(const dtype & key, const blob & value, bool append)
 {
-	memory_dtable_map::value_type pair(key, value);
-	memory_dtable_map::iterator it = mdt_map.insert(end, pair);
-	mdt_hash[key] = &(it->second);
-	return 0;
+	memory_dtable_hash::iterator it = mdt_hash.find(key);
+	if(it != mdt_hash.end())
+	{
+		*(it->second) = value;
+		return 0;
+	}
+	return add_node(key, value, append);
 }
