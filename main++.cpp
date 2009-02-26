@@ -344,7 +344,7 @@ static int excp_perf(dtable * table)
 		}
 	}
 	delete it;
-	printf("done.\n");
+	printf("(0x%08X, 0x%08X)\n", sum[0], sum[1]);
 	
 	printf("Waiting 2 seconds for digest interval...\n");
 	sleep(2);
@@ -388,7 +388,7 @@ static int excp_perf(dtable * table)
 	printf("Random lookups... ");
 	fflush(stdout);
 	gettimeofday(&start, NULL);
-	for(int i = 0; i < 4000000; i++)
+	for(int i = 0; i < 2000000; i++)
 	{
 		uint32_t key = rand() % 4000000;
 		blob value = table->find(key);
