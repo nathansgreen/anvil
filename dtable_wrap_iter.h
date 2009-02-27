@@ -54,4 +54,16 @@ public:
 	inline virtual ~dtable_wrap_iter() {}
 };
 
+template<class T>
+static inline T * wrap_and_claim(dtable::iter * in)
+{
+	if(!in)
+		return NULL;
+	/* we assume "true" means claim_base = true */
+	T * out = new T(in, true);
+	if(!out)
+		delete in;
+	return out;
+}
+
 #endif /* __DTABLE_WRAP_ITER_H */

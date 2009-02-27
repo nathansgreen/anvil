@@ -14,6 +14,8 @@
 #include "dtable_factory.h"
 #include "simple_ctable.h"
 
+/* FIXME: there are probably some bugs/inconsistencies with nonexistent values */
+
 simple_ctable::iter::iter(const simple_ctable * base, dtable::iter * source)
 	: base(base), source(source), index(0)
 {
@@ -149,12 +151,14 @@ dtype simple_ctable::iter::key() const
 
 bool simple_ctable::iter::seek(const dtype & key)
 {
+	/* bug! we might advance past the key */
 	source->seek(key);
 	return advance();
 }
 
 bool simple_ctable::iter::seek(const dtype_test & test)
 {
+	/* bug! we might advance past the key */
 	source->seek(test);
 	return advance();
 }
@@ -177,9 +181,91 @@ blob simple_ctable::iter::value() const
 	return row.get(index);
 }
 
+simple_ctable::citer::citer(const simple_ctable * base, dtable::iter * src, size_t index)
+	: base(base), src(src), index(index), value_cached(false)
+{
+	/* when we clean this up regarding nonexistent values, we should advance here */
+}
+
+bool simple_ctable::citer::next()
+{
+	kill_cache();
+	return src->next();
+}
+
+bool simple_ctable::citer::prev()
+{
+	bool valid = src->prev();
+	if(valid)
+		kill_cache();
+	return valid;
+}
+
+bool simple_ctable::citer::first()
+{
+	kill_cache();
+	return src->first();
+}
+
+bool simple_ctable::citer::last()
+{
+	kill_cache();
+	return src->last();
+}
+
+bool simple_ctable::citer::seek(const dtype & key)
+{
+	kill_cache();
+	return src->seek(key);
+}
+
+bool simple_ctable::citer::seek(const dtype_test & test)
+{
+	kill_cache();
+	return src->seek(test);
+}
+
+metablob simple_ctable::citer::meta() const
+{
+	if(!value_cached)
+		cache_value();
+	return cached_value;
+}
+
+blob simple_ctable::citer::value() const
+{
+	if(!value_cached)
+		cache_value();
+	return cached_value;
+}
+
+void simple_ctable::citer::cache_value() const
+{
+	index_blob idx(base->columns, src->value());
+	cached_value = idx.get(index);
+	value_cached = true;
+}
+
 dtable::key_iter * simple_ctable::keys() const
 {
 	return base->iterator();
+}
+
+dtable::iter * simple_ctable::values(const istr & column) const
+{
+	name_map::const_iterator number = column_map.find(column);
+	if(number == column_map.end())
+		return NULL;
+	assert(number->second < columns);
+	/* FIXME: use dtable_skip_iter? */
+	return new citer(this, base->iterator(), number->second);
+}
+
+dtable::iter * simple_ctable::values(size_t column) const
+{
+	assert(column < columns);
+	/* FIXME: use dtable_skip_iter? */
+	return new citer(this, base->iterator(), column);
 }
 
 ctable::iter * simple_ctable::iterator() const
