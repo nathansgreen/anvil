@@ -42,6 +42,8 @@ public:
 	};
 	
 	virtual dtable::key_iter * keys() const = 0;
+	virtual dtable::iter * values(const istr & column) const = 0;
+	virtual dtable::iter * values(size_t column) const = 0;
 	virtual iter * iterator() const = 0;
 	inline virtual iter * iterator(const dtype & key) const
 	{

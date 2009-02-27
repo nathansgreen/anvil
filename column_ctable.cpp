@@ -13,9 +13,11 @@
 #include "rofile.h"
 #include "transaction.h"
 #include "dtable_factory.h"
+#include "dtable_skip_iter.h"
 #include "column_ctable.h"
 
 /* FIXME: column_ctable fails if you do not have all extant blobs for a row */
+/* FIXME: there are probably some bugs/inconsistencies with nonexistent values */
 
 column_ctable::iter::iter(const column_ctable * base)
 	: base(base)
@@ -110,6 +112,7 @@ dtype column_ctable::iter::key() const
 
 bool column_ctable::iter::seek(const dtype & key)
 {
+	/* bug? what if we find the nonexistent value? */
 	bool found = source[0]->seek(key);
 	for(size_t i = 1; i < base->columns; i++)
 		source[i]->seek(key);
@@ -124,6 +127,7 @@ bool column_ctable::iter::seek(const dtype & key)
 
 bool column_ctable::iter::seek(const dtype_test & test)
 {
+	/* bug? what if we find the nonexistent value? */
 	bool found = source[0]->seek(test);
 	for(size_t i = 1; i < base->columns; i++)
 		source[i]->seek(test);
@@ -154,6 +158,21 @@ blob column_ctable::iter::value() const
 dtable::key_iter * column_ctable::keys() const
 {
 	return column_table[0]->iterator();
+}
+
+dtable::iter * column_ctable::values(const istr & column) const
+{
+	name_map::const_iterator number = column_map.find(column);
+	if(number == column_map.end())
+		return NULL;
+	assert(number->second < columns);
+	return wrap_and_claim<dtable_skip_iter>(column_table[number->second]->iterator());
+}
+
+dtable::iter * column_ctable::values(size_t column) const
+{
+	assert(column < columns);
+	return wrap_and_claim<dtable_skip_iter>(column_table[column]->iterator());
 }
 
 ctable::iter * column_ctable::iterator() const
