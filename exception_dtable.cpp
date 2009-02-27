@@ -38,14 +38,8 @@ bool exception_dtable::iter::next()
 {
 	if(lastdir != FORWARD)
 	{
-		if(base_sub->valid)
-			base_sub->valid = base_sub->iter->next();
-		else
-			base_sub->valid = base_sub->iter->valid();
-		if(alt_sub->valid)
+		if(current_sub != alt_sub)
 			alt_sub->valid = alt_sub->iter->next();
-		else
-			alt_sub->valid = alt_sub->iter->valid();
 		lastdir = FORWARD;
 	}
 	
@@ -68,8 +62,8 @@ bool exception_dtable::iter::prev()
 {
 	if(lastdir != BACKWARD)
 	{
-		base_sub->valid = base_sub->iter->prev();
-		alt_sub->valid = alt_sub->iter->prev();
+		if(current_sub != alt_sub)
+			alt_sub->valid = alt_sub->iter->prev();
 		lastdir = BACKWARD;
 	}
 	
@@ -80,8 +74,8 @@ bool exception_dtable::iter::prev()
 	{
 		const blob_comparator * blob_cmp = dt_source->blob_cmp;
 		int c = base_sub->iter->key().compare(alt_sub->iter->key(), blob_cmp);
-		assert(c <= 0);
-		current_sub = (c < 0) ? base_sub : alt_sub;
+		assert(c >= 0);
+		current_sub = (c > 0) ? base_sub : alt_sub;
 	}
 	else
 		current_sub = base_sub;
