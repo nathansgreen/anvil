@@ -45,8 +45,8 @@ public:
 		return dtable::set_blob_cmp(cmp);
 	}
 	
-	inline memory_dtable() : ready(false), full_rm(false), mdt_map(blob_cmp), mdt_hash(10, blob_cmp, blob_cmp) {}
-	int init(dtype::ctype key_type, bool full_remove = false);
+	inline memory_dtable() : ready(false), always_append(false), full_remove(false), mdt_map(blob_cmp), mdt_hash(10, blob_cmp, blob_cmp) {}
+	int init(dtype::ctype key_type, bool always_append = false, bool full_remove = false);
 	inline void reinit()
 	{
 		mdt_hash.clear();
@@ -63,8 +63,9 @@ private:
 	typedef avl::map<dtype, blob, dtype_comparator_refobject> memory_dtable_map;
 	typedef __gnu_cxx::hash_map<const dtype, blob *, dtype_hashing_comparator, dtype_hashing_comparator> memory_dtable_hash;
 	
-	inline int add_node(const dtype & key, const blob & value);
-	inline int add_node(const dtype & key, const blob & value, const memory_dtable_map::iterator & end);
+	inline int add_node(const dtype & key, const blob & value, bool append);
+	/* tries to set an existing node, and calls add_node() otherwise */
+	inline int set_node(const dtype & key, const blob & value, bool append);
 	
 	class iter : public iter_source<memory_dtable>
 	{
@@ -86,7 +87,7 @@ private:
 		memory_dtable_map::const_iterator mit;
 	};
 	
-	bool ready, full_rm;
+	bool ready, always_append, full_remove;
 	memory_dtable_map mdt_map;
 	memory_dtable_hash mdt_hash;
 };
