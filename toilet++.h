@@ -253,14 +253,16 @@ void tpp_blobcmp_release(tpp_blobcmp ** blobcmp);
 struct tpp_dtable_cache;
 typedef struct tpp_dtable_cache tpp_dtable_cache;
 
-tpp_dtable_cache * tpp_dtable_cache_new(int dir_fd, const char * type, const tpp_params * config);
+tpp_dtable_cache * tpp_dtable_cache_new(int dir_fd, const char * type);
 void tpp_dtable_cache_kill(tpp_dtable_cache * c);
 
-int tpp_dtable_cache_create(tpp_dtable_cache * c, int index, const tpp_dtable * source, const tpp_dtable * shadow);
-int tpp_dtable_cache_create_empty(tpp_dtable_cache * c, int index, tpp_dtype_type key_type);
+int tpp_dtable_cache_create(tpp_dtable_cache * c, int index, const tpp_params * config, const tpp_dtable * source, const tpp_dtable * shadow);
+int tpp_dtable_cache_create_empty(tpp_dtable_cache * c, int index, const tpp_params * config, tpp_dtype_type key_type);
 
-tpp_dtable * tpp_dtable_cache_open(tpp_dtable_cache * c, int index);
+tpp_dtable * tpp_dtable_cache_open(tpp_dtable_cache * c, int index, const tpp_params * config);
 void tpp_dtable_cache_close(tpp_dtable_cache * c, tpp_dtable * dtable);
+int tpp_dtable_cache_maintain(tpp_dtable_cache * c, int index);
+bool tpp_dtable_cache_can_maintain(tpp_dtable_cache * c, int index);
 
 /* the index must itself be open already */
 tpp_dtable_iter * tpp_dtable_cache_iter(tpp_dtable_cache * c, int index);
@@ -367,18 +369,20 @@ struct tpp_dtable_cache
 {
 	int dir_fd;
 	const char * type;
-	const tpp_params * config;
+	uint32_t ticks;
 	
 #define OPEN_DTABLE_ITERS 8
 #define RECENT_OPEN_DTABLES 32
+#define DELTA_TICKS 256
 	struct open_dtable
 	{
 		tpp_dtable * dtable;
 		tpp_dtable_iter * iters[OPEN_DTABLE_ITERS];
 		int count;
+		uint32_t last_tick;
 		
 		inline open_dtable()
-			: dtable(NULL), count(1)
+			: dtable(NULL), count(1), last_tick(0)
 		{
 			for(int i = 0; i < OPEN_DTABLE_ITERS; i++)
 				iters[i] = NULL;
@@ -411,16 +415,18 @@ struct tpp_dtable_cache
 	it_map iter_map;
 	tpp_dtable * recent[RECENT_OPEN_DTABLES];
 	
-	inline tpp_dtable_cache(int dir_fd, const char * type, const tpp_params * config)
-		: dir_fd(dir_fd), type(type), config(config)
+	inline tpp_dtable_cache(int dir_fd, const char * type)
+		: dir_fd(dir_fd), type(type), ticks(0)
 	{
 		for(int i = 0; i < RECENT_OPEN_DTABLES; i++)
 			recent[i] = NULL;
 	}
 	~tpp_dtable_cache();
 	
-	tpp_dtable * open(int index);
+	tpp_dtable * open(int index, const tpp_params * config);
 	void close(tpp_dtable * dtable);
+	bool can_maintain(int index);
+	int maintain(int index);
 	
 	tpp_dtable_iter * iterator(int index);
 	void close(tpp_dtable_iter * dt_iter);
