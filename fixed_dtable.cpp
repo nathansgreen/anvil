@@ -493,11 +493,13 @@ int fixed_dtable::create(int dfd, const char * file, const params & config, dtab
 	{
 		dtype key = source->key();
 		blob value = source->value();
-		source->next();
 		if(!value.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->contains(key))
+			{
+				source->next();
 				continue;
+			}
 		if(value.exists() && value.size() != header.value_size)
 		{
 			/* all the items in this dtable must be the same size */
@@ -512,6 +514,7 @@ int fixed_dtable::create(int dfd, const char * file, const params & config, dtab
 			r = out.pad(header.value_size);
 		if(r < 0)
 			goto fail_unlink;
+		source->next();
 	}
 	
 	r = out.close();

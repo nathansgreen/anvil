@@ -22,6 +22,8 @@ class simple_ctable : public ctable
 {
 public:
 	virtual dtable::key_iter * keys() const;
+	virtual dtable::iter * values(const istr & column) const;
+	virtual dtable::iter * values(size_t column) const;
 	virtual iter * iterator() const;
 	virtual blob find(const dtype & key, const istr & column) const;
 	virtual blob find(const dtype & key, size_t column) const;
@@ -80,6 +82,46 @@ private:
 		uint32_t version;
 		uint32_t columns;
 	} __attribute__((packed));
+	
+	class citer : public dtable::iter
+	{
+	public:
+		inline virtual bool valid() const { return src->valid(); }
+		virtual bool next();
+		virtual bool prev();
+		virtual bool first();
+		virtual bool last();
+		inline virtual dtype key() const { return src->key(); }
+		virtual bool seek(const dtype & key);
+		virtual bool seek(const dtype_test & test);
+		inline virtual dtype::ctype key_type() const { return src->key_type(); }
+		inline virtual const blob_comparator * get_blob_cmp() const { return base->get_blob_cmp(); }
+		inline virtual const istr & get_cmp_name() const { return base->get_cmp_name(); }
+		virtual metablob meta() const;
+		virtual blob value() const;
+		inline virtual const dtable * source() const { return base->base; }
+		
+		inline citer(const simple_ctable * base, dtable::iter * src, size_t index);
+		virtual ~citer()
+		{
+			delete src;
+		}
+		
+	private:
+		inline void kill_cache()
+		{
+			value_cached = false;
+			/* this might hold memory, so reset it */
+			cached_value = blob();
+		}
+		inline void cache_value() const;
+		
+		const simple_ctable * base;
+		dtable::iter * src;
+		const size_t index;
+		mutable bool value_cached;
+		mutable blob cached_value;
+	};
 	
 	class iter : public ctable::iter
 	{

@@ -7,7 +7,7 @@
 #include "openat.h"
 
 #include "util.h"
-#include "journal_dtable.h"
+#include "memory_dtable.h"
 #include "dtable_wrap_iter.h"
 #include "exception_dtable.h"
 
@@ -38,14 +38,8 @@ bool exception_dtable::iter::next()
 {
 	if(lastdir != FORWARD)
 	{
-		if(base_sub->valid)
-			base_sub->valid = base_sub->iter->next();
-		else
-			base_sub->valid = base_sub->iter->valid();
-		if(alt_sub->valid)
+		if(current_sub != alt_sub)
 			alt_sub->valid = alt_sub->iter->next();
-		else
-			alt_sub->valid = alt_sub->iter->valid();
 		lastdir = FORWARD;
 	}
 	
@@ -68,8 +62,8 @@ bool exception_dtable::iter::prev()
 {
 	if(lastdir != BACKWARD)
 	{
-		base_sub->valid = base_sub->iter->prev();
-		alt_sub->valid = alt_sub->iter->prev();
+		if(current_sub != alt_sub)
+			alt_sub->valid = alt_sub->iter->prev();
 		lastdir = BACKWARD;
 	}
 	
@@ -80,8 +74,8 @@ bool exception_dtable::iter::prev()
 	{
 		const blob_comparator * blob_cmp = dt_source->blob_cmp;
 		int c = base_sub->iter->key().compare(alt_sub->iter->key(), blob_cmp);
-		assert(c <= 0);
-		current_sub = (c < 0) ? base_sub : alt_sub;
+		assert(c >= 0);
+		current_sub = (c > 0) ? base_sub : alt_sub;
 	}
 	else
 		current_sub = base_sub;
@@ -336,10 +330,8 @@ private:
 int exception_dtable::create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow)
 {
 	int excp_dfd, r;
-	sys_journal alt_journal;
-	journal_dtable alt_jdt;
+	memory_dtable alt_mdt;
 	reject_iter * handler;
-	sys_journal::listener_id id;
 	params base_config, alt_config;
 	blob reject_value;
 	const dtable_factory * base = dtable_factory::lookup(config, "base");
@@ -368,20 +360,14 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 		goto fail_open;
 	/* we should really save the reject_value in a meta file here */
 	
-	r = alt_journal.init(excp_dfd, "alt_journal", true);
+	/* we'll always be appending, but it's faster if we say false here */
+	r = alt_mdt.init(source->key_type(), false, true);
 	if(r < 0)
-		goto fail_journal;
-	id = sys_journal::get_unique_id();
-	if(id == sys_journal::NO_ID)
-		goto fail_id;
-	/* we'll always be appending, since we'll be reading the data in order */
-	r = alt_jdt.init(source->key_type(), id, true, &alt_journal);
-	if(r < 0)
-		goto fail_id;
+		goto fail_mdt;
 	if(source->get_blob_cmp())
-		alt_jdt.set_blob_cmp(source->get_blob_cmp());
+		alt_mdt.set_blob_cmp(source->get_blob_cmp());
 	
-	handler = new reject_iter(source, &alt_jdt, reject_value);
+	handler = new reject_iter(source, &alt_mdt, reject_value);
 	if(!handler)
 		goto fail_handler;
 	
@@ -390,26 +376,22 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 		goto fail_base;
 	
 	/* no shadow - this only has exceptions */
-	r = alt->create(excp_dfd, "alt", alt_config, &alt_jdt, NULL);
+	r = alt->create(excp_dfd, "alt", alt_config, &alt_mdt, NULL);
 	if(r < 0)
 		goto fail_alt;
 	
 	delete handler;
-	alt_jdt.deinit(true);
-	alt_journal.deinit(true);
+	alt_mdt.deinit();
 	close(excp_dfd);
 	return 0;
 	
-	/* FIXME: this should just rm_r delete stuff */
 fail_alt:
 	util::rm_r(excp_dfd, "base");
 fail_base:
 	delete handler;
 fail_handler:
-	alt_jdt.deinit(true);
-fail_id:
-	alt_journal.deinit(true);
-fail_journal:
+	alt_mdt.deinit();
+fail_mdt:
 	close(excp_dfd);
 fail_open:
 	unlinkat(dfd, file, AT_REMOVEDIR);

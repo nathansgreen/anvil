@@ -67,6 +67,8 @@ tx
 info
 dtable
 edtable
+#edtable perf
+odtable
 ussdtable
 sidtable
 didtable

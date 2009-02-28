@@ -26,7 +26,7 @@ then
 	host $MACHINE > /dev/null || arg_error "$0"
 fi
 
-rsync --rsh=ssh -vaSz --exclude=*.o --exclude=*.ko \
+rsync --rsh=ssh -vaSz --exclude=*.o --exclude=*.ko --exclude=/test.local \
 	--exclude=/main --exclude=/core --exclude=/tags \
 	--exclude=/php/ --exclude=/config.* --exclude=/.depend \
 	--exclude=/fstitch --exclude=/.copy_to --exclude=/medic \
