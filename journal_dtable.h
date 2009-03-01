@@ -14,6 +14,7 @@
 #endif
 
 #include <ext/hash_map>
+#include <ext/pool_allocator.h>
 #include "avl/map.h"
 
 #include "blob.h"
@@ -61,8 +62,10 @@ public:
 	virtual int journal_replay(void *& entry, size_t length);
 	
 private:
-	typedef avl::map<dtype, blob, dtype_comparator_refobject> journal_dtable_map;
-	typedef __gnu_cxx::hash_map<const dtype, blob *, dtype_hashing_comparator, dtype_hashing_comparator> journal_dtable_hash;
+	typedef __gnu_cxx::__pool_alloc<std::pair<const dtype, blob> > tree_pool_allocator;
+	typedef __gnu_cxx::__pool_alloc<std::pair<const dtype, blob *> > hash_pool_allocator;
+	typedef avl::map<dtype, blob, dtype_comparator_refobject, tree_pool_allocator> journal_dtable_map;
+	typedef __gnu_cxx::hash_map<const dtype, blob *, dtype_hashing_comparator, dtype_hashing_comparator, hash_pool_allocator> journal_dtable_hash;
 	
 	inline int add_node(const dtype & key, const blob & value, bool append);
 	/* tries to set an existing node, and calls add_node() otherwise */
