@@ -31,11 +31,14 @@ cctable
 stable
 iterator
 blob_cmp
+#tpchgen
+#tpchtest
 #bdbtest
 #consistency
 #consistency check
 EOF
 mkdir $DIR/journals
+ln -s "`pwd`/tpch" $DIR
 echo "done."
 
 if [ "$OPROF" ]

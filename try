@@ -77,11 +77,14 @@ cctable
 stable
 iterator
 blob_cmp
+#tpchgen
+#tpchtest
 #bdbtest
 #consistency
 #consistency check
 EOF
 mkdir /mnt/test/journals
+ln -s "`pwd`/tpch" /mnt/test
 echo "done."
 
 if [ "$FSTYPE" == "ext2" ]

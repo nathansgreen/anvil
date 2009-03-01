@@ -26,7 +26,7 @@ then
 	host $MACHINE > /dev/null || arg_error "$0"
 fi
 
-rsync --rsh=ssh -vaSz --exclude=*.o --exclude=*.ko --exclude=/test.local \
+rsync --rsh=ssh -vaSz --exclude=*.o --exclude=*.ko \
 	--exclude=/main --exclude=/core --exclude=/tags \
 	--exclude=/php/ --exclude=/config.* --exclude=/.depend \
 	--exclude=/fstitch --exclude=/.copy_to --exclude=/medic \
@@ -35,4 +35,5 @@ rsync --rsh=ssh -vaSz --exclude=*.o --exclude=*.ko --exclude=/test.local \
 	--exclude=.*.swp --exclude=.*.swo --exclude=.*.swn \
 	--exclude=/reboot/.tmp_versions --exclude=/reboot/reboot.mod.c \
 	--exclude=/reboot/.*.cmd --exclude=/reboot/Module.symvers \
+	--exclude=/test.local --exclude=/tpch --exclude=/VLDB06-Dist* \
 	. $MACHINE:$TARGET/
