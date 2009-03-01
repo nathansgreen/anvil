@@ -921,6 +921,37 @@ void tpp_dtable_cache::close(tpp_dtable * dtable)
 	}
 }
 
+bool tpp_dtable_cache::can_maintain(int index)
+{
+	idx_map::iterator iter = index_map.find(index);
+	if(iter == index_map.end())
+		return false; 
+	return (ticks - iter->second.last_tick) > DELTA_TICKS;
+}
+
+int tpp_dtable_cache::maintain(int index)
+{
+	int r = -1;
+	idx_map::iterator iter = index_map.find(index);
+	if(iter == index_map.end())
+		return r;
+	for(int i = 0; i < OPEN_DTABLE_ITERS; i++)
+		if(iter->second.iters[i])
+		{
+			iter_map.erase(iter->second.iters[i]);
+			tpp_dtable_iter_kill(iter->second.iters[i]);
+			iter->second.iters[i] = NULL;
+		}
+	tx_start_r();
+	tpp_dtable_union safer(iter->second.dtable);
+	r = safer->maintain();
+	tx_end_r();
+	if(r < 0)
+		return r;
+	iter->second.last_tick = ticks;
+	return 0;
+}
+
 tpp_dtable_iter * tpp_dtable_cache::iterator(int index)
 {
 	tpp_dtable_iter * dt_iter;
@@ -934,12 +965,14 @@ tpp_dtable_iter * tpp_dtable_cache::iterator(int index)
 			iter->second.iters[i] = NULL;
 			tpp_dtable_iter_union safer(dt_iter);
 			safer->first();
+			++ticks;
 			return dt_iter;
 		}
 	dt_iter = tpp_dtable_iterator(iter->second.dtable);
 	if(!dt_iter)
 		return NULL;
 	iter_map[dt_iter] = index;
+	++ticks;
 	return dt_iter;
 }
 
@@ -981,6 +1014,7 @@ int tpp_dtable_cache_create(tpp_dtable_cache * c, int index, const tpp_params * 
 {
 	char number[24];
 	snprintf(number, sizeof(number), "%d", index);
+	c->ticks = 0;
 	return tpp_dtable_create(c->type, c->dir_fd, number, config, source, shadow);
 }
 
@@ -999,6 +1033,16 @@ tpp_dtable * tpp_dtable_cache_open(tpp_dtable_cache * c, int index, const tpp_pa
 void tpp_dtable_cache_close(tpp_dtable_cache * c, tpp_dtable * dtable)
 {
 	c->close(dtable);
+}
+
+int tpp_dtable_cache_maintain(tpp_dtable_cache * c, int index)
+{
+	return c->maintain(index);
+}
+
+bool tpp_dtable_cache_can_maintain(tpp_dtable_cache * c, int index)
+{
+	return c->can_maintain(index);
 }
 
 tpp_dtable_iter * tpp_dtable_cache_iter(tpp_dtable_cache * c, int index)
