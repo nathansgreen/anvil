@@ -103,7 +103,7 @@ public:
 	}
 	
 	/* do maintenance based on parameters */
-	virtual int maintain();
+	virtual int maintain(bool force = false);
 	
 	static int create(int dfd, const char * name, const params & config, dtype::ctype key_type);
 	DECLARE_RW_FACTORY(managed_dtable);

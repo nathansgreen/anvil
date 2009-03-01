@@ -41,7 +41,7 @@ public:
 	
 	virtual int set_blob_cmp(const blob_comparator * cmp);
 	
-	virtual int maintain();
+	virtual int maintain(bool force = false);
 	
 	inline column_ctable() : columns(0), column_name(NULL), column_table(NULL) {}
 	int init(int dfd, const char * file, const params & config = params());

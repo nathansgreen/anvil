@@ -164,7 +164,7 @@ public:
 	}
 	
 	/* maintenance callback; does nothing by default */
-	inline virtual int maintain() { return 0; }
+	inline virtual int maintain(bool force = false) { return 0; }
 	
 	/* subclasses can specify that they support indexed access */
 	static inline bool static_indexed_access(const params & config) { return false; }

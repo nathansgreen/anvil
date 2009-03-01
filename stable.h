@@ -95,7 +95,7 @@ public:
 	inline virtual const istr & get_cmp_name() const { return istr::null; }
 	
 	/* maintenance callback; does nothing by default */
-	inline virtual int maintain() { return 0; }
+	inline virtual int maintain(bool force = false) { return 0; }
 	
 	virtual dtype::ctype key_type() const = 0;
 	inline stable() {}

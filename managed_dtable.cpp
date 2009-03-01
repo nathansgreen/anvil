@@ -363,16 +363,27 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 	return 0;
 }
 
-int managed_dtable::maintain()
+int managed_dtable::maintain(bool force)
 {
 	time_t now = time(NULL);
 	/* well, the journal probably doesn't really need maintenance, but just in case */
-	int r = journal->maintain();
+	int r = journal->maintain(force);
 	for(size_t i = 0; i < disks.size(); i++)
 		/* ditto on these theoretically read-only dtables */
-		r |= disks[i].disk->maintain();
+		r |= disks[i].disk->maintain(force);
 	if(r < 0)
 		return -1;
+	if(force)
+	{
+		/* how long until the next digest? */
+		time_t delay = header.digested + header.digest_interval - now;
+		if(delay > 0)
+		{
+			/* push history backward by that amount */
+			header.digested -= delay;
+			header.combined -= delay;
+		}
+	}
 	if(header.digested + header.digest_interval <= now)
 	{
 		time_t old = header.digested;

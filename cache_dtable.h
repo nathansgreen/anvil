@@ -52,7 +52,7 @@ public:
 			deinit();
 	}
 	
-	inline virtual int maintain() { return base->maintain(); }
+	inline virtual int maintain(bool force = false) { return base->maintain(force); }
 	
 	DECLARE_WRAP_FACTORY(cache_dtable);
 	

@@ -85,7 +85,7 @@ public:
 	}
 	
 	/* maintenance callback; does nothing by default */
-	inline virtual int maintain() { return 0; }
+	inline virtual int maintain(bool force = false) { return 0; }
 	
 	struct colval
 	{

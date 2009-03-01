@@ -47,9 +47,9 @@ public:
 		return base->remove(key);
 	}
 	
-	virtual int maintain()
+	virtual int maintain(bool force = false)
 	{
-		return base->maintain();
+		return base->maintain(force);
 	}
 	
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)

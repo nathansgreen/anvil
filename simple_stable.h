@@ -64,10 +64,10 @@ public:
 		return ct_data->get_cmp_name();
 	}
 	
-	inline virtual int maintain()
+	inline virtual int maintain(bool force = false)
 	{
-		int r = dt_meta->maintain();
-		r |= ct_data->maintain();
+		int r = dt_meta->maintain(force);
+		r |= ct_data->maintain(force);
 		return (r < 0) ? -1 : 0;
 	}
 	

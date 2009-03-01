@@ -252,12 +252,12 @@ int column_ctable::set_blob_cmp(const blob_comparator * cmp)
 	return r;
 }
 
-int column_ctable::maintain()
+int column_ctable::maintain(bool force)
 {
 	int r = 0;
 	for(size_t i = 0; i < columns; i++)
 	{
-		int r2 = column_table[i]->maintain();
+		int r2 = column_table[i]->maintain(force);
 		if(r2 < 0)
 			r = r2;
 	}
