@@ -305,6 +305,104 @@ static const char * tpch_lineitem_config = LITERAL(
 		"column13_name" string "l_shipinstruct"
 		"column14_name" string "l_shipmode"
 		"column15_name" string "l_comment"
+		"column0_config" config [
+			"base" class(dt) exception_dtable
+			"base_config" config [
+				"base" class(dt) smallint_dtable
+				"base_config" config [
+					"base" class(dt) fixed_dtable
+					"bytes" int 3
+				]
+				"alt" class(dt) simple_dtable
+				"reject_value" blob 00FFFFFF
+			]
+			"digest_on_close" bool true
+		]
+		"column1_config" config [
+			"base" class(dt) exception_dtable
+			"base_config" config [
+				"base" class(dt) smallint_dtable
+				"base_config" config [
+					"base" class(dt) fixed_dtable
+					"bytes" int 3
+				]
+				"alt" class(dt) simple_dtable
+				"reject_value" blob 00FFFFFF
+			]
+			"digest_on_close" bool true
+		]
+		"column2_config" config [
+			"base" class(dt) exception_dtable
+			"base_config" config [
+				"base" class(dt) smallint_dtable
+				"base_config" config [
+					"base" class(dt) fixed_dtable
+					"bytes" int 3
+				]
+				"alt" class(dt) simple_dtable
+				"reject_value" blob 00FFFFFF
+			]
+			"digest_on_close" bool true
+		]
+		"column3_config" config [
+			"base" class(dt) exception_dtable
+			"base_config" config [
+				"base" class(dt) smallint_dtable
+				"base_config" config [
+					"base" class(dt) fixed_dtable
+					"bytes" int 1
+				]
+				"alt" class(dt) simple_dtable
+				"reject_value" blob 00000000
+			]
+			"digest_on_close" bool true
+		]
+		"column4_config" config [
+			"base" class(dt) fixed_dtable
+			"base_config" config [
+				"value_size" int 4
+			]
+			"digest_on_close" bool true
+		]
+		"column5_config" config [
+			"base" class(dt) fixed_dtable
+			"base_config" config [
+				"value_size" int 4
+			]
+			"digest_on_close" bool true
+		]
+		"column6_config" config [
+			"base" class(dt) fixed_dtable
+			"base_config" config [
+				"value_size" int 4
+			]
+			"digest_on_close" bool true
+		]
+		"column7_config" config [
+			"base" class(dt) fixed_dtable
+			"base_config" config [
+				"value_size" int 4
+			]
+			"digest_on_close" bool true
+		]
+		"column8_config" config [
+			"base" class(dt) exception_dtable
+			"base_config" config [
+				"base" class(dt) fixed_dtable
+				"alt" class(dt) simple_dtable
+				"reject_value" string "_"
+			]
+			"digest_on_close" bool true
+		]
+		"column9_config" config [
+			"base" class(dt) exception_dtable
+			"base_config" config [
+				"base" class(dt) fixed_dtable
+				"alt" class(dt) simple_dtable
+				"reject_value" string "_"
+			]
+			"digest_on_close" bool true
+		]
 	]);
 /* FIXME: customize this */
 
@@ -334,8 +432,10 @@ static ctable * create_and_open(const char * name, const char * config_string)
 
 static void maintain_restart_tx(ctable * table)
 {
+	printf("maintain... ");
+	fflush(stdout);
 	int r = table->maintain(true);
-	printf("maintain = %d\n", r);
+	printf("\rmaintain = %d\n", r);
 	r = tx_end(0);
 	if(r < 0)
 		printf("tx_end = %d\n", r);
@@ -347,15 +447,10 @@ static void maintain_restart_tx(ctable * table)
 	}
 }
 
-/* import the part, customer, orders, and lineitem tables */
-int command_tpchgen(int argc, const char * argv[])
+static void create_part()
 {
-	int r;
-	ctable * table;
-	
-	/* part */
-	table = create_and_open("part", tpch_part_config);
-	r = tx_start();
+	ctable * table = create_and_open("part", tpch_part_config);
+	int r = tx_start();
 	printf("tx_start = %d\n", r);
 	
 	tbl_reader<9> part_tbl("tpch/part.tbl");
@@ -384,7 +479,7 @@ int command_tpchgen(int argc, const char * argv[])
 		r = table->insert(key, values, 8, true);
 		if(r < 0)
 			printf("insert = %d\n", r);
-		if(!(part_tbl.number() % 100000))
+		if(!(part_tbl.number() % 500000))
 			maintain_restart_tx(table);
 		part_tbl.next();
 	}
@@ -393,10 +488,12 @@ int command_tpchgen(int argc, const char * argv[])
 	delete table;
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-	
-	/* customer */
-	table = create_and_open("customer", tpch_customer_config);
-	r = tx_start();
+}
+
+static void create_customer()
+{
+	ctable * table = create_and_open("customer", tpch_customer_config);
+	int r = tx_start();
 	printf("tx_start = %d\n", r);
 	
 	tbl_reader<8> customer_tbl("tpch/customer.tbl");
@@ -424,7 +521,7 @@ int command_tpchgen(int argc, const char * argv[])
 		r = table->insert(key, values, 7, true);
 		if(r < 0)
 			printf("insert = %d\n", r);
-		if(!(customer_tbl.number() % 100000))
+		if(!(customer_tbl.number() % 500000))
 			maintain_restart_tx(table);
 		customer_tbl.next();
 	}
@@ -433,10 +530,12 @@ int command_tpchgen(int argc, const char * argv[])
 	delete table;
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-	
-	/* orders */
-	table = create_and_open("orders", tpch_orders_config);
-	r = tx_start();
+}
+
+static void create_orders()
+{
+	ctable * table = create_and_open("orders", tpch_orders_config);
+	int r = tx_start();
 	printf("tx_start = %d\n", r);
 	
 	tbl_reader<9> orders_tbl("tpch/orders.tbl");
@@ -466,7 +565,7 @@ int command_tpchgen(int argc, const char * argv[])
 		r = table->insert(key, values, 8, true);
 		if(r < 0)
 			printf("insert = %d\n", r);
-		if(!(orders_tbl.number() % 100000))
+		if(!(orders_tbl.number() % 500000))
 			maintain_restart_tx(table);
 		orders_tbl.next();
 	}
@@ -475,10 +574,12 @@ int command_tpchgen(int argc, const char * argv[])
 	delete table;
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-	
-	/* lineitem */
-	table = create_and_open("lineitem", tpch_lineitem_config);
-	r = tx_start();
+}
+
+static void create_lineitem()
+{
+	ctable * table = create_and_open("lineitem", tpch_lineitem_config);
+	int r = tx_start();
 	printf("tx_start = %d\n", r);
 	
 	tbl_reader<16> lineitem_tbl("tpch/lineitem.tbl");
@@ -521,7 +622,7 @@ int command_tpchgen(int argc, const char * argv[])
 		r = table->insert(key, values, 16, true);
 		if(r < 0)
 			printf("insert = %d\n", r);
-		if(!(lineitem_tbl.number() % 100000))
+		if(!(lineitem_tbl.number() % 500000))
 			maintain_restart_tx(table);
 		lineitem_tbl.next();
 	}
@@ -530,12 +631,45 @@ int command_tpchgen(int argc, const char * argv[])
 	delete table;
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-	
+}
+
+/* import the part, customer, orders, and lineitem tables */
+int command_tpchgen(int argc, const char * argv[])
+{
+	create_part();
+	create_customer();
+	create_orders();
+	create_lineitem();
 	return 0;
+}
+
+static ctable * open_in_tx(const char * name, const char * config_string)
+{
+	int r;
+	params config;
+	ctable * table;
+	
+	r = params::parse(config_string, &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	table = ctable_factory::load("column_ctable", AT_FDCWD, name, config);
+	printf("ctable_factory::load = %p\n", table);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	return table;
 }
 
 int command_tpchtest(int argc, const char * argv[])
 {
+	ctable * part = open_in_tx("part", tpch_part_config);
+	ctable * customer = open_in_tx("customer", tpch_customer_config);
+	ctable * orders = open_in_tx("orders", tpch_orders_config);
+	ctable * lineitem = open_in_tx("lineitem", tpch_lineitem_config);
 	/* #6 select sum(l_extendedprice * l_discount) as revenue
 	 * from lineitem
 	 * where l_shipdate >= date '[DATE]' and
@@ -562,5 +696,9 @@ int command_tpchtest(int argc, const char * argv[])
 	 * [BRAND] is 'Brand#MN' with M, N in [1-5]
 	 * [CONTAINER] [Containers]
 	 * Containers: [SM LG MED JUMBO WRAP][CASE BOX BAG JAR PKG PACK CAN DRUM] (page 90) */
+	delete lineitem;
+	delete orders;
+	delete customer;
+	delete part;
 	return 0;
 }
