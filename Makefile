@@ -72,13 +72,14 @@ libtoilet.o: $(OBJECTS)
 libtoilet.a: libtoilet.o
 	ar csr $@ $<
 
+MAIN_OBJS=main.o main++.o tpch.o
 ifeq ($(findstring -pg,$(CFLAGS)),-pg)
 # Link statically if we are profiling; gprof won't profile shared library code
-main: libtoilet.a main.o main++.o
-	g++ -o $@ main.o main++.o libtoilet.a -lreadline -ltermcap $(LDFLAGS)
+main: libtoilet.a $(MAIN_OBJS)
+	g++ -o $@ $(MAIN_OBJS) libtoilet.a -lreadline -ltermcap $(LDFLAGS)
 else
-main: libtoilet.so main.o main++.o
-	g++ -o $@ main.o main++.o -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
+main: libtoilet.so $(MAIN_OBJS)
+	g++ -o $@ $(MAIN_OBJS) -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
 endif
 
 io_count.so: io_count.o
