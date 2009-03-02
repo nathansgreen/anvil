@@ -17,6 +17,7 @@
 #include "ctable_factory.h"
 
 extern "C" {
+int command_tpchtype(int argc, const char * argv[]);
 int command_tpchgen(int argc, const char * argv[]);
 int command_tpchtest(int argc, const char * argv[]);
 };
@@ -80,351 +81,75 @@ private:
 
 /* FIXME: we should have a key array dtable, for indexing based on integer keys but variable size values */
 /* FIXME: an ascii dtable would be nice too, ignoring the high bit of each byte (difficulty: how to calculate decoded size?) */
+#include "tpch_config.h"
 
-/* part:
- *  p_partkey,
- *  p_name (55v),
- *  p_mfgr (25f),
- *  p_brand (10f),
- *  p_type (25v),
- *  p_size (int),
- *  p_container (10f),
- *  p_retailprice (float),
- *  p_comment (23v) */
-static const char * tpch_part_config = LITERAL(
-	config [
-		"columns" int 8
-		"base" class(dt) managed_dtable
-		"base_config" config [
-			"base" class(dt) simple_dtable
-			"digest_on_close" bool true
-		]
-		"column0_name" string "p_name"
-		"column1_name" string "p_mfgr"
-		"column2_name" string "p_brand"
-		"column3_name" string "p_type"
-		"column4_name" string "p_size"
-		"column5_name" string "p_container"
-		"column6_name" string "p_retailprice"
-		"column7_name" string "p_comment"
-		"column1_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) array_dtable
-				"alt" class(dt) simple_dtable
-				"reject_value" string "______________"
-			]
-			"digest_on_close" bool true
-		]
-		"column2_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) array_dtable
-				"alt" class(dt) simple_dtable
-				"reject_value" string "________"
-			]
-			"digest_on_close" bool true
-		]
-		"column4_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) smallint_dtable
-				"base_config" config [
-					"base" class(dt) array_dtable
-					"bytes" int 1
-				]
-				"alt" class(dt) simple_dtable
-				"reject_value" blob 00000000
-			]
-			"digest_on_close" bool true
-		]
-		"column6_config" config [
-			"base" class(dt) array_dtable
-			"base_config" config [
-				"value_size" int 4
-			]
-			"digest_on_close" bool true
-		]
-	]);
+struct tpch_table_info {
+	const char * name;
+	istr type;
+	const char * config;
+};
+enum tpch_table {
+	PART = 0,
+	CUSTOMER = 1,
+	ORDERS = 2,
+	LINEITEM = 3
+};
+static const tpch_table_info tpch_column_tables[4] = {
+	{"part", "column_ctable", tpch_part_column_config},
+	{"customer", "column_ctable", tpch_customer_column_config},
+	{"orders", "column_ctable", tpch_orders_column_config},
+	{"lineitem", "column_ctable", tpch_lineitem_column_config}
+};
+static const tpch_table_info tpch_row_tables[4] = {
+	{"part", "simple_ctable", tpch_part_row_config},
+	{"customer", "simple_ctable", tpch_customer_row_config},
+	{"orders", "simple_ctable", tpch_orders_row_config},
+	{"lineitem", "simple_ctable", tpch_lineitem_row_config}
+};
+static const tpch_table_info * tpch_tables = tpch_column_tables;
 
-/* customer:
- *  c_custkey,
- *  c_name (25v),
- *  c_address (40v),
- *  c_nationkey (id),
- *  c_phone (15f),
- *  c_acctbal (float),
- *  c_mktsegment (10f),
- *  c_comment (117v) */
-static const char * tpch_customer_config = LITERAL(
-	config [
-		"columns" int 7
-		"base" class(dt) managed_dtable
-		"base_config" config [
-			"base" class(dt) simple_dtable
-			"digest_on_close" bool true
-		]
-		"column0_name" string "c_name"
-		"column1_name" string "c_address"
-		"column2_name" string "c_nationkey"
-		"column3_name" string "c_phone"
-		"column4_name" string "c_acctbal"
-		"column5_name" string "c_mktsegment"
-		"column6_name" string "c_comment"
-		"column2_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) smallint_dtable
-				"base_config" config [
-					"base" class(dt) array_dtable
-					"bytes" int 1
-				]
-				"alt" class(dt) simple_dtable
-				"reject_value" blob 00000000
-			]
-			"digest_on_close" bool true
-		]
-		"column4_config" config [
-			"base" class(dt) array_dtable
-			"base_config" config [
-				"value_size" int 4
-			]
-			"digest_on_close" bool true
-		]
-	]);
+int command_tpchtype(int argc, const char * argv[])
+{
+	const char * now = "";
+	const char * type = (tpch_tables == tpch_column_tables) ? "column" : "row";
+	if(argc > 1)
+	{
+		now = "now ";
+		type = argv[1];
+		if(!strcmp(argv[1], "row"))
+			tpch_tables = tpch_row_tables;
+		else if(!strcmp(argv[1], "column"))
+			tpch_tables = tpch_column_tables;
+		else
+		{
+			printf("Unknown table type: %s\n", argv[1]);
+			type = NULL;
+		}
+	}
+	if(type)
+		printf("TPC-H tests will %suse %s-based tables.\n", now, type);
+	return 0;
+}
 
-/* orders:
- *  o_orderkey,
- *  o_custkey (id),
- *  o_orderstatus (1f),
- *  o_totalprice (float),
- *  o_orderdate (date),
- *  o_orderpriority (15f),
- *  o_clerk (15f),
- *  o_shippriority (int),
- *  o_comment(79v) */
-static const char * tpch_orders_config = LITERAL(
-	config [
-		"columns" int 8
-		"base" class(dt) managed_dtable
-		"base_config" config [
-			"base" class(dt) simple_dtable
-			"digest_on_close" bool true
-		]
-		"column0_name" string "o_custkey"
-		"column1_name" string "o_orderstatus"
-		"column2_name" string "o_totalprice"
-		"column3_name" string "o_orderdate"
-		"column4_name" string "o_orderpriority"
-		"column5_name" string "o_clerk"
-		"column6_name" string "o_shippriority"
-		"column7_name" string "o_comment"
-		"column0_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) smallint_dtable
-				"base_config" config [
-					"base" class(dt) fixed_dtable
-					"bytes" int 3
-				]
-				"alt" class(dt) simple_dtable
-				"reject_value" blob 00FFFFFF
-			]
-			"digest_on_close" bool true
-		]
-		"column1_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) fixed_dtable
-				"alt" class(dt) simple_dtable
-				"reject_value" string "_"
-			]
-			"digest_on_close" bool true
-		]
-		"column2_config" config [
-			"base" class(dt) fixed_dtable
-			"base_config" config [
-				"value_size" int 4
-			]
-			"digest_on_close" bool true
-		]
-		"column6_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) smallint_dtable
-				"base_config" config [
-					"base" class(dt) fixed_dtable
-					"bytes" int 1
-				]
-				"alt" class(dt) simple_dtable
-				"reject_value" blob 000000FF
-			]
-			"digest_on_close" bool true
-		]
-	]);
-
-/* lineitem:
- *  (no key)
- *  l_orderkey (id),
- *  l_partkey (id),
- *  l_suppkey (id),
- *  l_linenumber (int),
- *  l_quantity (float),
- *  l_extendedprice (float),
- *  l_discount (float),
- *  l_tax (float),
- *  l_returnflag (1f),
- *  l_linestatus (1f),
- *  l_shipdate (date),
- *  l_commitdate (date),
- *  l_receiptdate (date),
- *  l_shipinstruct (25f),
- *  l_shipmode (10f),
- *  l_comment (44v) */
-static const char * tpch_lineitem_config = LITERAL(
-	config [
-		"columns" int 16
-		"base" class(dt) managed_dtable
-		"base_config" config [
-			"base" class(dt) simple_dtable
-			"digest_on_close" bool true
-		]
-		"column0_name" string "l_orderkey"
-		"column1_name" string "l_partkey"
-		"column2_name" string "l_suppkey"
-		"column3_name" string "l_linenumber"
-		"column4_name" string "l_quantity"
-		"column5_name" string "l_extendedprice"
-		"column6_name" string "l_discount"
-		"column7_name" string "l_tax"
-		"column8_name" string "l_returnflag"
-		"column9_name" string "l_linestatus"
-		"column10_name" string "l_shipdate"
-		"column11_name" string "l_commitdate"
-		"column12_name" string "l_receiptdate"
-		"column13_name" string "l_shipinstruct"
-		"column14_name" string "l_shipmode"
-		"column15_name" string "l_comment"
-		"column0_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) smallint_dtable
-				"base_config" config [
-					"base" class(dt) fixed_dtable
-					"bytes" int 3
-				]
-				"alt" class(dt) simple_dtable
-				"reject_value" blob 00FFFFFF
-			]
-			"digest_on_close" bool true
-		]
-		"column1_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) smallint_dtable
-				"base_config" config [
-					"base" class(dt) fixed_dtable
-					"bytes" int 3
-				]
-				"alt" class(dt) simple_dtable
-				"reject_value" blob 00FFFFFF
-			]
-			"digest_on_close" bool true
-		]
-		"column2_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) smallint_dtable
-				"base_config" config [
-					"base" class(dt) fixed_dtable
-					"bytes" int 3
-				]
-				"alt" class(dt) simple_dtable
-				"reject_value" blob 00FFFFFF
-			]
-			"digest_on_close" bool true
-		]
-		"column3_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) smallint_dtable
-				"base_config" config [
-					"base" class(dt) fixed_dtable
-					"bytes" int 1
-				]
-				"alt" class(dt) simple_dtable
-				"reject_value" blob 00000000
-			]
-			"digest_on_close" bool true
-		]
-		"column4_config" config [
-			"base" class(dt) fixed_dtable
-			"base_config" config [
-				"value_size" int 4
-			]
-			"digest_on_close" bool true
-		]
-		"column5_config" config [
-			"base" class(dt) fixed_dtable
-			"base_config" config [
-				"value_size" int 4
-			]
-			"digest_on_close" bool true
-		]
-		"column6_config" config [
-			"base" class(dt) fixed_dtable
-			"base_config" config [
-				"value_size" int 4
-			]
-			"digest_on_close" bool true
-		]
-		"column7_config" config [
-			"base" class(dt) fixed_dtable
-			"base_config" config [
-				"value_size" int 4
-			]
-			"digest_on_close" bool true
-		]
-		"column8_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) fixed_dtable
-				"alt" class(dt) simple_dtable
-				"reject_value" string "_"
-			]
-			"digest_on_close" bool true
-		]
-		"column9_config" config [
-			"base" class(dt) exception_dtable
-			"base_config" config [
-				"base" class(dt) fixed_dtable
-				"alt" class(dt) simple_dtable
-				"reject_value" string "_"
-			]
-			"digest_on_close" bool true
-		]
-	]);
-/* FIXME: customize this */
-
-static ctable * create_and_open(const char * name, const char * config_string)
+static ctable * create_and_open(const tpch_table_info & info)
 {
 	int r;
 	params config;
 	ctable * table;
 	
-	r = params::parse(config_string, &config);
+	r = params::parse(info.config, &config);
 	printf("params::parse = %d\n", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = ctable_factory::setup("column_ctable", AT_FDCWD, name, config, dtype::UINT32);
+	r = ctable_factory::setup(info.type, AT_FDCWD, info.name, config, dtype::UINT32);
 	printf("ctable::create = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
-	table = ctable_factory::load("column_ctable", AT_FDCWD, name, config);
+	table = ctable_factory::load(info.type, AT_FDCWD, info.name, config);
 	printf("ctable_factory::load = %p\n", table);
 	
 	return table;
@@ -449,7 +174,7 @@ static void maintain_restart_tx(ctable * table)
 
 static void create_part()
 {
-	ctable * table = create_and_open("part", tpch_part_config);
+	ctable * table = create_and_open(tpch_tables[PART]);
 	int r = tx_start();
 	printf("tx_start = %d\n", r);
 	
@@ -492,7 +217,7 @@ static void create_part()
 
 static void create_customer()
 {
-	ctable * table = create_and_open("customer", tpch_customer_config);
+	ctable * table = create_and_open(tpch_tables[CUSTOMER]);
 	int r = tx_start();
 	printf("tx_start = %d\n", r);
 	
@@ -534,7 +259,7 @@ static void create_customer()
 
 static void create_orders()
 {
-	ctable * table = create_and_open("orders", tpch_orders_config);
+	ctable * table = create_and_open(tpch_tables[ORDERS]);
 	int r = tx_start();
 	printf("tx_start = %d\n", r);
 	
@@ -578,7 +303,7 @@ static void create_orders()
 
 static void create_lineitem()
 {
-	ctable * table = create_and_open("lineitem", tpch_lineitem_config);
+	ctable * table = create_and_open(tpch_tables[LINEITEM]);
 	int r = tx_start();
 	printf("tx_start = %d\n", r);
 	
@@ -643,20 +368,20 @@ int command_tpchgen(int argc, const char * argv[])
 	return 0;
 }
 
-static ctable * open_in_tx(const char * name, const char * config_string)
+static ctable * open_in_tx(const tpch_table_info & info)
 {
 	int r;
 	params config;
 	ctable * table;
 	
-	r = params::parse(config_string, &config);
+	r = params::parse(info.config, &config);
 	printf("params::parse = %d\n", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	table = ctable_factory::load("column_ctable", AT_FDCWD, name, config);
+	table = ctable_factory::load(info.type, AT_FDCWD, info.name, config);
 	printf("ctable_factory::load = %p\n", table);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
@@ -666,10 +391,10 @@ static ctable * open_in_tx(const char * name, const char * config_string)
 
 int command_tpchtest(int argc, const char * argv[])
 {
-	ctable * part = open_in_tx("part", tpch_part_config);
-	ctable * customer = open_in_tx("customer", tpch_customer_config);
-	ctable * orders = open_in_tx("orders", tpch_orders_config);
-	ctable * lineitem = open_in_tx("lineitem", tpch_lineitem_config);
+	ctable * part = open_in_tx(tpch_tables[PART]);
+	ctable * customer = open_in_tx(tpch_tables[CUSTOMER]);
+	ctable * orders = open_in_tx(tpch_tables[ORDERS]);
+	ctable * lineitem = open_in_tx(tpch_tables[LINEITEM]);
 	/* #6 select sum(l_extendedprice * l_discount) as revenue
 	 * from lineitem
 	 * where l_shipdate >= date '[DATE]' and

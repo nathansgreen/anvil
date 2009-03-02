@@ -605,6 +605,7 @@ int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
 int command_performance(int argc, const char * argv[]);
+int command_tpchtype(int argc, const char * argv[]);
 int command_tpchgen(int argc, const char * argv[]);
 int command_tpchtest(int argc, const char * argv[]);
 int command_bdbtest(int argc, const char * argv[]);
@@ -646,6 +647,7 @@ struct {
 	{"iterator", "Test iterator functionality.", command_iterator},
 	{"blob_cmp", "Test blob_cmp functionality.", command_blob_cmp},
 	{"performance", "Test performance.", command_performance},
+	{"tpchtype", "Set TPCH-H table type: row, column.", command_tpchtype},
 	{"tpchgen", "Generate a TPC-H-like dataset.", command_tpchgen},
 	{"tpchtest", "Run a TPC-H-like benchmark.", command_tpchtest},
 	{"bdbtest", "Run the BDB benchmark.", command_bdbtest}
