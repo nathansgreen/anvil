@@ -29,14 +29,18 @@ bool simple_ctable::iter::valid() const
 
 bool simple_ctable::iter::next(bool row)
 {
-	if(!row && next_column())
+	if(row)
+		number = base->column_count;
+	else if(next_column())
 		return true;
 	return advance(true);
 }
 
 bool simple_ctable::iter::prev(bool row)
 {
-	if(!row && prev_column())
+	if(row)
+		number = 0;
+	else if(prev_column())
 		return true;
 	return retreat(true);
 }
