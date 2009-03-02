@@ -115,12 +115,12 @@ dtype::ctype simple_stable::siter::key_type() const
 
 const istr & simple_stable::siter::column() const
 {
-	return data->column();
+	return data->name();
 }
 
 dtype simple_stable::siter::value() const
 {
-	return dtype(data->value(), meta->column_type(data->column()));
+	return dtype(data->value(), meta->column_type(data->name()));
 }
 
 stable::column_iter * simple_stable::columns() const
@@ -393,8 +393,8 @@ int simple_stable::remove(const dtype & key)
 		return 0;
 	while(columns->valid())
 	{
-		const column_info * c = get_column(columns->column());
-		r = adjust_column(columns->column(), -1, c->type);
+		const column_info * c = get_column(columns->name());
+		r = adjust_column(columns->name(), -1, c->type);
 		/* XXX: improve this */
 		assert(r >= 0);
 		columns->next();

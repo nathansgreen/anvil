@@ -806,10 +806,16 @@ bool tpp_ctable_iter_seek_test(tpp_ctable_iter * c, blob_test test, void * user)
 	return safer->seek(tpp_dtype_test(test, user));
 }
 
-const char * tpp_ctable_iter_column(const tpp_ctable_iter * c)
+size_t tpp_ctable_iter_column(const tpp_ctable_iter * c)
 {
 	tpp_ctable_iter_union_const safer(c);
 	return safer->column();
+}
+
+const char * tpp_ctable_iter_name(const tpp_ctable_iter * c)
+{
+	tpp_ctable_iter_union_const safer(c);
+	return safer->name();
 }
 
 int tpp_ctable_iter_value(const tpp_ctable_iter * c, tpp_blob * value)

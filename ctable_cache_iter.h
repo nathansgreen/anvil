@@ -71,14 +71,18 @@ public:
 		kill_cache();
 		return iter->seek(test);
 	}
-	virtual const istr & column() const
+	virtual size_t column() const
 	{
-		if(!column_cached)
+		return iter->column();
+	}
+	virtual const istr & name() const
+	{
+		if(!name_cached)
 		{
-			cached_column = iter->column();
-			column_cached = true;
+			cached_name = iter->name();
+			name_cached = true;
 		}
-		return cached_column;
+		return cached_name;
 	}
 	virtual blob value() const
 	{
@@ -104,18 +108,18 @@ private:
 	{
 		key_cached = false;
 		value_cached = false;
-		column_cached = false;
+		name_cached = false;
 		/* these might hold memory, so reset them */
 		cached_key = dtype(0u);
 		cached_value = blob();
-		cached_column = NULL;
+		cached_name = NULL;
 	}
 	
 	ctable::iter * iter;
-	mutable bool key_cached, value_cached, column_cached;
+	mutable bool key_cached, value_cached, name_cached;
 	mutable dtype cached_key;
 	mutable blob cached_value;
-	mutable istr cached_column;
+	mutable istr cached_name;
 	
 	void operator=(const ctable_cache_iter &);
 	ctable_cache_iter(const ctable_cache_iter &);

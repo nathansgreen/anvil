@@ -32,7 +32,8 @@ public:
 		virtual bool seek(const dtype & key) = 0;
 		virtual bool seek(const dtype_test & test) = 0;
 		virtual dtype::ctype key_type() const = 0;
-		virtual const istr & column() const = 0;
+		virtual size_t column() const = 0;
+		virtual const istr & name() const = 0;
 		virtual blob value() const = 0;
 		inline iter() {}
 		virtual ~iter() {}

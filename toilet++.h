@@ -236,7 +236,8 @@ bool tpp_ctable_iter_last(tpp_ctable_iter * c);
 int tpp_ctable_iter_key(const tpp_ctable_iter * c, tpp_dtype * key);
 bool tpp_ctable_iter_seek(tpp_ctable_iter * c, const tpp_dtype * key);
 bool tpp_ctable_iter_seek_test(tpp_ctable_iter * c, blob_test test, void * user);
-const char * tpp_ctable_iter_column(const tpp_ctable_iter * c);
+size_t tpp_ctable_iter_column(const tpp_ctable_iter * c);
+const char * tpp_ctable_iter_name(const tpp_ctable_iter * c);
 int tpp_ctable_iter_value(const tpp_ctable_iter * c, tpp_blob * value);
 void tpp_ctable_iter_kill(tpp_ctable_iter * c);
 

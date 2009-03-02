@@ -169,7 +169,13 @@ dtype::ctype simple_ctable::iter::key_type() const
 	return source->key_type();
 }
 
-const istr & simple_ctable::iter::column() const
+size_t simple_ctable::iter::column() const
+{
+	assert(index < base->column_count);
+	return index;
+}
+
+const istr & simple_ctable::iter::name() const
 {
 	assert(index < base->column_count);
 	return base->column_name[index];

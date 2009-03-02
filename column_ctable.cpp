@@ -145,7 +145,12 @@ dtype::ctype column_ctable::iter::key_type() const
 	return base->key_type();
 }
 
-const istr & column_ctable::iter::column() const
+size_t column_ctable::iter::column() const
+{
+	return (number < base->column_count) ? number : (size_t) -1;
+}
+
+const istr & column_ctable::iter::name() const
 {
 	return (number < base->column_count) ? base->column_name[number] : istr::null;
 }

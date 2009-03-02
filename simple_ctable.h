@@ -130,7 +130,8 @@ private:
 		virtual bool seek(const dtype & key);
 		virtual bool seek(const dtype_test & test);
 		virtual dtype::ctype key_type() const;
-		virtual const istr & column() const;
+		virtual size_t column() const;
+		virtual const istr & name() const;
 		virtual blob value() const;
 		inline iter(const simple_ctable * base, dtable::iter * source);
 		virtual ~iter()
