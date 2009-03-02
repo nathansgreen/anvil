@@ -274,6 +274,25 @@ blob simple_ctable::find(const dtype & key, size_t column) const
 	return sub.get(column);
 }
 
+int simple_ctable::find(const dtype & key, colval * values, size_t count) const
+{
+	blob row = base->find(key);
+	if(!row.exists())
+	{
+		for(size_t i = 0; i < count; i++)
+			values[i].value = blob();
+		return 0;
+	}
+	/* not super efficient, but we can fix it later */
+	index_blob sub(column_count, row);
+	for(size_t i = 0; i < count; i++)
+	{
+		assert(values[i].index < column_count);
+		values[i].value = sub.get(values[i].index);
+	}
+	return 0;
+}
+
 bool simple_ctable::contains(const dtype & key) const
 {
 	return base->find(key).exists();

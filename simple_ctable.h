@@ -25,6 +25,7 @@ public:
 	virtual dtable::iter * values(size_t column) const;
 	virtual iter * iterator() const;
 	virtual blob find(const dtype & key, size_t column) const;
+	virtual int find(const dtype & key, colval * values, size_t count) const;
 	virtual bool contains(const dtype & key) const;
 	
 	inline virtual bool writable() const

@@ -124,6 +124,12 @@ public:
 		blob value;
 	};
 	/* default implementations of multi-column methods */
+	virtual int find(const dtype & key, colval * values, size_t count) const
+	{
+		for(size_t i = 0; i < count; i++)
+			values[i].value = find(key, values[i].index);
+		return 0;
+	}
 	virtual int insert(const dtype & key, const colval * values, size_t count, bool append = false)
 	{
 		int r = tx_start_r();
