@@ -17,26 +17,26 @@
 /* FIXME: there are probably some bugs/inconsistencies with nonexistent values */
 
 simple_ctable::iter::iter(const simple_ctable * base, dtable::iter * source)
-	: base(base), source(source), index(0)
+	: base(base), source(source), number(0)
 {
 	advance();
 }
 
 bool simple_ctable::iter::valid() const
 {
-	return index < base->column_count;
+	return number < base->column_count;
 }
 
-bool simple_ctable::iter::next()
+bool simple_ctable::iter::next(bool row)
 {
-	if(next_column())
+	if(!row && next_column())
 		return true;
 	return advance(true);
 }
 
-bool simple_ctable::iter::prev()
+bool simple_ctable::iter::prev(bool row)
 {
-	if(prev_column())
+	if(!row && prev_column())
 		return true;
 	return retreat(true);
 }
@@ -44,11 +44,11 @@ bool simple_ctable::iter::prev()
 bool simple_ctable::iter::next_column(bool reset)
 {
 	if(reset)
-		index = (size_t) -1;
-	else if(index >= base->column_count)
+		number = (size_t) -1;
+	else if(number >= base->column_count)
 		return false;
-	while(++index < base->column_count)
-		if(row.get(index).exists())
+	while(++number < base->column_count)
+		if(row.get(number).exists())
 			return true;
 	return false;
 }
@@ -56,11 +56,11 @@ bool simple_ctable::iter::next_column(bool reset)
 bool simple_ctable::iter::prev_column(bool reset)
 {
 	if(reset)
-		index = base->column_count;
-	else if(index >= base->column_count)
+		number = base->column_count;
+	else if(number >= base->column_count)
 		return false;
-	while(index)
-		if(row.get(--index).exists())
+	while(number)
+		if(row.get(--number).exists())
 			return true;
 	return false;
 }
@@ -105,10 +105,10 @@ bool simple_ctable::iter::next_row(bool initial)
 	if(!valid)
 	{
 		row = index_blob();
-		index = base->column_count;
+		number = base->column_count;
 	}
 	else
-		/* we'll set index later, in a call to next_column() */
+		/* we'll set number later, in a call to next_column() */
 		row = index_blob(base->column_count, source->value());
 	return valid;
 }
@@ -124,10 +124,10 @@ bool simple_ctable::iter::prev_row(bool initial)
 	if(!valid)
 	{
 		row = index_blob();
-		index = base->column_count;
+		number = base->column_count;
 	}
 	else
-		/* we'll set index later, in a call to next_column() */
+		/* we'll set number later, in a call to next_column() */
 		row = index_blob(base->column_count, source->value());
 	return valid;
 }
@@ -171,20 +171,26 @@ dtype::ctype simple_ctable::iter::key_type() const
 
 size_t simple_ctable::iter::column() const
 {
-	assert(index < base->column_count);
-	return index;
+	assert(number < base->column_count);
+	return number;
 }
 
 const istr & simple_ctable::iter::name() const
 {
-	assert(index < base->column_count);
-	return base->column_name[index];
+	assert(number < base->column_count);
+	return base->column_name[number];
 }
 
 blob simple_ctable::iter::value() const
 {
-	assert(index < base->column_count);
-	return row.get(index);
+	assert(number < base->column_count);
+	return row.get(number);
+}
+
+blob simple_ctable::iter::index(size_t column) const
+{
+	assert(column < base->column_count);
+	return row.get(column);
 }
 
 simple_ctable::citer::citer(const simple_ctable * base, dtable::iter * src, size_t index)

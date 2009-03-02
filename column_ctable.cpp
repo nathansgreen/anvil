@@ -63,19 +63,19 @@ bool column_ctable::iter::all_prev_skip()
 	return valid;
 }
 
-bool column_ctable::iter::next()
+bool column_ctable::iter::next(bool row)
 {
 	if(number >= base->column_count)
 		return false;
-	if(++number < base->column_count)
+	if(!row && ++number < base->column_count)
 		return true;
 	number = all_next_skip() ? 0 : base->column_count;
 	return number < base->column_count;
 }
 
-bool column_ctable::iter::prev()
+bool column_ctable::iter::prev(bool row)
 {
-	if(number && number < base->column_count)
+	if(!row && number && number < base->column_count)
 	{
 		number--;
 		return true;
@@ -158,6 +158,11 @@ const istr & column_ctable::iter::name() const
 blob column_ctable::iter::value() const
 {
 	return (number < base->column_count) ? source[number]->value() : blob();
+}
+
+blob column_ctable::iter::index(size_t column) const
+{
+	return (column < base->column_count) ? source[column]->value() : blob();
 }
 
 dtable::key_iter * column_ctable::keys() const

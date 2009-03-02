@@ -24,8 +24,8 @@ public:
 	public:
 		virtual bool valid() const = 0;
 		/* see the note about dtable::iter in dtable.h */
-		virtual bool next() = 0;
-		virtual bool prev() = 0;
+		virtual bool next(bool row = false) = 0;
+		virtual bool prev(bool row = false) = 0;
 		virtual bool first() = 0;
 		virtual bool last() = 0;
 		virtual dtype key() const = 0;
@@ -35,6 +35,7 @@ public:
 		virtual size_t column() const = 0;
 		virtual const istr & name() const = 0;
 		virtual blob value() const = 0;
+		virtual blob index(size_t column) const = 0;
 		inline iter() {}
 		virtual ~iter() {}
 	private:

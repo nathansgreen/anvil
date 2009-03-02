@@ -122,8 +122,8 @@ private:
 	{
 	public:
 		virtual bool valid() const;
-		virtual bool next();
-		virtual bool prev();
+		virtual bool next(bool row = false);
+		virtual bool prev(bool row = false);
 		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
@@ -133,6 +133,7 @@ private:
 		virtual size_t column() const;
 		virtual const istr & name() const;
 		virtual blob value() const;
+		virtual blob index(size_t column) const;
 		inline iter(const simple_ctable * base, dtable::iter * source);
 		virtual ~iter()
 		{
@@ -151,7 +152,7 @@ private:
 		const simple_ctable * base;
 		dtable::iter * source;
 		index_blob row;
-		size_t index;
+		size_t number;
 	};
 	
 	dtable * base;

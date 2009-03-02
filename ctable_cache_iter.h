@@ -28,15 +28,15 @@ public:
 	{
 		return iter->valid();
 	}
-	virtual bool next()
+	virtual bool next(bool row = false)
 	{
 		kill_cache();
-		return iter->next();
+		return iter->next(row);
 	}
-	virtual bool prev()
+	virtual bool prev(bool row = false)
 	{
 		kill_cache();
-		return iter->prev();
+		return iter->prev(row);
 	}
 	virtual bool first()
 	{
@@ -92,6 +92,11 @@ public:
 			value_cached = true;
 		}
 		return cached_value;
+	}
+	/* TODO: cache this? */
+	virtual blob index(size_t column) const
+	{
+		return iter->index(column);
 	}
 	
 	inline ctable_cache_iter(ctable::iter * iter)

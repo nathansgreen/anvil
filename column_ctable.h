@@ -63,8 +63,8 @@ private:
 	{
 	public:
 		virtual bool valid() const;
-		virtual bool next();
-		virtual bool prev();
+		virtual bool next(bool row = false);
+		virtual bool prev(bool row = false);
 		virtual bool first();
 		virtual bool last();
 		virtual dtype key() const;
@@ -74,6 +74,7 @@ private:
 		virtual size_t column() const;
 		virtual const istr & name() const;
 		virtual blob value() const;
+		virtual blob index(size_t column) const;
 		inline iter(const column_ctable * base);
 		virtual ~iter()
 		{
