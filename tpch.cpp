@@ -414,6 +414,8 @@ int command_tpchtest(int argc, const char * argv[])
 		float extendedprice = l_extendedprice->value().index<float>(0);
 		float discount = l_discount->value().index<float>(0);
 		revenue += extendedprice * discount;
+		l_extendedprice->next();
+		l_discount->next();
 	}
 	printf("revenue = %g\n", revenue);
 	/* #14 select 100 * sum(case when p_type like 'PROMO%' then l_extendedprice * (1 - l_discount) else 0 end)
