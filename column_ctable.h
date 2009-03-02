@@ -21,10 +21,8 @@ class column_ctable : public ctable
 {
 public:
 	virtual dtable::key_iter * keys() const;
-	virtual dtable::iter * values(const istr & column) const;
 	virtual dtable::iter * values(size_t column) const;
 	virtual iter * iterator() const;
-	virtual blob find(const dtype & key, const istr & column) const;
 	virtual blob find(const dtype & key, size_t column) const;
 	virtual bool contains(const dtype & key) const;
 	
@@ -33,9 +31,7 @@ public:
 		return column_table[0]->writable();
 	}
 	
-	virtual int insert(const dtype & key, const istr & column, const blob & value, bool append = false);
 	virtual int insert(const dtype & key, size_t column, const blob & value, bool append = false);
-	virtual int remove(const dtype & key, const istr & column);
 	virtual int remove(const dtype & key, size_t column);
 	virtual int remove(const dtype & key);
 	
@@ -43,12 +39,12 @@ public:
 	
 	virtual int maintain(bool force = false);
 	
-	inline column_ctable() : columns(0), column_name(NULL), column_table(NULL) {}
+	inline column_ctable() : column_table(NULL) {}
 	int init(int dfd, const char * file, const params & config = params());
 	void deinit();
 	inline virtual ~column_ctable()
 	{
-		if(columns)
+		if(column_count)
 			deinit();
 	}
 	
@@ -80,7 +76,7 @@ private:
 		inline iter(const column_ctable * base);
 		virtual ~iter()
 		{
-			for(size_t i = 0; i < base->columns; i++)
+			for(size_t i = 0; i < base->column_count; i++)
 				delete source[i];
 			delete[] source;
 		}
@@ -94,11 +90,6 @@ private:
 		const column_ctable * base;
 	};
 	
-	typedef std::map<istr, size_t, strcmp_less> name_map;
-	
-	size_t columns;
-	istr * column_name;
-	name_map column_map;
 	dtable ** column_table;
 };
 

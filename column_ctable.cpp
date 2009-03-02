@@ -22,19 +22,19 @@
 column_ctable::iter::iter(const column_ctable * base)
 	: base(base)
 {
-	source = new dtable::iter *[base->columns];
+	source = new dtable::iter *[base->column_count];
 	assert(source);
-	for(size_t i = 0; i < base->columns; i++)
+	for(size_t i = 0; i < base->column_count; i++)
 	{
 		source[i] = base->column_table[i]->iterator();
 		assert(source[i]);
 	}
-	number = source[0]->valid() ? 0 : base->columns;
+	number = source[0]->valid() ? 0 : base->column_count;
 }
 
 bool column_ctable::iter::valid() const
 {
-	return number < base->columns;
+	return number < base->column_count;
 }
 
 bool column_ctable::iter::all_next_skip()
@@ -42,7 +42,7 @@ bool column_ctable::iter::all_next_skip()
 	bool valid;
 	do {
 		valid = source[0]->next();
-		for(size_t i = 1; i < base->columns; i++)
+		for(size_t i = 1; i < base->column_count; i++)
 			source[i]->next();
 	} while(valid && !source[0]->meta().exists());
 	return valid;
@@ -53,44 +53,44 @@ bool column_ctable::iter::all_prev_skip()
 	bool valid;
 	do {
 		valid = source[0]->prev();
-		for(size_t i = 1; i < base->columns; i++)
+		for(size_t i = 1; i < base->column_count; i++)
 			source[i]->prev();
 	} while(valid && !source[0]->meta().exists());
 	if(!valid)
 		while(source[0]->valid() && source[0]->meta().exists())
-			for(size_t i = 0; i < base->columns; i++)
+			for(size_t i = 0; i < base->column_count; i++)
 				source[i]->next();
 	return valid;
 }
 
 bool column_ctable::iter::next()
 {
-	if(number >= base->columns)
+	if(number >= base->column_count)
 		return false;
-	if(++number < base->columns)
+	if(++number < base->column_count)
 		return true;
-	number = all_next_skip() ? 0 : base->columns;
-	return number < base->columns;
+	number = all_next_skip() ? 0 : base->column_count;
+	return number < base->column_count;
 }
 
 bool column_ctable::iter::prev()
 {
-	if(number && number < base->columns)
+	if(number && number < base->column_count)
 	{
 		number--;
 		return true;
 	}
-	number = all_prev_skip() ? base->columns - 1 : base->columns;
-	return number < base->columns;
+	number = all_prev_skip() ? base->column_count - 1 : base->column_count;
+	return number < base->column_count;
 }
 
 bool column_ctable::iter::first()
 {
 	bool valid = source[0]->first();
-	for(size_t i = 1; i < base->columns; i++)
+	for(size_t i = 1; i < base->column_count; i++)
 		source[i]->first();
 	while(valid && !source[0]->meta().exists())
-		for(size_t i = 0; i < base->columns; i++)
+		for(size_t i = 0; i < base->column_count; i++)
 			source[i]->next();
 	return valid;
 }
@@ -98,7 +98,7 @@ bool column_ctable::iter::first()
 bool column_ctable::iter::last()
 {
 	bool valid = source[0]->last();
-	for(size_t i = 1; i < base->columns; i++)
+	for(size_t i = 1; i < base->column_count; i++)
 		source[i]->last();
 	if(valid && !source[0]->meta().exists())
 		valid = prev();
@@ -114,14 +114,14 @@ bool column_ctable::iter::seek(const dtype & key)
 {
 	/* bug? what if we find the nonexistent value? */
 	bool found = source[0]->seek(key);
-	for(size_t i = 1; i < base->columns; i++)
+	for(size_t i = 1; i < base->column_count; i++)
 		source[i]->seek(key);
 	if(found || !source[0]->valid())
 	{
-		number = found ? 0 : base->columns;
+		number = found ? 0 : base->column_count;
 		return found;
 	}
-	number = all_next_skip() ? 0 : base->columns;
+	number = all_next_skip() ? 0 : base->column_count;
 	return false;
 }
 
@@ -129,14 +129,14 @@ bool column_ctable::iter::seek(const dtype_test & test)
 {
 	/* bug? what if we find the nonexistent value? */
 	bool found = source[0]->seek(test);
-	for(size_t i = 1; i < base->columns; i++)
+	for(size_t i = 1; i < base->column_count; i++)
 		source[i]->seek(test);
 	if(found || !source[0]->valid())
 	{
-		number = found ? 0 : base->columns;
+		number = found ? 0 : base->column_count;
 		return found;
 	}
-	number = all_next_skip() ? 0 : base->columns;
+	number = all_next_skip() ? 0 : base->column_count;
 	return false;
 }
 
@@ -147,12 +147,12 @@ dtype::ctype column_ctable::iter::key_type() const
 
 const istr & column_ctable::iter::column() const
 {
-	return (number < base->columns) ? base->column_name[number] : istr::null;
+	return (number < base->column_count) ? base->column_name[number] : istr::null;
 }
 
 blob column_ctable::iter::value() const
 {
-	return (number < base->columns) ? source[number]->value() : blob();
+	return (number < base->column_count) ? source[number]->value() : blob();
 }
 
 dtable::key_iter * column_ctable::keys() const
@@ -160,18 +160,9 @@ dtable::key_iter * column_ctable::keys() const
 	return column_table[0]->iterator();
 }
 
-dtable::iter * column_ctable::values(const istr & column) const
-{
-	name_map::const_iterator number = column_map.find(column);
-	if(number == column_map.end())
-		return NULL;
-	assert(number->second < columns);
-	return wrap_and_claim<dtable_skip_iter>(column_table[number->second]->iterator());
-}
-
 dtable::iter * column_ctable::values(size_t column) const
 {
-	assert(column < columns);
+	assert(column < column_count);
 	return wrap_and_claim<dtable_skip_iter>(column_table[column]->iterator());
 }
 
@@ -180,18 +171,9 @@ ctable::iter * column_ctable::iterator() const
 	return new iter(this);
 }
 
-blob column_ctable::find(const dtype & key, const istr & column) const
-{
-	name_map::const_iterator number = column_map.find(column);
-	if(number == column_map.end())
-		return blob();
-	assert(number->second < columns);
-	return column_table[number->second]->find(key);
-}
-
 blob column_ctable::find(const dtype & key, size_t column) const
 {
-	assert(column < columns);
+	assert(column < column_count);
 	return column_table[column]->find(key);
 }
 
@@ -200,24 +182,10 @@ bool column_ctable::contains(const dtype & key) const
 	return column_table[0]->contains(key);
 }
 
-int column_ctable::insert(const dtype & key, const istr & column, const blob & value, bool append)
-{
-	name_map::iterator number = column_map.find(column);
-	if(number == column_map.end())
-		return -ENOENT;
-	assert(number->second < columns);
-	return column_table[number->second]->insert(key, value, append);
-}
-
 int column_ctable::insert(const dtype & key, size_t column, const blob & value, bool append)
 {
-	assert(column < columns);
+	assert(column < column_count);
 	return column_table[column]->insert(key, value, append);
-}
-
-int column_ctable::remove(const dtype & key, const istr & column)
-{
-	return insert(key, column, blob());
 }
 
 int column_ctable::remove(const dtype & key, size_t column)
@@ -230,7 +198,7 @@ int column_ctable::remove(const dtype & key)
 	int r = tx_start_r();
 	if(r < 0)
 		return r;
-	for(size_t i = 0; i < columns; i++)
+	for(size_t i = 0; i < column_count; i++)
 	{
 		r = column_table[i]->remove(key);
 		assert(r >= 0);
@@ -243,7 +211,7 @@ int column_ctable::remove(const dtype & key)
 int column_ctable::set_blob_cmp(const blob_comparator * cmp)
 {
 	int r = 0;
-	for(size_t i = 0; i < columns; i++)
+	for(size_t i = 0; i < column_count; i++)
 	{
 		int r2 = column_table[i]->set_blob_cmp(cmp);
 		if(r2 < 0)
@@ -255,7 +223,7 @@ int column_ctable::set_blob_cmp(const blob_comparator * cmp)
 int column_ctable::maintain(bool force)
 {
 	int r = 0;
-	for(size_t i = 0; i < columns; i++)
+	for(size_t i = 0; i < column_count; i++)
 	{
 		int r2 = column_table[i]->maintain(force);
 		if(r2 < 0)
@@ -266,14 +234,14 @@ int column_ctable::maintain(bool force)
 
 void column_ctable::deinit()
 {
-	if(columns)
+	if(column_count)
 	{
-		for(size_t i = 0; i < columns; i++)
+		for(size_t i = 0; i < column_count; i++)
 			delete column_table[i];
 		delete[] column_table;
 		delete[] column_name;
 		column_map.empty();
-		columns = 0;
+		column_count = 0;
 		ctable::deinit();
 	}
 }
@@ -300,12 +268,12 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 		goto fail_header;
 	if(meta.magic != COLUMN_CTABLE_MAGIC || meta.version != COLUMN_CTABLE_VERSION)
 		goto fail_header;
-	columns = meta.columns;
+	column_count = meta.columns;
 	
-	column_name = new istr[columns];
+	column_name = new istr[column_count];
 	if(!column_name)
 		goto fail_header;
-	column_table = new dtable *[columns];
+	column_table = new dtable *[column_count];
 	if(!column_table)
 		goto fail_tables;
 	
@@ -316,7 +284,7 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 		goto fail_config;
 	
 	/* check that we have all the config we need */
-	for(size_t i = 0; i < columns; i++)
+	for(size_t i = 0; i < column_count; i++)
 	{
 		istr name;
 		char string[32];
@@ -339,7 +307,7 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 	}
 	
 	offset = sizeof(meta);
-	for(size_t i = 0; i < columns; i++)
+	for(size_t i = 0; i < column_count; i++)
 	{
 		uint32_t length;
 		r = meta_file->read(offset, &length);
@@ -353,7 +321,7 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 		column_map[column_name[i]] = i;
 	}
 	
-	for(size_t i = 0; i < columns; i++)
+	for(size_t i = 0; i < column_count; i++)
 	{
 		istr name;
 		char string[32];
@@ -382,7 +350,7 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 	return 0;
 	
 fail_load:
-	for(size_t i = 0; i < columns; i++)
+	for(size_t i = 0; i < column_count; i++)
 		if(column_table[i])
 			delete column_table[i];
 fail_names:
@@ -393,7 +361,7 @@ fail_tables:
 	delete[] column_name;
 fail_header:
 	delete meta_file;
-	columns = 0;
+	column_count = 0;
 fail_open:
 	close(cct_dfd);
 	return -1;

@@ -22,10 +22,8 @@ class simple_ctable : public ctable
 {
 public:
 	virtual dtable::key_iter * keys() const;
-	virtual dtable::iter * values(const istr & column) const;
 	virtual dtable::iter * values(size_t column) const;
 	virtual iter * iterator() const;
-	virtual blob find(const dtype & key, const istr & column) const;
 	virtual blob find(const dtype & key, size_t column) const;
 	virtual bool contains(const dtype & key) const;
 	
@@ -34,13 +32,9 @@ public:
 		return base->writable();
 	}
 	
-	virtual int insert(const dtype & key, const istr & column, const blob & value, bool append = false);
 	virtual int insert(const dtype & key, size_t column, const blob & value, bool append = false);
 	virtual int insert(const dtype & key, const colval * values, size_t count, bool append = false);
-	virtual int insert(const dtype & key, const ncolval * values, size_t count, bool append = false);
-	virtual int remove(const dtype & key, const istr & column);
 	virtual int remove(const dtype & key, size_t column);
-	virtual int remove(const dtype & key, const istr * columns, size_t count);
 	virtual int remove(const dtype & key, size_t * columns, size_t count);
 	inline virtual int remove(const dtype & key)
 	{
@@ -63,7 +57,7 @@ public:
 		return value;
 	}
 	
-	inline simple_ctable() : columns(0), column_name(NULL), base(NULL) {}
+	inline simple_ctable() : base(NULL) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
 	inline virtual ~simple_ctable()
@@ -158,11 +152,6 @@ private:
 		size_t index;
 	};
 	
-	typedef std::map<istr, size_t, strcmp_less> name_map;
-	
-	size_t columns;
-	istr * column_name;
-	name_map column_map;
 	dtable * base;
 };
 

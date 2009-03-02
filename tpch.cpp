@@ -185,7 +185,7 @@ static void create_part()
 		uint32_t p_size;
 		float p_retailprice;
 		const char * char_values[8];
-		ctable::ncolval values[8];
+		ctable::colval values[8];
 		for(size_t i = 0; i < 8; i++)
 		{
 			values[i].index = i;
@@ -228,7 +228,7 @@ static void create_customer()
 		uint32_t c_nationkey;
 		float c_acctbal;
 		const char * char_values[7];
-		ctable::ncolval values[7];
+		ctable::colval values[7];
 		for(size_t i = 0; i < 7; i++)
 		{
 			values[i].index = i;
@@ -270,7 +270,7 @@ static void create_orders()
 		uint32_t o_custkey, o_shippriority;
 		float o_totalprice;
 		const char * char_values[8];
-		ctable::ncolval values[8];
+		ctable::colval values[8];
 		for(size_t i = 0; i < 8; i++)
 		{
 			values[i].index = i;
@@ -314,7 +314,7 @@ static void create_lineitem()
 		uint32_t l_orderkey, l_partkey, l_suppkey, l_linenumber;
 		float l_quantity, l_extendedprice, l_discount, l_tax;
 		const char * char_values[16];
-		ctable::ncolval values[16];
+		ctable::colval values[16];
 		for(size_t i = 0; i < 16; i++)
 		{
 			values[i].index = i;
@@ -404,6 +404,18 @@ int command_tpchtest(int argc, const char * argv[])
 	 * [DATE] is Jan 1 [1993-1997]
 	 * [DISCOUNT] in [.02-.09]
 	 * [QUANTITY] is 24 or 25 */
+	dtable::iter * l_extendedprice = lineitem->values("l_extendedprice");
+	dtable::iter * l_discount = lineitem->values("l_discount");
+	float revenue = 0;
+	while(l_extendedprice->valid() && l_discount->valid())
+	{
+		/* the keys should be the same */
+		assert(!l_extendedprice->key().compare(l_discount->key()));
+		float extendedprice = l_extendedprice->value().index<float>(0);
+		float discount = l_discount->value().index<float>(0);
+		revenue += extendedprice * discount;
+	}
+	printf("revenue = %g\n", revenue);
 	/* #14 select 100 * sum(case when p_type like 'PROMO%' then l_extendedprice * (1 - l_discount) else 0 end)
 	 * / sum(l_extendedprice * (1 - l_discount)) as promo_revenue
 	 * from lineitem, part

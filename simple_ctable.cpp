@@ -24,7 +24,7 @@ simple_ctable::iter::iter(const simple_ctable * base, dtable::iter * source)
 
 bool simple_ctable::iter::valid() const
 {
-	return index < base->columns;
+	return index < base->column_count;
 }
 
 bool simple_ctable::iter::next()
@@ -45,9 +45,9 @@ bool simple_ctable::iter::next_column(bool reset)
 {
 	if(reset)
 		index = (size_t) -1;
-	else if(index >= base->columns)
+	else if(index >= base->column_count)
 		return false;
-	while(++index < base->columns)
+	while(++index < base->column_count)
 		if(row.get(index).exists())
 			return true;
 	return false;
@@ -56,8 +56,8 @@ bool simple_ctable::iter::next_column(bool reset)
 bool simple_ctable::iter::prev_column(bool reset)
 {
 	if(reset)
-		index = base->columns;
-	else if(index >= base->columns)
+		index = base->column_count;
+	else if(index >= base->column_count)
 		return false;
 	while(index)
 		if(row.get(--index).exists())
@@ -105,11 +105,11 @@ bool simple_ctable::iter::next_row(bool initial)
 	if(!valid)
 	{
 		row = index_blob();
-		index = base->columns;
+		index = base->column_count;
 	}
 	else
 		/* we'll set index later, in a call to next_column() */
-		row = index_blob(base->columns, source->value());
+		row = index_blob(base->column_count, source->value());
 	return valid;
 }
 
@@ -124,11 +124,11 @@ bool simple_ctable::iter::prev_row(bool initial)
 	if(!valid)
 	{
 		row = index_blob();
-		index = base->columns;
+		index = base->column_count;
 	}
 	else
 		/* we'll set index later, in a call to next_column() */
-		row = index_blob(base->columns, source->value());
+		row = index_blob(base->column_count, source->value());
 	return valid;
 }
 
@@ -171,13 +171,13 @@ dtype::ctype simple_ctable::iter::key_type() const
 
 const istr & simple_ctable::iter::column() const
 {
-	assert(index < base->columns);
+	assert(index < base->column_count);
 	return base->column_name[index];
 }
 
 blob simple_ctable::iter::value() const
 {
-	assert(index < base->columns);
+	assert(index < base->column_count);
 	return row.get(index);
 }
 
@@ -241,7 +241,7 @@ blob simple_ctable::citer::value() const
 
 void simple_ctable::citer::cache_value() const
 {
-	index_blob idx(base->columns, src->value());
+	index_blob idx(base->column_count, src->value());
 	cached_value = idx.get(index);
 	value_cached = true;
 }
@@ -251,19 +251,9 @@ dtable::key_iter * simple_ctable::keys() const
 	return base->iterator();
 }
 
-dtable::iter * simple_ctable::values(const istr & column) const
-{
-	name_map::const_iterator number = column_map.find(column);
-	if(number == column_map.end())
-		return NULL;
-	assert(number->second < columns);
-	/* FIXME: use dtable_skip_iter? */
-	return new citer(this, base->iterator(), number->second);
-}
-
 dtable::iter * simple_ctable::values(size_t column) const
 {
-	assert(column < columns);
+	assert(column < column_count);
 	/* FIXME: use dtable_skip_iter? */
 	return new citer(this, base->iterator(), column);
 }
@@ -273,28 +263,14 @@ ctable::iter * simple_ctable::iterator() const
 	return new iter(this, base->iterator());
 }
 
-blob simple_ctable::find(const dtype & key, const istr & column) const
-{
-	name_map::const_iterator number = column_map.find(column);
-	if(number == column_map.end())
-		return blob();
-	assert(number->second < columns);
-	blob row = base->find(key);
-	if(!row.exists())
-		return row;
-	/* not super efficient, but we can fix it later */
-	index_blob sub(columns, row);
-	return sub.get(number->second);
-}
-
 blob simple_ctable::find(const dtype & key, size_t column) const
 {
-	assert(column < columns);
+	assert(column < column_count);
 	blob row = base->find(key);
 	if(!row.exists())
 		return row;
 	/* not super efficient, but we can fix it later */
-	index_blob sub(columns, row);
+	index_blob sub(column_count, row);
 	return sub.get(column);
 }
 
@@ -304,33 +280,15 @@ bool simple_ctable::contains(const dtype & key) const
 }
 
 /* if we made a better find(), this could avoid flattening every time */
-int simple_ctable::insert(const dtype & key, const istr & column, const blob & value, bool append)
-{
-	int r = 0;
-	name_map::const_iterator number = column_map.find(column);
-	if(number == column_map.end())
-		return -ENOENT;
-	assert(number->second < columns);
-	blob row = base->find(key);
-	if(row.exists() || value.exists())
-	{
-		/* TODO: improve this... it is probably killing us */
-		index_blob sub(columns, row);
-		sub.set(number->second, value);
-		r = base->insert(key, sub.flatten(), append);
-	}
-	return r;
-}
-
 int simple_ctable::insert(const dtype & key, size_t column, const blob & value, bool append)
 {
 	int r = 0;
-	assert(column < columns);
+	assert(column < column_count);
 	blob row = base->find(key);
 	if(row.exists() || value.exists())
 	{
 		/* TODO: improve this... it is probably killing us */
-		index_blob sub(columns, row);
+		index_blob sub(column_count, row);
 		sub.set(column, value);
 		r = base->insert(key, sub.flatten(), append);
 	}
@@ -351,62 +309,13 @@ int simple_ctable::insert(const dtype & key, const colval * values, size_t count
 	if(row.exists() || exist)
 	{
 		/* TODO: improve this... it is probably killing us */
-		index_blob sub(columns, row);
+		index_blob sub(column_count, row);
 		for(size_t i = 0; i < count; i++)
 		{
-			name_map::const_iterator number = column_map.find(values[i].name);
-			if(number == column_map.end())
-				return -ENOENT;
-			assert(number->second < columns);
-			sub.set(number->second, values[i].value);
-		}
-		r = base->insert(key, sub.flatten(), append);
-	}
-	return r;
-}
-
-int simple_ctable::insert(const dtype & key, const ncolval * values, size_t count, bool append)
-{
-	int r = 0;
-	bool exist = false;
-	blob row = base->find(key);
-	for(size_t i = 0; i < count; i++)
-		if(values[i].value.exists())
-		{
-			exist = true;
-			break;
-		}
-	if(row.exists() || exist)
-	{
-		/* TODO: improve this... it is probably killing us */
-		index_blob sub(columns, row);
-		for(size_t i = 0; i < count; i++)
-		{
-			assert(values[i].index < columns);
+			assert(values[i].index < column_count);
 			sub.set(values[i].index, values[i].value);
 		}
 		r = base->insert(key, sub.flatten(), append);
-	}
-	return r;
-}
-
-int simple_ctable::remove(const dtype & key, const istr & column)
-{
-	int r = insert(key, column, blob());
-	if(r >= 0)
-	{
-		bool exist = false;
-		blob row = base->find(key);
-		/* TODO: improve this... it is probably killing us */
-		index_blob sub(columns, row);
-		for(size_t i = 0; i < columns; i++)
-			if(sub.get(i).exists())
-			{
-				exist = true;
-				break;
-			}
-		if(!exist)
-			remove(key);
 	}
 	return r;
 }
@@ -419,35 +328,8 @@ int simple_ctable::remove(const dtype & key, size_t column)
 		bool exist = false;
 		blob row = base->find(key);
 		/* TODO: improve this... it is probably killing us */
-		index_blob sub(columns, row);
-		for(size_t i = 0; i < columns; i++)
-			if(sub.get(i).exists())
-			{
-				exist = true;
-				break;
-			}
-		if(!exist)
-			remove(key);
-	}
-	return r;
-}
-
-int simple_ctable::remove(const dtype & key, const istr * names, size_t count)
-{
-	colval erase[count];
-	for(size_t i = 0; i < count; i++)
-	{
-		erase[i].name = names[i];
-		erase[i].value = blob();
-	}
-	int r = insert(key, erase, count);
-	if(r >= 0)
-	{
-		bool exist = false;
-		blob row = base->find(key);
-		/* TODO: improve this... it is probably killing us */
-		index_blob sub(columns, row);
-		for(size_t i = 0; i < columns; i++)
+		index_blob sub(column_count, row);
+		for(size_t i = 0; i < column_count; i++)
 			if(sub.get(i).exists())
 			{
 				exist = true;
@@ -461,7 +343,7 @@ int simple_ctable::remove(const dtype & key, const istr * names, size_t count)
 
 int simple_ctable::remove(const dtype & key, size_t * indices, size_t count)
 {
-	ncolval erase[count];
+	colval erase[count];
 	for(size_t i = 0; i < count; i++)
 	{
 		erase[i].index = indices[i];
@@ -473,8 +355,8 @@ int simple_ctable::remove(const dtype & key, size_t * indices, size_t count)
 		bool exist = false;
 		blob row = base->find(key);
 		/* TODO: improve this... it is probably killing us */
-		index_blob sub(columns, row);
-		for(size_t i = 0; i < columns; i++)
+		index_blob sub(column_count, row);
+		for(size_t i = 0; i < column_count; i++)
 			if(sub.get(i).exists())
 			{
 				exist = true;
@@ -515,14 +397,14 @@ int simple_ctable::init(int dfd, const char * file, const params & config)
 		goto fail_header;
 	if(meta.magic != SIMPLE_CTABLE_MAGIC || meta.version != SIMPLE_CTABLE_VERSION)
 		goto fail_header;
-	columns = meta.columns;
+	column_count = meta.columns;
 	
-	column_name = new istr[columns];
+	column_name = new istr[column_count];
 	if(!column_name)
 		goto fail_header;
 	
 	offset = sizeof(meta);
-	for(size_t i = 0; i < columns; i++)
+	for(size_t i = 0; i < column_count; i++)
 	{
 		uint32_t length;
 		r = meta_file->read(offset, &length);
@@ -562,7 +444,7 @@ void simple_ctable::deinit()
 	{
 		delete[] column_name;
 		column_map.empty();
-		columns = 0;
+		column_count = 0;
 		delete base;
 		base = NULL;
 		ctable::deinit();

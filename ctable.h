@@ -41,9 +41,28 @@ public:
 		iter(const iter &);
 	};
 	
+	/* column indices */
+	inline size_t index(const istr & column) const
+	{
+		name_map::const_iterator number = column_map.find(column);
+		if(number == column_map.end())
+			return (size_t) -1;
+		assert(number->second < column_count);
+		return number->second;
+	}
+	inline const istr & name(size_t index) const
+	{
+		assert(index < column_count);
+		return column_name[index];
+	}
+	
 	virtual dtable::key_iter * keys() const = 0;
-	virtual dtable::iter * values(const istr & column) const = 0;
 	virtual dtable::iter * values(size_t column) const = 0;
+	inline dtable::iter * values(const istr & column) const
+	{
+		size_t i = index(column);
+		return (i != (size_t) -1) ? values(i) : NULL;
+	}
 	virtual iter * iterator() const = 0;
 	inline virtual iter * iterator(const dtype & key) const
 	{
@@ -54,21 +73,33 @@ public:
 		assert(found);
 		return i;
 	}
-	virtual blob find(const dtype & key, const istr & column) const = 0;
 	virtual blob find(const dtype & key, size_t column) const = 0;
+	inline blob find(const dtype & key, const istr & column) const
+	{
+		size_t i = index(column);
+		return (i != (size_t) -1) ? find(key, i) : blob();
+	}
 	virtual bool contains(const dtype & key) const = 0;
 	virtual bool writable() const = 0;
-	virtual int insert(const dtype & key, const istr & column, const blob & value, bool append = false) = 0;
 	virtual int insert(const dtype & key, size_t column, const blob & value, bool append = false) = 0;
+	inline int insert(const dtype & key, const istr & column, const blob & value, bool append = false)
+	{
+		size_t i = index(column);
+		return (i != (size_t) -1) ? insert(key, i, value, append) : -1;
+	}
 	/* remove just a column */
-	virtual int remove(const dtype & key, const istr & column) = 0;
 	virtual int remove(const dtype & key, size_t column) = 0;
+	inline int remove(const dtype & key, const istr & column)
+	{
+		size_t i = index(column);
+		return (i != (size_t) -1) ? remove(key, i) : -1;
+	}
 	/* remove the whole row */
 	virtual int remove(const dtype & key) = 0;
 	inline dtype::ctype key_type() const { return ktype; }
 	inline const blob_comparator * get_blob_cmp() const { return blob_cmp; }
 	inline const istr & get_cmp_name() const { return cmp_name; }
-	inline ctable() : blob_cmp(NULL) {}
+	inline ctable() : blob_cmp(NULL), column_count(0), column_name(0) {}
 	/* subclass destructors should [indirectly] call ctable::deinit() to avoid this assert */
 	inline virtual ~ctable() { assert(!blob_cmp); }
 	
@@ -89,11 +120,6 @@ public:
 	
 	struct colval
 	{
-		istr name;
-		blob value;
-	};
-	struct ncolval
-	{
 		size_t index;
 		blob value;
 	};
@@ -104,29 +130,7 @@ public:
 		if(r < 0)
 			return r;
 		for(size_t i = 0; i < count; i++)
-			if((r = insert(key, values[i].name, values[i].value, append)) < 0)
-				break;
-		tx_end_r();
-		return r;
-	}
-	virtual int insert(const dtype & key, const ncolval * values, size_t count, bool append = false)
-	{
-		int r = tx_start_r();
-		if(r < 0)
-			return r;
-		for(size_t i = 0; i < count; i++)
 			if((r = insert(key, values[i].index, values[i].value, append)) < 0)
-				break;
-		tx_end_r();
-		return r;
-	}
-	virtual int remove(const dtype & key, const istr * columns, size_t count)
-	{
-		int r = tx_start_r();
-		if(r < 0)
-			return r;
-		for(size_t i = 0; i < count; i++)
-			if((r = remove(key, columns[i])) < 0)
 				break;
 		tx_end_r();
 		return r;
@@ -148,6 +152,12 @@ protected:
 	const blob_comparator * blob_cmp;
 	/* the required blob_comparator name, if any */
 	istr cmp_name;
+	
+	typedef std::map<istr, size_t, strcmp_less> name_map;
+	
+	size_t column_count;
+	istr * column_name;
+	name_map column_map;
 	
 	inline void deinit()
 	{

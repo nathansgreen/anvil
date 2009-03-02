@@ -24,7 +24,6 @@
 #include "managed_dtable.h"
 #include "usstate_dtable.h"
 #include "memory_dtable.h"
-#include "simple_ctable.h"
 #include "simple_stable.h"
 #include "reverse_blob_comparator.h"
 
@@ -984,7 +983,7 @@ int command_didtable(int argc, const char * argv[])
 int command_ctable(int argc, const char * argv[])
 {
 	int r;
-	simple_ctable * sct;
+	ctable * sct;
 	
 	params config;
 	r = params::parse(LITERAL(
@@ -1007,14 +1006,13 @@ int command_ctable(int argc, const char * argv[])
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = simple_ctable::create(AT_FDCWD, "msct_test", config, dtype::UINT32);
-	printf("ctable::create = %d\n", r);
+	r = ctable_factory::setup("simple_ctable", AT_FDCWD, "msct_test", config, dtype::UINT32);
+	printf("setup = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
-	sct = new simple_ctable;
-	r = sct->init(AT_FDCWD, "msct_test", config);
-	printf("sct->init = %d\n", r);
+	sct = ctable_factory::load("simple_ctable", AT_FDCWD, "msct_test", config);
+	printf("load = %p\n", sct);
 	r = tx_start();
 	printf("tx_start = %d\n", r);
 	r = sct->insert(8u, "hello", blob("icanhas"));
@@ -1056,7 +1054,7 @@ int command_cctable(int argc, const char * argv[])
 {
 	int r;
 	ctable * ct;
-	ctable::colval values[3] = {{"last"}, {"first"}, {"state"}};
+	ctable::colval values[3] = {{0}, {1}, {2}};
 	const ctable_factory * base = ctable_factory::lookup("column_ctable");
 	blob first[8] = {"Amy", "Bill", "Charlie", "Diana", "Edward", "Flora", "Gail", "Henry"};
 	blob last[6] = {"Nobel", "O'Toole", "Patterson", "Quayle", "Roberts", "Smith"};
@@ -1231,11 +1229,11 @@ int command_consistency(int argc, const char * argv[])
 	size_t buckets[CONS_TEST_BUCKETS];
 	uint32_t initial = CONS_TEST_INITIAL;
 	blob value(sizeof(initial), &initial);
-	ctable::colval values[CONS_TEST_COLS] = {{"0"}, {"1"}, {"2"}, {"3"}, {"4"}, {"5"}, {"6"}, {"7"}, {"8"}, {"9"},
-	                               {"10"}, {"11"}, {"12"}, {"13"}, {"14"}, {"15"}, {"16"}, {"17"}, {"18"}, {"19"},
-	                               {"20"}, {"21"}, {"22"}, {"23"}, {"24"}, {"25"}, {"26"}, {"27"}, {"28"}, {"29"},
-	                               {"30"}, {"31"}, {"32"}, {"33"}, {"34"}, {"35"}, {"36"}, {"37"}, {"38"}, {"39"},
-	                               {"40"}, {"41"}, {"42"}, {"43"}, {"44"}, {"45"}, {"46"}, {"47"}, {"48"}, {"49"}};
+	ctable::colval values[CONS_TEST_COLS] = {{0}, { 1}, { 2}, { 3}, { 4}, { 5}, { 6}, { 7}, { 8}, { 9},
+	                                        {10}, {11}, {12}, {13}, {14}, {15}, {16}, {17}, {18}, {19},
+	                                        {20}, {21}, {22}, {23}, {24}, {25}, {26}, {27}, {28}, {29},
+	                                        {30}, {31}, {32}, {33}, {34}, {35}, {36}, {37}, {38}, {39},
+	                                        {40}, {41}, {42}, {43}, {44}, {45}, {46}, {47}, {48}, {49}};
 	int r = params::parse(LITERAL(
 	config [
 		"columns" int 50
