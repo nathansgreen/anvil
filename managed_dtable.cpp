@@ -391,12 +391,16 @@ int managed_dtable::maintain(bool force)
 		/* if we'd still just do another digest, then reset the timestamp */
 		if(header.digested + header.digest_interval <= now)
 			header.digested = now;
-		/* will rewrite header for us! */
-		r = digest();
-		if(r < 0)
+		/* don't bother if the journal is empty though */
+		if(journal->size())
 		{
-			header.digested = old;
-			return r;
+			/* will rewrite header for us! */
+			r = digest();
+			if(r < 0)
+			{
+				header.digested = old;
+				return r;
+			}
 		}
 	}
 	if(header.combined + header.combine_interval <= now)
@@ -406,12 +410,16 @@ int managed_dtable::maintain(bool force)
 		/* if we'd still just do another combine, then reset the timestamp */
 		if(header.combined + header.combine_interval <= now)
 			header.combined = now;
-		/* will rewrite header for us! */
-		r = combine(header.combine_count);
-		if(r < 0)
+		/* don't bother if there aren't at least two dtables */
+		if(disks.size() > 1)
 		{
-			header.combined = old;
-			return r;
+			/* will rewrite header for us! */
+			r = combine(header.combine_count);
+			if(r < 0)
+			{
+				header.combined = old;
+				return r;
+			}
 		}
 	}
 	return 0;
