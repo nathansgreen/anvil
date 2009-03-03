@@ -147,7 +147,8 @@ void managed_dtable::deinit()
 {
 	if(md_dfd < 0)
 		return;
-	if(digest_on_close)
+	/* no sense digesting on close if there's nothing to digest */
+	if(digest_on_close && journal->size())
 	{
 		int r = digest(close_digest_fastbase);
 		if(r < 0)
