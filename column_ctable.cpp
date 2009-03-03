@@ -89,9 +89,8 @@ bool column_ctable::iter::first()
 	bool valid = source[0]->first();
 	for(size_t i = 1; i < base->column_count; i++)
 		source[i]->first();
-	while(valid && !source[0]->meta().exists())
-		for(size_t i = 0; i < base->column_count; i++)
-			source[i]->next();
+	if(valid && !source[0]->meta().exists())
+		valid = next();
 	return valid;
 }
 
@@ -165,6 +164,131 @@ blob column_ctable::iter::index(size_t column) const
 	return (column < base->column_count) ? source[column]->value() : blob();
 }
 
+column_ctable::p_iter::p_iter(const column_ctable * base, const size_t * columns, size_t count)
+	: base(base)
+{
+	assert(count);
+	source = new dtable::iter *[base->column_count];
+	assert(source);
+	for(size_t i = 0; i < base->column_count; i++)
+		source[i] = NULL;
+	for(size_t i = 0; i < count; i++)
+	{
+		assert(columns[i] < base->column_count);
+		assert(!source[columns[i]]);
+		source[columns[i]] = base->column_table[columns[i]]->iterator();
+		assert(source[columns[i]]);
+	}
+	start = (size_t) -1;
+	for(size_t i = 0; i < base->column_count; i++)
+		if(source[i])
+		{
+			start = i;
+			break;
+		}
+	/* this is truly an assert, not lame error checking */
+	assert(start != (size_t) -1);
+}
+
+bool column_ctable::p_iter::valid() const
+{
+	return source[start]->valid();
+}
+
+bool column_ctable::p_iter::next()
+{
+	bool valid;
+	do {
+		valid = source[start]->next();
+		for(size_t i = start + 1; i < base->column_count; i++)
+			if(source[i])
+				source[i]->next();
+	} while(valid && !source[start]->meta().exists());
+	return valid;
+}
+
+bool column_ctable::p_iter::prev()
+{
+	bool valid;
+	do {
+		valid = source[start]->prev();
+		for(size_t i = start + 1; i < base->column_count; i++)
+			if(source[i])
+				source[i]->prev();
+	} while(valid && !source[start]->meta().exists());
+	if(!valid)
+		while(source[start]->valid() && source[start]->meta().exists())
+			for(size_t i = start; i < base->column_count; i++)
+				if(source[i])
+					source[i]->next();
+	return valid;
+}
+
+bool column_ctable::p_iter::first()
+{
+	bool valid = source[start]->first();
+	for(size_t i = start + 1; i < base->column_count; i++)
+		if(source[i])
+			source[i]->first();
+	if(valid && !source[start]->meta().exists())
+		valid = next();
+	return valid;
+}
+
+bool column_ctable::p_iter::last()
+{
+	bool valid = source[start]->last();
+	for(size_t i = start + 1; i < base->column_count; i++)
+		if(source[i])
+			source[i]->last();
+	if(valid && !source[0]->meta().exists())
+		valid = prev();
+	return valid;
+}
+
+dtype column_ctable::p_iter::key() const
+{
+	return source[start]->key();
+}
+
+bool column_ctable::p_iter::seek(const dtype & key)
+{
+	/* bug? what if we find the nonexistent value? */
+	bool found = source[start]->seek(key);
+	for(size_t i = start + 1; i < base->column_count; i++)
+		if(source[i])
+			source[i]->seek(key);
+	if(found || !source[start]->valid())
+		return found;
+	next();
+	return false;
+}
+
+bool column_ctable::p_iter::seek(const dtype_test & test)
+{
+	/* bug? what if we find the nonexistent value? */
+	bool found = source[start]->seek(test);
+	for(size_t i = start + 1; i < base->column_count; i++)
+		if(source[i])
+			source[i]->seek(test);
+	if(found || !source[start]->valid())
+		return found;
+	next();
+	return false;
+}
+
+dtype::ctype column_ctable::p_iter::key_type() const
+{
+	return base->key_type();
+}
+
+blob column_ctable::p_iter::value(size_t column) const
+{
+	assert(column < base->column_count);
+	assert(source[column]);
+	return source[column]->value();
+}
+
 dtable::key_iter * column_ctable::keys() const
 {
 	return column_table[0]->iterator();
@@ -179,6 +303,11 @@ dtable::iter * column_ctable::values(size_t column) const
 ctable::iter * column_ctable::iterator() const
 {
 	return new iter(this);
+}
+
+ctable::p_iter * column_ctable::iterator(const size_t * columns, size_t count) const
+{
+	return new p_iter(this, columns, count);
 }
 
 blob column_ctable::find(const dtype & key, size_t column) const

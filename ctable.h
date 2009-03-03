@@ -42,6 +42,27 @@ public:
 		void operator=(const iter &);
 		iter(const iter &);
 	};
+	/* projection iterator - one row at a time, for a subset of the columns */
+	class p_iter
+	{
+	public:
+		virtual bool valid() const = 0;
+		/* see the note about dtable::iter in dtable.h */
+		virtual bool next() = 0;
+		virtual bool prev() = 0;
+		virtual bool first() = 0;
+		virtual bool last() = 0;
+		virtual dtype key() const = 0;
+		virtual bool seek(const dtype & key) = 0;
+		virtual bool seek(const dtype_test & test) = 0;
+		virtual dtype::ctype key_type() const = 0;
+		virtual blob value(size_t column) const = 0;
+		inline p_iter() {}
+		virtual ~p_iter() {}
+	private:
+		void operator=(const p_iter &);
+		p_iter(const p_iter &);
+	};
 	
 	/* column indices */
 	inline size_t index(const istr & column) const
@@ -74,6 +95,18 @@ public:
 		bool found = i->seek(key);
 		assert(found);
 		return i;
+	}
+	virtual p_iter * iterator(const size_t * columns, size_t count) const = 0;
+	inline p_iter * iterator(const istr * columns, size_t count) const
+	{
+		size_t indices[count];
+		for(size_t i = 0; i < count; i++)
+		{
+			indices[i] = index(columns[i]);
+			if(indices[i] == (size_t) -1)
+				return NULL;
+		}
+		return iterator(indices, count);
 	}
 	virtual blob find(const dtype & key, size_t column) const = 0;
 	inline blob find(const dtype & key, const istr & column) const

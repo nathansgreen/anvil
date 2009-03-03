@@ -23,6 +23,7 @@ public:
 	virtual dtable::key_iter * keys() const;
 	virtual dtable::iter * values(size_t column) const;
 	virtual iter * iterator() const;
+	virtual p_iter * iterator(const size_t * columns, size_t count) const;
 	virtual blob find(const dtype & key, size_t column) const;
 	virtual bool contains(const dtype & key) const;
 	
@@ -88,6 +89,34 @@ private:
 		bool all_prev_skip();
 		
 		size_t number;
+		dtable::iter ** source;
+		const column_ctable * base;
+	};
+	
+	class p_iter : public ctable::p_iter
+	{
+	public:
+		virtual bool valid() const;
+		virtual bool next();
+		virtual bool prev();
+		virtual bool first();
+		virtual bool last();
+		virtual dtype key() const;
+		virtual bool seek(const dtype & key);
+		virtual bool seek(const dtype_test & test);
+		virtual dtype::ctype key_type() const;
+		virtual blob value(size_t column) const;
+		inline p_iter(const column_ctable * base, const size_t * columns, size_t count);
+		virtual ~p_iter()
+		{
+			for(size_t i = 0; i < base->column_count; i++)
+				if(source[i])
+					delete source[i];
+			delete[] source;
+		}
+		
+	private:
+		size_t start;
 		dtable::iter ** source;
 		const column_ctable * base;
 	};

@@ -12,6 +12,7 @@
 #include "rofile.h"
 #include "index_blob.h"
 #include "dtable_factory.h"
+#include "dtable_skip_iter.h"
 #include "simple_ctable.h"
 
 /* FIXME: there are probably some bugs/inconsistencies with nonexistent values */
@@ -197,6 +198,97 @@ blob simple_ctable::iter::index(size_t column) const
 	return row.get(column);
 }
 
+simple_ctable::p_iter::p_iter(const simple_ctable * base, dtable::iter * source)
+	: base(base), source(source)
+{
+	source = wrap_and_claim<dtable_skip_iter>(source);
+}
+
+bool simple_ctable::p_iter::valid() const
+{
+	return source->valid();
+}
+
+bool simple_ctable::p_iter::next()
+{
+	if(source->next())
+	{
+		row = index_blob(base->column_count, source->value());
+		return true;
+	}
+	row = index_blob();
+	return false;
+}
+
+bool simple_ctable::p_iter::prev()
+{
+	if(source->prev())
+	{
+		row = index_blob(base->column_count, source->value());
+		return true;
+	}
+	return false;
+}
+
+bool simple_ctable::p_iter::first()
+{
+	if(source->first())
+	{
+		row = index_blob(base->column_count, source->value());
+		return true;
+	}
+	row = index_blob();
+	return false;
+}
+
+bool simple_ctable::p_iter::last()
+{
+	if(source->last())
+	{
+		row = index_blob(base->column_count, source->value());
+		return true;
+	}
+	row = index_blob();
+	return false;
+}
+
+dtype simple_ctable::p_iter::key() const
+{
+	return source->key();
+}
+
+bool simple_ctable::p_iter::seek(const dtype & key)
+{
+	bool found = source->seek(key);
+	if(found || source->valid())
+		row = index_blob(base->column_count, source->value());
+	else
+		row = index_blob();
+	return found;
+}
+
+bool simple_ctable::p_iter::seek(const dtype_test & test)
+{
+	bool found = source->seek(test);
+	if(found || source->valid())
+		row = index_blob(base->column_count, source->value());
+	else
+		row = index_blob();
+	return found;
+}
+
+dtype::ctype simple_ctable::p_iter::key_type() const
+{
+	assert(source);
+	return source->key_type();
+}
+
+blob simple_ctable::p_iter::value(size_t column) const
+{
+	assert(column < base->column_count);
+	return row.get(column);
+}
+
 simple_ctable::citer::citer(const simple_ctable * base, dtable::iter * src, size_t index)
 	: base(base), src(src), index(index), value_cached(false)
 {
@@ -277,6 +369,12 @@ dtable::iter * simple_ctable::values(size_t column) const
 ctable::iter * simple_ctable::iterator() const
 {
 	return new iter(this, base->iterator());
+}
+
+ctable::p_iter * simple_ctable::iterator(const size_t * columns, size_t count) const
+{
+	/* we ignore the columns and provide them all anyway; it's no more expensive */
+	return new p_iter(this, base->iterator());
 }
 
 blob simple_ctable::find(const dtype & key, size_t column) const
