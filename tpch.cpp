@@ -465,7 +465,7 @@ int command_tpchtest(int argc, const char * argv[])
 				chosen[j] = true;
 			}
 			
-			printf("\n%d columns, take %d:", n, t + 1);
+			printf("\n%zu columns, take %zu:", n, t + 1);
 			for(size_t i = 0; i < n; i++)
 				printf(" %s", lineitem->name(columns[i]).str());
 			printf("\n");
