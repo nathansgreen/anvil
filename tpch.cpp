@@ -404,41 +404,18 @@ int command_tpchtest(int argc, const char * argv[])
 	 * [DATE] is Jan 1 [1993-1997]
 	 * [DISCOUNT] in [.02-.09]
 	 * [QUANTITY] is 24 or 25 */
-	if(tpch_tables == tpch_column_tables)
+	size_t columns[2] = {lineitem->index("l_extendedprice"), lineitem->index("l_discount")};
+	ctable::p_iter * iter = lineitem->iterator(columns, 2);
+	float revenue = 0;
+	while(iter->valid())
 	{
-		/* this way is more effective for a column store */
-		dtable::iter * l_extendedprice = lineitem->values("l_extendedprice");
-		dtable::iter * l_discount = lineitem->values("l_discount");
-		float revenue = 0;
-		while(l_extendedprice->valid() && l_discount->valid())
-		{
-			/* the keys should be the same */
-			assert(!l_extendedprice->key().compare(l_discount->key()));
-			float extendedprice = l_extendedprice->value().index<float>(0);
-			float discount = l_discount->value().index<float>(0);
-			revenue += extendedprice * discount;
-			l_extendedprice->next();
-			l_discount->next();
-		}
-		printf("revenue = %g\n", revenue);
+		float extendedprice = iter->value(columns[0]).index<float>(0);
+		float discount = iter->value(columns[1]).index<float>(0);
+		revenue += extendedprice * discount;
+		iter->next();
 	}
-	else
-	{
-		/* this way is more effective for a row store */
-		size_t l_extendedprice = lineitem->index("l_extendedprice");
-		size_t l_discount = lineitem->index("l_discount");
-		ctable::iter * iter = lineitem->iterator();
-		float revenue = 0;
-		while(iter->valid())
-		{
-			float extendedprice = iter->index(l_extendedprice).index<float>(0);
-			float discount = iter->index(l_discount).index<float>(0);
-			revenue += extendedprice * discount;
-			/* next row, not next column */
-			iter->next(true);
-		}
-		printf("revenue = %g\n", revenue);
-	}
+	printf("revenue = %g\n", revenue);
+	delete iter;
 	/* #14 select 100 * sum(case when p_type like 'PROMO%' then l_extendedprice * (1 - l_discount) else 0 end)
 	 * / sum(l_extendedprice * (1 - l_discount)) as promo_revenue
 	 * from lineitem, part
