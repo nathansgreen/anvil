@@ -202,6 +202,8 @@ simple_ctable::p_iter::p_iter(const simple_ctable * base, dtable::iter * source)
 	: base(base), source(source)
 {
 	source = wrap_and_claim<dtable_skip_iter>(source);
+	if(source->valid())
+		row = index_blob(base->column_count, source->value());
 }
 
 bool simple_ctable::p_iter::valid() const
