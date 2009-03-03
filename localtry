@@ -31,6 +31,7 @@ cctable
 stable
 iterator
 blob_cmp
+#tpchtype row
 #tpchgen
 #tpchtest
 #bdbtest
