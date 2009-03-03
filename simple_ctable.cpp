@@ -291,81 +291,9 @@ blob simple_ctable::p_iter::value(size_t column) const
 	return row.get(column);
 }
 
-simple_ctable::citer::citer(const simple_ctable * base, dtable::iter * src, size_t index)
-	: base(base), src(src), index(index), value_cached(false)
-{
-	/* when we clean this up regarding nonexistent values, we should advance here */
-}
-
-bool simple_ctable::citer::next()
-{
-	kill_cache();
-	return src->next();
-}
-
-bool simple_ctable::citer::prev()
-{
-	bool valid = src->prev();
-	if(valid)
-		kill_cache();
-	return valid;
-}
-
-bool simple_ctable::citer::first()
-{
-	kill_cache();
-	return src->first();
-}
-
-bool simple_ctable::citer::last()
-{
-	kill_cache();
-	return src->last();
-}
-
-bool simple_ctable::citer::seek(const dtype & key)
-{
-	kill_cache();
-	return src->seek(key);
-}
-
-bool simple_ctable::citer::seek(const dtype_test & test)
-{
-	kill_cache();
-	return src->seek(test);
-}
-
-metablob simple_ctable::citer::meta() const
-{
-	if(!value_cached)
-		cache_value();
-	return cached_value;
-}
-
-blob simple_ctable::citer::value() const
-{
-	if(!value_cached)
-		cache_value();
-	return cached_value;
-}
-
-void simple_ctable::citer::cache_value() const
-{
-	index_blob idx(base->column_count, src->value());
-	cached_value = idx.get(index);
-	value_cached = true;
-}
-
 dtable::key_iter * simple_ctable::keys() const
 {
 	return base->iterator();
-}
-
-dtable::iter * simple_ctable::values(size_t column) const
-{
-	assert(column < column_count);
-	/* FIXME: use dtable_skip_iter? */
-	return new citer(this, base->iterator(), column);
 }
 
 ctable::iter * simple_ctable::iterator() const

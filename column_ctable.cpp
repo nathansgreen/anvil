@@ -13,7 +13,6 @@
 #include "rofile.h"
 #include "transaction.h"
 #include "dtable_factory.h"
-#include "dtable_skip_iter.h"
 #include "column_ctable.h"
 
 /* FIXME: column_ctable fails if you do not have all extant blobs for a row */
@@ -292,12 +291,6 @@ blob column_ctable::p_iter::value(size_t column) const
 dtable::key_iter * column_ctable::keys() const
 {
 	return column_table[0]->iterator();
-}
-
-dtable::iter * column_ctable::values(size_t column) const
-{
-	assert(column < column_count);
-	return wrap_and_claim<dtable_skip_iter>(column_table[column]->iterator());
 }
 
 ctable::iter * column_ctable::iterator() const

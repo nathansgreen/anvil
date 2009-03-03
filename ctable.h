@@ -80,12 +80,6 @@ public:
 	}
 	
 	virtual dtable::key_iter * keys() const = 0;
-	virtual dtable::iter * values(size_t column) const = 0;
-	inline dtable::iter * values(const istr & column) const
-	{
-		size_t i = index(column);
-		return (i != (size_t) -1) ? values(i) : NULL;
-	}
 	virtual iter * iterator() const = 0;
 	inline virtual iter * iterator(const dtype & key) const
 	{

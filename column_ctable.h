@@ -21,7 +21,6 @@ class column_ctable : public ctable
 {
 public:
 	virtual dtable::key_iter * keys() const;
-	virtual dtable::iter * values(size_t column) const;
 	virtual iter * iterator() const;
 	virtual p_iter * iterator(const size_t * columns, size_t count) const;
 	virtual blob find(const dtype & key, size_t column) const;
