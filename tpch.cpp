@@ -368,7 +368,7 @@ int command_tpchgen(int argc, const char * argv[])
 	return 0;
 }
 
-static ctable * open_in_tx(const tpch_table_info & info)
+static ctable * open_in_tx(const tpch_table_info & info, bool print_config = false)
 {
 	int r;
 	params config;
@@ -376,8 +376,11 @@ static ctable * open_in_tx(const tpch_table_info & info)
 	
 	r = params::parse(info.config, &config);
 	printf("params::parse = %d\n", r);
-	config.print();
-	printf("\n");
+	if(print_config)
+	{
+		config.print();
+		printf("\n");
+	}
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -389,24 +392,44 @@ static ctable * open_in_tx(const tpch_table_info & info)
 	return table;
 }
 
+/* TPC-H queries we might feasibly do are #6, #14, and #17, but we'll
+ * stick with a simple variant of #6 as that's what another paper did.
+ * We need only the lineitem table for query #6, even though we have
+ * others available. The lineitem table is the biggest anyway. */
 int command_tpchtest(int argc, const char * argv[])
 {
-	ctable * part = open_in_tx(tpch_tables[PART]);
+	/*ctable * part = open_in_tx(tpch_tables[PART]);
 	ctable * customer = open_in_tx(tpch_tables[CUSTOMER]);
-	ctable * orders = open_in_tx(tpch_tables[ORDERS]);
+	ctable * orders = open_in_tx(tpch_tables[ORDERS]);*/
 	ctable * lineitem = open_in_tx(tpch_tables[LINEITEM]);
-	/* #6 select sum(l_extendedprice * l_discount) as revenue
-	 * from lineitem
-	 * where l_shipdate >= date '[DATE]' and
+	struct timeval start, end;
+	ctable::p_iter * iter;
+	size_t columns[16];
+	float revenue = 0;
+	
+	/* This is TPC-H query #6:
+	 * 
+	 * select sum(l_extendedprice * l_discount) as revenue
+	 * from lineitem where l_shipdate >= date '[DATE]' and
 	 * l_shipdate < date '[DATE]' + interval '1' year and
 	 * l_discount between [DISCOUNT] - 0.01 and [DISCOUNT] + 0.01 and
 	 * l_quantity < [QUANTITY];
-	 * [DATE] is Jan 1 [1993-1997]
-	 * [DISCOUNT] in [.02-.09]
-	 * [QUANTITY] is 24 or 25 */
-	size_t columns[2] = {lineitem->index("l_extendedprice"), lineitem->index("l_discount")};
-	ctable::p_iter * iter = lineitem->iterator(columns, 2);
-	float revenue = 0;
+	 * 
+	 * Where [DATE] is Jan 1 of [1993-1997],
+	 * [DISCOUNT] is chosen in [.02-.09], and
+	 * [QUANTITY] is 24 or 25.
+	 * 
+	 * We don't actually do that exactly though. We select some number of
+	 * columns, and don't do anything with the data we get from them. We
+	 * also pick rows at random, simulating a predicate that happened to
+	 * pick those rows while allowing simple control of how many we get. */
+	
+	/* Well, first we do this quick query to make sure we get the right
+	 * answer (11440193536, with TPC-H scale factor 1); then we do that. */
+	columns[0] = lineitem->index("l_extendedprice");
+	columns[1] = lineitem->index("l_discount");
+	gettimeofday(&start, NULL);
+	iter = lineitem->iterator(columns, 2);
 	while(iter->valid())
 	{
 		float extendedprice = iter->value(columns[0]).index<float>(0);
@@ -414,28 +437,68 @@ int command_tpchtest(int argc, const char * argv[])
 		revenue += extendedprice * discount;
 		iter->next();
 	}
-	printf("revenue = %g\n", revenue);
+	gettimeofday(&end, NULL);
+	end.tv_sec -= start.tv_sec;
+	if(end.tv_usec < start.tv_usec)
+	{
+		end.tv_usec += 1000000;
+		end.tv_sec--;
+	}
+	end.tv_usec -= start.tv_usec;
+	printf("revenue = %f, %d.%06d seconds\n", revenue, (int) end.tv_sec, (int) end.tv_usec);
 	delete iter;
-	/* #14 select 100 * sum(case when p_type like 'PROMO%' then l_extendedprice * (1 - l_discount) else 0 end)
-	 * / sum(l_extendedprice * (1 - l_discount)) as promo_revenue
-	 * from lineitem, part
-	 * where l_partkey = p_partkey and
-	 * l_shipdate >= date '[DATE]' and
-	 * l_shipdate < date '[DATE]' + interval '1' month;
-	 * [DATE] is [Jan-Dec] 1 [1993-1997]
-	 * Types: [STANDARD SMALL MEDIUM LARGE ECONOMY PROMO][ANODIZED BURNISHED PLATED POLISHED BRUSHED][TIN NICKEL BRASS STEEL COPPER] */
-	/* #17 select sum(l_extendedprice) / 7.0 as avg_yearly
-	 * from lineitem, part
-	 * where p_partkey = l_partkey and
-	 * p_brand = '[BRAND]' and
-	 * p_container = '[CONTAINER]' and
-	 * l_quantity < (select 0.2 * avg(l_quantity) from lineitem where l_partkey = p_partkey);
-	 * [BRAND] is 'Brand#MN' with M, N in [1-5]
-	 * [CONTAINER] [Containers]
-	 * Containers: [SM LG MED JUMBO WRAP][CASE BOX BAG JAR PKG PACK CAN DRUM] (page 90) */
+	
+	/* OK, now run some of those tests */
+	for(size_t n = 1; n <= 16; n++)
+		/* for each n, repeat 5 times */
+		for(size_t t = 0; t < 5; t++)
+		{
+			/* pick n random columns */
+			bool chosen[16] = {false};
+			for(size_t i = 0; i < n; i++)
+			{
+				size_t j;
+				/* do-while loops look especially stupid without {} */
+				do j = rand() % 16;
+				while(chosen[j]);
+				columns[i] = j;
+				chosen[j] = true;
+			}
+			
+			printf("\n%d columns, take %d:", n, t + 1);
+			for(size_t i = 0; i < n; i++)
+				printf(" %s", lineitem->name(columns[i]).str());
+			printf("\n");
+			
+			/* reopen it to clear any application-level caches */
+			delete lineitem;
+			lineitem = open_in_tx(tpch_tables[LINEITEM]);
+			iter = lineitem->iterator(columns, n);
+			
+			gettimeofday(&start, NULL);
+			while(iter->valid())
+			{
+				for(size_t i = 0; i < n; i++)
+					/* just get the value and throw it away */
+					iter->value(columns[i]);
+				iter->next();
+			}
+			gettimeofday(&end, NULL);
+			end.tv_sec -= start.tv_sec;
+			if(end.tv_usec < start.tv_usec)
+			{
+				end.tv_usec += 1000000;
+				end.tv_sec--;
+			}
+			end.tv_usec -= start.tv_usec;
+			printf("%d.%06d seconds\n", (int) end.tv_sec, (int) end.tv_usec);
+			
+			delete iter;
+		}
+	
 	delete lineitem;
-	delete orders;
+	/*delete orders;
 	delete customer;
-	delete part;
+	delete part;*/
 	return 0;
 }
