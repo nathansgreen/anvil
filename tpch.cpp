@@ -449,22 +449,16 @@ int command_tpchtest(int argc, const char * argv[])
 	delete iter;
 	
 	/* OK, now run some of those tests */
+	const char * column_order[16] = {"l_partkey", "l_orderkey", "l_suppkey", "l_linenumber",
+	                                 "l_quantity", "l_extendedprice", "l_returnflag", "l_linestatus",
+	                                 "l_shipinstruct", "l_shipmode", "l_comment", "l_discount",
+	                                 "l_tax", "l_shipdate", "l_commitdate", "l_receiptdate"};
+	for(size_t i = 0; i < 16; i++)
+		columns[i] = lineitem->index(column_order[i]);
 	for(size_t n = 1; n <= 16; n++)
 		/* for each n, repeat 5 times */
 		for(size_t t = 0; t < 5; t++)
 		{
-			/* pick n random columns */
-			bool chosen[16] = {false};
-			for(size_t i = 0; i < n; i++)
-			{
-				size_t j;
-				/* do-while loops look especially stupid without {} */
-				do j = rand() % 16;
-				while(chosen[j]);
-				columns[i] = j;
-				chosen[j] = true;
-			}
-			
 			printf("\n%zu columns, take %zu:", n, t + 1);
 			for(size_t i = 0; i < n; i++)
 				printf(" %s", lineitem->name(columns[i]).str());
@@ -478,9 +472,13 @@ int command_tpchtest(int argc, const char * argv[])
 			gettimeofday(&start, NULL);
 			while(iter->valid())
 			{
-				for(size_t i = 0; i < n; i++)
-					/* just get the value and throw it away */
-					iter->value(columns[i]);
+				/* get the predicate value */
+				iter->value(columns[0]);
+				/* assume 1/10 qualifies */
+				if(!(rand() % 10))
+					/* get the remaining values */
+					for(size_t i = 1; i < n; i++)
+						iter->value(columns[i]);
 				iter->next();
 			}
 			gettimeofday(&end, NULL);
