@@ -607,6 +607,7 @@ int command_blob_cmp(int argc, const char * argv[]);
 int command_performance(int argc, const char * argv[]);
 int command_tpchtype(int argc, const char * argv[]);
 int command_tpchgen(int argc, const char * argv[]);
+int command_tpchopen(int argc, const char * argv[]);
 int command_tpchtest(int argc, const char * argv[]);
 int command_bdbtest(int argc, const char * argv[]);
 
@@ -649,6 +650,7 @@ struct {
 	{"performance", "Test performance.", command_performance},
 	{"tpchtype", "Set TPCH-H table type: row, column.", command_tpchtype},
 	{"tpchgen", "Generate a TPC-H-like dataset.", command_tpchgen},
+	{"tpchopen", "Open a TPC-H-like dataset.", command_tpchopen},
 	{"tpchtest", "Run a TPC-H-like benchmark.", command_tpchtest},
 	{"bdbtest", "Run the BDB benchmark.", command_bdbtest}
 };

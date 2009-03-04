@@ -19,6 +19,7 @@
 extern "C" {
 int command_tpchtype(int argc, const char * argv[]);
 int command_tpchgen(int argc, const char * argv[]);
+int command_tpchopen(int argc, const char * argv[]);
 int command_tpchtest(int argc, const char * argv[]);
 };
 
@@ -392,15 +393,25 @@ static ctable * open_in_tx(const tpch_table_info & info, bool print_config = fal
 	return table;
 }
 
+int command_tpchopen(int argc, const char * argv[])
+{
+	ctable * part = open_in_tx(tpch_tables[PART]);
+	ctable * customer = open_in_tx(tpch_tables[CUSTOMER]);
+	ctable * orders = open_in_tx(tpch_tables[ORDERS]);
+	ctable * lineitem = open_in_tx(tpch_tables[LINEITEM]);
+	delete lineitem;
+	delete orders;
+	delete customer;
+	delete part;
+	return 0;
+}
+
 /* TPC-H queries we might feasibly do are #6, #14, and #17, but we'll
  * stick with a simple variant of #6 as that's what another paper did.
  * We need only the lineitem table for query #6, even though we have
  * others available. The lineitem table is the biggest anyway. */
 int command_tpchtest(int argc, const char * argv[])
 {
-	/*ctable * part = open_in_tx(tpch_tables[PART]);
-	ctable * customer = open_in_tx(tpch_tables[CUSTOMER]);
-	ctable * orders = open_in_tx(tpch_tables[ORDERS]);*/
 	ctable * lineitem = open_in_tx(tpch_tables[LINEITEM]);
 	struct timeval start, end;
 	ctable::p_iter * iter;
@@ -495,8 +506,5 @@ int command_tpchtest(int argc, const char * argv[])
 		}
 	
 	delete lineitem;
-	/*delete orders;
-	delete customer;
-	delete part;*/
 	return 0;
 }

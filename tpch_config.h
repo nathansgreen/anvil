@@ -240,7 +240,7 @@ static const char * tpch_lineitem_column_config = LITERAL(
 			"base_config" config [
 				"base" class(dt) smallint_dtable
 				"base_config" config [
-					"base" class(dt) fixed_dtable
+					"base" class(dt) array_dtable
 					"bytes" int 3
 				]
 				"alt" class(dt) simple_dtable
@@ -253,7 +253,7 @@ static const char * tpch_lineitem_column_config = LITERAL(
 			"base_config" config [
 				"base" class(dt) smallint_dtable
 				"base_config" config [
-					"base" class(dt) fixed_dtable
+					"base" class(dt) array_dtable
 					"bytes" int 3
 				]
 				"alt" class(dt) simple_dtable
@@ -266,7 +266,7 @@ static const char * tpch_lineitem_column_config = LITERAL(
 			"base_config" config [
 				"base" class(dt) smallint_dtable
 				"base_config" config [
-					"base" class(dt) fixed_dtable
+					"base" class(dt) array_dtable
 					"bytes" int 3
 				]
 				"alt" class(dt) simple_dtable
@@ -279,7 +279,7 @@ static const char * tpch_lineitem_column_config = LITERAL(
 			"base_config" config [
 				"base" class(dt) smallint_dtable
 				"base_config" config [
-					"base" class(dt) fixed_dtable
+					"base" class(dt) array_dtable
 					"bytes" int 1
 				]
 				"alt" class(dt) simple_dtable
@@ -288,28 +288,28 @@ static const char * tpch_lineitem_column_config = LITERAL(
 			"digest_on_close" bool true
 		]
 		"column4_config" config [
-			"base" class(dt) fixed_dtable
+			"base" class(dt) array_dtable
 			"base_config" config [
 				"value_size" int 4
 			]
 			"digest_on_close" bool true
 		]
 		"column5_config" config [
-			"base" class(dt) fixed_dtable
+			"base" class(dt) array_dtable
 			"base_config" config [
 				"value_size" int 4
 			]
 			"digest_on_close" bool true
 		]
 		"column6_config" config [
-			"base" class(dt) fixed_dtable
+			"base" class(dt) array_dtable
 			"base_config" config [
 				"value_size" int 4
 			]
 			"digest_on_close" bool true
 		]
 		"column7_config" config [
-			"base" class(dt) fixed_dtable
+			"base" class(dt) array_dtable
 			"base_config" config [
 				"value_size" int 4
 			]
@@ -318,7 +318,7 @@ static const char * tpch_lineitem_column_config = LITERAL(
 		"column8_config" config [
 			"base" class(dt) exception_dtable
 			"base_config" config [
-				"base" class(dt) fixed_dtable
+				"base" class(dt) array_dtable
 				"alt" class(dt) simple_dtable
 				"reject_value" string "_"
 			]
@@ -327,7 +327,7 @@ static const char * tpch_lineitem_column_config = LITERAL(
 		"column9_config" config [
 			"base" class(dt) exception_dtable
 			"base_config" config [
-				"base" class(dt) fixed_dtable
+				"base" class(dt) array_dtable
 				"alt" class(dt) simple_dtable
 				"reject_value" string "_"
 			]
