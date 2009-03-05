@@ -38,6 +38,7 @@ int command_didtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_cctable(int argc, const char * argv[]);
 int command_consistency(int argc, const char * argv[]);
+int command_durability(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
@@ -1359,6 +1360,117 @@ int command_consistency(int argc, const char * argv[])
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
+	return 0;
+}
+
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+
+#define DURA_INIT_MAGIC 0xBEE3F56A
+#define DURA_TX_MAGIC 0xA0114CC7
+
+int command_durability(int argc, const char * argv[])
+{
+	params config;
+	struct sockaddr_in sin;
+	tx_id transaction_id;
+	struct {
+		uint32_t magic;
+		uint32_t session;
+		uint32_t tx_seq;
+	} message;
+	dtable * dt;
+	int r, ping = -1;
+	bool check;
+	
+	check = argc > 1 && !strcmp(argv[1], "check");
+	
+	if(!check)
+	{
+		ping = socket(PF_INET, SOCK_DGRAM, 0);
+		assert(ping >= 0);
+		
+		memset(&sin, 0, sizeof(sin));
+		sin.sin_family = AF_INET;
+		sin.sin_port = htons(8399);
+		sin.sin_addr.s_addr = INADDR_ANY;
+		r = bind(ping, (struct sockaddr *) &sin, sizeof(sin));
+		assert(r >= 0);
+		
+		/* timbuktu.cs.ucla.edu */
+		sin.sin_addr.s_addr = htonl(0x83B35075);
+		
+		message.magic = DURA_INIT_MAGIC;
+		message.session = time(NULL) ^ getpid() ^ rand();
+		message.tx_seq = 0;
+		sendto(ping, &message, sizeof(message), 0, (struct sockaddr *) &sin, sizeof(sin));
+		message.magic = DURA_TX_MAGIC;
+	}
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) simple_dtable
+		"digest_interval" int 2
+		"combine_interval" int 4
+		"combine_count" int 4
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	
+	if(!check)
+	{
+		r = dtable_factory::setup("managed_dtable", AT_FDCWD, "dura_test", config, dtype::UINT32);
+		printf("dtable::create = %d\n", r);
+	}
+	
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "dura_test", config);
+	printf("dtable_factory::load = %p\n", dt);
+	
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	if(check)
+	{
+		blob value = dt ? dt->find(0u) : blob();
+		if(value.exists())
+		{
+			uint32_t tx_seq = value.index<uint32_t>(0);
+			printf("Transaction ID: %u\n", tx_seq);
+		}
+		else
+			printf("No transactions!\n");
+	}
+	else
+		for(; message.tx_seq < 10000; message.tx_seq++)
+		{
+			r = tx_start();
+			assert(r >= 0);
+			
+			r = dt->insert(0u, blob(sizeof(message.tx_seq), &message.tx_seq));
+			assert(r >= 0);
+			
+			if((message.tx_seq % 1000) == 999)
+			{
+				r = dt->maintain();
+				assert(r >= 0);
+			}
+			
+			transaction_id = tx_end(1);
+			r = tx_sync(transaction_id);
+			assert(r >= 0);
+			
+			sendto(ping, &message, sizeof(message), 0, (struct sockaddr *) &sin, sizeof(sin));
+		}
+	
+	delete dt;
+	
+	if(!check)
+		close(ping);
 	return 0;
 }
 
