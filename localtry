@@ -37,6 +37,8 @@ blob_cmp
 #bdbtest
 #consistency
 #consistency check
+#durability
+#durability check
 EOF
 mkdir $DIR/journals
 ln -s "`pwd`/tpch" $DIR

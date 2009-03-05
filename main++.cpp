@@ -1363,50 +1363,25 @@ int command_consistency(int argc, const char * argv[])
 	return 0;
 }
 
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
+#include <signal.h>
 
-#define DURA_INIT_MAGIC 0xBEE3F56A
-#define DURA_TX_MAGIC 0xA0114CC7
+static bool durability_stop = false;
+
+static void durable_death(int signal)
+{
+	durability_stop = true;
+}
 
 int command_durability(int argc, const char * argv[])
 {
 	params config;
-	struct sockaddr_in sin;
 	tx_id transaction_id;
-	struct {
-		uint32_t magic;
-		uint32_t session;
-		uint32_t tx_seq;
-	} message;
+	uint32_t tx_seq;
 	dtable * dt;
-	int r, ping = -1;
 	bool check;
+	int r;
 	
 	check = argc > 1 && !strcmp(argv[1], "check");
-	
-	if(!check)
-	{
-		ping = socket(PF_INET, SOCK_DGRAM, 0);
-		assert(ping >= 0);
-		
-		memset(&sin, 0, sizeof(sin));
-		sin.sin_family = AF_INET;
-		sin.sin_port = htons(8399);
-		sin.sin_addr.s_addr = INADDR_ANY;
-		r = bind(ping, (struct sockaddr *) &sin, sizeof(sin));
-		assert(r >= 0);
-		
-		/* timbuktu.cs.ucla.edu */
-		sin.sin_addr.s_addr = htonl(0x83B35075);
-		
-		message.magic = DURA_INIT_MAGIC;
-		message.session = time(NULL) ^ getpid() ^ rand();
-		message.tx_seq = 0;
-		sendto(ping, &message, sizeof(message), 0, (struct sockaddr *) &sin, sizeof(sin));
-		message.magic = DURA_TX_MAGIC;
-	}
 	
 	r = params::parse(LITERAL(
 	config [
@@ -1439,22 +1414,32 @@ int command_durability(int argc, const char * argv[])
 		blob value = dt ? dt->find(0u) : blob();
 		if(value.exists())
 		{
-			uint32_t tx_seq = value.index<uint32_t>(0);
+			tx_seq = value.index<uint32_t>(0);
 			printf("Transaction ID: %u\n", tx_seq);
 		}
 		else
 			printf("No transactions!\n");
 	}
 	else
-		for(; message.tx_seq < 10000; message.tx_seq++)
+	{
+		void (*original_death)(int);
+		
+		durability_stop = false;
+		original_death = signal(SIGALRM, durable_death);
+		
+		for(tx_seq = 0; tx_seq < 10000; tx_seq++)
 		{
+			bool stop = durability_stop;
+			if(stop)
+				printf("Durability test committing transaction ID: %u\n", tx_seq);
+			
 			r = tx_start();
 			assert(r >= 0);
 			
-			r = dt->insert(0u, blob(sizeof(message.tx_seq), &message.tx_seq));
+			r = dt->insert(0u, blob(sizeof(tx_seq), &tx_seq));
 			assert(r >= 0);
 			
-			if((message.tx_seq % 1000) == 999)
+			if((tx_seq % 1000) == 999)
 			{
 				r = dt->maintain();
 				assert(r >= 0);
@@ -1464,13 +1449,13 @@ int command_durability(int argc, const char * argv[])
 			r = tx_sync(transaction_id);
 			assert(r >= 0);
 			
-			sendto(ping, &message, sizeof(message), 0, (struct sockaddr *) &sin, sizeof(sin));
+			if(stop && original_death != SIG_DFL && original_death != SIG_IGN)
+				original_death(SIGALRM);
 		}
+	}
 	
 	delete dt;
 	
-	if(!check)
-		close(ping);
 	return 0;
 }
 

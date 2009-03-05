@@ -83,6 +83,8 @@ blob_cmp
 #bdbtest
 #consistency
 #consistency check
+#durability
+#durability check
 EOF
 mkdir /mnt/test/journals
 ln -s "`pwd`/tpch" /mnt/test
