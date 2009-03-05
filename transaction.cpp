@@ -430,7 +430,7 @@ tx_id metafile::tx_end(bool assign_id)
 			goto fail;
 	}
 	tx_recursion--;
-	return 0;
+	return assign_id ? last_tx_id : 0;
 	
 fail:
 	if(assign_id) 
