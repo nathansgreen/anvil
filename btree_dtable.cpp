@@ -441,7 +441,7 @@ int btree_dtable::write_btree(int dfd, const char * name, const dtable * base)
 		return -ENOSYS;
 	}
 	
-	fd = openat(dfd, name, O_WRONLY | O_CREAT, 0644);
+	fd = openat(dfd, name, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if(fd < 0)
 		return fd;
 	
