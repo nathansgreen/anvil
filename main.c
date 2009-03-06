@@ -596,6 +596,7 @@ int command_dtable(int argc, const char * argv[]);
 int command_edtable(int argc, const char * argv[]);
 int command_odtable(int argc, const char * argv[]);
 int command_ussdtable(int argc, const char * argv[]);
+int command_bfdtable(int argc, const char * argv[]);
 int command_sidtable(int argc, const char * argv[]);
 int command_didtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
@@ -640,6 +641,7 @@ struct {
 	{"edtable", "Test exception dtable functionality.", command_edtable},
 	{"odtable", "Test overlay dtable performance.", command_odtable},
 	{"ussdtable", "Test usstate dtable functionality.", command_ussdtable},
+	{"bfdtable", "Test bloom filter dtable functionality.", command_bfdtable},
 	{"sidtable", "Test smallint dtable functionality.", command_sidtable},
 	{"didtable", "Test deltaint dtable functionality.", command_didtable},
 	{"ctable", "Test ctable functionality.", command_ctable},

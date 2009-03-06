@@ -33,6 +33,7 @@ int command_dtable(int argc, const char * argv[]);
 int command_edtable(int argc, const char * argv[]);
 int command_odtable(int argc, const char * argv[]);
 int command_ussdtable(int argc, const char * argv[]);
+int command_bfdtable(int argc, const char * argv[]);
 int command_sidtable(int argc, const char * argv[]);
 int command_didtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
@@ -737,6 +738,130 @@ int command_ussdtable(int argc, const char * argv[])
 	mdt.insert(3u, "other");
 	r = base->create(AT_FDCWD, "usst_fail", config, &mdt);
 	printf("uss::create = %d (expect failure)\n", r);
+	
+	return 0;
+}
+
+static int bfdt_perf(dtable * table)
+{
+	struct timeval start, end;
+	
+	printf("Extant lookups... ");
+	fflush(stdout);
+	gettimeofday(&start, NULL);
+	for(int i = 0; i < 200000; i++)
+	{
+		uint32_t key = rand() % 4000000;
+		blob value = table->find(key * 2);
+		if(!value.exists() || value.index<uint32_t>(0) != key)
+		{
+			printf("!");
+			fflush(stdout);
+		}
+	}
+	gettimeofday(&end, NULL);
+	end.tv_sec -= start.tv_sec;
+	if(end.tv_usec < start.tv_usec)
+	{
+		end.tv_usec += 1000000;
+		end.tv_sec--;
+	}
+	end.tv_usec -= start.tv_usec;
+	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
+	
+	printf("Nonexistent lookups... ");
+	fflush(stdout);
+	gettimeofday(&start, NULL);
+	for(int i = 0; i < 200000; i++)
+	{
+		uint32_t key = rand() % 4000000;
+		blob value = table->find(key * 2 + 1);
+		if(value.exists())
+		{
+			printf("!");
+			fflush(stdout);
+		}
+	}
+	gettimeofday(&end, NULL);
+	end.tv_sec -= start.tv_sec;
+	if(end.tv_usec < start.tv_usec)
+	{
+		end.tv_usec += 1000000;
+		end.tv_sec--;
+	}
+	end.tv_usec -= start.tv_usec;
+	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
+	
+	return 0;
+}
+
+int command_bfdtable(int argc, const char * argv[])
+{
+	params config;
+	dtable * dt;
+	int r;
+	
+	config = params();
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) bloom_dtable
+		"base_config" config [
+			"bloom_k" int 5
+			"base" class(dt) simple_dtable
+		]
+		"digest_interval" int 2
+		"combine_interval" int 12
+		"combine_count" int 8
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "bfdt_perf", config, dtype::UINT32);
+	printf("dtable::create = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "bfdt_perf", config);
+	printf("dtable_factory::load = %p\n", dt);
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	printf("Populating table... ");
+	fflush(stdout);
+	for(int i = 0; i < 4000000; i++)
+	{
+		uint32_t key = i * 2;
+		uint32_t value = i;
+		r = dt->insert(key, blob(sizeof(value), &value));
+		if(r < 0)
+		{
+			tx_end(0);
+			printf("fail!\n");
+			return -1;
+		}
+	}
+	printf("done.\n");
+	
+	printf("Waiting 2 seconds for digest interval...\n");
+	sleep(2);
+	printf("Maintaining... ");
+	fflush(stdout);
+	r = dt->maintain();
+	printf("done. (= %d)\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	bfdt_perf(dt);
+	delete dt;
+	
+	printf("Repeat with direct access...\n");
+	dt = dtable_factory::load("simple_dtable", AT_FDCWD, "bfdt_perf/md_data.0/base", params());
+	printf("dtable_factory::load = %p\n", dt);
+	bfdt_perf(dt);
+	delete dt;
 	
 	return 0;
 }
