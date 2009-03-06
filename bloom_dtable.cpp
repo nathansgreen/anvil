@@ -39,6 +39,7 @@ public:
 			value |= byte & ((1 << take) - 1);
 			byte >>= take;
 			left -= take;
+			need -= take;
 			if(!left)
 			{
 				byte = *++array;
@@ -248,6 +249,7 @@ int bloom_dtable::init(int dfd, const char * file, const params & config)
 	r = filter.init(bf_dfd, "bloom", &m, &k);
 	if(r < 0)
 		goto fail_filter;
+	bits = HASH_BITS / k;
 	
 	close(bf_dfd);
 	return 0;

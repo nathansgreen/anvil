@@ -92,7 +92,7 @@ private:
 		}
 		bool check(size_t number) const
 		{
-			return (filter[number / 8] & (number % 8)) ? true : false;
+			return (filter[number / 8] & (1 << (number % 8))) ? true : false;
 		}
 		void set(size_t number)
 		{
