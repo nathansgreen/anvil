@@ -11,9 +11,9 @@ CPPSOURCES+=rofile.cpp rwfile.cpp string_counter.cpp stringset.cpp stringtbl.cpp
 CPPSOURCES+=toilet.cpp toilet++.cpp token_stream.cpp transaction.cpp stlavlmap/tree.cpp util.cpp
 
 # dtables
-CPPSOURCES+=array_dtable.cpp btree_dtable.cpp cache_dtable.cpp deltaint_dtable.cpp exception_dtable.cpp
-CPPSOURCES+=fixed_dtable.cpp journal_dtable.cpp managed_dtable.cpp memory_dtable.cpp overlay_dtable.cpp
-CPPSOURCES+=simple_dtable.cpp smallint_dtable.cpp usstate_dtable.cpp ustr_dtable.cpp
+CPPSOURCES+=array_dtable.cpp btree_dtable.cpp bloom_dtable.cpp cache_dtable.cpp deltaint_dtable.cpp
+CPPSOURCES+=exception_dtable.cpp fixed_dtable.cpp journal_dtable.cpp managed_dtable.cpp memory_dtable.cpp
+CPPSOURCES+=overlay_dtable.cpp simple_dtable.cpp smallint_dtable.cpp usstate_dtable.cpp ustr_dtable.cpp
 
 # ctables, stables, and external indices
 CPPSOURCES+=column_ctable.cpp simple_ctable.cpp simple_stable.cpp simple_ext_index.cpp
