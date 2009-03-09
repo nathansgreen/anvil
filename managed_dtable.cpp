@@ -371,8 +371,8 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 
 int managed_dtable::maintain_autocombine()
 {
-	++autocombine_digest_count;
-	int count = autocombine_digests + ffs(autocombine_digest_count);
+	++autocombine_combine_count;
+	int count = autocombine_digests + ffs(autocombine_combine_count);
 	if (count > disks.size())
 		count = disks.size();
 	if (count > 1) {
