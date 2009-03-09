@@ -47,6 +47,11 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		return -EINVAL;
 	if(!config.get("close_digest_fastbase", &close_digest_fastbase, true))
 		return -EINVAL;
+	if(!config.get("autocombine", &autocombine, true))
+		return -EINVAL;
+	if(!config.get("autocombine_digests", &autocombine_digests, 4))
+		return -EINVAL;
+	autocombine_digest_count = autocombine_combine_count = 0;
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
 		return md_dfd;
@@ -364,6 +369,22 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 	return 0;
 }
 
+int managed_dtable::maintain_autocombine()
+{
+	++autocombine_digest_count;
+	int count = autocombine_digests + ffs(autocombine_digest_count) - 1;
+	if (count > disks.size())
+		count = disks.size();
+	if (count > 1) {
+		int r = combine(count);
+		if(r < 0)
+		{
+			return r;
+		}
+	}
+	return 0;
+}
+
 int managed_dtable::maintain(bool force)
 {
 	time_t now = time(NULL);
@@ -401,10 +422,16 @@ int managed_dtable::maintain(bool force)
 			{
 				header.digested = old;
 				return r;
+			} else if (autocombine
+				   && ++autocombine_digest_count == autocombine_digests) {
+				autocombine_digest_count = 0;
+				if ((r = maintain_autocombine()) < 0)
+					return r;
 			}
 		}
 	}
-	if(header.combined + header.combine_interval <= now)
+	if(header.combined + header.combine_interval <= now
+	   && !autocombine)
 	{
 		time_t old = header.combined;
 		header.combined += header.combine_interval;

@@ -170,6 +170,12 @@ private:
 	sys_journal * delayed_query;
 	size_t digest_size;
 	bool digest_on_close, close_digest_fastbase;
+	bool autocombine;
+	int autocombine_digests;
+	int autocombine_digest_count;
+	int autocombine_combine_count;
+
+	int maintain_autocombine();
 };
 
 #endif /* __MANAGED_DTABLE_H */
