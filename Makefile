@@ -52,7 +52,7 @@ ifeq ($(findstring 64,$(shell uname -m)),64)
 CFLAGS:=-fpic $(CFLAGS)
 endif
 
-all: config.mak tags main io_count.so
+all: config.mak main io_count.so
 
 %.o: %.c
 	gcc -c $< -o $@ -O2 $(CFLAGS)
