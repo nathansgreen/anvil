@@ -72,6 +72,12 @@
 #include <bits/stl_function.h>
 #include <bits/cpp_type_traits.h>
 
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+/* OK */
+#else
+# define __is_pod(x) std::__is_pod<x>::__value
+#endif
+
 namespace avl
 {
   // Notes:
@@ -335,7 +341,6 @@ namespace avl
     protected:
       typedef _avl_tree_node_base* _Base_ptr;
       typedef const _avl_tree_node_base* _Const_Base_ptr;
-      typedef _avl_tree_node<_Val> _avl_tree_node;
 
     public:
       typedef _Key key_type;
@@ -344,8 +349,8 @@ namespace avl
       typedef const value_type* const_pointer;
       typedef value_type& reference;
       typedef const value_type& const_reference;
-      typedef _avl_tree_node* _Link_type;
-      typedef const _avl_tree_node* _Const_Link_type;
+      typedef _avl_tree_node<_Val>* _Link_type;
+      typedef const _avl_tree_node<_Val>* _Const_Link_type;
       typedef size_t size_type;
       typedef ptrdiff_t difference_type;
       typedef _Alloc allocator_type;
@@ -355,12 +360,12 @@ namespace avl
       { return *static_cast<const _Node_allocator*>(&this->_M_impl); }
 
     protected:
-      _avl_tree_node*
+      _avl_tree_node<_Val>*
       _M_get_node()
       { return _M_impl._Node_allocator::allocate(1); }
 
       void
-      _M_put_node(_avl_tree_node* __p)
+      _M_put_node(_avl_tree_node<_Val>* __p)
       { _M_impl._Node_allocator::deallocate(__p, 1); }
 
       _Link_type
@@ -396,7 +401,7 @@ namespace avl
 
     protected:
       template<typename _Key_compare, 
-	       bool _Is_pod_comparator = std::__is_pod<_Key_compare>::__value>
+	       bool _Is_pod_comparator = __is_pod(_Key_compare)>
         struct _avl_tree_impl : public _Node_allocator
         {
 	  _Key_compare		_M_key_compare;
