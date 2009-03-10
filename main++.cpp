@@ -792,6 +792,24 @@ static int bfdt_perf(dtable * table)
 	end.tv_usec -= start.tv_usec;
 	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
 	
+	printf("Mixed lookups... ");
+	fflush(stdout);
+	gettimeofday(&start, NULL);
+	for(int i = 0; i < 200000; i++)
+	{
+		uint32_t key = rand() % 8000000;
+		blob value = table->find(key);
+	}
+	gettimeofday(&end, NULL);
+	end.tv_sec -= start.tv_sec;
+	if(end.tv_usec < start.tv_usec)
+	{
+		end.tv_usec += 1000000;
+		end.tv_sec--;
+	}
+	end.tv_usec -= start.tv_usec;
+	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
+	
 	return 0;
 }
 
