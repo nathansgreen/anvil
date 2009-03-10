@@ -27,7 +27,7 @@
  * constituent dtables into new, combined disk dtables with the same data. */
 
 #define MDTABLE_MAGIC 0x784D3DB7
-#define MDTABLE_VERSION 0
+#define MDTABLE_VERSION 1
 
 class managed_dtable : public dtable
 {
@@ -131,6 +131,10 @@ private:
 		time_t digest_interval, digested;
 		/* we will need something more advanced than this */
 		time_t combine_interval, combined;
+		/* autocombining is better but still not enough */
+		uint32_t autocombine_digests;
+		uint32_t autocombine_digest_count;
+		uint32_t autocombine_combine_count;
 	} __attribute__((packed));
 	
 	struct mdtable_entry
@@ -155,6 +159,8 @@ private:
 	};
 	typedef std::vector<dtable_list_entry> dtable_list;
 	
+	int maintain_autocombine();
+	
 	int md_dfd;
 	mdtable_header header;
 	
@@ -169,13 +175,7 @@ private:
 	 *  set; we set delayed_query when this case is detected in init() */
 	sys_journal * delayed_query;
 	size_t digest_size;
-	bool digest_on_close, close_digest_fastbase;
-	bool autocombine;
-	int autocombine_digests;
-	int autocombine_digest_count;
-	int autocombine_combine_count;
-
-	int maintain_autocombine();
+	bool digest_on_close, close_digest_fastbase, autocombine;
 };
 
 #endif /* __MANAGED_DTABLE_H */

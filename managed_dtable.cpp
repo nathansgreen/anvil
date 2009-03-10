@@ -49,9 +49,6 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		return -EINVAL;
 	if(!config.get("autocombine", &autocombine, true))
 		return -EINVAL;
-	if(!config.get("autocombine_digests", &autocombine_digests, 4))
-		return -EINVAL;
-	autocombine_digest_count = autocombine_combine_count = 0;
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
 		return md_dfd;
@@ -371,14 +368,17 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 
 int managed_dtable::maintain_autocombine()
 {
-	++autocombine_combine_count;
-	int count = autocombine_digests + ffs(autocombine_combine_count) - 1;
-	if (count > disks.size())
+	size_t count = header.autocombine_digests;
+	header.autocombine_combine_count++;
+	count += ffs(header.autocombine_combine_count) - 1;
+	if(count > disks.size())
 		count = disks.size();
-	if (count > 1) {
+	if(count > 1)
+	{
 		int r = combine(disks.size() - count, disks.size());
 		if(r < 0)
 		{
+			header.autocombine_combine_count--;
 			return r;
 		}
 	}
@@ -416,22 +416,30 @@ int managed_dtable::maintain(bool force)
 		/* don't bother if the journal is empty though */
 		if(journal->size())
 		{
+			if(autocombine)
+				header.autocombine_digest_count++;
 			/* will rewrite header for us! */
 			r = digest();
 			if(r < 0)
 			{
+				header.autocombine_digest_count--;
 				header.digested = old;
 				return r;
-			} else if (autocombine
-				   && ++autocombine_digest_count == autocombine_digests) {
-				autocombine_digest_count = 0;
-				if ((r = maintain_autocombine()) < 0)
+			}
+			if(autocombine && header.autocombine_digest_count == header.autocombine_digests)
+			{
+				header.autocombine_digest_count = 0;
+				/* will rewrite header for us! */
+				r = maintain_autocombine();
+				if(r < 0)
+				{
+					header.autocombine_digest_count = header.autocombine_digests;
 					return r;
+				}
 			}
 		}
 	}
-	if(header.combined + header.combine_interval <= now
-	   && !autocombine)
+	if(header.combined + header.combine_interval <= now && !autocombine)
 	{
 		time_t old = header.combined;
 		header.combined += header.combine_interval;
@@ -496,6 +504,11 @@ int managed_dtable::create(int dfd, const char * name, const params & config, dt
 		return -EINVAL;
 	header.combine_interval = r;
 	header.combined = header.digested;
+	if(!config.get("autocombine_digests", &r, 4))
+		return -EINVAL;
+	header.autocombine_digests = r;
+	header.autocombine_digest_count = 0;
+	header.autocombine_combine_count = 0;
 	
 	r = mkdirat(dfd, name, 0755);
 	if(r < 0)
