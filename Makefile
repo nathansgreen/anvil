@@ -52,7 +52,7 @@ ifeq ($(findstring 64,$(shell uname -m)),64)
 CFLAGS:=-fpic $(CFLAGS)
 endif
 
-all: config.mak main io_count.so
+all: config.mak tags main io_count.so
 
 %.o: %.c
 	gcc -c $< -o $@ -O2 $(CFLAGS)
@@ -112,7 +112,7 @@ config.mak: configure
 	g++ -MM $(CFLAGS) $(CPPFLAGS) *.c *.cpp > .depend
 
 tags: $(SOURCES) main.c $(HEADERS)
-	ctags -R
+	if ctags --version | grep -q Exuberant; then ctags -R; else touch tags; fi
 
 ifneq ($(MAKECMDGOALS),clean)
 -include .depend
