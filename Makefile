@@ -28,6 +28,9 @@ COBJECTS=$(CSOURCES:.c=.o)
 CPPOBJECTS=$(CPPSOURCES:.cpp=.o)
 OBJECTS=$(COBJECTS) $(CPPOBJECTS)
 
+MAIN_SRC=main.c main++.cpp tpch.cpp
+MAIN_OBJ=main.o main++.o tpch.o
+
 .PHONY: all clean clean-all count count-all php
 
 -include config.mak
@@ -72,14 +75,13 @@ libtoilet.o: $(OBJECTS)
 libtoilet.a: libtoilet.o
 	ar csr $@ $<
 
-MAIN_OBJS=main.o main++.o tpch.o
 ifeq ($(findstring -pg,$(CFLAGS)),-pg)
 # Link statically if we are profiling; gprof won't profile shared library code
-main: libtoilet.a $(MAIN_OBJS)
-	g++ -o $@ $(MAIN_OBJS) libtoilet.a -lreadline -ltermcap $(LDFLAGS)
+main: libtoilet.a $(MAIN_OBJ)
+	g++ -o $@ $(MAIN_OBJ) libtoilet.a -lreadline -ltermcap $(LDFLAGS)
 else
-main: libtoilet.so $(MAIN_OBJS)
-	g++ -o $@ $(MAIN_OBJS) -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
+main: libtoilet.so $(MAIN_OBJ)
+	g++ -o $@ $(MAIN_OBJ) -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
 endif
 
 io_count.so: io_count.o
@@ -108,10 +110,10 @@ config.h: config.mak
 config.mak: configure
 	./configure --reconfigure
 
-.depend: $(SOURCES) $(HEADERS) config.h main.c main++.cpp
+.depend: $(SOURCES) $(MAIN_SRC) $(HEADERS) config.h
 	g++ -MM $(CFLAGS) $(CPPFLAGS) *.c *.cpp > .depend
 
-tags: $(SOURCES) main.c $(HEADERS)
+tags: $(SOURCES) $(MAIN_SRC) $(HEADERS) config.h
 	if ctags --version | grep -q Exuberant; then ctags -R; else touch tags; fi
 
 ifneq ($(MAKECMDGOALS),clean)

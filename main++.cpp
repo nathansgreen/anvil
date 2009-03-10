@@ -151,7 +151,7 @@ static void run_iterator(ctable * table)
 			old_key = key;
 			first = false;
 		}
-		printf("%s:", (const char *) iter->column());
+		printf("%s:", (const char *) iter->name());
 		print(iter->value(), "\t");
 		more = iter->next();
 	}
