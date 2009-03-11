@@ -5,8 +5,10 @@ config.h
 config.log
 config.mak
 libtoilet.so
+libtoilet.dylib
 libtoilet.a
 io_count.so
+io_count.dylib
 fstitch
 main
 medic

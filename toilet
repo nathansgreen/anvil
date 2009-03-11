@@ -7,4 +7,9 @@ then
 	make -C "$WD" main || exit $?
 fi
 
-LD_LIBRARY_PATH="$WD/fstitch/obj/kernel/lib:$LD_LIBRARY_PATH" exec "$WD/main"
+if [ "`uname -s`" == "Darwin" ]
+then
+	DYLD_LIBRARY_PATH="$WD/fstitch/obj/kernel/lib:$WD:$DYLD_LIBRARY_PATH" exec "$WD/main"
+else
+	LD_LIBRARY_PATH="$WD/fstitch/obj/kernel/lib:$LD_LIBRARY_PATH" exec "$WD/main"
+fi

@@ -82,20 +82,38 @@ static void print_stats(void)
 	printf("Write total: %"PRIu64" (%u.%uM) calls: %"PRIu64"\n", total, MEGS_FRAC(total), stats.write_calls + stats.pwrite_calls + stats.fwrite_calls);
 }
 
+#ifdef __APPLE__
+ssize_t (*__read)(int, void *, size_t);
+ssize_t (*__write)(int, const void *, size_t);
+ssize_t (*__libc_pread)(int, void *, size_t, off_t);
+ssize_t (*__libc_pwrite)(int, const void *, size_t, off_t);
+size_t (*_IO_fread)(void *, size_t, size_t, FILE *);
+size_t (*_IO_fwrite)(const void *, size_t, size_t, FILE *);
+#else
 ssize_t __read(int, void *, size_t);
 ssize_t __write(int, const void *, size_t);
 ssize_t (*__libc_pread)(int, void *, size_t, off_t);
 ssize_t __libc_pwrite(int, const void *, size_t, off_t);
 size_t _IO_fread(void *, size_t, size_t, FILE *);
 size_t _IO_fwrite(const void *, size_t, size_t, FILE *);
+#endif
 
 static inline void do_setup(void)
 {
 	if(!is_setup)
 	{
 		atexit(print_stats);
-		/* why is there no __libc_pread? */
+#ifdef __APPLE__
+		__read = dlsym(RTLD_NEXT, "read");
+		__write = dlsym(RTLD_NEXT, "write");
 		__libc_pread = dlsym(RTLD_NEXT, "pread");
+		__libc_pwrite = dlsym(RTLD_NEXT, "pwrite");
+		_IO_fread = dlsym(RTLD_NEXT, "fread");
+		_IO_fwrite = dlsym(RTLD_NEXT, "fwrite");
+#else
+		/* why is there no __libc_pread? */
+ 		__libc_pread = dlsym(RTLD_NEXT, "pread");
+#endif
 		is_setup = 1;
 	}
 }

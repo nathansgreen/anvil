@@ -35,7 +35,9 @@ MAIN_OBJ=main.o main++.o tpch.o
 
 -include config.mak
 
-CFLAGS:=-Wall $(FSTITCH_CFLAGS) $(CONFIG_CFLAGS) $(CFLAGS)
+PCFLAGS=-Wall $(FSTITCH_CFLAGS) $(CONFIG_CFLAGS)
+
+CFLAGS:=$(PCFLAGS) $(CFLAGS)
 LDFLAGS:=$(FSTITCH_LDFLAGS) $(CONFIG_LDFLAGS) $(LDFLAGS)
 
 ifeq ($(findstring -pg,$(CFLAGS)),-pg)
@@ -50,12 +52,25 @@ endif
 #endif
 endif
 
-# On 64-bit architectures, -fpic is required
-ifeq ($(findstring 64,$(shell uname -m)),64)
-CFLAGS:=-fpic $(CFLAGS)
+# Mac OS X is special
+ifeq ($(shell uname -s),Darwin)
+SO=dylib
+SHARED=-dynamiclib
+RTP=
+PIC=-fPIC
+else
+SO=so
+SHARED=-shared
+RTP=-Wl,-R,$(PWD)
+PIC=-fpic
 endif
 
-all: config.mak tags main io_count.so
+# On 64-bit architectures, -fpic is required
+ifeq ($(findstring 64,$(shell uname -m)),64)
+CFLAGS:=$(PIC) $(CFLAGS)
+endif
+
+all: config.mak tags main io_count.$(SO)
 
 %.o: %.c
 	gcc -c $< -o $@ -O2 $(CFLAGS)
@@ -63,8 +78,8 @@ all: config.mak tags main io_count.so
 %.o: %.cpp
 	g++ -c $< -o $@ -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
 
-libtoilet.so: libtoilet.o $(FSTITCH_LIB)
-	g++ -shared -o $@ $< -ldl $(LDFLAGS)
+libtoilet.$(SO): libtoilet.o $(FSTITCH_LIB)
+	g++ $(SHARED) -o $@ $< -ldl $(LDFLAGS)
 
 libtoilet.o: $(OBJECTS)
 	ld -r -o $@ $^
@@ -80,18 +95,18 @@ ifeq ($(findstring -pg,$(CFLAGS)),-pg)
 main: libtoilet.a $(MAIN_OBJ)
 	g++ -o $@ $(MAIN_OBJ) libtoilet.a -lreadline -ltermcap $(LDFLAGS)
 else
-main: libtoilet.so $(MAIN_OBJ)
-	g++ -o $@ $(MAIN_OBJ) -Wl,-R,$(PWD) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
+main: libtoilet.$(SO) $(MAIN_OBJ)
+	g++ -o $@ $(MAIN_OBJ) $(RTP) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
 endif
 
-io_count.so: io_count.o
-	gcc -shared -o $@ $< -ldl $(LDFLAGS)
+io_count.$(SO): io_count.o
+	gcc $(SHARED) -o $@ $< -ldl $(LDFLAGS)
 
 medic: medic.o md5.o
 	gcc -o $@ $^
 
 clean:
-	rm -f config.h config.mak main libtoilet.so libtoilet.a io_count.so medic *.o stlavlmap/*.o .depend tags
+	rm -f config.h config.mak main libtoilet.$(SO) libtoilet.a io_count.$(SO) medic *.o stlavlmap/*.o .depend tags
 
 clean-all: clean
 	php/clean
@@ -111,7 +126,7 @@ config.mak: configure
 	./configure --reconfigure
 
 .depend: $(SOURCES) $(MAIN_SRC) $(HEADERS) config.h
-	g++ -MM $(CFLAGS) $(CPPFLAGS) *.c *.cpp > .depend
+	g++ -MM $(PCFLAGS) $(CPPFLAGS) *.c *.cpp > .depend
 
 tags: $(SOURCES) $(MAIN_SRC) $(HEADERS) config.h
 	if ctags --version | grep -q Exuberant; then ctags -R; else touch tags; fi

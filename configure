@@ -105,8 +105,14 @@ if [ $FSTITCH == yes ]
 then
 	HAVE_FSTITCH=1
 	FSTITCH_CFLAGS='-Ifstitch/include'
-	FSTITCH_LDFLAGS='-Lfstitch/obj/kernel/lib -lpatchgroup -Wl,-R,$(PWD)/fstitch/obj/kernel/lib'
-	FSTITCH_LIB='fstitch/obj/kernel/lib/libpatchgroup.so'
+	if [ "`uname -s`" == "Darwin" ]
+	then
+		FSTITCH_LDFLAGS='-Lfstitch/obj/kernel/lib -lpatchgroup'
+		FSTITCH_LIB='fstitch/obj/kernel/lib/libpatchgroup.dylib'
+	else
+		FSTITCH_LDFLAGS='-Lfstitch/obj/kernel/lib -lpatchgroup -Wl,-R,$(PWD)/fstitch/obj/kernel/lib'
+		FSTITCH_LIB='fstitch/obj/kernel/lib/libpatchgroup.so'
+	fi
 	echo -n "Creating symbolic link \"fstitch\"... "
 	ln -s "$FSTITCH_PATH" fstitch
 	echo "done."
