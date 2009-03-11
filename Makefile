@@ -1,24 +1,35 @@
 # Not many C source files left now...
 CSOURCES=blowfish.c md5.c openat.c
 
-# NOTE: list all factory-constructible classes (dtables, etc.) before the
-# corresponding factory registries. See factory_impl.h for the reason.
-# For the same reason, transaction.cpp must come after sys_journal.cpp here.
-
 # library stuff
-CPPSOURCES=blob_buffer.cpp blob.cpp index_blob.cpp istr.cpp journal.cpp new.cpp params.cpp
-CPPSOURCES+=rofile.cpp rwfile.cpp string_counter.cpp stringset.cpp stringtbl.cpp sys_journal.cpp
-CPPSOURCES+=toilet.cpp toilet++.cpp token_stream.cpp transaction.cpp stlavlmap/tree.cpp util.cpp
+LIBRARIES=blob_buffer.cpp blob.cpp index_blob.cpp istr.cpp journal.cpp new.cpp params.cpp
+LIBRARIES+=rofile.cpp rwfile.cpp string_counter.cpp stringset.cpp stringtbl.cpp sys_journal.cpp
+LIBRARIES+=toilet.cpp toilet++.cpp token_stream.cpp stlavlmap/tree.cpp util.cpp
 
 # dtables
-CPPSOURCES+=array_dtable.cpp btree_dtable.cpp bloom_dtable.cpp cache_dtable.cpp deltaint_dtable.cpp
-CPPSOURCES+=exception_dtable.cpp fixed_dtable.cpp journal_dtable.cpp managed_dtable.cpp memory_dtable.cpp
-CPPSOURCES+=overlay_dtable.cpp simple_dtable.cpp smallint_dtable.cpp usstate_dtable.cpp ustr_dtable.cpp
+DTABLES=array_dtable.cpp btree_dtable.cpp bloom_dtable.cpp cache_dtable.cpp deltaint_dtable.cpp
+DTABLES+=exception_dtable.cpp fixed_dtable.cpp journal_dtable.cpp managed_dtable.cpp memory_dtable.cpp
+DTABLES+=overlay_dtable.cpp simple_dtable.cpp smallint_dtable.cpp usstate_dtable.cpp ustr_dtable.cpp
 
 # ctables, stables, and external indices
-CPPSOURCES+=column_ctable.cpp simple_ctable.cpp simple_stable.cpp simple_ext_index.cpp
-# factory registries
-CPPSOURCES+=dtable_factory.cpp ctable_factory.cpp index_factory.cpp
+MISC_STUFF=column_ctable.cpp simple_ctable.cpp simple_stable.cpp simple_ext_index.cpp
+
+# factory registries and transactions (see note below)
+FACTORIES=dtable_factory.cpp ctable_factory.cpp index_factory.cpp transaction.cpp
+
+UNAME_S:=$(shell uname -s)
+UNAME_M:=$(shell uname -m)
+
+# NOTE: all factory-constructible classes (dtables, etc.) must come before
+# the corresponding factory registries. See factory_impl.h for the reason.
+# For the same reason, transaction.cpp must come after sys_journal.cpp here.
+
+ifeq ($(UNAME_S),Darwin)
+# Well, except that on OS X they must be listed in the other order
+CPPSOURCES=$(FACTORIES) $(LIBRARIES) $(DTABLES) $(MISC_STUFF)
+else
+CPPSOURCES=$(LIBRARIES) $(DTABLES) $(MISC_STUFF) $(FACTORIES)
+endif
 
 SOURCES=$(CSOURCES) $(CPPSOURCES)
 
@@ -53,7 +64,7 @@ endif
 endif
 
 # Mac OS X is special
-ifeq ($(shell uname -s),Darwin)
+ifeq ($(UNAME_S),Darwin)
 SO=dylib
 SHARED=-dynamiclib
 RTP=
@@ -66,7 +77,7 @@ PIC=-fpic
 endif
 
 # On 64-bit architectures, -fpic is required
-ifeq ($(findstring 64,$(shell uname -m)),64)
+ifeq ($(findstring 64,$(UNAME_M)),64)
 CFLAGS:=$(PIC) $(CFLAGS)
 endif
 

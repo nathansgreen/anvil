@@ -9,12 +9,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <assert.h>
 #include <dirent.h>
 #include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/param.h>
 #include <sys/times.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
@@ -376,17 +378,57 @@ int unlinkat(int dfd, const char * pathname, int flag)
 
 int renameat(int olddfd, const char * oldname, int newdfd, const char * newname)
 {
-	/* How to emulate this? */
-	/* really only a problem if olddfd != newdfd and both != AT_FDCWD */
-	errno = ENOSYS;
-	perror(__FUNCTION__);
-	return -errno;
+	char srcdir[MAXPATHLEN];
+	char dstdir[MAXPATHLEN];
+	if((olddfd == AT_FDCWD && newdfd == AT_FDCWD) || (*oldname == '/' && *newname == '/')
+	   || (olddfd == AT_FDCWD && *newname == '/') || (*oldname == '/' && newdfd == AT_FDCWD))
+		return rename(oldname, newname);
+	if(olddfd == newdfd)
+	{
+		/* same directory, chdir there and rename */
+		int r, cfd = open(".", 0);
+		if(cfd < 0)
+			return cfd;
+		r = fchdir(olddfd);
+		if(r < 0)
+		{
+			close(cfd);
+			return r;
+		}
+		r = rename(oldname, newname);
+		fchdir(cfd);
+		close(cfd);
+		return r;
+	}
+	/* different directories, at most one is AT_FDCWD */
+	if(olddfd != AT_FDCWD)
+	{
+		size_t length;
+		if(!getcwdat(olddfd, srcdir, sizeof(srcdir)))
+			return errno ? -errno : -1;
+		length = strlen(srcdir);
+		srcdir[length++] = '/';
+		assert(length < sizeof(srcdir));
+		strncpy(&srcdir[length], oldname, sizeof(srcdir) - length);
+		oldname = srcdir;
+	}
+	if(newdfd != AT_FDCWD)
+	{
+		size_t length;
+		if(!getcwdat(newdfd, dstdir, sizeof(dstdir)))
+			return errno ? -errno : -1;
+		length = strlen(dstdir);
+		dstdir[length++] = '/';
+		assert(length < sizeof(dstdir));
+		strncpy(&dstdir[length], newname, sizeof(dstdir) - length);
+		newname = dstdir;
+	}
+	return rename(oldname, newname);
 }
 
 int linkat(int olddfd, const char * oldname, int newdfd, const char * newname, int flags)
 {
-	/* How to emulate this? */
-	/* really only a problem if olddfd != newdfd and both != AT_FDCWD */
+	/* this should work like renameat() above */
 	errno = ENOSYS;
 	perror(__FUNCTION__);
 	return -errno;
