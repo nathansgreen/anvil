@@ -206,7 +206,7 @@ int simple_dtable::find_key(const T & test, size_t * index, size_t * data_length
 	return -ENOENT;
 }
 
-blob simple_dtable::get_value(size_t index, size_t data_length, off_t data_offset) const
+blob simple_dtable::get_value(size_t data_length, off_t data_offset) const
 {
 	if(!data_length)
 		return blob::empty;
@@ -224,14 +224,14 @@ blob simple_dtable::get_value(size_t index) const
 	size_t data_length;
 	off_t data_offset;
 	dtype key = get_key(index, &data_length, &data_offset);
-	return (data_length != (size_t) -1) ? get_value(index, data_length, data_offset) : blob();
+	return (data_length != (size_t) -1) ? get_value(data_length, data_offset) : blob();
 }
 
 blob simple_dtable::lookup(const dtype & key, bool * found) const
 {
-	size_t data_length, index;
+	size_t data_length;
 	off_t data_offset;
-	int r = find_key(key, &data_length, &data_offset, &index);
+	int r = find_key(key, &data_length, &data_offset);
 	if(r < 0)
 	{
 		*found = false;
@@ -240,7 +240,7 @@ blob simple_dtable::lookup(const dtype & key, bool * found) const
 	*found = true;
 	if(data_length == (size_t) -1)
 		return blob();
-	return get_value(index, data_length, data_offset);
+	return get_value(data_length, data_offset);
 }
 
 blob simple_dtable::index(size_t index) const

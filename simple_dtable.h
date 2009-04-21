@@ -97,7 +97,7 @@ private:
 	}
 	template<class T>
 	int find_key(const T & test, size_t * index, size_t * data_length = NULL, off_t * data_offset = NULL) const;
-	blob get_value(size_t index, size_t data_length, off_t data_offset) const;
+	blob get_value(size_t data_length, off_t data_offset) const;
 	blob get_value(size_t index) const;
 	
 	rofile * fp;
