@@ -90,7 +90,7 @@ all: config.mak tags main io_count.$(SO)
 	g++ -c $< -o $@ -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
 
 libtoilet.$(SO): libtoilet.o $(FSTITCH_LIB)
-	g++ $(SHARED) -o $@ $< -ldl $(LDFLAGS)
+	g++ $(SHARED) -o $@ $< -ldl -lpthread $(LDFLAGS)
 
 libtoilet.o: $(OBJECTS)
 	ld -r -o $@ $^
