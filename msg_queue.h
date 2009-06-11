@@ -11,7 +11,7 @@
 #error msg_queue.h is a C++ header file
 #endif
 
-#include "atomic.h"
+#include "locking.h"
 
 /* a simple message queue */
 
@@ -36,52 +36,52 @@ public:
 	
 	inline void send(const T & msg)
 	{
-		atomic frame(&mutex);
+		scopelock scope(&mutex);
 		while(filled == size)
-			frame.wait(&not_filled);
+			scope.wait(&not_filled);
 		filled++;
 		messages[next_empty] = msg;
 		if(++next_empty == size)
 			next_empty = 0;
-		frame.signal(&not_empty);
+		scope.signal(&not_empty);
 	}
 	
 	inline void receive(T * msg)
 	{
-		atomic frame(&mutex);
+		scopelock scope(&mutex);
 		while(!filled)
-			frame.wait(&not_empty);
+			scope.wait(&not_empty);
 		filled--;
 		*msg = messages[next_filled];
 		if(++next_filled == size)
 			next_filled = 0;
-		frame.signal(&not_filled);
+		scope.signal(&not_filled);
 	}
 	
 	inline bool try_receive(T * msg)
 	{
-		atomic frame(&mutex);
+		scopelock scope(&mutex);
 		if(!filled)
 			return false;
 		filled--;
 		*msg = messages[next_filled];
 		if(++next_filled == size)
 			next_filled = 0;
-		frame.signal(&not_filled);
+		scope.signal(&not_filled);
 		return true;
 	}
 	
 	/* flush() is not called from ~msg_queue() in case T does not have a release() method */
 	inline void flush()
 	{
-		atomic frame(&mutex);
+		scopelock scope(&mutex);
 		while(filled)
 		{
 			messages[next_filled].release();
 			if(++next_filled == size)
 				next_filled = 0;
 		}
-		frame.signal(&not_filled);
+		scope.signal(&not_filled);
 	}
 	
 private:

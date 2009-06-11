@@ -12,7 +12,7 @@
 #error bg_thread.h is a C++ header file
 #endif
 
-#include "atomic.h"
+#include "locking.h"
 
 template<class T>
 class bg_thread
@@ -21,7 +21,7 @@ public:
 	void start()
 	{
 		pthread_t thread;
-		atomic frame(lock);
+		scopelock scope(lock);
 		if(running)
 			return;
 		stop_request = false;
@@ -36,11 +36,11 @@ public:
 	
 	void wait_for_stop()
 	{
-		atomic frame(lock);
+		scopelock scope(lock);
 		if(!running)
 			return;
 		stop_request = true;
-		frame.wait(&wait);
+		scope.wait(&wait);
 		assert(!running);
 	}
 	
@@ -76,14 +76,14 @@ private:
 	
 	void _start()
 	{
-		atomic frame(lock);
+		scopelock scope(lock);
 		running = true;
-		frame.unlock();
+		scope.unlock();
 		/* call the method */
 		(object->*method)();
-		frame.lock();
+		scope.lock();
 		running = false;
-		frame.broadcast(&wait);
+		scope.broadcast(&wait);
 	}
 	
 	static void * _start_static(void * arg)

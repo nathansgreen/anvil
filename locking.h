@@ -2,13 +2,13 @@
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
-#ifndef __ATOMIC_H
-#define __ATOMIC_H
+#ifndef __LOCKING_H
+#define __LOCKING_H
 
 #include <pthread.h>
 
 #ifndef __cplusplus
-#error atomic.h is a C++ header file
+#error locking.h is a C++ header file
 #endif
 
 /* a simple wrapper class to handle initializing a mutex when it
@@ -51,16 +51,16 @@ private:
 /* a simple wrapper class to handle unlocking a mutex when exiting a
  * scope, and also shorten condition variable code using that mutex */
 
-class atomic
+class scopelock
 {
 public:
-	inline atomic(pthread_mutex_t * mutex)
+	inline scopelock(pthread_mutex_t * mutex)
 		: mutex(mutex), locked(true)
 	{
 		pthread_mutex_lock(mutex);
 	}
 	
-	inline ~atomic()
+	inline ~scopelock()
 	{
 		if(locked)
 			pthread_mutex_unlock(mutex);
@@ -101,8 +101,8 @@ public:
 private:
 	pthread_mutex_t * mutex;
 	bool locked;
-	void operator=(const atomic &);
-	atomic(const atomic &);
+	void operator=(const scopelock &);
+	scopelock(const scopelock &);
 };
 
-#endif /* __ATOMIC_H */
+#endif /* __LOCKING_H */
