@@ -35,7 +35,8 @@ public:
 	/* send to overlay_dtable */
 	inline virtual iter * iterator() const
 	{
-		return overlay->iterator();
+		/* returns overlay->iterator() */
+		return iterator_chain_usage(&chain, overlay);
 	}
 	inline virtual bool present(const dtype & key, bool * found) const
 	{
@@ -108,7 +109,7 @@ public:
 	static int create(int dfd, const char * name, const params & config, dtype::ctype key_type);
 	DECLARE_RW_FACTORY(managed_dtable);
 	
-	inline managed_dtable() : md_dfd(-1) {}
+	inline managed_dtable() : md_dfd(-1), chain(this) {}
 	int init(int dfd, const char * name, const params & config, sys_journal * sys_journal = NULL);
 	void deinit();
 	inline virtual ~managed_dtable()
@@ -166,6 +167,7 @@ private:
 	
 	dtable_list disks;
 	overlay_dtable * overlay;
+	mutable chain_callback chain;
 	journal_dtable * journal;
 	const dtable_factory * base;
 	const dtable_factory * fastbase;

@@ -7,8 +7,9 @@
 dtable::iter * cache_dtable::iterator() const
 {
 	/* use the underlying iterator directly; we don't want to kill our cache iterating
-	 * though everything nor would it be easy to take advantage of our cache anyway */
-	return base->iterator();
+	 * though everything, nor would it be easy to take advantage of our cache anyway */
+	/* returns base->iterator() */
+	return iterator_chain_usage(&chain, base);
 }
 
 bool cache_dtable::present(const dtype & key, bool * found) const
