@@ -21,7 +21,7 @@ public:
 	void start()
 	{
 		pthread_t thread;
-		atomic frame(&lock);
+		atomic frame(lock);
 		if(running)
 			return;
 		stop_request = false;
@@ -36,7 +36,7 @@ public:
 	
 	void wait_for_stop()
 	{
-		atomic frame(&lock);
+		atomic frame(lock);
 		if(!running)
 			return;
 		stop_request = true;
@@ -56,7 +56,6 @@ public:
 	bg_thread(T * object, method_t method)
 		: stop_request(false), running(false), object(object), method(method)
 	{
-		pthread_mutex_init(&lock, NULL);
 		pthread_cond_init(&wait, NULL);
 	}
 	
@@ -64,7 +63,6 @@ public:
 	{
 		wait_for_stop();
 		pthread_cond_destroy(&wait);
-		pthread_mutex_destroy(&lock);
 	}
 	
 private:
@@ -73,12 +71,12 @@ private:
 	T * const object;
 	const method_t method;
 	
-	pthread_mutex_t lock;
+	init_mutex lock;
 	pthread_cond_t wait;
 	
 	void _start()
 	{
-		atomic frame(&lock);
+		atomic frame(lock);
 		running = true;
 		frame.unlock();
 		/* call the method */

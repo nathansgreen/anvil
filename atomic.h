@@ -11,8 +11,45 @@
 #error atomic.h is a C++ header file
 #endif
 
-/* a simple wrapper class to handle unlocking a mutex when the destructor is
- * called, and also shorten condition variable code while we're at it */
+/* a simple wrapper class to handle initializing a mutex when it
+ * is allocated, and also shorten lock and unlock code for it */
+
+class init_mutex
+{
+public:
+	inline init_mutex()
+	{
+		pthread_mutex_init(&mutex, NULL);
+	}
+	
+	inline ~init_mutex()
+	{
+		pthread_mutex_destroy(&mutex);
+	}
+	
+	inline void lock()
+	{
+		pthread_mutex_lock(&mutex);
+	}
+	
+	inline void unlock()
+	{
+		pthread_mutex_lock(&mutex);
+	}
+	
+	inline operator pthread_mutex_t * ()
+	{
+		return &mutex;
+	}
+	
+private:
+	pthread_mutex_t mutex;
+	void operator=(const init_mutex &);
+	init_mutex(const init_mutex &);
+};
+
+/* a simple wrapper class to handle unlocking a mutex when exiting a
+ * scope, and also shorten condition variable code using that mutex */
 
 class atomic
 {
@@ -64,6 +101,8 @@ public:
 private:
 	pthread_mutex_t * mutex;
 	bool locked;
+	void operator=(const atomic &);
+	atomic(const atomic &);
 };
 
 #endif /* __ATOMIC_H */
