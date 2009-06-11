@@ -27,7 +27,11 @@
 class bloom_dtable : public dtable
 {
 public:
-	virtual iter * iterator() const { return base->iterator(); }
+	virtual iter * iterator() const
+	{
+		/* returns base->iterator() */
+		return iterator_chain_usage(&chain, base);
+	}
 	virtual bool present(const dtype & key, bool * found) const;
 	virtual blob lookup(const dtype & key, bool * found) const;
 	virtual blob index(size_t index) const { return base->index(index); }
@@ -48,7 +52,7 @@ public:
 	/* bloom_dtable supports indexed access if its base does */
 	static bool static_indexed_access(const params & config);
 	
-	inline bloom_dtable() : base(NULL) {}
+	inline bloom_dtable() : base(NULL), chain(this) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
 	inline virtual ~bloom_dtable()
@@ -114,6 +118,7 @@ private:
 	} __attribute__((packed));
 	
 	dtable * base;
+	mutable chain_callback chain;
 	bloom filter;
 	/* m: number of bits in filter
 	 * k: number of hash indices

@@ -43,7 +43,7 @@ public:
 		return value;
 	}
 	
-	inline cache_dtable() : base(NULL), cache(10, blob_cmp, blob_cmp) {}
+	inline cache_dtable() : base(NULL), chain(this), cache(10, blob_cmp, blob_cmp) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
 	inline virtual ~cache_dtable()
@@ -68,6 +68,7 @@ private:
 	typedef __gnu_cxx::hash_map<const dtype, entry, dtype_hashing_comparator, dtype_hashing_comparator> cache_map;
 	
 	dtable * base;
+	mutable chain_callback chain;
 	size_t cache_size;
 	mutable cache_map cache;
 	mutable std::queue<dtype> order;

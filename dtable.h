@@ -14,6 +14,7 @@
 #include "blob.h"
 #include "dtype.h"
 #include "params.h"
+#include "callback.h"
 #include "blob_comparator.h"
 
 /* key tables (used for shadow checks) */
@@ -129,9 +130,10 @@ public:
 		virtual dtype::ctype key_type() const { return dt_source->key_type(); }
 		virtual const blob_comparator * get_blob_cmp() const { return dt_source->get_blob_cmp(); }
 		virtual const istr & get_cmp_name() const { return dt_source->get_cmp_name(); }
-		inline iter_source(const T * dt_source) : dt_source(dt_source) {}
+		inline iter_source(const T * dt_source) : dt_source(dt_source) { dt_source->retain(); }
 		/* for wrapper iterators, e.g. dtable_wrap_iter */
-		inline iter_source(iter * base, const T * dt_source) : P(base), dt_source(dt_source) {}
+		inline iter_source(iter * base, const T * dt_source) : P(base), dt_source(dt_source) { dt_source->retain(); }
+		inline ~iter_source() { dt_source->release(); }
 	protected:
 		const T * dt_source;
 	};
@@ -146,9 +148,9 @@ public:
 	inline virtual bool writable() const { return false; }
 	inline virtual int insert(const dtype & key, const blob & blob, bool append = false) { return -ENOSYS; }
 	inline virtual int remove(const dtype & key) { return -ENOSYS; }
-	inline dtable() {}
-	/* subclass destructors should [indirectly] call dtable::deinit() to avoid this assert */
-	inline virtual ~dtable() { assert(!blob_cmp); }
+	inline dtable() : usage(0) {}
+	/* subclass destructors should [indirectly] call dtable::deinit() to avoid these asserts */
+	inline virtual ~dtable() { assert(!blob_cmp); assert(!usage); }
 	
 	/* when using blob keys and a custom blob comparator, this will be necessary */
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
@@ -169,9 +171,52 @@ public:
 	/* subclasses can specify that they support indexed access */
 	static inline bool static_indexed_access(const params & config) { return false; }
 	
+	/* Iterators can refer to the dtables from which they came, so dtables
+	 * must not be destroyed until all their iterators have been destroyed.
+	 * We keep a reference count and support a callback mechanism to allow
+	 * notification when the last iterator is destroyed. */
+	inline bool in_use() const { return usage > 0; }
+	inline void add_unused_callback(callback * cb) { unused_callbacks.add(cb); }
+	inline void remove_unused_callback(callback * cb) { unused_callbacks.remove(cb); }
+	
+	/* dtables which return the iterators of another dtable, instead of
+	 * their own, need to chain the usage callbacks so that they will
+	 * correctly appear "in use" and call their own callbacks when the
+	 * underlying dtable is no longer in use. See bloom_dtable for an
+	 * example of how to use this functionality. */
+	class chain_callback : public callback
+	{
+	public:
+		inline chain_callback(const dtable * target) : target(target) {}
+		virtual void invoke() { target->release(); }
+		/* This probably should never happen: the underlying dtable has an
+		 * outstanding iterator yet is being destroyed. Nevertheless, our
+		 * usage count is +1 because of it, so we treat it like invoke(). */
+		virtual void release() { target->release(); }
+	private:
+		const dtable * target;
+	};
+	
 protected:
+	/* iterator usage counting */
+	inline void retain() const { usage++; }
+	inline void release() const { if(!--usage) unused_callbacks.invoke(); }
+	inline iter * iterator_chain_usage(chain_callback * chain, dtable * source) const
+	{
+		iter * it = source->iterator();
+		if(it && !usage)
+		{
+			retain();
+			source->add_unused_callback(chain);
+		}
+		return it;
+	}
+	
 	inline void deinit()
 	{
+		/* should we warn if it is in use? */
+		unused_callbacks.release();
+		usage = 0;
 		if(blob_cmp)
 		{
 			blob_cmp->release();
@@ -204,6 +249,8 @@ protected:
 	}
 	
 private:
+	mutable int usage;
+	mutable callbacks unused_callbacks;
 	void operator=(const dtable &);
 	dtable(const dtable &);
 };
