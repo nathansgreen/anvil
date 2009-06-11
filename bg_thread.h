@@ -91,6 +91,9 @@ private:
 		((bg_thread *) arg)->_start();
 		return NULL;
 	}
+	
+	void operator=(const bg_thread &);
+	bg_thread(const bg_thread &);
 };
 
 #endif /* __BG_THREAD_H */

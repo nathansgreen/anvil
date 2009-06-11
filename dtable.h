@@ -13,6 +13,7 @@
 
 #include "blob.h"
 #include "dtype.h"
+#include "atomic.h"
 #include "params.h"
 #include "callback.h"
 #include "blob_comparator.h"
@@ -150,7 +151,7 @@ public:
 	inline virtual int remove(const dtype & key) { return -ENOSYS; }
 	inline dtable() : usage(0) {}
 	/* subclass destructors should [indirectly] call dtable::deinit() to avoid these asserts */
-	inline virtual ~dtable() { assert(!blob_cmp); assert(!usage); }
+	inline virtual ~dtable() { assert(!blob_cmp); assert(!usage.get()); }
 	
 	/* when using blob keys and a custom blob comparator, this will be necessary */
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
@@ -175,7 +176,11 @@ public:
 	 * must not be destroyed until all their iterators have been destroyed.
 	 * We keep a reference count and support a callback mechanism to allow
 	 * notification when the last iterator is destroyed. */
-	inline bool in_use() const { return usage > 0; }
+	/* NOTE: It is not guaranteed that a new iterator has not been created
+	 * between the usage count reaching zero and the callback being called;
+	 * therefore, callbacks should usually only be registered once no new
+	 * iterators will be created for the dtable in question. */
+	inline bool in_use() const { return usage.get() > 0; }
 	inline void add_unused_callback(callback * cb) { unused_callbacks.add(cb); }
 	inline void remove_unused_callback(callback * cb) { unused_callbacks.remove(cb); }
 	
@@ -199,12 +204,12 @@ public:
 	
 protected:
 	/* iterator usage counting */
-	inline void retain() const { usage++; }
-	inline void release() const { if(!--usage) unused_callbacks.invoke(); }
+	inline void retain() const { usage.inc(); }
+	inline void release() const { if(!usage.dec()) unused_callbacks.invoke(); }
 	inline iter * iterator_chain_usage(chain_callback * chain, dtable * source) const
 	{
 		iter * it = source->iterator();
-		if(it && !usage)
+		if(it && !usage.get())
 		{
 			retain();
 			source->add_unused_callback(chain);
@@ -216,7 +221,7 @@ protected:
 	{
 		/* should we warn if it is in use? */
 		unused_callbacks.release();
-		usage = 0;
+		usage.zero();
 		if(blob_cmp)
 		{
 			blob_cmp->release();
@@ -249,7 +254,7 @@ protected:
 	}
 	
 private:
-	mutable int usage;
+	mutable atomic<int> usage;
 	mutable callbacks unused_callbacks;
 	void operator=(const dtable &);
 	dtable(const dtable &);
