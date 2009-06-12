@@ -13,6 +13,8 @@ function help()
 		
 		Options include:
 		    --help                 Display this help
+		    --with-cc=path         Use this C compiler
+		    --with-cxx=path        Use this C++ compiler
 		    --with-fstitch[=path]  Use Featherstitch from path
 		    --without-fstitch      Don't use Featherstitch
 		    --reconfigure          Use previously given options
@@ -24,6 +26,10 @@ function help()
 }
 
 RECONFIG=no
+
+# Default to gcc/g++ from $PATH
+CC=gcc
+CXX=g++
 
 # Default to using ext3 at this point
 FSTITCH=no
@@ -37,12 +43,18 @@ do
 		--help)
 			help
 		;;
+		--with-cc=*)
+			CC="${OPT#--with-cc=}"
+		;;
+		--with-cxx=*)
+			CXX="${OPT#--with-cxx=}"
+		;;
 		--with-fstitch)
 			FSTITCH=yes
 		;;
 		--with-fstitch=*)
 			FSTITCH=yes
-			FSTITCH_PATH=${OPT#--with-fstitch=}
+			FSTITCH_PATH="${OPT#--with-fstitch=}"
 		;;
 		--without-fstitch)
 			FSTITCH=no
@@ -135,6 +147,8 @@ echo "done."
 
 echo -n "Creating config.mak... "
 (cat <<-EOF
+	CC=$CC
+	CXX=$CXX
 	CONFIG_CFLAGS=$CFLAGS
 	CONFIG_LDFLAGS=$LDFLAGS
 	FSTITCH_CFLAGS=$FSTITCH_CFLAGS
@@ -150,6 +164,8 @@ then
 	(cat <<-EOF
 		# Generated on `date` by:
 		# $CMDLINE
+		CC="$CC"
+		CXX="$CXX"
 		CFLAGS="$CFLAGS"
 		LDFLAGS="$LDFLAGS"
 		FSTITCH=$FSTITCH

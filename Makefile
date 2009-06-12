@@ -84,13 +84,13 @@ endif
 all: config.mak tags main io_count.$(SO)
 
 %.o: %.c
-	gcc -c $< -o $@ -O2 $(CFLAGS)
+	$(CC) -c $< -o $@ -O2 $(CFLAGS)
 
 %.o: %.cpp
-	g++ -c $< -o $@ -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
+	$(CXX) -c $< -o $@ -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
 
 libtoilet.$(SO): libtoilet.o $(FSTITCH_LIB)
-	g++ $(SHARED) -o $@ $< -ldl -lpthread $(LDFLAGS)
+	$(CXX) $(SHARED) -o $@ $< -ldl -lpthread $(LDFLAGS)
 
 libtoilet.o: $(OBJECTS)
 	ld -r -o $@ $^
@@ -104,17 +104,17 @@ libtoilet.a: libtoilet.o
 ifeq ($(findstring -pg,$(CFLAGS)),-pg)
 # Link statically if we are profiling; gprof won't profile shared library code
 main: libtoilet.a $(MAIN_OBJ)
-	g++ -o $@ $(MAIN_OBJ) libtoilet.a -lreadline -ltermcap $(LDFLAGS)
+	$(CXX) -o $@ $(MAIN_OBJ) libtoilet.a -lreadline -ltermcap $(LDFLAGS)
 else
 main: libtoilet.$(SO) $(MAIN_OBJ)
-	g++ -o $@ $(MAIN_OBJ) $(RTP) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
+	$(CXX) -o $@ $(MAIN_OBJ) $(RTP) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
 endif
 
 io_count.$(SO): io_count.o
-	gcc $(SHARED) -o $@ $< -ldl $(LDFLAGS)
+	$(CC) $(SHARED) -o $@ $< -ldl $(LDFLAGS)
 
 medic: medic.o md5.o
-	gcc -o $@ $^
+	$(CC) -o $@ $^
 
 clean:
 	rm -f config.h config.mak main libtoilet.$(SO) libtoilet.a io_count.$(SO) medic *.o stlavlmap/*.o .depend tags
@@ -137,7 +137,7 @@ config.mak: configure
 	./configure --reconfigure
 
 .depend: $(SOURCES) $(MAIN_SRC) $(HEADERS) config.h
-	g++ -MM $(PCFLAGS) $(CPPFLAGS) *.c *.cpp > .depend
+	$(CXX) -MM $(PCFLAGS) $(CPPFLAGS) *.c *.cpp > .depend
 
 tags: $(SOURCES) $(MAIN_SRC) $(HEADERS) config.h
 	if ctags --version | grep -q Exuberant; then ctags -R; else touch tags; fi
