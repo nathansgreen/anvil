@@ -580,11 +580,7 @@ void tpp_dtable_key_iter_kill(tpp_dtable_key_iter * c)
 tpp_dtable_iter * tpp_dtable_iterator(const tpp_dtable * c)
 {
 	tpp_dtable_union_const safer(c);
-	dtable::iter * iter = safer->iterator();
-	dtable::iter * cache = iter ? new dtable_cache_iter(iter) : NULL;
-	if(!cache && iter)
-		delete iter;
-	return tpp_dtable_iter_union(cache);
+	return tpp_dtable_iter_union(wrap_and_claim<dtable_cache_iter>(safer->iterator()));
 }
 
 bool tpp_dtable_iter_valid(const tpp_dtable_iter * c)

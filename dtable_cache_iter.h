@@ -170,8 +170,8 @@ public:
 		return cached_value;
 	}
 	
-	inline dtable_cache_iter(dtable::iter * base)
-		: dtable_wrap_iter(base, true), key_cached(false), value_cached(false), cached_key(0u)
+	inline dtable_cache_iter(dtable::iter * base, bool claim_base = false)
+		: dtable_wrap_iter(base, claim_base), key_cached(false), value_cached(false), cached_key(0u)
 	{
 	}
 	virtual ~dtable_cache_iter() {}
