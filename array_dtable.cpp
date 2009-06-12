@@ -82,10 +82,19 @@ bool array_dtable::iter::seek(const dtype_test & test)
 
 bool array_dtable::iter::seek_index(size_t index)
 {
+	/* we allow seeking to one past the end, just
+	 * as we allow getting there with next() */
+	if(index < 0)
+		return false;
+	if(index > dt_source->array_size)
+	{
+		this->index = dt_source->array_size;
+		return false;
+	}
 	if(dt_source->is_hole(index))
 		return false;
 	this->index = index;
-	return index < dt_source->array_size;
+	return true;
 }
 
 size_t array_dtable::iter::get_index() const
