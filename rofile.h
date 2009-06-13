@@ -17,6 +17,7 @@
 
 #include "istr.h"
 #include "util.h"
+#include "locking.h"
 
 /* This class provides a stdio-like wrapper around a read-only file descriptor,
  * keeping track of several buffers for file data preread from different parts
@@ -38,7 +39,7 @@ public:
 	void close();
 	
 	/* read some data from the file */
-	virtual ssize_t read(off_t offset, void * data, ssize_t size) const = 0;
+	virtual ssize_t read(off_t offset, void * data, ssize_t size, bool do_lock = true) const = 0;
 	
 	/* read the structure from the file */
 	template<class T>
@@ -60,7 +61,9 @@ public:
 	
 	/* returns a pointer to the requested page of the file, where a "page" is
 	 * taken to be the same size as the buffers used by this rofile instance */
-	/* the pointer will be invalidated by any further calls to this rofile */
+	/* the pointer can be invalidated by any further calls to this rofile, in
+	 * any thread: this method is not thread-safe, and must be protected by
+	 * acquiring the init_mutex lock (see below) on this rofile instance */
 	virtual const void * page(off_t index) = 0;
 	
 	/* buffer_size is in KiB */
@@ -73,6 +76,9 @@ public:
 	
 	/* size of file in bytes */
 	inline off_t size() const { return f_size; }
+	
+	/* public so callers can lock it with scopelocks */
+	mutable init_mutex lock;
 	
 protected:
 	/* reset all buffers */
@@ -200,11 +206,12 @@ template<ssize_t buffer_size, int buffer_count, class T>
 class rofile_impl : public rofile
 {
 public:
-	virtual ssize_t read(off_t offset, void * data, ssize_t size) const
+	virtual ssize_t read(off_t offset, void * data, ssize_t size, bool do_lock) const
 	{
 		ssize_t left = size;
 		if(size > buffer_size)
 			return pread(fd, data, size, offset);
+		scopelock scope(lock, do_lock);
 		/* we will need at most two buffers now */
 		if(!buffers[last_buffer].contains(offset))
 		{
