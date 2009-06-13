@@ -144,14 +144,14 @@ bool simple_dtable::present(const dtype & key, bool * found) const
 	return data_length != (size_t) -1;
 }
 
-dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_offset) const
+dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_offset, bool lock) const
 {
 	assert(index < key_count);
 	int r;
 	uint8_t size = key_size + length_size + offset_size;
 	uint8_t bytes[size];
 	
-	r = fp->read(key_start_off + size * index, bytes, size);
+	r = fp->read(key_start_off + size * index, bytes, size, lock);
 	assert(r == size);
 	
 	if(data_length)
@@ -184,11 +184,12 @@ int simple_dtable::find_key(const T & test, size_t * index, size_t * data_length
 	/* binary search */
 	ssize_t min = 0, max = key_count - 1;
 	assert(ktype != dtype::BLOB || !cmp_name == !blob_cmp);
+	scopelock(fp->lock);
 	while(min <= max)
 	{
 		/* watch out for overflow! */
 		ssize_t mid = min + (max - min) / 2;
-		dtype value = get_key(mid, data_length, data_offset);
+		dtype value = get_key(mid, data_length, data_offset, false);
 		int c = test(value);
 		if(c < 0)
 			min = mid + 1;
