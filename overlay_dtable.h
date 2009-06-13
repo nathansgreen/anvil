@@ -60,6 +60,8 @@ private:
 		{
 			dtable::iter * iter;
 			bool empty, valid, shadow;
+			dtype key;
+			inline sub() : key(0u) {}
 		};
 		
 		sub * subs;

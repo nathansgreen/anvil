@@ -16,6 +16,8 @@ overlay_dtable::iter::iter(const overlay_dtable * source)
 	{
 		subs[i].iter = source->tables[i]->iterator();
 		subs[i].empty = !subs[i].iter->valid();
+		if(!subs[i].empty)
+			subs[i].key = subs[i].iter->key();
 		subs[i].valid = subs[i].iter->valid();
 		subs[i].shadow = false;
 	}
@@ -51,6 +53,8 @@ bool overlay_dtable::iter::next()
 			if(subs[i].empty && !subs[i].valid)
 			{
 				subs[i].empty = !subs[i].iter->valid();
+				if(!subs[i].empty)
+					subs[i].key = subs[i].iter->key();
 				subs[i].valid = subs[i].iter->valid();
 			}
 			else
@@ -76,15 +80,17 @@ bool overlay_dtable::iter::next()
 			/* fill in empty slots */
 			subs[i].valid = subs[i].iter->next();
 			subs[i].empty = !subs[i].valid;
+			if(!subs[i].empty)
+				subs[i].key = subs[i].iter->key();
 		}
 		if(!subs[i].valid || subs[i].shadow)
 			/* skip exhausted and shadowed tables */
 			continue;
-		if(first || (c = subs[i].iter->key().compare(min_key, blob_cmp)) < 0)
+		if(first || (c = subs[i].key.compare(min_key, blob_cmp)) < 0)
 		{
 			first = false;
 			current_index = i;
-			min_key = subs[i].iter->key();
+			min_key = subs[i].key;
 		}
 		else if(!c)
 			/* shadow this entry */
@@ -130,15 +136,17 @@ bool overlay_dtable::iter::prev()
 			/* fill in empty slots */
 			subs[i].valid = subs[i].iter->prev();
 			subs[i].empty = !subs[i].valid;
+			if(!subs[i].empty)
+				subs[i].key = subs[i].iter->key();
 		}
 		if(!subs[i].valid || subs[i].shadow)
 			/* skip exhausted and shadowed tables */
 			continue;
-		if(first || (c = subs[i].iter->key().compare(max_key, blob_cmp)) > 0)
+		if(first || (c = subs[i].key.compare(max_key, blob_cmp)) > 0)
 		{
 			first = false;
 			next_index = i;
-			max_key = subs[i].iter->key();
+			max_key = subs[i].key;
 		}
 		else if(!c)
 			/* shadow this entry */
@@ -171,6 +179,8 @@ bool overlay_dtable::iter::first()
 	{
 		subs[i].iter->first();
 		subs[i].empty = !subs[i].iter->valid();
+		if(!subs[i].empty)
+			subs[i].key = subs[i].iter->key();
 		subs[i].valid = subs[i].iter->valid();
 		subs[i].shadow = false;
 	}
@@ -197,7 +207,7 @@ bool overlay_dtable::iter::last()
 
 dtype overlay_dtable::iter::key() const
 {
-	return subs[current_index].iter->key();
+	return subs[current_index].key;
 }
 
 bool overlay_dtable::iter::seek(const dtype & key)
@@ -208,6 +218,8 @@ bool overlay_dtable::iter::seek(const dtype & key)
 		if(subs[i].iter->seek(key))
 			found = true;
 		subs[i].empty = !subs[i].iter->valid();
+		if(!subs[i].empty)
+			subs[i].key = subs[i].iter->key();
 		subs[i].valid = subs[i].iter->valid();
 		subs[i].shadow = false;
 	}
@@ -225,6 +237,8 @@ bool overlay_dtable::iter::seek(const dtype_test & test)
 		if(subs[i].iter->seek(test))
 			found = true;
 		subs[i].empty = !subs[i].iter->valid();
+		if(!subs[i].empty)
+			subs[i].key = subs[i].iter->key();
 		subs[i].valid = subs[i].iter->valid();
 		subs[i].shadow = false;
 	}
