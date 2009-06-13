@@ -54,10 +54,11 @@ private:
 class scopelock
 {
 public:
-	inline scopelock(pthread_mutex_t * mutex)
-		: mutex(mutex), locked(true)
+	inline scopelock(pthread_mutex_t * mutex, bool lock = true)
+		: mutex(mutex), locked(lock)
 	{
-		pthread_mutex_lock(mutex);
+		if(lock)
+			pthread_mutex_lock(mutex);
 	}
 	
 	inline ~scopelock()
