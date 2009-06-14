@@ -214,6 +214,7 @@ size_t btree_dtable::btree_lookup(const T & test, bool * found) const
 	size_t depth = 1;
 	size_t keys, index;
 	bool full = header.root_page <= header.last_full;
+	scopelock scope(btree->lock);
 	page.page = btree->page(header.root_page);
 	
 	while(depth < header.depth)
