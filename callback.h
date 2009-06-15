@@ -10,20 +10,17 @@
 #endif
 
 #include <set>
-#include <functional>
 
 class callback
 {
 public:
 	inline callback() {}
 	
-	/* implement invoke() in subclasses */
+	/* called when the event this callback was waiting for has occurred */
 	virtual void invoke() = 0;
-	/* depending on the subclass, it may be necessary to override release() */
-	virtual void release()
-	{
-		delete this;
-	}
+	/* called when the object that would have generated the event this
+	 * callback was waiting for is being destroyed, so it will never occur */
+	virtual void release() = 0;
 	
 	virtual ~callback() {}
 	
