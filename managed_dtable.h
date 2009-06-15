@@ -88,12 +88,12 @@ public:
 	
 	/* combine the last count dtables into two new ones: a combined disk
 	 * dtable, and a new journal dtable */
-	inline int combine(size_t count = 0)
+	inline int combine(size_t count = 0, bool use_fastbase = false)
 	{
 		size_t journal = disks.size();
 		if(--count > journal)
-			return combine(0, journal);
-		return combine(journal - count, journal);
+			return combine(0, journal, use_fastbase);
+		return combine(journal - count, journal, use_fastbase);
 	}
 	
 	/* digests the journal dtable into a new disk dtable */
@@ -159,6 +159,33 @@ private:
 		}
 	};
 	typedef std::vector<dtable_list_entry> dtable_list;
+	
+	/* this class handles managed dtable combine operations */
+	class combiner
+	{
+	public:
+		inline combiner(managed_dtable * mdt, size_t first, size_t last, bool use_fastbase)
+			: mdt(mdt), first(first), last(last), use_fastbase(use_fastbase), source(NULL), shadow(NULL), reset_journal(false)
+		{
+		}
+		int prepare();
+		int run() const;
+		int finish();
+		void fail();
+		inline ~combiner()
+		{
+			if(source)
+				fail();
+		}
+	private:
+		managed_dtable * mdt;
+		size_t first, last;
+		const bool use_fastbase;
+		overlay_dtable * source;
+		overlay_dtable * shadow;
+		bool reset_journal;
+		char name[32];
+	};
 	
 	int maintain_autocombine();
 	

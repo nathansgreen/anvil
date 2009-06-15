@@ -206,128 +206,151 @@ int managed_dtable::set_blob_cmp(const blob_comparator * cmp)
 
 int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 {
-	sys_journal::listener_id old_id = sys_journal::NO_ID;
-	overlay_dtable * shadow = NULL;
-	overlay_dtable * source;
-	bool reset_journal = false;
-	dtable_list copy;
-	dtable * result;
-	char name[32];
-	tx_fd fd;
-	int r;
-	
+	combiner worker(this, first, last, use_fastbase);
+	int r = worker.prepare();
+	if(r < 0)
+		return r;
+	r = worker.run();
+	if(r < 0)
+		return r;
+	return worker.finish();
+}
+
+int managed_dtable::combiner::prepare()
+{
 	/* can't do combining if we don't have the requisite comparator */
-	if(cmp_name && !blob_cmp)
+	if(mdt->cmp_name && !mdt->blob_cmp)
 		return -EBUSY;
-	if(last < first || last > disks.size())
+	if(last < first || last > mdt->disks.size())
 		return -EINVAL;
+	
 	if(first)
 	{
 		const dtable * array[first];
 		for(size_t i = 0; i < first; i++)
-			array[first - i - 1] = disks[i].disk;
+			array[first - i - 1] = mdt->disks[i].disk;
 		shadow = new overlay_dtable;
 		shadow->init(array, first);
-		if(blob_cmp)
-			shadow->set_blob_cmp(blob_cmp);
+		if(mdt->blob_cmp)
+			shadow->set_blob_cmp(mdt->blob_cmp);
 	}
+	
 	/* force array scope to end */
 	{
 		size_t count = last - first + 1;
 		const dtable * array[count];
-		if(last == disks.size())
+		if(last == mdt->disks.size())
 		{
-			array[0] = journal;
+			array[0] = mdt->journal;
 			reset_journal = true;
 			last--;
 		}
 		if(last != (size_t) -1)
 			for(size_t i = first; i <= last; i++)
-				array[last - i + reset_journal] = disks[i].disk;
+				array[last - i + reset_journal] = mdt->disks[i].disk;
 		source = new overlay_dtable;
 		source->init(array, count);
-		if(blob_cmp)
-			source->set_blob_cmp(blob_cmp);
+		if(mdt->blob_cmp)
+			source->set_blob_cmp(mdt->blob_cmp);
 	}
 	
-	/* make the transaction (which modifies the metadata below) depend on having written the new file */
+	sprintf(name, "md_data.%u", mdt->header.ddt_next);
+	
+	return 0;
+}
+
+int managed_dtable::combiner::run() const
+{
+	int r;
+	
+	/* make the current transaction depend on having written the new file */
 	r = tx_start_external();
 	if(r < 0)
-	{
-		delete source;
-		if(shadow)
-			delete shadow;
 		return r;
-	}
-	sprintf(name, "md_data.%u", header.ddt_next);
+	
 	/* there might be one around from a previous failed combine */
-	util::rm_r(md_dfd, name);
+	util::rm_r(mdt->md_dfd, name);
 	if(use_fastbase)
-		r = fastbase->create(md_dfd, name, fastbase_config, source, shadow);
+		r = mdt->fastbase->create(mdt->md_dfd, name, mdt->fastbase_config, source, shadow);
 	else
-		r = base->create(md_dfd, name, base_config, source, shadow);
+		r = mdt->base->create(mdt->md_dfd, name, mdt->base_config, source, shadow);
+	
 	tx_end_external(r >= 0);
-	delete source;
-	if(shadow)
-		delete shadow;
-	if(r < 0)
-		return r;
 	
 	/* now we've created the file, but we can still delete it easily if something fails */
+	return r;
+}
+
+int managed_dtable::combiner::finish()
+{
+	sys_journal::listener_id old_id = sys_journal::NO_ID;
+	dtable_list copy;
+	dtable * result;
+	tx_fd fd;
+	int r;
+	
+	delete source;
+	source = NULL;
+	if(shadow)
+		delete shadow;
 	
 	if(use_fastbase)
-		result = fastbase->open(md_dfd, name, fastbase_config);
+		result = mdt->fastbase->open(mdt->md_dfd, name, mdt->fastbase_config);
 	else
-		result = base->open(md_dfd, name, base_config);
+		result = mdt->base->open(mdt->md_dfd, name, mdt->base_config);
 	if(!result)
 	{
-		unlinkat(md_dfd, name, 0);
+		fail();
 		return -1;
 	}
-	if(blob_cmp)
-		result->set_blob_cmp(blob_cmp);
+	if(mdt->blob_cmp)
+		result->set_blob_cmp(mdt->blob_cmp);
 	for(size_t i = 0; i < first; i++)
-		copy.push_back(disks[i]);
-	copy.push_back(dtable_list_entry(result, header.ddt_next, use_fastbase));
-	for(size_t i = last + 1; i < disks.size(); i++)
-		copy.push_back(disks[i]);
+		copy.push_back(mdt->disks[i]);
+	copy.push_back(dtable_list_entry(result, mdt->header.ddt_next, use_fastbase));
+	for(size_t i = last + 1; i < mdt->disks.size(); i++)
+		copy.push_back(mdt->disks[i]);
 	
-	fd = tx_open(md_dfd, "md_meta", 0);
+	fd = tx_open(mdt->md_dfd, "md_meta", 0);
 	if(!fd)
 	{
-		unlinkat(md_dfd, name, 0);
+		delete result;
+		fail();
 		return -1;
 	}
 	
 	if(reset_journal)
 	{
-		old_id = header.journal_id;
-		header.journal_id = sys_journal::get_unique_id();
-		assert(header.journal_id != sys_journal::NO_ID);
+		old_id = mdt->header.journal_id;
+		mdt->header.journal_id = sys_journal::get_unique_id();
+		assert(mdt->header.journal_id != sys_journal::NO_ID);
 	}
-	header.ddt_count = copy.size();
-	header.ddt_next++;
+	mdt->header.ddt_count = copy.size();
+	mdt->header.ddt_next++;
 	
 	/* TODO: really the file should be truncated, but it's not important */
-	r = tx_write(fd, &header, sizeof(header), 0);
+	r = tx_write(fd, &mdt->header, sizeof(mdt->header), 0);
 	if(r < 0)
 	{
-		header.ddt_next--;
-		header.ddt_count = disks.size();
+		mdt->header.ddt_next--;
+		mdt->header.ddt_count = mdt->disks.size();
 		if(reset_journal)
-			header.journal_id = old_id;
+			mdt->header.journal_id = old_id;
+		delete result;
+		fail();
 		return r;
 	}
+	
 	/* force array scope to end */
 	{
-		mdtable_entry array[header.ddt_count];
-		for(uint32_t i = 0; i < header.ddt_count; i++)
+		mdtable_entry array[mdt->header.ddt_count];
+		for(uint32_t i = 0; i < mdt->header.ddt_count; i++)
 		{
 			array[i].ddt_number = copy[i].ddt_number;
 			array[i].is_fastbase = copy[i].is_fastbase;
 		}
 		/* hmm... would sizeof(array) work here? */
-		r = tx_write(fd, array, header.ddt_count * sizeof(array[0]), sizeof(header));
+		r = tx_write(fd, array, mdt->header.ddt_count * sizeof(array[0]), sizeof(mdt->header));
 		if(r < 0)
 		{
 			/* umm... we are screwed? */
@@ -335,9 +358,11 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 			return r;
 		}
 	}
+	
 	tx_close(fd);
 	
-	disks.swap(copy);
+	mdt->disks.swap(copy);
+	
 	/* unlink the source files in the transaction, which depends on writing the new data */
 	if(last != (size_t) -1)
 		for(size_t i = first; i <= last; i++)
@@ -345,25 +370,40 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 			delete copy[i].disk;
 			sprintf(name, "md_data.%u", copy[i].ddt_number);
 			/* recursive unlink */
-			tx_unlink(md_dfd, name, 1);
+			tx_unlink(mdt->md_dfd, name, 1);
 		}
+	
 	/* force array scope to end */
 	{
-		const dtable * array[header.ddt_count + 1];
-		for(uint32_t i = 0; i < header.ddt_count; i++)
-			array[header.ddt_count - i] = disks[i].disk;
-		array[0] = journal;
-		overlay->init(array, header.ddt_count + 1);
-		if(blob_cmp)
-			overlay->set_blob_cmp(blob_cmp);
+		const dtable * array[mdt->header.ddt_count + 1];
+		for(uint32_t i = 0; i < mdt->header.ddt_count; i++)
+			array[mdt->header.ddt_count - i] = mdt->disks[i].disk;
+		array[0] = mdt->journal;
+		mdt->overlay->init(array, mdt->header.ddt_count + 1);
+		if(mdt->blob_cmp)
+			mdt->overlay->set_blob_cmp(mdt->blob_cmp);
 	}
+	
 	if(reset_journal)
 	{
-		journal->reinit(header.journal_id);
-		if(blob_cmp)
-			journal->set_blob_cmp(blob_cmp);
+		mdt->journal->reinit(mdt->header.journal_id);
+		if(mdt->blob_cmp)
+			mdt->journal->set_blob_cmp(mdt->blob_cmp);
 	}
+	
 	return 0;
+}
+
+void managed_dtable::combiner::fail()
+{
+	if(source)
+	{
+		delete source;
+		source = NULL;
+	}
+	if(shadow)
+		delete shadow;
+	util::rm_r(mdt->md_dfd, name);
 }
 
 int managed_dtable::maintain_autocombine()
