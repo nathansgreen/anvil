@@ -40,6 +40,11 @@ public:
 			return local_id;
 		}
 		
+		inline sys_journal * get_journal() const
+		{
+			return journal;
+		}
+		
 		inline virtual ~journal_listener()
 		{
 			if(local_id != NO_ID)
