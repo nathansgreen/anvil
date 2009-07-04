@@ -48,6 +48,48 @@ private:
 	init_mutex(const init_mutex &);
 };
 
+/* a simple wrapper class to handle initializing a condition variable
+ * when it is allocated, and also shorten wait and signal code for it */
+
+class init_cond
+{
+public:
+	inline init_cond()
+	{
+		pthread_cond_init(&cond, NULL);
+	}
+	
+	inline ~init_cond()
+	{
+		pthread_cond_destroy(&cond);
+	}
+	
+	inline void wait(pthread_mutex_t * mutex)
+	{
+		pthread_cond_wait(&cond, mutex);
+	}
+	
+	inline void signal()
+	{
+		pthread_cond_signal(&cond);
+	}
+	
+	inline void broadcast()
+	{
+		pthread_cond_broadcast(&cond);
+	}
+	
+	inline operator pthread_cond_t * ()
+	{
+		return &cond;
+	}
+	
+private:
+	pthread_cond_t cond;
+	void operator=(const init_cond &);
+	init_cond(const init_cond &);
+};
+
 /* a simple wrapper class to handle unlocking a mutex when exiting a
  * scope, and also shorten condition variable code using that mutex */
 
