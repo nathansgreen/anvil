@@ -149,6 +149,10 @@ void managed_dtable::deinit()
 {
 	if(md_dfd < 0)
 		return;
+	if(!doomed_dtables.empty())
+	{
+		/* FIXME: handle doomed dtables */
+	}
 	/* no sense digesting on close if there's nothing to digest */
 	if(digest_on_close && journal->size())
 	{
@@ -212,10 +216,12 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
 		return r;
 	r = worker.run();
 	if(r < 0)
+		/* will call worker.fail() */
 		return r;
 	return worker.finish();
 }
 
+/* set up the source and shadow overlay dtables */
 int managed_dtable::combiner::prepare()
 {
 	/* can't do combining if we don't have the requisite comparator */
@@ -259,6 +265,7 @@ int managed_dtable::combiner::prepare()
 	return 0;
 }
 
+/* create the combined dtable - this can optionally run in a background thread */
 int managed_dtable::combiner::run() const
 {
 	int r;
@@ -281,6 +288,7 @@ int managed_dtable::combiner::run() const
 	return r;
 }
 
+/* update the metadata to refer to the new dtable, and remove the now-obsolete ones */
 int managed_dtable::combiner::finish()
 {
 	sys_journal::listener_id old_id = sys_journal::NO_ID;
@@ -367,10 +375,18 @@ int managed_dtable::combiner::finish()
 	if(last != (size_t) -1)
 		for(size_t i = first; i <= last; i++)
 		{
-			delete copy[i].disk;
-			sprintf(name, "md_data.%u", copy[i].ddt_number);
-			/* recursive unlink */
-			tx_unlink(mdt->md_dfd, name, 1);
+			if(copy[i].disk->in_use())
+			{
+				doomed_dtable * doomed = new doomed_dtable(mdt, copy[i].disk, copy[i].ddt_number);
+				mdt->doomed_dtables.insert(doomed);
+			}
+			else
+			{
+				delete copy[i].disk;
+				sprintf(name, "md_data.%u", copy[i].ddt_number);
+				/* recursive unlink */
+				tx_unlink(mdt->md_dfd, name, 1);
+			}
 		}
 	
 	/* force array scope to end */
@@ -379,6 +395,12 @@ int managed_dtable::combiner::finish()
 		for(uint32_t i = 0; i < mdt->header.ddt_count; i++)
 			array[mdt->header.ddt_count - i] = mdt->disks[i].disk;
 		array[0] = mdt->journal;
+		if(mdt->overlay->in_use())
+		{
+			doomed_dtable * doomed = new doomed_dtable(mdt, mdt->overlay);
+			mdt->doomed_dtables.insert(doomed);
+			mdt->overlay = new overlay_dtable;
+		}
 		mdt->overlay->init(array, mdt->header.ddt_count + 1);
 		if(mdt->blob_cmp)
 			mdt->overlay->set_blob_cmp(mdt->blob_cmp);
@@ -386,7 +408,17 @@ int managed_dtable::combiner::finish()
 	
 	if(reset_journal)
 	{
-		mdt->journal->reinit(mdt->header.journal_id);
+		if(mdt->journal->in_use())
+		{
+			sys_journal * sj = mdt->journal->get_journal();
+			doomed_dtable * doomed = new doomed_dtable(mdt, mdt->journal);
+			/* FIXME: we can actually discard the sysj entries now, as long as we keep them in memory */
+			mdt->doomed_dtables.insert(doomed);
+			mdt->journal = new journal_dtable;
+			mdt->journal->init(mdt->ktype, mdt->header.journal_id, sj);
+		}
+		else
+			mdt->journal->reinit(mdt->header.journal_id);
 		if(mdt->blob_cmp)
 			mdt->journal->set_blob_cmp(mdt->blob_cmp);
 	}
@@ -404,6 +436,38 @@ void managed_dtable::combiner::fail()
 	if(shadow)
 		delete shadow;
 	util::rm_r(mdt->md_dfd, name);
+}
+
+void managed_dtable::doomed_dtable::invoke()
+{
+	switch(type)
+	{
+		case DISK:
+		{
+			char name[32];
+			delete doomed.disk;
+			sprintf(name, "md_data.%u", ddt_number);
+			/* make sure we have a transaction */
+			tx_start_r();
+			/* recursive unlink */
+			tx_unlink(mdt->md_dfd, name, 1);
+			tx_end_r();
+			break;
+		}
+		case JOURNAL:
+			/* make sure we have a transaction */
+			tx_start_r();
+			/* discard */
+			doomed.journal->deinit(true);
+			tx_end_r();
+			delete doomed.journal;
+			break;
+		case OVERLAY:
+			delete doomed.overlay;
+			break;
+	}
+	mdt->doomed_dtables.erase(this);
+	delete this;
 }
 
 int managed_dtable::maintain_autocombine()

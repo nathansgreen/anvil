@@ -15,6 +15,7 @@
 #endif
 
 #include <vector>
+#include "avl/set.h"
 
 #include "dtable.h"
 #include "dtable_factory.h"
@@ -160,6 +161,8 @@ private:
 	};
 	typedef std::vector<dtable_list_entry> dtable_list;
 	
+	int maintain_autocombine();
+	
 	/* this class handles managed dtable combine operations */
 	class combiner
 	{
@@ -187,7 +190,46 @@ private:
 		char name[32];
 	};
 	
-	int maintain_autocombine();
+	/* preexisting iterators may be using dtables that will be destroyed by
+	 * a combine - we delay destroying these dtables and register callbacks
+	 * to find out when they are no longer in use and can be destroyed */
+	class doomed_dtable : public callback
+	{
+	public:
+		inline doomed_dtable(managed_dtable * mdt, dtable * disk, uint32_t ddt_number) : mdt(mdt), type(DISK), ddt_number(ddt_number)
+		{
+			doomed.disk = disk;
+			disk->add_unused_callback(this);
+		}
+		inline doomed_dtable(managed_dtable * mdt, journal_dtable * journal) : mdt(mdt), type(JOURNAL)
+		{
+			doomed.journal = journal;
+			journal->add_unused_callback(this);
+		}
+		inline doomed_dtable(managed_dtable * mdt, overlay_dtable * overlay) : mdt(mdt), type(OVERLAY)
+		{
+			doomed.overlay = overlay;
+			overlay->add_unused_callback(this);
+		}
+		virtual void invoke();
+		/* release will only be called as a result of the managed dtable
+		 * itself being destroyed, causing all outstanding doomed dtables
+		 * callbacks to be invoked, causing each doomed dtable to call
+		 * release on its callback (not knowing that the callback is what
+		 * is destroying it)... so, do nothing */
+		virtual void release() {}
+		
+	private:
+		managed_dtable * mdt;
+		enum { DISK, JOURNAL, OVERLAY } type;
+		union {
+			dtable * disk;
+			journal_dtable * journal;
+			overlay_dtable * overlay;
+		} doomed;
+		uint32_t ddt_number;
+	};
+	avl::set<doomed_dtable *> doomed_dtables;
 	
 	int md_dfd;
 	mdtable_header header;
