@@ -5,6 +5,7 @@
 #ifndef __LOCKING_H
 #define __LOCKING_H
 
+#include <assert.h>
 #include <pthread.h>
 
 #ifndef __cplusplus
