@@ -49,6 +49,8 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		return -EINVAL;
 	if(!config.get("autocombine", &autocombine, true))
 		return -EINVAL;
+	if(!config.get("bg_default", &bg_default, false))
+		return -EINVAL;
 	md_dfd = openat(dfd, name, 0);
 	if(md_dfd < 0)
 		return md_dfd;
