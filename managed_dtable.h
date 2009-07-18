@@ -22,6 +22,9 @@
 #include "overlay_dtable.h"
 #include "journal_dtable.h"
 
+#include "bg_thread.h"
+#include "msg_queue.h"
+
 /* A managed dtable is really a collection of dtables: zero or more disk dtables
  * (e.g. simple_dtable), a journal dtable, and an overlay dtable to connect
  * everything together. It supports merging together various numbers of these
@@ -78,6 +81,27 @@ public:
 		return disks.size();
 	}
 	
+	/* A note on background operation: the combine(), digest(), and
+	 * maintain() methods frequently have a "bool background" argument. This
+	 * is meant to be used by external callers in the main thread. Passing
+	 * false (usually the default) causes these methods to assume they are
+	 * running in the main thread, and perform the requested operation
+	 * before returning. Passing true causes them to send a message to the
+	 * background thread, requesting it to perform the operation. They will
+	 * return success immediately.
+	 * 
+	 * For internal calls to these methods, for instance in calls to
+	 * combine() or digest() from within maintain(), the private template
+	 * versions below should be used instead. These template versions can
+	 * take a bg_token to allow methods already running in the background
+	 * thread to pass the background token to another method.
+	 * 
+	 * When background operation is requested, it must periodically grab the
+	 * background token to allow it to make certain changes atomically
+	 * without interference from the main thread. To allow this, the main
+	 * thread should call background_loan() or maintain() periodically.
+	 * */
+	
 	/* combine some dtables; first and last are inclusive */
 	/* the dtables are indexed starting at 0 (the "oldest"), with the last
 	 * one being the journal dtable; disk_dtables() returns the number of
@@ -85,32 +109,36 @@ public:
 	 * disk_dtables() (the journal dtable being the "newest") */
 	/* note that there is always a journal dtable - if it is combined, a new
 	 * one is created to take its place */
-	int combine(size_t first, size_t last, bool use_fastbase = false);
+	int combine(size_t first, size_t last, bool use_fastbase = false, bool background = false);
 	
-	/* combine the last count dtables into two new ones: a combined disk
-	 * dtable, and a new journal dtable */
-	inline int combine(size_t count = 0, bool use_fastbase = false)
+	/* combine everything - no internal version of this */
+	inline int combine(bool use_fastbase = false, bool background = false)
 	{
-		size_t journal = disks.size();
-		if(--count > journal)
-			return combine(0, journal, use_fastbase);
-		return combine(journal - count, journal, use_fastbase);
+		return combine(0, disks.size(), use_fastbase, background);
 	}
 	
 	/* digests the journal dtable into a new disk dtable */
-	inline int digest(bool use_fastbase = true)
+	inline int digest(bool use_fastbase = true, bool background = false)
 	{
-		size_t journal = disks.size();
-		return combine(journal, journal, use_fastbase);
+		return digest_internal(use_fastbase, background);
 	}
 	
 	/* do maintenance based on parameters */
-	virtual int maintain(bool force = false);
+	inline virtual int maintain(bool force = false) { return maintain(force, bg_default); }
+	int maintain(bool force, bool background);
+	
+	/* loan the background thread the token, if it wants it, so it can proceed */
+	void background_loan();
+	/* wait for a background operation to finish and return its return value */
+	int background_join();
 	
 	static int create(int dfd, const char * name, const params & config, dtype::ctype key_type);
 	DECLARE_RW_FACTORY(managed_dtable);
 	
-	inline managed_dtable() : md_dfd(-1), chain(this) {}
+	inline managed_dtable()
+		: digest_thread(this, &managed_dtable::digest_thread_main), bg_digesting(false), bg_default(false), md_dfd(-1), chain(this)
+	{
+	}
 	int init(int dfd, const char * name, const params & config, sys_journal * sys_journal = NULL);
 	void deinit();
 	inline virtual ~managed_dtable()
@@ -161,7 +189,19 @@ private:
 	};
 	typedef std::vector<dtable_list_entry> dtable_list;
 	
-	int maintain_autocombine();
+	template<class T>
+	int combine(size_t first, size_t last, bool use_fastbase, T * token);
+	template<class T>
+	int maintain(bool force, T * token);
+	template<class T>
+	int maintain_autocombine(T * token);
+	
+	template<class T>
+	int digest_internal(bool use_fastbase, T extra)
+	{
+		size_t journal = disks.size();
+		return combine(journal, journal, use_fastbase, extra);
+	}
 	
 	/* this class handles managed dtable combine operations */
 	class combiner
@@ -189,6 +229,47 @@ private:
 		bool reset_journal;
 		char name[32];
 	};
+	
+	/* each managed dtable has a background thread for doing
+	 * digest/combine operations; these members are used for it */
+	struct digest_msg
+	{
+		enum { STOP, COMBINE, MAINTAIN } type;
+		union
+		{
+			struct
+			{
+				size_t first, last;
+				bool use_fastbase;
+			} combine;
+			struct
+			{
+				bool force;
+			} maintain;
+		};
+		inline digest_msg() : type(STOP) {}
+		inline void init_combine(size_t first, size_t last, bool use_fastbase)
+		{
+			type = COMBINE;
+			combine.first = first;
+			combine.last = last;
+			combine.use_fastbase = use_fastbase;
+		}
+		inline void init_maintain(bool force)
+		{
+			type = MAINTAIN;
+			maintain.force = force;
+		}
+	};
+	struct reply_msg
+	{
+		int return_value;
+	};
+	bg_thread<managed_dtable> digest_thread;
+	msg_queue<digest_msg> digest_queue;
+	msg_queue<reply_msg> reply_queue;
+	bool bg_digesting, bg_default;
+	void digest_thread_main(bg_token * token);
 	
 	/* preexisting iterators may be using dtables that will be destroyed by
 	 * a combine - we delay destroying these dtables and register callbacks

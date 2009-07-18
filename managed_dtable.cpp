@@ -129,6 +129,9 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		overlay = new overlay_dtable;
 		overlay->init(array, count + 1);
 	}
+	
+	digest_thread.start();
+	
 	return 0;
 	
 fail_query:
@@ -149,6 +152,13 @@ void managed_dtable::deinit()
 {
 	if(md_dfd < 0)
 		return;
+	if(bg_digesting)
+		background_join();
+	assert(!bg_digesting);
+	digest_thread.request_stop();
+	/* send a STOP message to the queue */
+	digest_queue.send(digest_msg());
+	digest_thread.wait_for_stop();
 	if(!doomed_dtables.empty())
 	{
 		/* FIXME: handle doomed dtables */
@@ -208,13 +218,39 @@ int managed_dtable::set_blob_cmp(const blob_comparator * cmp)
 	return value;
 }
 
-int managed_dtable::combine(size_t first, size_t last, bool use_fastbase)
+/* external version */
+int managed_dtable::combine(size_t first, size_t last, bool use_fastbase, bool background)
 {
+	if(bg_digesting)
+		return -EBUSY;
+	int r = 0;
+	if(background)
+	{
+		digest_msg msg;
+		msg.init_combine(first, last, use_fastbase);
+		digest_queue.send(msg);
+		bg_digesting = true;
+	}
+	else
+	{
+		fg_token token;
+		r = combine(first, last, use_fastbase, &token);
+	}
+	return r;
+}
+
+template <class T>
+int managed_dtable::combine(size_t first, size_t last, bool use_fastbase, T * token)
+{
+	size_t holds;
+	scopetoken<T> scope(token);
 	combiner worker(this, first, last, use_fastbase);
 	int r = worker.prepare();
 	if(r < 0)
 		return r;
+	holds = scope.full_release();
 	r = worker.run();
+	scope.full_acquire(holds);
 	if(r < 0)
 		/* will call worker.fail() */
 		return r;
@@ -377,6 +413,7 @@ int managed_dtable::combiner::finish()
 		{
 			if(copy[i].disk->in_use())
 			{
+				printf("DEBUG: dooming disk dtable %p\n", copy[i].disk);
 				doomed_dtable * doomed = new doomed_dtable(mdt, copy[i].disk, copy[i].ddt_number);
 				mdt->doomed_dtables.insert(doomed);
 			}
@@ -397,6 +434,7 @@ int managed_dtable::combiner::finish()
 		array[0] = mdt->journal;
 		if(mdt->overlay->in_use())
 		{
+			printf("DEBUG: dooming overlay dtable %p\n", mdt->overlay);
 			doomed_dtable * doomed = new doomed_dtable(mdt, mdt->overlay);
 			mdt->doomed_dtables.insert(doomed);
 			mdt->overlay = new overlay_dtable;
@@ -410,6 +448,7 @@ int managed_dtable::combiner::finish()
 	{
 		if(mdt->journal->in_use())
 		{
+			printf("DEBUG: dooming journal dtable %p\n", mdt->journal);
 			sys_journal * sj = mdt->journal->get_journal();
 			doomed_dtable * doomed = new doomed_dtable(mdt, mdt->journal);
 			/* FIXME: we can actually discard the sysj entries now, as long as we keep them in memory */
@@ -436,6 +475,59 @@ void managed_dtable::combiner::fail()
 	if(shadow)
 		delete shadow;
 	util::rm_r(mdt->md_dfd, name);
+}
+
+void managed_dtable::background_loan()
+{
+	if(bg_digesting)
+	{
+		reply_msg reply;
+		if(digest_thread.wants_token())
+			digest_thread.loan_token();
+		if(reply_queue.try_receive(&reply))
+			bg_digesting = false;
+	}
+}
+
+int managed_dtable::background_join()
+{
+	if(!bg_digesting)
+		return -EBUSY;
+	reply_msg reply;
+	while(!reply_queue.try_receive(&reply))
+	{
+		if(digest_thread.wants_token())
+			digest_thread.loan_token();
+		else
+			usleep(50000); /* 1/20 sec */
+	}
+	bg_digesting = false;
+	return reply.return_value;
+}
+
+void managed_dtable::digest_thread_main(bg_token * token)
+{
+	printf("managed_dtable @%p digest_thread_main() startup\n", this);
+	while(!digest_thread.stop_requested())
+	{
+		reply_msg reply;
+		digest_msg message;
+		digest_queue.receive(&message);
+		switch(message.type)
+		{
+			case digest_msg::COMBINE:
+				reply.return_value = combine(message.combine.first, message.combine.last, message.combine.use_fastbase, token);
+				reply_queue.send(reply);
+				break;
+			case digest_msg::MAINTAIN:
+				reply.return_value = maintain(message.maintain.force, token);
+				reply_queue.send(reply);
+				break;
+			case digest_msg::STOP:
+				/* fall out */ ;
+		}
+	}
+	printf("managed_dtable @%p digest_thread_main() shutdown\n", this);
 }
 
 void managed_dtable::doomed_dtable::invoke()
@@ -470,8 +562,10 @@ void managed_dtable::doomed_dtable::invoke()
 	delete this;
 }
 
-int managed_dtable::maintain_autocombine()
+template<class T>
+int managed_dtable::maintain_autocombine(T * token)
 {
+	scopetoken<T> scope(token);
 	size_t count = header.autocombine_digests;
 	header.autocombine_combine_count++;
 	count += ffs(header.autocombine_combine_count) - 1;
@@ -479,7 +573,7 @@ int managed_dtable::maintain_autocombine()
 		count = disks.size();
 	if(count > 1)
 	{
-		int r = combine(disks.size() - count, disks.size());
+		int r = combine(disks.size() - count, disks.size(), false, token);
 		if(r < 0)
 		{
 			header.autocombine_combine_count--;
@@ -489,11 +583,39 @@ int managed_dtable::maintain_autocombine()
 	return 0;
 }
 
-int managed_dtable::maintain(bool force)
+int managed_dtable::maintain(bool force, bool background)
 {
+	if(bg_digesting)
+	{
+		/* sync with the background thread and finish its work first */
+		background_loan();
+		if(bg_digesting)
+			return -EBUSY;
+	}
+	int r = 0;
+	if(background)
+	{
+		digest_msg msg;
+		msg.init_maintain(force);
+		digest_queue.send(msg);
+		bg_digesting = true;
+	}
+	else
+	{
+		fg_token token;
+		r = maintain(force, &token);
+	}
+	return r;
+}
+
+template<class T>
+int managed_dtable::maintain(bool force, T * token)
+{
+	int r;
+	scopetoken<T> scope(token);
 	time_t now = time(NULL);
 	/* well, the journal probably doesn't really need maintenance, but just in case */
-	int r = journal->maintain(force);
+	r = journal->maintain(force);
 	for(size_t i = 0; i < disks.size(); i++)
 		/* ditto on these theoretically read-only dtables */
 		r |= disks[i].disk->maintain(force);
@@ -520,10 +642,12 @@ int managed_dtable::maintain(bool force)
 		/* don't bother if the journal is empty though */
 		if(journal->size())
 		{
+			size_t size = disks.size();
 			if(autocombine)
 				header.autocombine_digest_count++;
 			/* will rewrite header for us! */
-			r = digest();
+			/* "digest()" */
+			r = combine(size, size, true, token);
 			if(r < 0)
 			{
 				header.autocombine_digest_count--;
@@ -534,7 +658,7 @@ int managed_dtable::maintain(bool force)
 			{
 				header.autocombine_digest_count = 0;
 				/* will rewrite header for us! */
-				r = maintain_autocombine();
+				r = maintain_autocombine(token);
 				if(r < 0)
 				{
 					header.autocombine_digest_count = header.autocombine_digests;
@@ -553,8 +677,12 @@ int managed_dtable::maintain(bool force)
 		/* don't bother if there aren't at least two dtables */
 		if(disks.size() > 1)
 		{
+			size_t size = disks.size();
+			size_t count = header.combine_count - 1;
+			if(count > size)
+				count = size;
 			/* will rewrite header for us! */
-			r = combine(header.combine_count);
+			r = combine(size - count, size, false, token);
 			if(r < 0)
 			{
 				header.combined = old;
