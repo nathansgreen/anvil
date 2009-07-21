@@ -592,7 +592,8 @@ int managed_dtable::maintain(bool force, bool background)
 		/* sync with the background thread and finish its work first */
 		background_loan();
 		if(bg_digesting)
-			return -EBUSY;
+			/* this is not an error */
+			return 0;
 	}
 	int r = 0;
 	if(background)
@@ -614,8 +615,14 @@ template<class T>
 int managed_dtable::maintain(bool force, T * token)
 {
 	int r;
-	scopetoken<T> scope(token);
 	time_t now = time(NULL);
+	/* check if we even need to digest */
+	if(header.digested + header.digest_interval > now &&
+	   (header.combined + header.combine_interval > now || autocombine))
+		return 0;
+	scopetoken<T> scope(token);
+	/* get the time again in case it has changed significantly since acquiring the token */
+	now = time(NULL);
 	/* well, the journal probably doesn't really need maintenance, but just in case */
 	r = journal->maintain(force);
 	for(size_t i = 0; i < disks.size(); i++)
