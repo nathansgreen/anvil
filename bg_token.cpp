@@ -4,8 +4,18 @@
 
 #include "bg_token.h"
 
+#define DEBUG_BGT 0
+
+#if DEBUG_BGT
+#include <stdio.h>
+#define BGT_DEBUG(format, args...) printf("%s @%p[%s, %s, %zu] (" format ")\n", __FUNCTION__, this, waiting ? "W" : "w", available ? "A" : "a", held, ##args)
+#else
+#define BGT_DEBUG(format, args...)
+#endif
+
 void bg_token::loan()
 {
+	BGT_DEBUG("");
 	scopelock scope(lock);
 	assert(waiting && !held);
 	waiting = false;
@@ -13,10 +23,12 @@ void bg_token::loan()
 	scope.signal(wait);
 	while(held)
 		scope.wait(wait);
+	BGT_DEBUG("finished");
 }
 
 void bg_token::wait_to_loan()
 {
+	BGT_DEBUG("");
 	scopelock scope(lock);
 	assert(!held);
 	if(waiting)
@@ -34,10 +46,12 @@ void bg_token::wait_to_loan()
 		while(available || held)
 			scope.wait(wait);
 	}
+	BGT_DEBUG("finished");
 }
 
 void bg_token::acquire()
 {
+	BGT_DEBUG("");
 	if(held)
 	{
 		/* we already have the token */
@@ -58,10 +72,12 @@ void bg_token::acquire()
 		while(!held)
 			scope.wait(wait);
 	}
+	BGT_DEBUG("acquired");
 }
 
 void bg_token::release()
 {
+	BGT_DEBUG("");
 	if(held > 1)
 	{
 		/* we will still have the token */
@@ -76,6 +92,7 @@ void bg_token::release()
 
 size_t bg_token::full_release()
 {
+	BGT_DEBUG("");
 	scopelock scope(lock);
 	size_t old = held;
 	assert(!waiting && held);
@@ -86,6 +103,7 @@ size_t bg_token::full_release()
 
 void bg_token::full_acquire(size_t original)
 {
+	BGT_DEBUG("%zu", original);
 	scopelock scope(lock);
 	assert(!waiting && !held);
 	if(available)
@@ -102,4 +120,5 @@ void bg_token::full_acquire(size_t original)
 		assert(held == 1);
 		held = original;
 	}
+	BGT_DEBUG("acquired");
 }
