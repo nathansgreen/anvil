@@ -139,7 +139,7 @@ public:
 		: digest_thread(this, &managed_dtable::digest_thread_main), bg_digesting(false), bg_default(false), md_dfd(-1), chain(this)
 	{
 	}
-	int init(int dfd, const char * name, const params & config, sys_journal * sys_journal = NULL);
+	int init(int dfd, const char * name, const params & config, sys_journal * sysj = NULL);
 	void deinit();
 	inline virtual ~managed_dtable()
 	{
@@ -167,23 +167,39 @@ private:
 		uint32_t autocombine_combine_count;
 	} __attribute__((packed));
 	
+#define MDTE_TYPE_REGBASE 0
+#define MDTE_TYPE_FASTBASE 1
+#define MDTE_TYPE_JOURNAL 2
 	struct mdtable_entry
 	{
 		uint32_t ddt_number;
-		uint8_t is_fastbase;
+		uint8_t type; /* one of the MDTE_TYPE_* types */
 	} __attribute__((packed));
 	
 	struct dtable_list_entry
 	{
+		/* we have "disk" even for journals, so that we don't have to special-case check it everywhere */
 		dtable * disk;
-		uint32_t ddt_number;
-		bool is_fastbase;
+		union
+		{
+			uint32_t ddt_number;
+			struct
+			{
+				journal_dtable * journal;
+				sys_journal::listener_id jid;
+			};
+		};
+		uint8_t type; /* one of the MDTE_TYPE_* types */
 		inline dtable_list_entry(dtable * dtable, const mdtable_entry & entry)
-			: disk(dtable), ddt_number(entry.ddt_number), is_fastbase(entry.is_fastbase)
+			: disk(dtable), ddt_number(entry.ddt_number), type(entry.type)
 		{
 		}
 		inline dtable_list_entry(dtable * dtable, uint32_t number, bool fastbase)
-			: disk(dtable), ddt_number(number), is_fastbase(fastbase)
+			: disk(dtable), ddt_number(number), type(fastbase ? MDTE_TYPE_FASTBASE : MDTE_TYPE_REGBASE)
+		{
+		}
+		inline dtable_list_entry(journal_dtable * journal, sys_journal::listener_id jid)
+			: disk(journal), journal(journal), jid(jid), type(MDTE_TYPE_JOURNAL)
 		{
 		}
 	};

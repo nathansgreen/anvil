@@ -18,9 +18,10 @@
  * managed_dtable; counting on subordinate dtables to store it is insufficient,
  * since we might have no disk dtables and an empty journal_dtable */
 
-int managed_dtable::init(int dfd, const char * name, const params & config, sys_journal * sys_journal)
+int managed_dtable::init(int dfd, const char * name, const params & config, sys_journal * sysj)
 {
 	istr fast_config = "fastbase_config";
+	sys_journal * actual_sysj = sysj ? sysj : sys_journal::get_global_journal();
 	tx_fd meta;
 	off_t meta_off;
 	int r = -1, size;
@@ -81,36 +82,54 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 			goto fail_header;
 	}
 	
+	delayed_query = NULL;
 	for(uint32_t i = 0; i < header.ddt_count; i++)
 	{
-		char name[32];
-		dtable * source;
 		mdtable_entry ddt;
 		r = tx_read(meta, &ddt, sizeof(ddt), meta_off);
 		if(r != sizeof(ddt))
 			goto fail_disks;
 		meta_off += sizeof(ddt);
-		sprintf(name, "md_data.%u", ddt.ddt_number);
-		if(ddt.is_fastbase)
-			source = fastbase->open(md_dfd, name, fastbase_config);
+		if(ddt.type == MDTE_TYPE_JOURNAL)
+		{
+			sys_journal::listener_id jid = ddt.ddt_number;
+			journal_dtable * source = new journal_dtable;
+			source->init(ktype, jid, sysj);
+			r = actual_sysj->get_entries(source);
+			if(!cmp_name)
+				cmp_name = source->get_cmp_name();
+			if(r == -EBUSY && cmp_name)
+				delayed_query = actual_sysj;
+			else if(r < 0)
+			{
+				delete source;
+				goto fail_disks;
+			}
+			disks.push_back(dtable_list_entry(journal, jid));
+		}
 		else
-			source = base->open(md_dfd, name, base_config);
-		if(!source)
-			goto fail_disks;
-		disks.push_back(dtable_list_entry(source, ddt));
+		{
+			char name[32];
+			dtable * source;
+			sprintf(name, "md_data.%u", ddt.ddt_number);
+			if(ddt.type == MDTE_TYPE_FASTBASE)
+				source = fastbase->open(md_dfd, name, fastbase_config);
+			else
+				source = base->open(md_dfd, name, base_config);
+			if(!source)
+				goto fail_disks;
+			disks.push_back(dtable_list_entry(source, ddt));
+		}
 	}
 	
 	journal = new journal_dtable;
-	journal->init(ktype, header.journal_id, sys_journal);
-	if(!sys_journal)
-		sys_journal = sys_journal::get_global_journal();
-	r = sys_journal->get_entries(journal);
-	cmp_name = journal->get_cmp_name();
+	journal->init(ktype, header.journal_id, sysj);
+	r = actual_sysj->get_entries(journal);
+	if(!cmp_name)
+		cmp_name = journal->get_cmp_name();
 	if(r == -EBUSY && cmp_name)
-		delayed_query = sys_journal;
-	else if(r >= 0)
-		delayed_query = NULL;
-	else
+		delayed_query = actual_sysj;
+	else if(r < 0)
 		goto fail_query;
 	/* if the journal did not provide it, try to get the comparator name
 	 * from the first disk dtable - journal_dtable doesn't save the name if
@@ -208,6 +227,11 @@ int managed_dtable::set_blob_cmp(const blob_comparator * cmp)
 	{
 		value = disks[i].disk->set_blob_cmp(cmp);
 		assert(value >= 0);
+		if(disks[i].type == MDTE_TYPE_JOURNAL && delayed_query)
+		{
+			value = delayed_query->get_entries(disks[i].journal);
+			assert(value >= 0);
+		}
 	}
 	if(delayed_query)
 	{
@@ -392,8 +416,16 @@ int managed_dtable::combiner::finish()
 		mdtable_entry array[mdt->header.ddt_count];
 		for(uint32_t i = 0; i < mdt->header.ddt_count; i++)
 		{
-			array[i].ddt_number = copy[i].ddt_number;
-			array[i].is_fastbase = copy[i].is_fastbase;
+			if(copy[i].type == MDTE_TYPE_JOURNAL)
+			{
+				array[i].ddt_number = (uint32_t) copy[i].jid;
+				array[i].type = MDTE_TYPE_JOURNAL;
+			}
+			else
+			{
+				array[i].ddt_number = copy[i].ddt_number;
+				array[i].type = copy[i].type;
+			}
 		}
 		/* hmm... would sizeof(array) work here? */
 		r = tx_write(fd, array, mdt->header.ddt_count * sizeof(array[0]), sizeof(mdt->header));
@@ -415,9 +447,17 @@ int managed_dtable::combiner::finish()
 		{
 			if(copy[i].disk->in_use())
 			{
-				printf("DEBUG: dooming disk dtable %p\n", copy[i].disk);
-				doomed_dtable * doomed = new doomed_dtable(mdt, copy[i].disk, copy[i].ddt_number);
+				doomed_dtable * doomed;
+				if(copy[i].type == MDTE_TYPE_JOURNAL)
+					doomed = new doomed_dtable(mdt, copy[i].journal);
+				else
+					doomed = new doomed_dtable(mdt, copy[i].disk, copy[i].ddt_number);
 				mdt->doomed_dtables.insert(doomed);
+			}
+			else if(copy[i].type == MDTE_TYPE_JOURNAL)
+			{
+				copy[i].journal->deinit(true);
+				delete copy[i].journal;
 			}
 			else
 			{
@@ -436,7 +476,6 @@ int managed_dtable::combiner::finish()
 		array[0] = mdt->journal;
 		if(mdt->overlay->in_use())
 		{
-			printf("DEBUG: dooming overlay dtable %p\n", mdt->overlay);
 			doomed_dtable * doomed = new doomed_dtable(mdt, mdt->overlay);
 			mdt->doomed_dtables.insert(doomed);
 			mdt->overlay = new overlay_dtable;
@@ -450,7 +489,6 @@ int managed_dtable::combiner::finish()
 	{
 		if(mdt->journal->in_use())
 		{
-			printf("DEBUG: dooming journal dtable %p\n", mdt->journal);
 			sys_journal * sj = mdt->journal->get_journal();
 			doomed_dtable * doomed = new doomed_dtable(mdt, mdt->journal);
 			/* FIXME: we can actually discard the sysj entries now, as long as we keep them in memory */
@@ -509,7 +547,6 @@ int managed_dtable::background_join()
 
 void managed_dtable::digest_thread_main(bg_token * token)
 {
-	printf("managed_dtable @%p digest_thread_main() startup\n", this);
 	while(!digest_thread.stop_requested())
 	{
 		reply_msg reply;
@@ -529,7 +566,6 @@ void managed_dtable::digest_thread_main(bg_token * token)
 				/* fall out */ ;
 		}
 	}
-	printf("managed_dtable @%p digest_thread_main() shutdown\n", this);
 }
 
 void managed_dtable::doomed_dtable::invoke()
