@@ -271,7 +271,7 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase, T * to
 	size_t holds;
 	scopetoken<T> scope(token);
 	combiner worker(this, first, last, use_fastbase);
-	int r = worker.prepare();
+	int r = worker.prepare(token);
 	if(r < 0)
 		return r;
 	holds = scope.full_release();
@@ -284,13 +284,68 @@ int managed_dtable::combine(size_t first, size_t last, bool use_fastbase, T * to
 }
 
 /* set up the source and shadow overlay dtables */
-int managed_dtable::combiner::prepare()
+int managed_dtable::combiner::prepare(bool shift_journal)
 {
 	/* can't do combining if we don't have the requisite comparator */
 	if(mdt->cmp_name && !mdt->blob_cmp)
 		return -EBUSY;
 	if(last < first || last > mdt->disks.size())
 		return -EINVAL;
+	
+	if(shift_journal && last == mdt->disks.size())
+	{
+		int r;
+		sys_journal * sj = mdt->journal->get_journal();
+		
+		/* We're about to do a digest that uses the current journal dtable, and it
+		 * will be done in the background. We can't allow the journal dtable to be
+		 * writable any more, or the digest will not have a consistent view of the
+		 * data it contains. We create a new one instead, and shift the old one
+		 * (hence the name shift_journal) into a "disk" dtable position. */
+		/* FIXME: in the event of a later digest error, this will cause there to
+		 * be an extra dtable that the digest schedule won't take into account,
+		 * hurting future performance */
+		mdt->disks.push_back(dtable_list_entry(mdt->journal, mdt->header.journal_id));
+		mdt->header.journal_id = sys_journal::get_unique_id();
+		assert(mdt->header.journal_id != sys_journal::NO_ID);
+		mdt->header.ddt_count++;
+		
+		r = write_meta(mdt->disks);
+		if(r < 0)
+		{
+			dtable_list_entry orig = mdt->disks.back();
+			mdt->header.journal_id = orig.jid;
+			mdt->journal = orig.journal;
+			mdt->header.ddt_count--;
+			mdt->disks.pop_back();
+			return r;
+		}
+		
+		mdt->journal = new journal_dtable;
+		mdt->journal->init(mdt->ktype, mdt->header.journal_id, sj);
+		if(mdt->blob_cmp)
+			mdt->journal->set_blob_cmp(mdt->blob_cmp);
+		
+		/* force array scope to end */
+		{
+			const dtable * array[mdt->header.ddt_count + 1];
+			for(uint32_t i = 0; i < mdt->header.ddt_count; i++)
+				array[mdt->header.ddt_count - i] = mdt->disks[i].disk;
+			array[0] = mdt->journal;
+			if(mdt->overlay->in_use())
+			{
+				doomed_dtable * doomed = new doomed_dtable(mdt, mdt->overlay);
+				mdt->doomed_dtables.insert(doomed);
+				mdt->overlay = new overlay_dtable;
+			}
+			mdt->overlay->init(array, mdt->header.ddt_count + 1);
+			if(mdt->blob_cmp)
+				mdt->overlay->set_blob_cmp(mdt->blob_cmp);
+		}
+		
+		/* now it should look like we're not digesting the journal after all */
+		assert(last < mdt->disks.size());
+	}
 	
 	if(first)
 	{
@@ -356,7 +411,6 @@ int managed_dtable::combiner::finish()
 	sys_journal::listener_id old_id = sys_journal::NO_ID;
 	dtable_list copy;
 	dtable * result;
-	tx_fd fd;
 	int r;
 	
 	delete source;
@@ -381,14 +435,6 @@ int managed_dtable::combiner::finish()
 	for(size_t i = last + 1; i < mdt->disks.size(); i++)
 		copy.push_back(mdt->disks[i]);
 	
-	fd = tx_open(mdt->md_dfd, "md_meta", 0);
-	if(!fd)
-	{
-		delete result;
-		fail();
-		return -1;
-	}
-	
 	if(reset_journal)
 	{
 		old_id = mdt->header.journal_id;
@@ -398,8 +444,7 @@ int managed_dtable::combiner::finish()
 	mdt->header.ddt_count = copy.size();
 	mdt->header.ddt_next++;
 	
-	/* TODO: really the file should be truncated, but it's not important */
-	r = tx_write(fd, &mdt->header, sizeof(mdt->header), 0);
+	r = write_meta(copy);
 	if(r < 0)
 	{
 		mdt->header.ddt_next--;
@@ -410,34 +455,6 @@ int managed_dtable::combiner::finish()
 		fail();
 		return r;
 	}
-	
-	/* force array scope to end */
-	{
-		mdtable_entry array[mdt->header.ddt_count];
-		for(uint32_t i = 0; i < mdt->header.ddt_count; i++)
-		{
-			if(copy[i].type == MDTE_TYPE_JOURNAL)
-			{
-				array[i].ddt_number = (uint32_t) copy[i].jid;
-				array[i].type = MDTE_TYPE_JOURNAL;
-			}
-			else
-			{
-				array[i].ddt_number = copy[i].ddt_number;
-				array[i].type = copy[i].type;
-			}
-		}
-		/* hmm... would sizeof(array) work here? */
-		r = tx_write(fd, array, mdt->header.ddt_count * sizeof(array[0]), sizeof(mdt->header));
-		if(r < 0)
-		{
-			/* umm... we are screwed? */
-			abort();
-			return r;
-		}
-	}
-	
-	tx_close(fd);
 	
 	mdt->disks.swap(copy);
 	
@@ -502,6 +519,52 @@ int managed_dtable::combiner::finish()
 			mdt->journal->set_blob_cmp(mdt->blob_cmp);
 	}
 	
+	return 0;
+}
+
+/* actually write the md_meta file */
+int managed_dtable::combiner::write_meta(const dtable_list & list) const
+{
+	tx_fd fd = tx_open(mdt->md_dfd, "md_meta", 0);
+	if(!fd)
+		return -1;
+	
+	/* TODO: really the file should be truncated, but it's not important */
+	int r = tx_write(fd, &mdt->header, sizeof(mdt->header), 0);
+	if(r < 0)
+	{
+		tx_close(fd);
+		return r;
+	}
+	
+	/* force array scope to end */
+	{
+		mdtable_entry array[mdt->header.ddt_count];
+		for(uint32_t i = 0; i < mdt->header.ddt_count; i++)
+		{
+			if(list[i].type == MDTE_TYPE_JOURNAL)
+			{
+				array[i].ddt_number = (uint32_t) list[i].jid;
+				array[i].type = MDTE_TYPE_JOURNAL;
+			}
+			else
+			{
+				array[i].ddt_number = list[i].ddt_number;
+				array[i].type = list[i].type;
+			}
+		}
+		/* hmm... would sizeof(array) work here? */
+		r = tx_write(fd, array, mdt->header.ddt_count * sizeof(array[0]), sizeof(mdt->header));
+		if(r < 0)
+		{
+			/* umm... we are screwed? */
+			abort();
+			tx_close(fd);
+			return r;
+		}
+	}
+	
+	tx_close(fd);
 	return 0;
 }
 

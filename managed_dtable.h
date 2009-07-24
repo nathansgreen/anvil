@@ -227,7 +227,10 @@ private:
 			: mdt(mdt), first(first), last(last), use_fastbase(use_fastbase), source(NULL), shadow(NULL), reset_journal(false)
 		{
 		}
-		int prepare();
+		int prepare(bool shift_journal);
+		/* we only care about the type of the parameter */
+		inline int prepare(bg_token * token) { return prepare(true); }
+		inline int prepare(fg_token * token) { return prepare(false); }
 		int run() const;
 		int finish();
 		void fail();
@@ -236,7 +239,10 @@ private:
 			if(source)
 				fail();
 		}
+		
 	private:
+		int write_meta(const dtable_list & copy) const;
+		
 		managed_dtable * mdt;
 		size_t first, last;
 		const bool use_fastbase;
