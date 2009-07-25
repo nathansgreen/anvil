@@ -41,8 +41,7 @@ public:
 	
 	inline istr(const char * x, size_t length)
 	{
-		/* doing a little memory trick so can't just use new */
-		shared = (share *) malloc(sizeof(*shared) + length + 1);
+		shared = share::alloc(length);
 		shared->count = 1;
 		if(length)
 			strncpy(shared->string, x, length);
@@ -53,8 +52,7 @@ public:
 	inline istr(const char * x, const char * y, const char * z = NULL)
 	{
 		size_t length = strlen(x) + strlen(y) + (z ? strlen(z) : 0);
-		/* doing a little memory trick so can't just use new */
-		shared = (share *) malloc(sizeof(*shared) + length + 1);
+		shared = share::alloc(length);
 		shared->count = 1;
 		strcpy(shared->string, x);
 		strcat(shared->string, y);
@@ -72,8 +70,7 @@ public:
 	
 	inline istr(const blob & x)
 	{
-		/* doing a little memory trick so can't just use new */
-		shared = (share *) malloc(sizeof(*shared) + x.size() + 1);
+		shared = share::alloc(x.size());
 		shared->count = 1;
 		if(x.size())
 			strncpy(shared->string, &x.index<char>(0), x.size());
@@ -98,8 +95,7 @@ public:
 			free(shared);
 		if(x)
 		{
-			/* doing a little memory trick so can't just use new */
-			shared = (share *) malloc(sizeof(*shared) + strlen(x) + 1);
+			shared = share::alloc(strlen(x));
 			shared->count = 1;
 			strcpy(shared->string, x);
 		}
@@ -174,6 +170,12 @@ private:
 	{
 		size_t count;
 		char string[0];
+		static share * alloc(size_t length)
+		{
+			/* doing a little memory trick so can't just use new */
+			length += sizeof(share) + 4;
+			return (share *) malloc(length & ~3);
+		}
 	};
 	
 	template<class T>
