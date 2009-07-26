@@ -212,6 +212,7 @@ public:
 		if(size > buffer_size)
 			return pread(fd, data, size, offset);
 		scopelock scope(lock, do_lock);
+		lock.assert_locked();
 		/* we will need at most two buffers now */
 		if(!buffers[last_buffer].contains(offset))
 		{
@@ -235,6 +236,7 @@ public:
 	virtual const void * page(off_t index)
 	{
 		off_t offset = index * buffer_size;
+		lock.assert_locked();
 		if(!buffers[last_buffer].contains(offset))
 		{
 			if(!find_not_last(offset))
