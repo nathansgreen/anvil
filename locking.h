@@ -12,6 +12,8 @@
 #error locking.h is a C++ header file
 #endif
 
+#define LOCK_DEBUG 0
+
 /* a simple wrapper class to handle initializing a mutex when it
  * is allocated, and also shorten lock and unlock code for it */
 
@@ -31,22 +33,38 @@ public:
 	inline void lock()
 	{
 		pthread_mutex_lock(&mutex);
+#if LOCK_DEBUG
+		holder = pthread_self();
+		locked = true;
+#endif
 	}
 	
 	inline void unlock()
 	{
-		pthread_mutex_lock(&mutex);
+#if LOCK_DEBUG
+		locked = false;
+#endif
+		pthread_mutex_unlock(&mutex);
 	}
 	
-	inline operator pthread_mutex_t * ()
+	inline void assert_locked()
 	{
-		return &mutex;
+#if LOCK_DEBUG
+		assert(locked);
+		assert(holder == pthread_self());
+#endif
 	}
 	
 private:
 	pthread_mutex_t mutex;
+#if LOCK_DEBUG
+	pthread_t holder;
+	bool locked;
+#endif
 	void operator=(const init_mutex &);
 	init_mutex(const init_mutex &);
+	
+	friend class init_cond;
 };
 
 /* a simple wrapper class to handle initializing a condition variable
@@ -65,9 +83,9 @@ public:
 		pthread_cond_destroy(&cond);
 	}
 	
-	inline void wait(pthread_mutex_t * mutex)
+	inline void wait(init_mutex & lock)
 	{
-		pthread_cond_wait(&cond, mutex);
+		pthread_cond_wait(&cond, &lock.mutex);
 	}
 	
 	inline void signal()
@@ -78,11 +96,6 @@ public:
 	inline void broadcast()
 	{
 		pthread_cond_broadcast(&cond);
-	}
-	
-	inline operator pthread_cond_t * ()
-	{
-		return &cond;
 	}
 	
 private:
@@ -97,53 +110,53 @@ private:
 class scopelock
 {
 public:
-	inline scopelock(pthread_mutex_t * mutex, bool lock = true)
-		: mutex(mutex), locked(lock)
+	inline scopelock(init_mutex & lock, bool do_lock = true)
+		: mutex(&lock), locked(do_lock)
 	{
-		if(lock)
-			pthread_mutex_lock(mutex);
+		if(do_lock)
+			mutex->lock();
 	}
 	
 	inline ~scopelock()
 	{
 		if(locked)
-			pthread_mutex_unlock(mutex);
+			mutex->unlock();
 	}
 	
 	inline void lock()
 	{
 		assert(!locked);
 		locked = true;
-		pthread_mutex_lock(mutex);
+		mutex->lock();
 	}
 	
 	inline void unlock()
 	{
 		assert(locked);
 		locked = false;
-		pthread_mutex_unlock(mutex);
+		mutex->unlock();
 	}
 	
-	inline void wait(pthread_cond_t * cond)
+	inline void wait(init_cond & cond)
 	{
 		assert(locked);
-		pthread_cond_wait(cond, mutex);
+		cond.wait(*mutex);
 	}
 	
-	inline void signal(pthread_cond_t * cond)
+	inline void signal(init_cond & cond)
 	{
 		assert(locked);
-		pthread_cond_signal(cond);
+		cond.signal();
 	}
 	
-	inline void broadcast(pthread_cond_t * cond)
+	inline void broadcast(init_cond & cond)
 	{
 		assert(locked);
-		pthread_cond_broadcast(cond);
+		cond.broadcast();
 	}
 	
 private:
-	pthread_mutex_t * mutex;
+	init_mutex * mutex;
 	bool locked;
 	void operator=(const scopelock &);
 	scopelock(const scopelock &);
