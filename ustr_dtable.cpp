@@ -194,7 +194,7 @@ int ustr_dtable::find_key(const T & test, size_t * index, size_t * data_length, 
 	/* binary search */
 	ssize_t min = 0, max = key_count - 1;
 	assert(ktype != dtype::BLOB || !cmp_name == !blob_cmp);
-	scopelock(fp->lock);
+	scopelock scope(fp->lock);
 	while(min <= max)
 	{
 		/* watch out for overflow! */
