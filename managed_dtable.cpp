@@ -40,7 +40,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	if(!config.get(fast_config, &fastbase_config, params()))
 		return -EINVAL;
 	/* NOTE: use of this feature causes iterators to potentially
-	 * become invalid on every insert() or remove() */
+	 * become stale on every insert() or remove() */
 	if(!config.get("digest_size", &size, 0))
 		return -EINVAL;
 	digest_size = size;
@@ -716,7 +716,7 @@ int managed_dtable::maintain(bool force, T * token)
 	int r;
 	time_t now = time(NULL);
 	/* check if we even need to digest */
-	if(header.digested + header.digest_interval > now &&
+	if(!force && header.digested + header.digest_interval > now &&
 	   (header.combined + header.combine_interval > now || autocombine))
 		return 0;
 	scopetoken<T> scope(token);
