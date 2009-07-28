@@ -275,7 +275,7 @@ int array_dtable::init(int dfd, const char * file, const params & config)
 	fp = rofile::open_mmap<64, 24>(dfd, file);
 	if(!fp)
 		return -1;
-	if(fp->read(0, &header) < 0)
+	if(fp->read_type(0, &header) < 0)
 		goto fail;
 	if(header.magic != ADTABLE_MAGIC || header.version != ADTABLE_VERSION)
 		goto fail;

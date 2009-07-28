@@ -171,9 +171,9 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 			return dtype(value);
 		}
 		case dtype::STRING:
-			return dtype(st.get(util::read_bytes(bytes, 0, key_size)));
+			return dtype(st.get(util::read_bytes(bytes, 0, key_size), lock));
 		case dtype::BLOB:
-			return dtype(st.get_blob(util::read_bytes(bytes, 0, key_size)));
+			return dtype(st.get_blob(util::read_bytes(bytes, 0, key_size), lock));
 	}
 	abort();
 }
@@ -269,7 +269,7 @@ int simple_dtable::init(int dfd, const char * file, const params & config)
 	fp = rofile::open_mmap<64, 24>(dfd, file);
 	if(!fp)
 		return -1;
-	if(fp->read(0, &header) < 0)
+	if(fp->read_type(0, &header) < 0)
 		goto fail;
 	if(header.magic != SDTABLE_MAGIC || header.version != SDTABLE_VERSION)
 		goto fail;
@@ -292,7 +292,7 @@ int simple_dtable::init(int dfd, const char * file, const params & config)
 			break;
 		case 4:
 			uint32_t length;
-			if(fp->read(key_start_off, &length) < 0)
+			if(fp->read_type(key_start_off, &length) < 0)
 				goto fail;
 			key_start_off += sizeof(length);
 			if(length)

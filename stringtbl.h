@@ -34,7 +34,7 @@ public:
 			deinit();
 	}
 	
-	int init(const rofile * fp, off_t start);
+	int init(const rofile * fp, off_t start, bool do_lock = true);
 	void deinit();
 	
 	inline size_t get_size()
@@ -49,10 +49,10 @@ public:
 	
 	/* The return value of get() is good until at least ST_LRU
 	 * more calls to get(), or one call to locate(). */
-	const char * get(ssize_t index) const;
-	const blob & get_blob(ssize_t index) const;
-	ssize_t locate(const char * string) const;
-	ssize_t locate(const blob & search, const blob_comparator * blob_cmp = NULL) const;
+	const char * get(ssize_t index, bool do_lock = true) const;
+	const blob & get_blob(ssize_t index, bool do_lock = true) const;
+	ssize_t locate(const char * string, bool do_lock = true) const;
+	ssize_t locate(const blob & search, const blob_comparator * blob_cmp = NULL, bool do_lock = true) const;
 	
 	/* these functions assume the input is sorted */
 	static int create(rwfile * fp, const std::vector<istr> & strings);

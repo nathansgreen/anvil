@@ -64,7 +64,7 @@ int bloom_dtable::bloom::init(int dfd, const char * file, size_t * m, size_t * k
 	data = rofile::open<16, 1>(dfd, file);
 	if(!data)
 		return -1;
-	if(data->read(0, &header) < 0)
+	if(data->read_type(0, &header) < 0)
 		goto fail_close;
 	if(header.magic != BLOOM_DTABLE_MAGIC || header.version != BLOOM_DTABLE_VERSION)
 		goto fail_close;

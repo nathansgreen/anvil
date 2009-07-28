@@ -7,6 +7,7 @@
 #include <errno.h>
 
 #include "util.h"
+#include "locking.h"
 #include "blob_buffer.h"
 #include "stringtbl.h"
 
@@ -19,14 +20,15 @@ struct st_header {
 	ssize_t count;
 } __attribute__((packed));
 
-int stringtbl::init(const rofile * fp, off_t start)
+int stringtbl::init(const rofile * fp, off_t start, bool do_lock)
 {
 	int r;
 	st_header header;
 	off_t offset = start + sizeof(header);
 	if(this->fp)
 		deinit();
-	r = fp->read(start, &header);
+	scopelock scope(fp->lock, do_lock);
+	r = fp->read_type(start, &header, false);
 	if(r < 0)
 		return (r < 0) ? r : -1;
 	if(header.version != STRINGTBL_VERSION)
@@ -45,7 +47,7 @@ int stringtbl::init(const rofile * fp, off_t start)
 	for(ssize_t i = 0; i < count; i++)
 	{
 		uint8_t buffer[8];
-		r = fp->read(offset, buffer, bytes[2]);
+		r = fp->read(offset, buffer, bytes[2], false);
 		if(r != bytes[2])
 		{
 			this->fp = NULL;
@@ -79,7 +81,7 @@ void stringtbl::deinit()
 	}
 }
 
-const char * stringtbl::get(ssize_t index) const
+const char * stringtbl::get(ssize_t index, bool do_lock) const
 {
 	int i, bc = 0;
 	off_t offset;
@@ -92,8 +94,9 @@ const char * stringtbl::get(ssize_t index) const
 		if(lru[i].index == index)
 			return lru[i].string;
 	/* not in LRU */
+	scopelock scope(fp->lock, do_lock);
 	offset = start + sizeof(st_header) + index * bytes[2];
-	i = fp->read(offset, buffer, bytes[2]);
+	i = fp->read(offset, buffer, bytes[2], false);
 	if(i != bytes[2])
 		return NULL;
 	length = util::read_bytes(buffer, &bc, bytes[0]);
@@ -102,7 +105,7 @@ const char * stringtbl::get(ssize_t index) const
 	string = (char *) malloc(length + 1);
 	if(!string)
 		return NULL;
-	i = fp->read(offset, string, length);
+	i = fp->read(offset, string, length, false);
 	if(i != length)
 	{
 		free(string);
@@ -119,7 +122,7 @@ const char * stringtbl::get(ssize_t index) const
 	return string;
 }
 
-const blob & stringtbl::get_blob(ssize_t index) const
+const blob & stringtbl::get_blob(ssize_t index, bool do_lock) const
 {
 	int i, bc = 0;
 	off_t offset;
@@ -131,8 +134,9 @@ const blob & stringtbl::get_blob(ssize_t index) const
 		if(lru[i].index == index)
 			return lru[i].binary;
 	/* not in LRU */
+	scopelock scope(fp->lock, do_lock);
 	offset = start + sizeof(st_header) + index * bytes[2];
-	i = fp->read(offset, buffer, bytes[2]);
+	i = fp->read(offset, buffer, bytes[2], false);
 	if(i != bytes[2])
 		return blob::dne;
 	length = util::read_bytes(buffer, &bc, bytes[0]);
@@ -141,7 +145,7 @@ const blob & stringtbl::get_blob(ssize_t index) const
 	blob_buffer data(length);
 	data.set_size(length, false);
 	assert(length);
-	i = fp->read(offset, &data[0], length);
+	i = fp->read(offset, &data[0], length, false);
 	if(i != length)
 		return blob::dne;
 	i = lru_next;
@@ -155,8 +159,9 @@ const blob & stringtbl::get_blob(ssize_t index) const
 	return lru[i].binary;
 }
 
-ssize_t stringtbl::locate(const char * string) const
+ssize_t stringtbl::locate(const char * string, bool do_lock) const
 {
+	scopelock scope(fp->lock, do_lock);
 	/* binary search */
 	ssize_t min = 0, max = count - 1;
 	while(min <= max)
@@ -164,7 +169,7 @@ ssize_t stringtbl::locate(const char * string) const
 		int c;
 		/* watch out for overflow! */
 		ssize_t index = min + (max - min) / 2;
-		const char * value = get(index);
+		const char * value = get(index, false);
 		if(!value)
 			return -1;
 		c = strcmp(value, string);
@@ -178,8 +183,9 @@ ssize_t stringtbl::locate(const char * string) const
 	return -1;
 }
 
-ssize_t stringtbl::locate(const blob & search, const blob_comparator * blob_cmp) const
+ssize_t stringtbl::locate(const blob & search, const blob_comparator * blob_cmp, bool do_lock) const
 {
+	scopelock scope(fp->lock, do_lock);
 	/* binary search */
 	ssize_t min = 0, max = count - 1;
 	while(min <= max)

@@ -43,9 +43,9 @@ public:
 	
 	/* read the structure from the file */
 	template<class T>
-	inline int read(off_t offset, T * data) const
+	inline int read_type(off_t offset, T * data, bool do_lock = true) const
 	{
-		ssize_t r = read(offset, data, sizeof(T));
+		ssize_t r = read(offset, data, sizeof(T), do_lock);
 		return (r == sizeof(T)) ? 0 : (r < 0) ? (int) r : -1;
 	}
 	

@@ -395,7 +395,7 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 	meta_file = rofile::open<4, 2>(cct_dfd, "cct_meta");
 	if(!meta_file)
 		goto fail_open;
-	r = meta_file->read(0, &meta);
+	r = meta_file->read_type(0, &meta);
 	if(r < 0)
 		goto fail_header;
 	if(meta.magic != COLUMN_CTABLE_MAGIC || meta.version != COLUMN_CTABLE_VERSION)
@@ -442,7 +442,7 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 	for(size_t i = 0; i < column_count; i++)
 	{
 		uint32_t length;
-		r = meta_file->read(offset, &length);
+		r = meta_file->read_type(offset, &length);
 		if(r < 0)
 			goto fail_names;
 		offset += sizeof(length);

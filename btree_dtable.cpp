@@ -143,7 +143,7 @@ int btree_dtable::init(int dfd, const char * file, const params & config)
 	btree = rofile::open<BTREE_PAGE_KB, 8>(bt_dfd, "btree");
 	if(!btree)
 		goto fail_open;
-	r = btree->read(0, &header);
+	r = btree->read_type(0, &header);
 	if(r < 0)
 		goto fail_format;
 	/* check the header */
