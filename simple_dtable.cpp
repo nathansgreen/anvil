@@ -156,7 +156,7 @@ dtype simple_dtable::get_key(size_t index, size_t * data_length, off_t * data_of
 	
 	if(data_length)
 		/* all data lengths are stored incremented by 1, to free up 0 for non-existent entries */
-		*data_length = util::read_bytes(bytes, key_size, length_size) - 1;
+		*data_length = ((size_t) util::read_bytes(bytes, key_size, length_size)) - 1;
 	if(data_offset)
 		*data_offset = util::read_bytes(bytes, key_size + length_size, offset_size);
 	
