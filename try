@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# The block device to use
+DEV=sdb1
+
 # Uncomment to use valgrind
 #export VALGRIND="valgrind --trace-children=yes --leak-check=full"
 
@@ -57,8 +60,8 @@ then
 fi
 
 echo -n "Creating file system... "
-sudo mke2fs $MKFS_ARGS -m 0 -b 4096 /dev/sdb1 &> /dev/null
-sudo mount /dev/sdb1 /mnt/test -t $FSTYPE
+sudo mke2fs $MKFS_ARGS -m 0 -b 4096 /dev/$DEV &> /dev/null
+sudo mount /dev/$DEV /mnt/test -t $FSTYPE
 sudo chown -R `whoami` /mnt/test
 [ "$JOURNAL" ] && dd if=/dev/zero of=/mnt/test/.journal bs=1M count=64 2> /dev/null
 cp demo /mnt/test
@@ -161,7 +164,7 @@ fi
 
 echo -ne \\007
 
-sudo mount /dev/sdb1 /mnt/test -t $FSTYPE
+sudo mount /dev/$DEV /mnt/test -t $FSTYPE
 rm -f gmon.out* gmon.sum*
 if [ -f /mnt/test/gmon.out ]
 then

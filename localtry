@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# The directory to use
+DIR=test.local
+
 # Uncomment to use valgrind
 #export VALGRIND="valgrind --trace-children=yes --leak-check=full"
 
@@ -10,8 +13,6 @@
 #OPROF="LD_LIBRARY_PATH=/usr/lib/debug"
 
 make || exit $?
-
-DIR=test.local
 
 echo -n "Creating test directory... "
 rm -rf $DIR
