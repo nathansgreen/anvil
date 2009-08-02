@@ -20,6 +20,8 @@ extern "C" {
  * its header file inside an extern "C" block. */
 #include <patchgroup.h>
 }
+#else
+#include <sys/time.h>
 #endif
 
 #include "istr.h"
@@ -78,7 +80,16 @@ public:
 	/* number of bytes currently occupied by the journal */
 	inline size_t size() const { return data_file.end() + (commits * sizeof(commit_record));}
 	
+	/* initialize the journal system */
+	static int init(int dfd);
+	static int deinit();
+	
 private:
+#if !HAVE_FSTITCH
+	static int fs_fd;
+	static struct timeval fd_tv[2];
+#endif
+	
 	/* a commit record */
 	struct commit_record {
 		off_t offset;

@@ -51,12 +51,19 @@ journal * journal::create(int dfd, const istr & path, journal * prev)
 
 int journal::wait()
 {
+#if HAVE_FSTITCH /* {{{ */
 	if(!last_commit)
 		return -EINVAL;
-#if HAVE_FSTITCH /* {{{ */
 	return patchgroup_sync(last_commit);
 #else /* }}} */
-	sync();
+	int r;
+	/* by changing the timestamp and calling fsync() on a file within
+	 * the target file system, we force the ext3 transaction to end */
+	fd_tv[0].tv_sec++;
+	r = futimes(fs_fd, fd_tv);
+	assert(r >= 0);
+	r = fsync(fs_fd);
+	assert(r >= 0);
 	return 0;
 #endif
 }
@@ -631,4 +638,34 @@ error:
 	delete j;
 	errno = save;
 	return -1;
+}
+
+#if !HAVE_FSTITCH
+int journal::fs_fd = -1;
+struct timeval journal::fd_tv[2];
+#endif
+
+int journal::init(int dfd)
+{
+#if !HAVE_FSTITCH
+	if(fs_fd >= 0)
+		return -EBUSY;
+	fs_fd = openat(dfd, ".fsync_fs", O_RDWR | O_CREAT | O_TRUNC, 0600);
+	if(fs_fd < 0)
+		return fs_fd;
+	unlinkat(dfd, ".fsync_fs", 0);
+	memset(fd_tv, 0, sizeof(fd_tv));
+#endif
+	return 0;
+}
+
+int journal::deinit()
+{
+#if !HAVE_FSTITCH
+	if(fs_fd < 0)
+		return -EBUSY;
+	close(fs_fd);
+	fs_fd = -1;
+#endif
+	return 0;
 }

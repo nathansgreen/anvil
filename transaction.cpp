@@ -247,6 +247,12 @@ int metafile::tx_init(int dfd, size_t log_size)
 	journal_dir = openat(dfd, "journals", O_RDONLY);
 	if(journal_dir < 0)
 		return journal_dir;
+	copy = journal::init(dfd);
+	if(copy < 0)
+	{
+		error = copy;
+		goto early_fail;
+	}
 	copy = dup(journal_dir);
 	if(copy < 0)
 	{
@@ -315,6 +321,8 @@ int metafile::tx_init(int dfd, size_t log_size)
 	return 0;
 	
 fail:
+	journal::deinit();
+early_fail:
 	::close(journal_dir);
 	journal_dir = -1;
 	return error;
@@ -348,6 +356,7 @@ void metafile::tx_deinit()
 		current_journal->release();
 		current_journal = NULL;
 	}
+	journal::deinit();
 	::close(journal_dir);
 	journal_dir = -1;
 }
