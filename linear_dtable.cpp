@@ -203,7 +203,7 @@ bool linear_dtable::get_index(size_t index, size_t * data_length, off_t * data_o
 int linear_dtable::find_key(const dtype_test & test, size_t * index) const
 {
 	/* binary search */
-	size_t min = min_key, max = min_key + array_size - 1;
+	ssize_t min = min_key, max = min_key + array_size - 1;
 	assert(ktype != dtype::BLOB || !cmp_name == !blob_cmp);
 	while(min <= max)
 	{
@@ -229,7 +229,7 @@ int linear_dtable::find_key(const dtype_test & test, size_t * index) const
 	/* convert to index */
 	min -= min_key;
 	/* find next valid index */
-	while(min < array_size && is_hole(min))
+	while(min < (ssize_t) array_size && is_hole(min))
 		min++;
 	if(index)
 		*index = min;

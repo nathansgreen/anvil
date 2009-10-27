@@ -203,7 +203,7 @@ bool array_dtable::is_hole(size_t index) const
 int array_dtable::find_key(const dtype_test & test, size_t * index) const
 {
 	/* binary search */
-	size_t min = min_key, max = min_key + array_size - 1;
+	ssize_t min = min_key, max = min_key + array_size - 1;
 	assert(ktype != dtype::BLOB || !cmp_name == !blob_cmp);
 	while(min <= max)
 	{
@@ -229,7 +229,7 @@ int array_dtable::find_key(const dtype_test & test, size_t * index) const
 	/* convert to index */
 	min -= min_key;
 	/* find next valid index */
-	while(min < array_size && is_hole(min))
+	while(min < (ssize_t) array_size && is_hole(min))
 		min++;
 	if(index)
 		*index = min;
