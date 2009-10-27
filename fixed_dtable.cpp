@@ -18,6 +18,8 @@
 #include "blob_buffer.h"
 #include "fixed_dtable.h"
 
+/* TODO: the keys can be put in with the data since it's all fixed-size */
+
 /* fixed dtable file format:
  * bytes 0-3: magic number
  * bytes 4-7: format version
