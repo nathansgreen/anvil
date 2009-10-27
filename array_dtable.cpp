@@ -218,19 +218,19 @@ int array_dtable::find_key(const dtype_test & test, size_t * index) const
 		{
 			if(is_hole(mid - min_key))
 			{
-				/* convert to index */
-				mid -= min_key;
-				/* find next valid index */
-				while(++mid < array_size && is_hole(mid));
-				if(index)
-					*index = mid + min_key;
-				return -ENOENT;
+				min = mid;
+				break;
 			}
 			if(index)
-				*index = mid;
+				*index = mid - min_key;
 			return 0;
 		}
 	}
+	/* convert to index */
+	min -= min_key;
+	/* find next valid index */
+	while(min < array_size && is_hole(min))
+		min++;
 	if(index)
 		*index = min;
 	return -ENOENT;

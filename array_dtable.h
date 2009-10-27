@@ -85,7 +85,6 @@ private:
 		size_t index;
 	};
 	
-	dtype get_key(size_t index) const;
 	blob get_value(size_t index, bool * found) const;
 	int find_key(const dtype_test & test, size_t * index) const;
 	uint8_t index_type(size_t index, off_t * offset = NULL) const;
