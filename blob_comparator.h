@@ -21,7 +21,7 @@ class blob_comparator
 public:
 	/* compare() need not compare nonexistent blobs; they cannot be keys */
 	virtual int compare(const blob & a, const blob & b) const = 0;
-
+	
 	/* hash() should be overridden if you compare non-identical blobs as
 	 * equal; if not, you can just use this default implementation */
 	inline virtual size_t hash(const blob & blob) const
@@ -36,7 +36,7 @@ public:
 		}
 		return r;
 	}
-
+	
 	/* a blob comparator has a name so that it can be stored into dtables
 	 * which are created using this comparator, and later the name can be
 	 * checked when opening those dtables to try to verify that the same
