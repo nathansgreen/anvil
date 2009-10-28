@@ -1,5 +1,5 @@
-/* This file is part of Toilet. Toilet is copyright 2007-2008 The Regents
- * of the University of California. Toilet is distributed under the terms
+/* This file is part of Anvil. Anvil is copyright 2007-2008 The Regents
+ * of the University of California. Anvil is distributed under the terms
  * of version 2 of the GNU GPL, but this file may (at your option) also be
  * distributed under the terms of any later version.
  *
