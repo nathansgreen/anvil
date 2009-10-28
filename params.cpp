@@ -137,6 +137,39 @@ bool params::get_int_or_blob(const istr & name, int * value, int dfl) const
 	return true;
 }
 
+template<class T>
+bool params::get_seq_impl(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<T> * value, const T & dfl) const
+{
+	size_t length = prefix.length() + postfix.length() + 32;
+	const char * pre = prefix ? prefix : "";
+	const char * post = postfix ? postfix : "";
+	value->clear();
+	for(size_t i = 0; variable || i < count; i++)
+	{
+		T index_value;
+		char name[length];
+		snprintf(name, length, "%s%zu%s", pre, i, post);
+		istr iname(name);
+		if(variable && !has(iname))
+			break;
+		/* std::vector<bool> strikes again! We can't just push_back a default T and then pass
+		 * the address of the vector's copy, because that won't work with packed bools. */
+		if(!get(iname, &index_value, dfl))
+			return false;
+		assert(value->size() == i);
+		value->push_back(index_value);
+	}
+	return true;
+}
+
+/* force get_seq_impl to instantiate for the six types we need */
+template bool params::get_seq_impl<bool>(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<bool> * value, const bool & dfl) const;
+template bool params::get_seq_impl<int>(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<int> * value, const int & dfl) const;
+template bool params::get_seq_impl<float>(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<float> * value, const float & dfl) const;
+template bool params::get_seq_impl<istr>(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<istr> * value, const istr & dfl) const;
+template bool params::get_seq_impl<blob>(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<blob> * value, const blob & dfl) const;
+template bool params::get_seq_impl<params>(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<params> * value, const params & dfl) const;
+
 void params::print() const
 {
 	value_map::const_iterator iter = values.begin();

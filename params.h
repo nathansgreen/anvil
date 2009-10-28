@@ -42,6 +42,21 @@ public:
 	bool get(const istr & name, blob * value, const blob & dfl = blob()) const;
 	bool get(const istr & name, params * value, const params & dfl = params()) const;
 	
+	/* get sequences of config names, starting at 0 and either fetching exactly a requested number
+	 * or stopping when a name does not exist (in the latter case, the default value is ignored) */
+	inline bool get_seq(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<bool> * value, bool dfl = false) const
+	{ return get_seq_impl<bool>(prefix, postfix, count, variable, value, dfl); }
+	inline bool get_seq(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<int> * value, int dfl = 0) const
+	{ return get_seq_impl<int>(prefix, postfix, count, variable, value, dfl); }
+	inline bool get_seq(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<float> * value, float dfl = 0) const
+	{ return get_seq_impl<float>(prefix, postfix, count, variable, value, dfl); }
+	inline bool get_seq(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<istr> * value, const istr & dfl = NULL) const
+	{ return get_seq_impl<istr>(prefix, postfix, count, variable, value, dfl); }
+	inline bool get_seq(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<blob> * value, const blob & dfl = blob()) const
+	{ return get_seq_impl<blob>(prefix, postfix, count, variable, value, dfl); }
+	inline bool get_seq(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<params> * value, const params & dfl = params()) const
+	{ return get_seq_impl<params>(prefix, postfix, count, variable, value, dfl); }
+	
 	bool has(const istr & name) const;
 	
 	/* a wrapper that allows blobs and optionally strings */
@@ -72,6 +87,10 @@ private:
 	enum keyword { ERROR, BOOL, INT, FLOAT, STRING, CLASS, CLASS_DT, CLASS_CT, CLASS_IDX, BLOB, CONFIG };
 	static inline enum keyword parse_type(const char * type);
 	static int parse(token_stream * tokens, params * result);
+	
+	template<class T>
+	bool get_seq_impl(const istr & prefix, const istr & postfix, size_t count, bool variable,
+	                  std::vector<T> * value, const T & dfl) const;
 	
 	/* can't be defined until later */
 	struct param;
