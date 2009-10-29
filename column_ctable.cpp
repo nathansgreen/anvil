@@ -389,7 +389,7 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 	ctable_header meta;
 	rofile * meta_file;
 	
-	cct_dfd = openat(dfd, file, 0);
+	cct_dfd = openat(dfd, file, O_RDONLY);
 	if(cct_dfd < 0)
 		return cct_dfd;
 	meta_file = rofile::open<4, 2>(cct_dfd, "cct_meta");
@@ -553,7 +553,7 @@ int column_ctable::create(int dfd, const char * file, const params & config, dty
 	r = mkdirat(dfd, file, 0755);
 	if(r < 0)
 		return r;
-	cct_dfd = openat(dfd, file, 0);
+	cct_dfd = openat(dfd, file, O_RDONLY);
 	if(cct_dfd < 0)
 		goto fail_open;
 	

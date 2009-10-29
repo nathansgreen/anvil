@@ -285,7 +285,7 @@ int deltaint_dtable::init(int dfd, const char * file, const params & config)
 		return -EINVAL;
 	if(!config.get("ref_config", &ref_config, params()))
 		return -EINVAL;
-	di_dfd = openat(dfd, file, 0);
+	di_dfd = openat(dfd, file, O_RDONLY);
 	if(di_dfd < 0)
 		return di_dfd;
 	base = base_factory->open(di_dfd, "base", base_config);
@@ -491,7 +491,7 @@ int deltaint_dtable::create(int dfd, const char * file, const params & config, d
 	r = mkdirat(dfd, file, 0755);
 	if(r < 0)
 		return r;
-	di_dfd = openat(dfd, file, 0);
+	di_dfd = openat(dfd, file, O_RDONLY);
 	if(di_dfd < 0)
 		goto fail_open;
 	

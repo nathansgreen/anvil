@@ -52,7 +52,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		return -EINVAL;
 	if(!config.get("bg_default", &bg_default, false))
 		return -EINVAL;
-	md_dfd = openat(dfd, name, 0);
+	md_dfd = openat(dfd, name, O_RDONLY);
 	if(md_dfd < 0)
 		return md_dfd;
 	meta = tx_open(md_dfd, "md_meta", 0);
@@ -803,7 +803,7 @@ int managed_dtable::maintain(bool force, T * token)
 
 int managed_dtable::create(int dfd, const char * name, const params & config, dtype::ctype key_type)
 {
-	int r, sdfd;
+	int r, md_dfd;
 	tx_fd fd;
 	mdtable_header header;
 	header.magic = MDTABLE_MAGIC;
@@ -853,24 +853,24 @@ int managed_dtable::create(int dfd, const char * name, const params & config, dt
 	r = mkdirat(dfd, name, 0755);
 	if(r < 0)
 		return r;
-	sdfd = openat(dfd, name, 0);
-	if(sdfd < 0)
+	md_dfd = openat(dfd, name, O_RDONLY);
+	if(md_dfd < 0)
 	{
 		unlinkat(dfd, name, AT_REMOVEDIR);
-		return sdfd;
+		return md_dfd;
 	}
-	fd = tx_open(sdfd, "md_meta", 1);
+	fd = tx_open(md_dfd, "md_meta", 1);
 	if(!fd)
 	{
-		close(sdfd);
+		close(md_dfd);
 		unlinkat(dfd, name, AT_REMOVEDIR);
 		return -1;
 	}
 	r = tx_write(fd, &header, sizeof(header), 0);
 	tx_close(fd);
 	if(r < 0)
-		unlinkat(sdfd, "md_meta", 0);
-	close(sdfd);
+		unlinkat(md_dfd, "md_meta", 0);
+	close(md_dfd);
 	if(r < 0)
 		unlinkat(dfd, name, AT_REMOVEDIR);
 	return r;

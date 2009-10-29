@@ -262,7 +262,7 @@ int exception_dtable::init(int dfd, const char * file, const params & config)
 	 * can get pruned out if the shadow does not require them */
 	if(!reject_value.exists())
 		return -EINVAL;
-	excp_dfd = openat(dfd, file, 0);
+	excp_dfd = openat(dfd, file, O_RDONLY);
 	if(excp_dfd < 0)
 		return excp_dfd;
 	base = base_factory->open(excp_dfd, "base", base_config);
@@ -355,7 +355,7 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	r = mkdirat(dfd, file, 0755);
 	if(r < 0)
 		return r;
-	excp_dfd = openat(dfd, file, 0);
+	excp_dfd = openat(dfd, file, O_RDONLY);
 	if(excp_dfd < 0)
 		goto fail_open;
 	/* we should really save the reject_value in a meta file here */

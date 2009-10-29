@@ -66,7 +66,7 @@ int keydiv_dtable::init(int dfd, const char * name, const params & config)
 		return -EINVAL;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
-	kdd_dfd = openat(dfd, name, 0);
+	kdd_dfd = openat(dfd, name, O_RDONLY);
 	if(kdd_dfd < 0)
 		return kdd_dfd;
 	meta = openat(kdd_dfd, "kdd_meta", O_RDONLY);
@@ -260,7 +260,7 @@ int keydiv_dtable::create(int dfd, const char * name, const params & config, dty
 	r = mkdirat(dfd, name, 0755);
 	if(r < 0)
 		return r;
-	kdd_dfd = openat(dfd, name, 0);
+	kdd_dfd = openat(dfd, name, O_RDONLY);
 	if(kdd_dfd < 0)
 	{
 		unlinkat(dfd, name, AT_REMOVEDIR);

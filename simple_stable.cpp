@@ -426,7 +426,7 @@ int simple_stable::init(int dfd, const char * name, const params & config)
 		return -EINVAL;
 	if(!config.get("data_config", &data_config, params()))
 		return -EINVAL;
-	md_dfd = openat(dfd, name, 0);
+	md_dfd = openat(dfd, name, O_RDONLY);
 	if(md_dfd < 0)
 		return md_dfd;
 	dt_meta = meta->open(md_dfd, "st_meta", meta_config);
@@ -481,7 +481,7 @@ int simple_stable::create(int dfd, const char * name, const params & config, dty
 	r = mkdirat(dfd, name, 0755);
 	if(r < 0)
 		return r;
-	md_dfd = openat(dfd, name, 0);
+	md_dfd = openat(dfd, name, O_RDONLY);
 	if(md_dfd < 0)
 	{
 		r = md_dfd;

@@ -129,7 +129,7 @@ int btree_dtable::init(int dfd, const char * file, const params & config)
 		return -EINVAL;
 	if(!factory->indexed_access(base_config))
 		return -ENOSYS;
-	bt_dfd = openat(dfd, file, 0);
+	bt_dfd = openat(dfd, file, O_RDONLY);
 	if(bt_dfd < 0)
 		return bt_dfd;
 	base = factory->open(bt_dfd, "base", base_config);
@@ -498,7 +498,7 @@ int btree_dtable::create(int dfd, const char * file, const params & config, dtab
 	r = mkdirat(dfd, file, 0755);
 	if(r < 0)
 		return r;
-	bt_dfd = openat(dfd, file, 0);
+	bt_dfd = openat(dfd, file, O_RDONLY);
 	if(bt_dfd < 0)
 		goto fail_open;
 	

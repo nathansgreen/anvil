@@ -448,7 +448,7 @@ int simple_ctable::init(int dfd, const char * file, const params & config)
 		return -ENOENT;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
-	ct_dfd = openat(dfd, file, 0);
+	ct_dfd = openat(dfd, file, O_RDONLY);
 	if(ct_dfd < 0)
 		return ct_dfd;
 	
@@ -551,7 +551,7 @@ int simple_ctable::create(int dfd, const char * file, const params & config, dty
 	r = mkdirat(dfd, file, 0755);
 	if(r < 0)
 		return r;
-	ct_dfd = openat(dfd, file, 0);
+	ct_dfd = openat(dfd, file, O_RDONLY);
 	if(ct_dfd < 0)
 		goto fail_open;
 	

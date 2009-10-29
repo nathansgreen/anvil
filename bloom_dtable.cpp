@@ -236,7 +236,7 @@ int bloom_dtable::init(int dfd, const char * file, const params & config)
 		return -ENOENT;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
-	bf_dfd = openat(dfd, file, 0);
+	bf_dfd = openat(dfd, file, O_RDONLY);
 	if(bf_dfd < 0)
 		return bf_dfd;
 	base = factory->open(bf_dfd, "base", base_config);
@@ -308,7 +308,7 @@ int bloom_dtable::create(int dfd, const char * file, const params & config, dtab
 	r = mkdirat(dfd, file, 0755);
 	if(r < 0)
 		return r;
-	bf_dfd = openat(dfd, file, 0);
+	bf_dfd = openat(dfd, file, O_RDONLY);
 	if(bf_dfd < 0)
 		goto fail_open;
 	
