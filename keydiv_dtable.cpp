@@ -13,10 +13,159 @@
 #include "util.h"
 #include "keydiv_dtable.h"
 
+keydiv_dtable::iter::iter(const keydiv_dtable * source)
+	: iter_source<keydiv_dtable>(source), current_index(0)
+{
+	subs = new sub[source->sub.size()];
+	for(size_t i = 0; i < source->sub.size(); i++)
+	{
+		subs[i].iter = source->sub[i]->iterator();
+		subs[i].at_first = true;
+		subs[i].at_end = !subs[i].iter->valid();
+	}
+	/* find the first nonempty iterator */
+	while(current_index < source->sub.size() && subs[current_index].at_end)
+		current_index++;
+}
+
+keydiv_dtable::iter::~iter()
+{
+	delete[] subs;
+}
+
+bool keydiv_dtable::iter::valid() const
+{
+	return current_index < dt_source->sub.size();
+}
+
+bool keydiv_dtable::iter::next()
+{
+	if(current_index >= dt_source->sub.size())
+		return false;
+	if(subs[current_index].iter->next())
+	{
+		subs[current_index].at_first = false;
+		return true;
+	}
+	subs[current_index].at_end = true;
+	while(++current_index < dt_source->sub.size())
+	{
+		if(!subs[current_index].at_first)
+		{
+			subs[current_index].at_first = true;
+			subs[current_index].at_end = subs[current_index].iter->first();
+		}
+		if(!subs[current_index].at_end)
+			return true;
+	}
+	return false;
+}
+
+bool keydiv_dtable::iter::prev()
+{
+	if(!current_index && subs[0].at_first)
+		return false;
+	if(current_index < dt_source->sub.size())
+	{
+		if(subs[current_index].iter->prev())
+			return true;
+		subs[current_index].at_first = true;
+	}
+	while(current_index)
+	{
+		bool empty;
+		if(subs[--current_index].at_end)
+			empty = !subs[current_index].iter->prev();
+		else
+			empty = !subs[current_index].iter->last();
+		subs[current_index].at_first = empty;
+		subs[current_index].at_end = empty;
+		if(!empty)
+			return true;
+	}
+	/* There is a special case we have to handle here: if subs[0].iter is
+	 * empty, then we are currently pointing before the first element, which
+	 * is not allowed. So we have to move back to the first element. */
+	if(subs[0].at_end)
+		next();
+	return false;
+}
+
+bool keydiv_dtable::iter::first()
+{
+	for(size_t i = 0; i < dt_source->sub.size(); i++)
+	{
+		subs[i].at_first = true;
+		subs[i].at_end = !subs[i].iter->first();
+	}
+	/* find the first nonempty iterator */
+	while(current_index < dt_source->sub.size() && subs[current_index].at_end)
+		current_index++;
+	return current_index < dt_source->sub.size();
+}
+
+bool keydiv_dtable::iter::last()
+{
+	current_index = dt_source->sub.size();
+	return prev();
+}
+
+dtype keydiv_dtable::iter::key() const
+{
+	assert(current_index < dt_source->sub.size());
+	return subs[current_index].iter->key();
+}
+
+bool keydiv_dtable::iter::seek(const dtype & key)
+{
+	size_t target_index = dt_source->key_index(key);
+	bool found = subs[target_index].iter->seek(key);
+	bool valid = found || subs[target_index].iter->valid();
+	current_index = target_index;
+	subs[current_index].at_first = false;
+	subs[current_index].at_end = !valid;
+	if(found)
+		return true;
+	if(!valid)
+		next();
+	return false;
+}
+
+bool keydiv_dtable::iter::seek(const dtype_test & test)
+{
+	size_t target_index = dt_source->key_index(test);
+	bool found = subs[target_index].iter->seek(test);
+	bool valid = found || subs[target_index].iter->valid();
+	current_index = target_index;
+	subs[current_index].at_first = false;
+	subs[current_index].at_end = !valid;
+	if(found)
+		return true;
+	if(!valid)
+		next();
+	return false;
+}
+
+metablob keydiv_dtable::iter::meta() const
+{
+	assert(current_index < dt_source->sub.size());
+	return subs[current_index].iter->meta();
+}
+
+blob keydiv_dtable::iter::value() const
+{
+	assert(current_index < dt_source->sub.size());
+	return subs[current_index].iter->value();
+}
+
+const dtable * keydiv_dtable::iter::source() const
+{
+	return dt_source;
+}
+
 dtable::iter * keydiv_dtable::iterator() const
 {
-	/* FIXME */
-	return NULL;
+	return new iter(this);
 }
 
 bool keydiv_dtable::present(const dtype & key, bool * found) const

@@ -64,6 +64,36 @@ private:
 		uint8_t dt_count;
 	} __attribute__((packed));
 	
+	class iter : public iter_source<keydiv_dtable>
+	{
+	public:
+		virtual bool valid() const;
+		virtual bool next();
+		virtual bool prev();
+		virtual bool first();
+		virtual bool last();
+		virtual dtype key() const;
+		virtual bool seek(const dtype & key);
+		virtual bool seek(const dtype_test & test);
+		virtual metablob meta() const;
+		virtual blob value() const;
+		virtual const dtable * source() const;
+		inline iter(const keydiv_dtable * source);
+		virtual ~iter();
+		
+	private:
+		struct sub
+		{
+			dtable::iter * iter;
+			bool at_first, at_end;
+			inline sub() : iter(NULL) {}
+			inline ~sub() { if(iter) delete iter; }
+		};
+		
+		sub * subs;
+		size_t current_index;
+	};
+	
 	typedef std::vector<dtable *> dtable_list;
 	typedef std::vector<dtype> divider_list;
 	
