@@ -1,0 +1,2 @@
+This directory contains a small Linux kernel module that instantly reboots the
+machine when it is loaded. We use it for testing, to simulate kernel crashes.

@@ -1,0 +1,2 @@
+This directory contains a simple PHP application that uses the PHP Toilet module
+as its backend. It is a social event management site, like Evite but simpler.

@@ -8,7 +8,8 @@
 /* Early in the development of Anvil, it was called Toilet. (In fact there is
  * even a reference to this hidden in the paper.) This file is the old C header
  * file for Toilet, providing the original, weird Toilet C API. The only reason
- * it is still here is to support the PHP module, if we ever want to revive it. */
+ * it is still here is to support the PHP module, in case we ever want to revive
+ * it. It's not used, and some of this code may no longer work at this point. */
 
 #include <errno.h>
 #include <stdio.h>

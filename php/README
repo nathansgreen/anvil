@@ -1,0 +1,4 @@
+This directory contains a PHP module that uses the old Toilet interface to
+Anvil. (See Anvil's toilet.h for more information on this interface.) It
+provides access to Anvil from PHP, like the PHP MySQL module does for MySQL.
+(Note: the Toilet interface is pretty old, and might not work any more...)
