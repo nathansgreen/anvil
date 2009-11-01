@@ -5,8 +5,10 @@
 #ifndef __TOILET_H
 #define __TOILET_H
 
-/* This is the old C header file for toilet. */
-/* It provides the original, weird toilet C API using the new toilet backend. */
+/* Early in the development of Anvil, it was called Toilet. (In fact there is
+ * even a reference to this hidden in the paper.) This file is the old C header
+ * file for Toilet, providing the original, weird Toilet C API. The only reason
+ * it is still here is to support the PHP module, if we ever want to revive it. */
 
 #include <errno.h>
 #include <stdio.h>
