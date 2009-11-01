@@ -2,9 +2,9 @@
 CSOURCES=blowfish.c md5.c openat.c
 
 # library stuff
-LIBRARIES=bg_token.cpp blob_buffer.cpp blob.cpp index_blob.cpp istr.cpp journal.cpp new.cpp
-LIBRARIES+=params.cpp rofile.cpp rwfile.cpp string_counter.cpp stringset.cpp stringtbl.cpp
-LIBRARIES+=sys_journal.cpp toilet.cpp toilet++.cpp token_stream.cpp stlavlmap/tree.cpp util.cpp
+LIBRARIES=anvil.cpp bg_token.cpp blob_buffer.cpp blob.cpp index_blob.cpp istr.cpp journal.cpp
+LIBRARIES+=new.cpp params.cpp rofile.cpp rwfile.cpp string_counter.cpp stringset.cpp
+LIBRARIES+=stringtbl.cpp sys_journal.cpp toilet.cpp token_stream.cpp stlavlmap/tree.cpp util.cpp
 
 # dtables
 DTABLES=array_dtable.cpp btree_dtable.cpp bloom_dtable.cpp cache_dtable.cpp deltaint_dtable.cpp
@@ -90,25 +90,25 @@ all: config.mak tags main io_count.$(SO)
 %.o: %.cpp
 	$(CXX) -c $< -o $@ -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
 
-libtoilet.$(SO): libtoilet.o $(FSTITCH_LIB)
+libanvil.$(SO): libanvil.o $(FSTITCH_LIB)
 	$(CXX) $(SHARED) -o $@ $< -ldl -lpthread $(LDFLAGS)
 
-libtoilet.o: $(OBJECTS)
+libanvil.o: $(OBJECTS)
 	ld -r -o $@ $^
 
-# Make libtoilet.a from libtoilet.o instead of $(OBJECTS) directly so that
+# Make libanvil.a from libanvil.o instead of $(OBJECTS) directly so that
 # classes not directly referenced still get included and register themselves
 # to be looked up via factory registries, which is how most *tables work.
-libtoilet.a: libtoilet.o
+libanvil.a: libanvil.o
 	ar csr $@ $<
 
 ifeq ($(findstring -pg,$(CFLAGS)),-pg)
 # Link statically if we are profiling; gprof won't profile shared library code
-main: libtoilet.a $(MAIN_OBJ)
-	$(CXX) -o $@ $(MAIN_OBJ) libtoilet.a -lreadline -ltermcap $(LDFLAGS)
+main: libanvil.a $(MAIN_OBJ)
+	$(CXX) -o $@ $(MAIN_OBJ) libanvil.a -lreadline -ltermcap $(LDFLAGS)
 else
-main: libtoilet.$(SO) $(MAIN_OBJ)
-	$(CXX) -o $@ $(MAIN_OBJ) $(RTP) -L. -ltoilet -lreadline -ltermcap $(LDFLAGS)
+main: libanvil.$(SO) $(MAIN_OBJ)
+	$(CXX) -o $@ $(MAIN_OBJ) $(RTP) -L. -lanvil -lreadline -ltermcap $(LDFLAGS)
 endif
 
 io_count.$(SO): io_count.o
@@ -118,7 +118,7 @@ medic: medic.o md5.o
 	$(CC) -o $@ $^
 
 clean:
-	rm -f config.h config.mak main libtoilet.$(SO) libtoilet.a io_count.$(SO) medic *.o stlavlmap/*.o .depend tags
+	rm -f config.h config.mak main libanvil.$(SO) libanvil.a io_count.$(SO) medic *.o stlavlmap/*.o .depend tags
 
 clean-all: clean
 	php/clean

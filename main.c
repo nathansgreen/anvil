@@ -870,7 +870,7 @@ int main(int argc, char * argv[])
 	do {
 		int i;
 		char * error;
-		char * line = readline("toilet> ");
+		char * line = readline("anvil> ");
 		if(!line)
 		{
 			printf("\n");

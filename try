@@ -114,7 +114,7 @@ then
 fi
 
 # Run the performance test
-echo "${DEATH}performance seek" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $PERF_TRACE exec $VALGRIND '"$WD/toilet"')
+echo "${DEATH}performance seek" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $PERF_TRACE exec $VALGRIND '"$WD/anvil"')
 find /mnt/test -type f -print0 | xargs -0 ls -l
 
 if [ "$OPROF" ]
@@ -129,25 +129,25 @@ fi
 if [ ! -f /mnt/test/core ]
 then
 	# Run the blob_cmp performance test
-	echo "${DEATH}blob_cmp perf" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $BLOB_TRACE exec $VALGRIND '"$WD/toilet"')
+	echo "${DEATH}blob_cmp perf" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $BLOB_TRACE exec $VALGRIND '"$WD/anvil"')
 	find /mnt/test -type f -print0 | xargs -0 ls -l
 	
 	if [ ! -f /mnt/test/core ]
 	then
 		# Run some tests
-		echo "${DEATH}script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $TEST_TRACE exec $VALGRIND '"$WD/toilet"')
+		echo "${DEATH}script tests" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $TEST_TRACE exec $VALGRIND '"$WD/anvil"')
 		find /mnt/test -type f -print0 | xargs -0 ls -l
 		
 		# Run the old demo
-		#echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $DEMO_TRACE exec $VALGRIND '"$WD/toilet"')
+		#echo "script demo" | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $DEMO_TRACE exec $VALGRIND '"$WD/anvil"')
 		#find /mnt/test -type f -print0 | xargs -0 ls -l
 		
 		# Allow custom commands
-		#(WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $HAND_TRACE exec $VALGRIND '"$WD/toilet"')
+		#(WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $HAND_TRACE exec $VALGRIND '"$WD/anvil"')
 		#find /mnt/test -type f -print0 | xargs -0 ls -l
 		
 		# Filter the system journal
-		true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $SYSJ_TRACE exec $VALGRIND '"$WD/toilet"')
+		true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $OPROF $SYSJ_TRACE exec $VALGRIND '"$WD/anvil"')
 		ls -l /mnt/test/sys_journal*
 		
 		# If we comment out all the commands above, we

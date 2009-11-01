@@ -4,9 +4,9 @@
 config.h
 config.log
 config.mak
-libtoilet.so
-libtoilet.dylib
-libtoilet.a
+libanvil.so
+libanvil.dylib
+libanvil.a
 io_count.so
 io_count.dylib
 fstitch
