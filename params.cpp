@@ -141,8 +141,8 @@ template<class T>
 bool params::get_seq_impl(const istr & prefix, const istr & postfix, size_t count, bool variable, std::vector<T> * value, const T & dfl) const
 {
 	size_t length = prefix.length() + postfix.length() + 32;
-	const char * pre = prefix ? prefix : "";
-	const char * post = postfix ? postfix : "";
+	const char * pre = prefix ? prefix.str() : "";
+	const char * post = postfix ? postfix.str() : "";
 	value->clear();
 	for(size_t i = 0; variable || i < count; i++)
 	{
