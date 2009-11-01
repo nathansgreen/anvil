@@ -599,6 +599,7 @@ int command_ussdtable(int argc, const char * argv[]);
 int command_bfdtable(int argc, const char * argv[]);
 int command_sidtable(int argc, const char * argv[]);
 int command_didtable(int argc, const char * argv[]);
+int command_kddtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_cctable(int argc, const char * argv[]);
 int command_consistency(int argc, const char * argv[]);
@@ -644,6 +645,7 @@ struct {
 	{"bfdtable", "Test bloom filter dtable functionality.", command_bfdtable},
 	{"sidtable", "Test smallint dtable functionality.", command_sidtable},
 	{"didtable", "Test deltaint dtable functionality.", command_didtable},
+	{"kddtable", "Test keydiv dtable functionality.", command_kddtable},
 	{"ctable", "Test ctable functionality.", command_ctable},
 	{"cctable", "Test column ctable functionality.", command_cctable},
 	{"consistency", "Test toilet consistency model.", command_consistency},

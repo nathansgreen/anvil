@@ -53,7 +53,7 @@ bool keydiv_dtable::iter::next()
 		if(!subs[current_index].at_first)
 		{
 			subs[current_index].at_first = true;
-			subs[current_index].at_end = subs[current_index].iter->first();
+			subs[current_index].at_end = !subs[current_index].iter->first();
 		}
 		if(!subs[current_index].at_end)
 			return true;
@@ -98,6 +98,7 @@ bool keydiv_dtable::iter::first()
 		subs[i].at_first = true;
 		subs[i].at_end = !subs[i].iter->first();
 	}
+	current_index = 0;
 	/* find the first nonempty iterator */
 	while(current_index < dt_source->sub.size() && subs[current_index].at_end)
 		current_index++;
@@ -260,7 +261,7 @@ int keydiv_dtable::init(int dfd, const char * name, const params & config)
 	{
 		char name[32];
 		dtable * source;
-		sprintf(name, "md_data.%u", i);
+		sprintf(name, "kdd_data.%u", i);
 		source = base->open(kdd_dfd, name, base_config);
 		if(!source)
 			goto fail_sub;
@@ -419,13 +420,13 @@ int keydiv_dtable::create(int dfd, const char * name, const params & config, dty
 	for(uint32_t i = 0; i < header.dt_count; i++)
 	{
 		char name[32];
-		sprintf(name, "md_data.%u", i);
+		sprintf(name, "kdd_data.%u", i);
 		r = base->create(kdd_dfd, name, base_config, key_type);
 		if(r < 0)
 			goto fail;
 	}
 	
-	meta = openat(kdd_dfd, "kdd_meta", O_WRONLY);
+	meta = openat(kdd_dfd, "kdd_meta", O_WRONLY | O_CREAT, 0644);
 	if(meta < 0)
 	{
 		r = meta;

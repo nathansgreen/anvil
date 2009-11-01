@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# The directory to use
+DIR=test.local
+
+# Uncomment to use valgrind
+#export VALGRIND="valgrind --trace-children=yes --leak-check=full"
+
+make || exit $?
+
+echo -n "Creating test directory... "
+rm -rf $DIR
+mkdir -p $DIR/journals
+ln -s "`pwd`/tpch" $DIR
+echo "done."
+
+(WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval exec $VALGRIND '"$WD/toilet"')
+find $DIR -type f -print0 | xargs -0 ls -l
+
+rm -f gmon.out* gmon.sum*
+if [ -f $DIR/gmon.out ]
+then
+	echo -n "Processing gprof data... "
+	cp $DIR/gmon.out .
+	gprof main gmon.out > gmon.sum
+	echo "done."
+fi
+if [ -f $DIR/core ]
+then
+	echo "Starting debugger on core."
+	gdb -q -c $DIR/core main
+fi
