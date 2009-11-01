@@ -32,6 +32,7 @@ int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
 int command_edtable(int argc, const char * argv[]);
 int command_odtable(int argc, const char * argv[]);
+int command_ldtable(int argc, const char * argv[]);
 int command_ussdtable(int argc, const char * argv[]);
 int command_bfdtable(int argc, const char * argv[]);
 int command_sidtable(int argc, const char * argv[]);
@@ -703,6 +704,62 @@ int command_odtable(int argc, const char * argv[])
 	return 0;
 }
 
+int command_ldtable(int argc, const char * argv[])
+{
+	/* we just compare simple dtable with linear dtable using the exception
+	 * dtable performance test, and count on it to test functionality also */
+	int r;
+	dtable * dt;
+	params config;
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) linear_dtable
+		"digest_interval" int 2
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "lldt_test", config, dtype::UINT32);
+	printf("dtable::create = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "lldt_test", config);
+	printf("dtable_factory::load = %p\n", dt);
+	
+	excp_perf(dt);
+	delete dt;
+	
+	config = params();
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) simple_dtable
+		"digest_interval" int 2
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	printf("tx_start = %d\n", r);
+	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "lsdt_test", config, dtype::UINT32);
+	printf("dtable::create = %d\n", r);
+	r = tx_end(0);
+	printf("tx_end = %d\n", r);
+	
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "lsdt_test", config);
+	printf("dtable_factory::load = %p\n", dt);
+	
+	excp_perf(dt);
+	delete dt;
+	
+	return 0;
+}
+
 int command_ussdtable(int argc, const char * argv[])
 {
 	int r;
@@ -1179,10 +1236,11 @@ static void iterator_test(const istr & type, const char * name, const params & c
 	printf("Checking iterator behavior... ");
 	fflush(stdout);
 	dtable::iter * it = dt->iterator();
-	uint32_t it_pos = 0, ok = 1;
+	uint32_t it_pos = 0;
+	bool ok = true;
 	for(size_t i = 0; i < count && ok; i++)
 	{
-		ok = 0;
+		ok = false;
 		if(it->valid())
 		{
 			if(it_pos >= VALUES)
@@ -1196,7 +1254,7 @@ static void iterator_test(const istr & type, const char * name, const params & c
 		}
 		else if(it_pos < VALUES)
 			break;
-		ok = 1;
+		ok = true;
 		switch(rand() % 5)
 		{
 			/* first() */
@@ -1233,10 +1291,10 @@ static void iterator_test(const istr & type, const char * name, const params & c
 				{
 					it_pos++;
 					if(!b && it_pos < VALUES)
-						ok = 0;
+						ok = false;
 				}
 				else if(b)
-					ok = 0;
+					ok = false;
 				if(verbose)
 				{
 					printf(">");
@@ -1251,11 +1309,11 @@ static void iterator_test(const istr & type, const char * name, const params & c
 				if(it_pos)
 				{
 					if(!b)
-						ok = 0;
+						ok = false;
 					it_pos--;
 				}
 				else if(b)
-					ok = 0;
+					ok = false;
 				if(verbose)
 				{
 					printf("<");
@@ -1269,7 +1327,7 @@ static void iterator_test(const istr & type, const char * name, const params & c
 				uint32_t key = rand() % (VALUES * 2);
 				bool b = it->seek(key);
 				if((b && (key % 2)) || (!b && !(key % 2)))
-					ok = 0;
+					ok = false;
 				it_pos = (key + 1) / 2;
 				if(verbose)
 				{
