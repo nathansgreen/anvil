@@ -1125,41 +1125,14 @@ int command_didtable(int argc, const char * argv[])
 	return 0;
 }
 
-int command_kddtable(int argc, const char * argv[])
+static void iterator_test(const istr & type, const char * name, const params & config, size_t count, bool verbose)
 {
 	int r;
-	size_t count = 0;
-	bool verbose = false;
 	dtable * dt;
-	params config;
-	
-	if(argc > 1 && !strcmp(argv[1], "-v"))
-	{
-		verbose = true;
-		argc--;
-		argv++;
-	}
-	if(argc > 1)
-		count = atoi(argv[1]);
-	if(!count)
-		count = 2000000;
-	
-	r = params::parse(LITERAL(
-	config [
-		"base" class(dt) managed_dtable
-		"base_config" config [
-			"base" class(dt) simple_dtable
-			"digest_interval" int 2
-		]
-		"divider_0" int 10
-	]), &config);
-	printf("params::parse = %d\n", r);
-	config.print();
-	printf("\n");
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	r = dtable_factory::setup("keydiv_dtable", AT_FDCWD, "kddt_test", config, dtype::UINT32);
+	r = dtable_factory::setup(type, AT_FDCWD, name, config, dtype::UINT32);
 	printf("dtable::create = %d\n", r);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
@@ -1169,7 +1142,7 @@ int command_kddtable(int argc, const char * argv[])
 #define VALUES 10
 	blob values[VALUES];
 	
-	dt = dtable_factory::load("keydiv_dtable", AT_FDCWD, "kddt_test", config);
+	dt = dtable_factory::load(type, AT_FDCWD, name, config);
 	printf("dtable_factory::load = %p\n", dt);
 	for(size_t i = 0; i < LAYERS; i++)
 	{
@@ -1199,7 +1172,7 @@ int command_kddtable(int argc, const char * argv[])
 	}
 	delete dt;
 	
-	dt = dtable_factory::load("keydiv_dtable", AT_FDCWD, "kddt_test", config);
+	dt = dtable_factory::load(type, AT_FDCWD, name, config);
 	printf("dtable_factory::load = %p\n", dt);
 	run_iterator(dt);
 	
@@ -1336,6 +1309,43 @@ int command_kddtable(int argc, const char * argv[])
 	}
 	delete it;
 	delete dt;
+}
+
+int command_kddtable(int argc, const char * argv[])
+{
+	int r;
+	size_t count = 0;
+	bool verbose = false;
+	params config;
+	
+	if(argc > 1 && !strcmp(argv[1], "-v"))
+	{
+		verbose = true;
+		argc--;
+		argv++;
+	}
+	if(argc > 1)
+		count = atoi(argv[1]);
+	if(!count)
+		count = 2000000;
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) managed_dtable
+		"base_config" config [
+			"base" class(dt) simple_dtable
+			"digest_interval" int 2
+		]
+		"divider_0" int 8
+		"divider_1" int 11
+		"divider_2" int 12
+		"divider_3" int 15
+	]), &config);
+	printf("params::parse = %d\n", r);
+	config.print();
+	printf("\n");
+	
+	iterator_test("keydiv_dtable", "kddt_test", config, count, verbose);
 	
 	return 0;
 }
@@ -1924,7 +1934,6 @@ int command_iterator(int argc, const char * argv[])
 	int r;
 	size_t count = 0;
 	bool verbose = false;
-	managed_dtable * mdt;
 	params config;
 	
 	if(argc > 1 && !strcmp(argv[1], "-v"))
@@ -1947,187 +1956,7 @@ int command_iterator(int argc, const char * argv[])
 	config.print();
 	printf("\n");
 	
-	r = tx_start();
-	printf("tx_start = %d\n", r);
-	r = managed_dtable::create(AT_FDCWD, "iter_test", config, dtype::UINT32);
-	printf("dtable::create = %d\n", r);
-	r = tx_end(0);
-	printf("tx_end = %d\n", r);
-	
-	const char * layers[] = {"358", "079", "", "2457", "1267"};
-#define LAYERS (sizeof(layers) / sizeof(layers[0]))
-#define VALUES 10
-	blob values[VALUES];
-	
-	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "iter_test", config);
-	printf("mdt->init = %d\n", r);
-	for(size_t i = 0; i < LAYERS; i++)
-	{
-		int delay = i ? 2 : 3;
-		r = tx_start();
-		printf("tx_start = %d\n", r);
-		for(const char * value = layers[i]; *value; value++)
-		{
-			uint32_t key = *value - '0';
-			char content[16];
-			snprintf(content, sizeof(content), "L%zu-K%u", i, key * 2);
-			values[key] = blob(content);
-			r = mdt->insert(key * 2, values[key]);
-			printf("mdt->insert(%d, %s) = %d\n", key, content, r);
-		}
-		run_iterator(mdt);
-		
-		printf("Waiting %d seconds for digest interval...\n", delay);
-		sleep(delay);
-		
-		r = mdt->maintain();
-		printf("mdt->maintain() = %d\n", r);
-		run_iterator(mdt);
-		
-		r = tx_end(0);
-		printf("tx_end = %d\n", r);
-	}
-	delete mdt;
-	
-	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "iter_test", config);
-	printf("mdt->init = %d\n", r);
-	run_iterator(mdt);
-	
-	printf("Checking iterator behavior... ");
-	fflush(stdout);
-	dtable::iter * it = mdt->iterator();
-	uint32_t it_pos = 0, ok = 1;
-	for(size_t i = 0; i < count && ok; i++)
-	{
-		ok = 0;
-		if(it->valid())
-		{
-			if(it_pos >= VALUES)
-				break;
-			dtype key = it->key();
-			assert(key.type == dtype::UINT32);
-			if(key.u32 != it_pos * 2)
-				break;
-			if(values[it_pos].compare(it->value()))
-				break;
-		}
-		else if(it_pos < VALUES)
-			break;
-		ok = 1;
-		switch(rand() % 5)
-		{
-			/* first() */
-			case 0:
-			{
-				bool b = it->first();
-				assert(b);
-				it_pos = 0;
-				if(verbose)
-				{
-					printf("[");
-					fflush(stdout);
-				}
-				break;
-			}
-			/* last() */
-			case 1:
-			{
-				bool b = it->last();
-				assert(b);
-				it_pos = VALUES - 1;
-				if(verbose)
-				{
-					printf("]");
-					fflush(stdout);
-				}
-				break;
-			}
-			/* next() */
-			case 2:
-			{
-				bool b = it->next();
-				if(it_pos < VALUES)
-				{
-					it_pos++;
-					if(!b && it_pos < VALUES)
-						ok = 0;
-				}
-				else if(b)
-					ok = 0;
-				if(verbose)
-				{
-					printf(">");
-					fflush(stdout);
-				}
-				break;
-			}
-			/* prev() */
-			case 3:
-			{
-				bool b = it->prev();
-				if(it_pos)
-				{
-					if(!b)
-						ok = 0;
-					it_pos--;
-				}
-				else if(b)
-					ok = 0;
-				if(verbose)
-				{
-					printf("<");
-					fflush(stdout);
-				}
-				break;
-			}
-			/* seek() */
-			case 4:
-			{
-				uint32_t key = rand() % (VALUES * 2);
-				bool b = it->seek(key);
-				if((b && (key % 2)) || (!b && !(key % 2)))
-					ok = 0;
-				it_pos = (key + 1) / 2;
-				if(verbose)
-				{
-					printf("%02d", key);
-					fflush(stdout);
-				}
-				break;
-			}
-		}
-		if(!ok)
-			printf(verbose ? " behavior" : "behavior ");
-	}
-	if(verbose)
-		printf(" ");
-	if(ok)
-		printf("%zu operations OK!\n", count);
-	else
-	{
-		printf("failed! (");
-		if(it->valid())
-		{
-			if(it_pos >= VALUES)
-				printf("should be invalid");
-			else
-			{
-				dtype key = it->key();
-				printf("@%02d", key.u32);
-				if(key.u32 != it_pos * 2)
-					printf(", expected %d * 2", it_pos);
-				else if(values[it_pos].compare(it->value()))
-					printf(", bad value");
-			}
-		}
-		else if(it_pos < VALUES)
-			printf("should be valid");
-		printf(")\n");
-	}
-	delete it;
-	delete mdt;
+	iterator_test("managed_dtable", "iter_test", config, count, verbose);
 	
 	return 0;
 }
