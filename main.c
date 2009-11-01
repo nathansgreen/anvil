@@ -865,7 +865,7 @@ int main(int argc, char * argv[])
 			fprintf(stderr, "(Is there a journals directory?)\n");
 		return 1;
 	}
-	snprintf(history, sizeof(history), "%s/.toilet_history", home ? home : ".");
+	snprintf(history, sizeof(history), "%s/.anvil_history", home ? home : ".");
 	read_history(history);
 	do {
 		int i;

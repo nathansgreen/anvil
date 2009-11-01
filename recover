@@ -56,7 +56,7 @@ fi
 
 # Filter the system journal
 find /mnt/test -type f -print0 | xargs -0 ls -l
-true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $PG_TRACE exec $VALGRIND '"$WD/toilet"')
+true | (WD="`pwd`"; cd /mnt/test; ulimit -c unlimited; eval $IO_COUNT $PG_TRACE exec $VALGRIND '"$WD/anvil"')
 find /mnt/test -type f -print0 | xargs -0 ls -l
 
 sudo umount /mnt/test
