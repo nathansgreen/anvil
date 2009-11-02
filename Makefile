@@ -94,7 +94,7 @@ libanvil.$(SO): libanvil.o $(FSTITCH_LIB)
 	$(CXX) $(SHARED) -o $@ $< -ldl -lpthread $(LDFLAGS)
 
 libanvil.o: $(OBJECTS)
-	ld -r -o $@ $^
+	$(LD) -r -o $@ $^
 
 # Make libanvil.a from libanvil.o instead of $(OBJECTS) directly so that
 # classes not directly referenced still get included and register themselves

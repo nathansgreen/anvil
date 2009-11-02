@@ -27,9 +27,10 @@ function help()
 
 RECONFIG=no
 
-# Default to gcc/g++ from $PATH
+# Default to gcc/g++/ld from $PATH
 CC=gcc
 CXX=g++
+LD=ld
 
 # Default to using ext3 at this point
 FSTITCH=no
@@ -48,6 +49,9 @@ do
 		;;
 		--with-cxx=*)
 			CXX="${OPT#--with-cxx=}"
+		;;
+		--with-ld=*)
+			LD="${OPT#--with-ld=}"
 		;;
 		--with-fstitch)
 			FSTITCH=yes
@@ -149,6 +153,7 @@ echo -n "Creating config.mak... "
 (cat <<-EOF
 	CC=$CC
 	CXX=$CXX
+	LD=$LD
 	CONFIG_CFLAGS=$CFLAGS
 	CONFIG_LDFLAGS=$LDFLAGS
 	FSTITCH_CFLAGS=$FSTITCH_CFLAGS
@@ -166,6 +171,7 @@ then
 		# $CMDLINE
 		CC="$CC"
 		CXX="$CXX"
+		LD="$LD"
 		CFLAGS="$CFLAGS"
 		LDFLAGS="$LDFLAGS"
 		FSTITCH=$FSTITCH
