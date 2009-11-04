@@ -36,7 +36,7 @@ public:
 	inline virtual bool writable() const { return sub[0]->writable(); }
 	
 	virtual int insert(const dtype & key, const blob & blob, bool append = false);
-	inline virtual int remove(const dtype & key) { return insert(key, blob()); }
+	virtual int remove(const dtype & key);
 	
 	/* do maintenance based on parameters */
 	virtual int maintain(bool force = false);

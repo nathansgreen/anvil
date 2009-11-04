@@ -190,6 +190,13 @@ int keydiv_dtable::insert(const dtype & key, const blob & blob, bool append)
 	return sub[index]->insert(key, blob, append);
 }
 
+int keydiv_dtable::remove(const dtype & key)
+{
+	size_t index = key_index(key);
+	assert(index < sub.size());
+	return sub[index]->remove(key);
+}
+
 int keydiv_dtable::maintain(bool force)
 {
 	int r = 0;
