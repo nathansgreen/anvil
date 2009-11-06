@@ -12,7 +12,7 @@
 /* This file implements an ugly hack to add a new feature to std::map. The
  * feature is the ability to get iterators into the map based on a "magic test"
  * function rather than via a provided search key. The magic test function will
- * decide whether a given key passed to is is too large or too small (or the
+ * decide whether a given key passed to it is too large or too small (or the
  * right key), but it may not explicitly know what it is that it's looking for.
  * 
  * For instance, if you have a map of string keys sorted by their checksums, and
