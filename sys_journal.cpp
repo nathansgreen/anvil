@@ -100,13 +100,13 @@ int sys_journal::discard(journal_listener * listener)
 	live_entry_map::iterator count;
 	SYSJ_DEBUG("%d", listener->id());
 	
+	header.id = listener->id();
 	count = live_entry_count.find(header.id);
 	if(count == live_entry_count.end())
 		/* no sense in actually writing a discard
 		 * record if there's nothing to discard */
 		return 0;
 	
-	header.id = listener->id();
 	assert(lookup_listener(header.id) == listener);
 	header.length = (size_t) -1;
 	
