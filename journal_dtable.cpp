@@ -108,15 +108,7 @@ blob journal_dtable::lookup(const dtype & key, bool * found) const
 	return blob();
 }
 
-#define JDT_STRING 1
-struct jdt_string
-{
-	uint8_t type;
-	size_t length;
-	char string[0];
-} __attribute__((packed));
-
-#define JDT_KEY_U32 2
+#define JDT_KEY_U32 1
 struct jdt_key_u32
 {
 	uint8_t type;
@@ -126,7 +118,7 @@ struct jdt_key_u32
 	uint8_t data[0];
 } __attribute__((packed));
 
-#define JDT_KEY_DBL 3
+#define JDT_KEY_DBL 2
 struct jdt_key_dbl
 {
 	uint8_t type;
@@ -136,17 +128,18 @@ struct jdt_key_dbl
 	uint8_t data[0];
 } __attribute__((packed));
 
-#define JDT_KEY_STR 4
+#define JDT_KEY_STR 3
 struct jdt_key_str
 {
 	uint8_t type;
 	uint8_t append;
-	uint32_t index;
+	size_t key_size;
 	size_t size;
+	/* key stored first, then data */
 	uint8_t data[0];
 } __attribute__((packed));
 
-#define JDT_KEY_BLOB 5
+#define JDT_KEY_BLOB 4
 struct jdt_key_blob
 {
 	uint8_t type;
@@ -157,34 +150,13 @@ struct jdt_key_blob
 	uint8_t data[0];
 } __attribute__((packed));
 
-#define JDT_BLOB_CMP 6
+#define JDT_BLOB_CMP 5
 struct jdt_blob_cmp
 {
 	uint8_t type;
 	size_t length;
 	char name[0];
 } __attribute__((packed));
-
-int journal_dtable::add_string(const istr & string, uint32_t * index)
-{
-	int r;
-	size_t length;
-	jdt_string * entry;
-	if(strings.lookup(string, index))
-		return 0;
-	if(!strings.add(string, index))
-		return -ENOMEM;
-	length = strlen(string);
-	entry = (jdt_string *) malloc(sizeof(*entry) + length);
-	if(!entry)
-		return -ENOMEM;
-	entry->type = JDT_STRING;
-	entry->length = length;
-	util::memcpy(entry->string, string, length);
-	r = journal_append(entry, sizeof(*entry) + length);
-	free(entry);
-	return r;
-}
 
 int journal_dtable::log_blob_cmp()
 {
@@ -253,19 +225,15 @@ int journal_dtable::log(const dtype & key, const blob & blob, bool append)
 		}
 		case dtype::STRING:
 		{
-			int r;
-			jdt_key_str * entry = (jdt_key_str *) malloc(sizeof(*entry) + blob.size());
+			jdt_key_str * entry = (jdt_key_str *) malloc(sizeof(*entry) + blob.size() + key.str.length());
 			if(!entry)
 				return -ENOMEM;
 			entry->type = JDT_KEY_STR;
 			entry->append = append;
-			r = add_string(key.str, &entry->index);
-			if(r < 0)
-			{
-				free(entry);
-				return r;
-			}
-			return log(entry, blob);
+			entry->key_size = key.str.length();
+			if(entry->key_size)
+				util::memcpy(entry->data, key.str, entry->key_size);
+			return log(entry, blob, entry->key_size);
 		}
 		case dtype::BLOB:
 		{
@@ -301,18 +269,13 @@ int journal_dtable::remove(const dtype & key)
 
 int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, bool always_append, sys_journal * journal)
 {
-	int r;
 	if(id() != sys_journal::NO_ID)
 		deinit();
 	assert(jdt_map.empty());
 	assert(jdt_hash.empty());
 	assert(!cmp_name);
 	ktype = key_type;
-	r = strings.init(true);
-	if(r < 0)
-		return r;
 	this->always_append = always_append;
-	string_index = 0;
 	set_id(lid);
 	set_journal(journal);
 	return 0;
@@ -320,18 +283,14 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, bo
 
 int journal_dtable::reinit(sys_journal::listener_id lid, bool discard)
 {
-	int r;
 	if(id() == sys_journal::NO_ID)
 		return -EBUSY;
 	if(lid == sys_journal::NO_ID)
 		return -EINVAL;
 	if(discard)
 		journal_discard();
-	deinit();
-	r = strings.init(true);
-	if(r < 0)
-		return r;
-	string_index = 0;
+	jdt_hash.clear();
+	jdt_map.clear();
 	set_id(lid);
 	return 0;
 }
@@ -341,8 +300,6 @@ void journal_dtable::deinit(bool discard)
 	if(discard)
 		journal_discard();
 	set_id(sys_journal::NO_ID);
-	/* no explicit deinitialization, so reinitialize empty */
-	strings.init();
 	jdt_hash.clear();
 	jdt_map.clear();
 	dtable::deinit();
@@ -380,25 +337,6 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 		return -EBUSY;
 	switch(*(uint8_t *) entry)
 	{
-		case JDT_STRING:
-		{
-			uint32_t index;
-			jdt_string * string = (jdt_string *) entry;
-			char * copy = (char *) malloc(string->length + 1);
-			if(!copy)
-				return -ENOMEM;
-			util::memcpy(copy, string->string, string->length);
-			copy[string->length] = 0;
-			if(!strings.add(copy, &index))
-			{
-				free(copy);
-				return -ENOMEM;
-			}
-			assert(index == string_index);
-			string_index++;
-			free(copy);
-			return 0;
-		}
 		case JDT_KEY_U32:
 		{
 			jdt_key_u32 * u32 = (jdt_key_u32 *) entry;
@@ -420,12 +358,10 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 		case JDT_KEY_STR:
 		{
 			jdt_key_str * str = (jdt_key_str *) entry;
-			istr string = strings.lookup(str->index);
-			if(!string || ktype != dtype::STRING)
-				return -EINVAL;
+			istr key((const char *) str->data, str->key_size);
 			if(str->size != (size_t) -1)
-				value = blob(str->size, str->data);
-			return set_node(string, value, str->append);
+				value = blob(str->size, &str->data[str->key_size]);
+			return set_node(key, value, str->append);
 		}
 		case JDT_KEY_BLOB:
 		{
