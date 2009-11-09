@@ -20,7 +20,6 @@
 #include "blob.h"
 #include "istr.h"
 #include "dtable.h"
-#include "stringset.h"
 #include "sys_journal.h"
 
 /* The journal dtable doesn't have an associated file: all its data is stored in
@@ -47,7 +46,7 @@ public:
 		return dtable::set_blob_cmp(cmp);
 	}
 	
-	inline journal_dtable() : string_index(0), jdt_map(blob_cmp), jdt_hash(10, blob_cmp, blob_cmp) {}
+	inline journal_dtable() : jdt_map(blob_cmp), jdt_hash(10, blob_cmp, blob_cmp) {}
 	int init(dtype::ctype key_type, sys_journal::listener_id lid, bool always_append = false, sys_journal * journal = NULL);
 	/* reinitialize, optionally discarding the old entries from the journal */
 	/* NOTE: also clears and releases the blob comparator, if one has been set */
@@ -69,7 +68,7 @@ private:
 	
 	inline int add_node(const dtype & key, const blob & value, bool append);
 	/* tries to set an existing node, and calls add_node() otherwise */
-	inline int set_node(const dtype & key, const blob & value, bool append);
+	int set_node(const dtype & key, const blob & value, bool append);
 	
 	class iter : public iter_source<journal_dtable>
 	{
@@ -91,14 +90,11 @@ private:
 		journal_dtable_map::const_iterator jit;
 	};
 	
-	int add_string(const istr & string, uint32_t * index);
 	int log_blob_cmp();
 	template<class T> inline int log(T * entry, const blob & blob, size_t offset = 0);
 	int log(const dtype & key, const blob & blob, bool append);
 	
-	stringset strings;
 	bool always_append;
-	uint32_t string_index;
 	journal_dtable_map jdt_map;
 	journal_dtable_hash jdt_hash;
 };

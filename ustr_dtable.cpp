@@ -16,7 +16,6 @@
 
 #include "util.h"
 #include "rwfile.h"
-#include "stringset.h"
 #include "string_counter.h"
 #include "blob_buffer.h"
 #include "ustr_dtable.h"

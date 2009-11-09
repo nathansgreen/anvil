@@ -3,8 +3,8 @@ CSOURCES=blowfish.c md5.c openat.c
 
 # library stuff
 LIBRARIES=anvil.cpp bg_token.cpp blob_buffer.cpp blob.cpp index_blob.cpp istr.cpp journal.cpp
-LIBRARIES+=new.cpp params.cpp rofile.cpp rwfile.cpp string_counter.cpp stringset.cpp
-LIBRARIES+=stringtbl.cpp sys_journal.cpp toilet.cpp token_stream.cpp stlavlmap/tree.cpp util.cpp
+LIBRARIES+=new.cpp params.cpp rofile.cpp rwfile.cpp string_counter.cpp stringtbl.cpp
+LIBRARIES+=sys_journal.cpp toilet.cpp token_stream.cpp stlavlmap/tree.cpp util.cpp
 
 # dtables
 DTABLES=array_dtable.cpp btree_dtable.cpp bloom_dtable.cpp cache_dtable.cpp deltaint_dtable.cpp
