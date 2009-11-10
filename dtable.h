@@ -231,7 +231,8 @@ protected:
 	}
 	
 	/* helper for create() methods: checks source and shadow to make sure they agree */
-	static inline bool source_shadow_ok(dtable::iter * source, const ktable * shadow)
+	template<class T>
+	static inline bool source_shadow_ok(T * source, const ktable * shadow)
 	{
 		if(!shadow)
 			return true;

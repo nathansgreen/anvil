@@ -69,6 +69,7 @@ cat > /mnt/test/tests << EOF
 tx
 info
 dtable
+rollover
 edtable
 #edtable perf
 odtable

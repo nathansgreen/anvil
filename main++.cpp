@@ -20,6 +20,7 @@
 #include "ctable.h"
 #include "stable.h"
 #include "sys_journal.h"
+#include "journal_dtable.h"
 #include "simple_dtable.h"
 #include "managed_dtable.h"
 #include "usstate_dtable.h"
@@ -42,6 +43,7 @@ int command_ctable(int argc, const char * argv[]);
 int command_cctable(int argc, const char * argv[]);
 int command_consistency(int argc, const char * argv[]);
 int command_durability(int argc, const char * argv[]);
+int command_rollover(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
@@ -1886,6 +1888,198 @@ int command_durability(int argc, const char * argv[])
 	return 0;
 }
 
+#define PRINT_FAIL printf("\a\e[1m\e[31m    **** ERROR ****  (%s:%d)\e[0m\n", __FILE__, __LINE__)
+#define EXPECT_NOFAIL(label, value) do { printf(label " = %d\n", value); if(value < 0) PRINT_FAIL; } while(0)
+#define EXPECT_SIZET(label, expect, test) do { size_t __value = test; printf(label " = %zu (expect %zu)\n", __value, (size_t) expect); if(__value != (expect)) PRINT_FAIL; } while(0)
+int command_rollover(int argc, const char * argv[])
+{
+	sys_journal * sysj;
+	journal_dtable * normal;
+	journal_dtable * temporary;
+	sys_journal::listener_id normal_id, temp_id;
+	const char * dir = (argc > 1) ? argv[1] : ".";
+	int r, fd = open(dir, O_RDONLY);
+	if(fd < 0)
+	{
+		perror(dir);
+		return fd;
+	}
+	sysj = new sys_journal;
+	EXPECT_SIZET("initial total", 0, journal_dtable::warehouse.size());
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = sysj->init(fd, "test_journal", &journal_dtable::warehouse, true);
+	EXPECT_NOFAIL("sysj init", r);
+	normal_id = sys_journal::get_unique_id(false);
+	temp_id = sys_journal::get_unique_id(true);
+	printf("normal = %d, temp = %d\n", normal_id, temp_id);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	normal = journal_dtable::warehouse.obtain(normal_id, dtype::UINT32, sysj);
+	temporary = journal_dtable::warehouse.obtain(temp_id, dtype::UINT32, sysj);
+	printf("normal = %p, temp = %p\n", normal, temporary);
+	EXPECT_SIZET("total", 2, journal_dtable::warehouse.size());
+	
+	/* first test: insert records to normal and temporary, restart and see that they're gone */
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = normal->insert(10u, "key 10");
+	EXPECT_NOFAIL("normal insert(10)", r);
+	r = temporary->insert(20u, "key 20");
+	EXPECT_NOFAIL("temp insert(20)", r);
+	delete temporary;
+	delete normal;
+	sysj->deinit();
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	EXPECT_SIZET("total", 0, journal_dtable::warehouse.size());
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = sysj->init(fd, "test_journal", &journal_dtable::warehouse, false);
+	EXPECT_NOFAIL("sysj init", r);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	normal = journal_dtable::warehouse.lookup(normal_id);
+	temporary = journal_dtable::warehouse.lookup(temp_id);
+	printf("normal = %p, temp = %p\n", normal, temporary);
+	EXPECT_SIZET("total", 1, journal_dtable::warehouse.size());
+	
+	/* next test: create another temporary ID and roll it over, restart and see that it works */
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	temp_id = sys_journal::get_unique_id(true);
+	printf("temp = %d\n", temp_id);
+	temporary = journal_dtable::warehouse.obtain(temp_id, dtype::UINT32, sysj);
+	printf("temp = %p\n", temporary);
+	EXPECT_SIZET("total", 2, journal_dtable::warehouse.size());
+	r = temporary->insert(30u, "key 30");
+	EXPECT_NOFAIL("temp insert(30)", r);
+	EXPECT_SIZET("normal size", 1, normal->size());
+	r = sysj->rollover(temporary, normal);
+	EXPECT_NOFAIL("sysj rollover", r);
+	r = temporary->rollover(normal);
+	EXPECT_NOFAIL("memory rollover", r);
+	EXPECT_SIZET("normal size", 2, normal->size());
+	delete temporary;
+	delete normal;
+	sysj->deinit();
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	EXPECT_SIZET("total", 0, journal_dtable::warehouse.size());
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = sysj->init(fd, "test_journal", &journal_dtable::warehouse, false);
+	EXPECT_NOFAIL("sysj init", r);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	normal = journal_dtable::warehouse.lookup(normal_id);
+	temporary = journal_dtable::warehouse.lookup(temp_id);
+	printf("normal = %p, temp = %p\n", normal, temporary);
+	EXPECT_SIZET("total", 1, journal_dtable::warehouse.size());
+	EXPECT_SIZET("normal size", 2, normal->size());
+	
+	/* final test: check that rollover records clobber existing records */
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	temp_id = sys_journal::get_unique_id(true);
+	printf("temp = %d\n", temp_id);
+	temporary = journal_dtable::warehouse.obtain(temp_id, dtype::UINT32, sysj);
+	printf("temp = %p\n", temporary);
+	EXPECT_SIZET("total", 2, journal_dtable::warehouse.size());
+	r = temporary->insert(10u, "temp 10");
+	EXPECT_NOFAIL("temp insert(10)", r);
+	EXPECT_SIZET("temp size", 1, temporary->size());
+	r = normal->insert(10u, "normal 10");
+	EXPECT_NOFAIL("normal insert(10)", r);
+	EXPECT_SIZET("normal size", 2, normal->size());
+	run_iterator(normal);
+	EXPECT_SIZET("key 10 size", 9, normal->find(10u).size());
+	r = sysj->rollover(temporary, normal);
+	EXPECT_NOFAIL("sysj rollover", r);
+	r = temporary->rollover(normal);
+	EXPECT_NOFAIL("memory rollover", r);
+	EXPECT_SIZET("normal size", 2, normal->size());
+	run_iterator(normal);
+	EXPECT_SIZET("key 10 size", 7, normal->find(10u).size());
+	delete temporary;
+	delete normal;
+	sysj->deinit();
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	EXPECT_SIZET("total", 0, journal_dtable::warehouse.size());
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = sysj->init(fd, "test_journal", &journal_dtable::warehouse, false);
+	EXPECT_NOFAIL("sysj init", r);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	normal = journal_dtable::warehouse.lookup(normal_id);
+	temporary = journal_dtable::warehouse.lookup(temp_id);
+	printf("normal = %p, temp = %p\n", normal, temporary);
+	EXPECT_SIZET("total", 1, journal_dtable::warehouse.size());
+	EXPECT_SIZET("normal size", 2, normal->size());
+	run_iterator(normal);
+	EXPECT_SIZET("key 10 size", 7, normal->find(10u).size());
+	
+	/* filter and check the results */
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = sysj->filter();
+	EXPECT_NOFAIL("filter", r);
+	sysj->deinit();
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = sysj->init(fd, "test_journal", &journal_dtable::warehouse, false);
+	EXPECT_NOFAIL("sysj init", r);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	normal = journal_dtable::warehouse.lookup(normal_id);
+	temporary = journal_dtable::warehouse.lookup(temp_id);
+	printf("normal = %p, temp = %p\n", normal, temporary);
+	EXPECT_SIZET("total", 1, journal_dtable::warehouse.size());
+	EXPECT_SIZET("normal size", 2, normal->size());
+	run_iterator(normal);
+	EXPECT_SIZET("key 10 size", 7, normal->find(10u).size());
+	
+	/* discard normal, filter and check the results */
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	normal->deinit(true);
+	delete normal;
+	r = sysj->filter();
+	EXPECT_NOFAIL("filter", r);
+	sysj->deinit();
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = sysj->init(fd, "test_journal", &journal_dtable::warehouse, false);
+	EXPECT_NOFAIL("sysj init", r);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	normal = journal_dtable::warehouse.lookup(normal_id);
+	temporary = journal_dtable::warehouse.lookup(temp_id);
+	printf("normal = %p, temp = %p\n", normal, temporary);
+	EXPECT_SIZET("total", 0, journal_dtable::warehouse.size());
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	sysj->deinit(true);
+	delete sysj;
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	return 0;
+}
+
 int command_stable(int argc, const char * argv[])
 {
 	int r;
@@ -2025,43 +2219,41 @@ int command_bdbtest(int argc, const char * argv[])
 	const uint32_t KEYSIZE = 8;
 	const uint32_t VALSIZE = 32;
 	struct timeval start, end;
-
+	
 	int r;
 	sys_journal::listener_id jid;
-	journal_dtable jdt;
-
-	char * keybuf, * valbuf;
-	keybuf = new char[KEYSIZE];
-	valbuf = new char[VALSIZE];
-	assert(keybuf && valbuf);
+	journal_dtable * jdt;
+	
+	char keybuf[KEYSIZE], valbuf[VALSIZE];
 	memset(keybuf, 'a', KEYSIZE);
 	memset(valbuf, 'b', VALSIZE);
-
-	blob key(KEYSIZE, &keybuf);
-	blob value(VALSIZE, &valbuf);
-
-	printf("BekeleyDB test timing! \n");
+	
+	blob key(KEYSIZE, keybuf);
+	blob value(VALSIZE, valbuf);
+	
+	printf("BerkeleyDB test timing!\n");
 	gettimeofday(&start, NULL);
-
+	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
 	jid = sys_journal::get_unique_id();
 	if(jid == sys_journal::NO_ID)
 		return -EBUSY;
-	r = jdt.init(dtype::BLOB, jid);
-	printf("jdt.init = %d\n", r);
+	jdt = journal_dtable::create(dtype::BLOB, jid);
+	printf("jdt = %p\n", jdt);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-
+	
 	for(int i = 0; i < 1000000; i++)
 	{
 		r = tx_start();
-		if(r)
+		if(r < 0)
 		{
 			printf("TX error\n");
 			break;
 		}
-		assert(jdt.insert(dtype(key), value) == 0);
+		r = jdt->insert(dtype(key), value);
+		assert(r >= 0);
 		if((i % 100000) == 99999)
 		{
 			gettimeofday(&end, NULL);
@@ -2076,13 +2268,13 @@ int command_bdbtest(int argc, const char * argv[])
 			fflush(stdout);
 		}
 		r = tx_end(0);
-		if(r)
+		if(r < 0)
 		{
 			printf("TX error\n");
 			break;
 		}
 	}
-
+	
 	gettimeofday(&end, NULL);
 	end.tv_sec -= start.tv_sec;
 	if(end.tv_usec < start.tv_usec)
@@ -2092,7 +2284,11 @@ int command_bdbtest(int argc, const char * argv[])
 	}
 	end.tv_usec -= start.tv_usec;
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
-
+	
+	tx_start();
+	jdt->deinit(true);
+	delete jdt;
+	tx_end(0);
 	return 0;
 }
 
@@ -2111,55 +2307,57 @@ int command_blob_cmp(int argc, const char * argv[])
 	if(argc < 2 || strcmp(argv[1], "perf"))
 	{
 		sys_journal::listener_id jid;
-		journal_dtable jdt;
+		journal_dtable * jdt;
 		
 		r = tx_start();
 		printf("tx_start = %d\n", r);
 		jid = sys_journal::get_unique_id();
 		if(jid == sys_journal::NO_ID)
 			return -EBUSY;
-		r = jdt.init(dtype::BLOB, jid);
-		printf("jdt.init = %d\n", r);
-		r = jdt.set_blob_cmp(&reverse);
-		printf("jdt.set_blob_cmp = %d\n", r);
+		jdt = journal_dtable::create(dtype::BLOB, jid);
+		printf("jdt = %p\n", jdt);
+		r = jdt->set_blob_cmp(&reverse);
+		printf("jdt->set_blob_cmp = %d\n", r);
 		for(int i = 0; i < 10; i++)
 		{
 			uint32_t keydata = rand();
 			uint8_t valuedata = i;
 			blob key(sizeof(keydata), &keydata);
 			blob value(sizeof(valuedata), &valuedata);
-			jdt.insert(dtype(key), value);
+			jdt->insert(dtype(key), value);
 		}
 		r = tx_end(0);
 		printf("tx_end = %d\n", r);
 		
-		run_iterator(&jdt);
+		run_iterator(jdt);
 		
-		r = jdt.reinit(jid, false);
-		printf("jdt.reinit = %d\n", r);
-		printf("current expected comparator: %s\n", (const char *) jdt.get_cmp_name());
+		r = jdt->reinit(jid, false);
+		printf("jdt->reinit = %d\n", r);
+		printf("current expected comparator: %s\n", (const char *) jdt->get_cmp_name());
 		
-		run_iterator(&jdt);
+		run_iterator(jdt);
 		
-		r = sys_journal::get_global_journal()->get_entries(&jdt);
+		r = sys_journal::get_global_journal()->get_entries(jdt);
 		printf("get_entries = %d (expect %d)\n", r, -EBUSY);
 		if(r == -EBUSY)
 		{
-			printf("expect comparator: %s\n", (const char *) jdt.get_cmp_name());
-			jdt.set_blob_cmp(&reverse);
-			r = sys_journal::get_global_journal()->get_entries(&jdt);
+			printf("expect comparator: %s\n", (const char *) jdt->get_cmp_name());
+			jdt->set_blob_cmp(&reverse);
+			r = sys_journal::get_global_journal()->get_entries(jdt);
 			printf("get_entries = %d\n", r);
 		}
 		
-		run_iterator(&jdt);
+		run_iterator(jdt);
 		
 		r = tx_start();
 		printf("tx_start = %d\n", r);
-		r = jdt.reinit(jid);
-		printf("jdt.reinit = %d\n", r);
+		r = jdt->reinit(jid);
+		printf("jdt->reinit = %d\n", r);
+		jdt->deinit(true);
 		r = tx_end(0);
 		printf("tx_end = %d\n", r);
 		
+		delete jdt;
 		return 0;
 	}
 	

@@ -269,7 +269,9 @@ int journal_dtable::remove(const dtype & key)
 
 int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, bool always_append, sys_journal * journal)
 {
-	if(id() != sys_journal::NO_ID)
+	if(lid == sys_journal::NO_ID)
+		return -EINVAL;
+	if(initialized)
 		deinit();
 	assert(jdt_map.empty());
 	assert(jdt_hash.empty());
@@ -278,12 +280,13 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, bo
 	this->always_append = always_append;
 	set_id(lid);
 	set_journal(journal);
+	initialized = true;
 	return 0;
 }
 
 int journal_dtable::reinit(sys_journal::listener_id lid, bool discard)
 {
-	if(id() == sys_journal::NO_ID)
+	if(!initialized)
 		return -EBUSY;
 	if(lid == sys_journal::NO_ID)
 		return -EINVAL;
@@ -305,9 +308,9 @@ void journal_dtable::deinit(bool discard)
 {
 	if(discard)
 		journal_discard();
-	set_id(sys_journal::NO_ID);
 	jdt_hash.clear();
 	jdt_map.clear();
+	initialized = false;
 	dtable::deinit();
 }
 
@@ -334,13 +337,22 @@ int journal_dtable::set_node(const dtype & key, const blob & value, bool append)
 	return add_node(key, value, append);
 }
 
+int journal_dtable::real_rollover(listening_dtable * target) const
+{
+	journal_dtable_map::const_iterator it;
+	for(it = jdt_map.begin(); it != jdt_map.end(); ++it)
+	{
+		int r = target->accept(it->first, it->second);
+		if(r < 0)
+			/* FIXME: we're pretty screwed if this occurs... might be best to abort */
+			return r;
+	}
+	return 0;
+}
+
 int journal_dtable::journal_replay(void *& entry, size_t length)
 {
 	blob value;
-	if(cmp_name && !blob_cmp)
-		/* if we need a blob comparator and don't have
-		 * one yet, then don't accept journal entries */
-		return -EBUSY;
 	switch(*(uint8_t *) entry)
 	{
 		case JDT_KEY_U32:
@@ -375,6 +387,13 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 			blob key(blb->key_size, blb->data);
 			if(blb->size != (size_t) -1)
 				value = blob(blb->size, &blb->data[blb->key_size]);
+			if(cmp_name && !blob_cmp)
+			{
+				/* if we need a blob comparator and don't have
+				 * one yet, then queue this journal entry */
+				add_pending(key, value, blb->append);
+				return 0;
+			}
 			return set_node(key, value, blb->append);
 		}
 		case JDT_BLOB_CMP:
@@ -392,3 +411,53 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 	}
 	return 0;
 }
+
+bool journal_dtable::entry_key_type(const void * entry, size_t length, dtype::ctype * key_type)
+{
+	switch(*(uint8_t *) entry)
+	{
+		case JDT_KEY_U32:
+			*key_type = dtype::UINT32;
+			break;
+		case JDT_KEY_DBL:
+			*key_type = dtype::DOUBLE;
+			break;
+		case JDT_KEY_STR:
+			*key_type = dtype::STRING;
+			break;
+		case JDT_KEY_BLOB:
+		case JDT_BLOB_CMP:
+			*key_type = dtype::BLOB;
+			break;
+		default:
+			return false;
+	}
+	return true;
+}
+
+journal_dtable * journal_dtable::journal_dtable_warehouse::create(sys_journal::listener_id lid, const void * entry, size_t length, sys_journal * journal) const
+{
+	dtype::ctype key_type;
+	if(!entry_key_type(entry, length, &key_type))
+		return NULL;
+	journal_dtable * jdt = new journal_dtable;
+	if(jdt->init(key_type, lid, false, journal) < 0)
+	{
+		delete jdt;
+		jdt = NULL;
+	}
+	return jdt;
+}
+
+journal_dtable * journal_dtable::journal_dtable_warehouse::create(sys_journal::listener_id lid, dtype::ctype key_type, sys_journal * journal) const
+{
+	journal_dtable * jdt = new journal_dtable;
+	if(jdt->init(key_type, lid, false, journal) < 0)
+	{
+		delete jdt;
+		jdt = NULL;
+	}
+	return jdt;
+}
+
+journal_dtable::journal_dtable_warehouse journal_dtable::warehouse;

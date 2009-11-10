@@ -134,4 +134,27 @@ private:
 	bool data_exists;
 };
 
+/* note that this does not support using blob comparators (but see dtype_hashing_comparator) */
+class blob_hashing_comparator
+{
+public:
+	inline bool operator()(const blob & a, const blob & b) const
+	{
+		return !a.compare(b);
+	}
+	
+	inline size_t operator()(const blob & x) const
+	{
+		/* uses FNV hash taken from stl::tr1::hash */
+		size_t r = 2166136261u;
+		size_t length = x.size();
+		for(size_t i = 0; i < length; i++)
+		{
+			r ^= x[i];
+			r *= 16777619;
+		}
+		return r;
+	}
+};
+
 #endif /* __BLOB_H */

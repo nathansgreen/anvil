@@ -26,7 +26,7 @@
  * a sys_journal. The only identifying part of journal dtables is their listener
  * ID, which must be chosen to be unique for each new journal dtable. */
 
-class journal_dtable : public dtable, public sys_journal::journal_listener
+class journal_dtable : public sys_journal::listening_dtable
 {
 public:
 	virtual iter * iterator() const;
@@ -43,24 +43,43 @@ public:
 	{
 		/* we merely add this assertion, but it's important */
 		assert(jdt_map.empty() || blob_cmp);
-		return dtable::set_blob_cmp(cmp);
+		return listening_dtable::set_blob_cmp(cmp);
 	}
 	
-	inline journal_dtable() : jdt_map(blob_cmp), jdt_hash(10, blob_cmp, blob_cmp) {}
-	int init(dtype::ctype key_type, sys_journal::listener_id lid, bool always_append = false, sys_journal * journal = NULL);
+	static inline journal_dtable * create(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL)
+	{
+		return warehouse.obtain(lid, key_type, journal);
+	}
 	/* reinitialize, optionally discarding the old entries from the journal */
 	/* NOTE: also clears and releases the blob comparator, if one has been set */
 	int reinit(sys_journal::listener_id lid, bool discard = true);
 	void deinit(bool discard = false);
 	inline virtual ~journal_dtable()
 	{
-		if(id() != sys_journal::NO_ID)
+		if(initialized)
 			deinit();
 	}
 	
-	virtual int journal_replay(void *& entry, size_t length);
+	/* for rollover */
+	virtual int real_rollover(listening_dtable * target) const;
+	inline virtual int accept(const dtype & key, const blob & value, bool append = false) { return set_node(key, value, append); }
+	
+	static inline bool entry_key_type(const void * entry, size_t length, dtype::ctype * key_type);
+	
+	class journal_dtable_warehouse : public sys_journal::listening_dtable_warehouse_impl<journal_dtable>
+	{
+	protected:
+		virtual journal_dtable * create(sys_journal::listener_id lid, const void * entry, size_t length, sys_journal * journal) const;
+		virtual journal_dtable * create(sys_journal::listener_id lid, dtype::ctype key_type, sys_journal * journal) const;
+	};
+	
+	static journal_dtable_warehouse warehouse;
 	
 private:
+	/* journal_dtables should only be constructed by a journal_dtable_warehouse */
+	inline journal_dtable() : initialized(false), jdt_map(blob_cmp), jdt_hash(10, blob_cmp, blob_cmp) {}
+	int init(dtype::ctype key_type, sys_journal::listener_id lid, bool always_append = false, sys_journal * journal = NULL);
+	
 	typedef __gnu_cxx::__pool_alloc<std::pair<const dtype, blob> > tree_pool_allocator;
 	typedef __gnu_cxx::__pool_alloc<std::pair<const dtype, blob *> > hash_pool_allocator;
 	typedef avl::map<dtype, blob, dtype_comparator_refobject, tree_pool_allocator> journal_dtable_map;
@@ -94,7 +113,9 @@ private:
 	template<class T> inline int log(T * entry, const blob & blob, size_t offset = 0);
 	int log(const dtype & key, const blob & blob, bool append);
 	
-	bool always_append;
+	virtual int journal_replay(void *& entry, size_t length);
+	
+	bool initialized, always_append;
 	journal_dtable_map jdt_map;
 	journal_dtable_hash jdt_hash;
 };

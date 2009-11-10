@@ -18,6 +18,7 @@
 #include "params.h"
 #include "transaction.h"
 #include "sys_journal.h"
+#include "journal_dtable.h"
 #include "simple_stable.h"
 
 static void rename_gmon_out(void)
@@ -43,7 +44,7 @@ static void rename_gmon_out(void)
 
 int toilet_init(const char * path)
 {
-	int r, fd = open(path, 0);
+	int r, fd = open(path, O_RDONLY);
 	if(fd < 0)
 		return fd;
 	rename_gmon_out();
@@ -57,7 +58,7 @@ int toilet_init(const char * path)
 			sys_journal * global = sys_journal::get_global_journal();
 			r = sys_journal::set_unique_id_file(fd, "sys_journal_id", true);
 			if(r >= 0)
-				r = global->init(fd, "sys_journal", true);
+				r = global->init(fd, "sys_journal", &journal_dtable::warehouse, true);
 			if(r >= 0)
 			{
 				/* maybe we should not always do this here? */

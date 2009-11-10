@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/time.h>
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -605,6 +606,7 @@ int command_ctable(int argc, const char * argv[]);
 int command_cctable(int argc, const char * argv[]);
 int command_consistency(int argc, const char * argv[]);
 int command_durability(int argc, const char * argv[]);
+int command_rollover(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
@@ -635,10 +637,10 @@ struct {
 	{"query", "Query toilet!", command_query},
 	{"help", "Displays help.", command_help},
 	{"quit", "Quits the program.", command_quit},
-	{"death", "Schedule toilet death.", command_death},
-	{"script", "Run a toilet script.", command_script},
+	{"death", "Schedule Anvil death.", command_death},
+	{"script", "Run an Anvil script.", command_script},
 	{"tx", "Test transaction functionality.", command_tx},
-	{"info", "Print some information about toilet.", command_info},
+	{"info", "Print some information about Anvil.", command_info},
 	{"dtable", "Test dtable functionality.", command_dtable},
 	{"edtable", "Test exception dtable functionality.", command_edtable},
 	{"odtable", "Test overlay dtable performance.", command_odtable},
@@ -650,8 +652,9 @@ struct {
 	{"kddtable", "Test keydiv dtable functionality.", command_kddtable},
 	{"ctable", "Test ctable functionality.", command_ctable},
 	{"cctable", "Test column ctable functionality.", command_cctable},
-	{"consistency", "Test toilet consistency model.", command_consistency},
-	{"durability", "Test toilet durability model.", command_durability},
+	{"consistency", "Test Anvil consistency model.", command_consistency},
+	{"durability", "Test Anvil durability model.", command_durability},
+	{"rollover", "Test system journal rollover.", command_rollover},
 	{"stable", "Test stable functionality.", command_stable},
 	{"iterator", "Test iterator functionality.", command_iterator},
 	{"blob_cmp", "Test blob_cmp functionality.", command_blob_cmp},
@@ -849,10 +852,12 @@ static int command_script(int argc, const char * argv[])
 
 int main(int argc, char * argv[])
 {
-	char * quit = "quit";
-	char * home = getenv("HOME");
+	const char * quit = "quit";
+	const char * home = getenv("HOME");
 	char history[PATH_MAX];
-	int r;
+	int r, tty = isatty(0);
+	const char * anvil = "[1m[32manvil[0m> ";
+	const char * prompt = tty ? anvil : "";
 	/* toilet_init() calls tx_init() for us */
 	if((r = toilet_init(".")) < 0)
 	{
@@ -872,11 +877,12 @@ int main(int argc, char * argv[])
 	do {
 		int i;
 		char * error;
-		char * line = readline("anvil> ");
+		char * line = readline(prompt);
 		if(!line)
 		{
-			printf("\n");
-			line = quit;
+			if(tty)
+				printf("\n");
+			line = strdup(quit);
 		}
 		for(i = 0; line[i] == ' '; i++);
 		if(line[i] == '#')
@@ -885,11 +891,14 @@ int main(int argc, char * argv[])
 		else
 		{
 			if(line[i] && strcmp(line, "quit"))
+			{
 				add_history(line);
+				if(!tty)
+					printf("%s%s\n", anvil, line);
+			}
 			r = command_line_execute(line, &error);
 		}
-		if(line != quit)
-			free(line);
+		free(line);
 		if(r == -E2BIG)
 			printf("Too many tokens on command line!\n");
 		else if(r == -ENOENT)
@@ -897,7 +906,8 @@ int main(int argc, char * argv[])
 		else if(r < 0 && r != -EINTR)
 			printf("Error: %s\n", error);
 	} while(r != -EINTR);
-	write_history(history);
+	if(tty)
+		write_history(history);
 	
 	if(open_row)
 		toilet_put_row(open_row);

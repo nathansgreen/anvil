@@ -93,8 +93,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		if(ddt.type == MDTE_TYPE_JOURNAL)
 		{
 			sys_journal::listener_id jid = ddt.ddt_number;
-			journal_dtable * source = new journal_dtable;
-			source->init(ktype, jid, sysj);
+			journal_dtable * source = journal_dtable::create(ktype, jid, sysj);
 			r = actual_sysj->get_entries(source);
 			if(!cmp_name)
 				cmp_name = source->get_cmp_name();
@@ -122,8 +121,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		}
 	}
 	
-	journal = new journal_dtable;
-	journal->init(ktype, header.journal_id, sysj);
+	journal = journal_dtable::create(ktype, header.journal_id, sysj);
 	r = actual_sysj->get_entries(journal);
 	if(!cmp_name)
 		cmp_name = journal->get_cmp_name();
@@ -321,8 +319,7 @@ int managed_dtable::combiner::prepare(bool shift_journal)
 			return r;
 		}
 		
-		mdt->journal = new journal_dtable;
-		mdt->journal->init(mdt->ktype, mdt->header.journal_id, sj);
+		mdt->journal = journal_dtable::create(mdt->ktype, mdt->header.journal_id, sj);
 		if(mdt->blob_cmp)
 			mdt->journal->set_blob_cmp(mdt->blob_cmp);
 		
@@ -510,8 +507,7 @@ int managed_dtable::combiner::finish()
 			doomed_dtable * doomed = new doomed_dtable(mdt, mdt->journal);
 			/* FIXME: we can actually discard the sysj entries now, as long as we keep them in memory */
 			mdt->doomed_dtables.insert(doomed);
-			mdt->journal = new journal_dtable;
-			mdt->journal->init(mdt->ktype, mdt->header.journal_id, sj);
+			mdt->journal = journal_dtable::create(mdt->ktype, mdt->header.journal_id, sj);
 		}
 		else
 			mdt->journal->reinit(mdt->header.journal_id);
