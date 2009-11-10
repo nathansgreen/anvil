@@ -289,6 +289,12 @@ int journal_dtable::reinit(sys_journal::listener_id lid, bool discard)
 		return -EINVAL;
 	if(discard)
 		journal_discard();
+	if(blob_cmp)
+	{
+		blob_cmp->release();
+		blob_cmp = NULL;
+	}
+	cmp_name = NULL;
 	jdt_hash.clear();
 	jdt_map.clear();
 	set_id(lid);
@@ -375,6 +381,7 @@ int journal_dtable::journal_replay(void *& entry, size_t length)
 		{
 			jdt_blob_cmp * name = (jdt_blob_cmp *) entry;
 			istr copy(name->name, name->length);
+			assert(cmp_name || jdt_hash.empty());
 			if(cmp_name && strcmp(cmp_name, copy))
 				return -EINVAL;
 			cmp_name = copy;
