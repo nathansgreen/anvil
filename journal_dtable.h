@@ -46,10 +46,12 @@ public:
 		return listening_dtable::set_blob_cmp(cmp);
 	}
 	
-	static inline journal_dtable * create(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL)
+	/* convenience method that uses the built-in warehouse; note the parameter order */
+	static inline journal_dtable * obtain(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL)
 	{
 		return warehouse.obtain(lid, key_type, journal);
 	}
+	
 	/* reinitialize, optionally discarding the old entries from the journal */
 	/* NOTE: also clears and releases the blob comparator, if one has been set */
 	int reinit(sys_journal::listener_id lid, bool discard = true);
@@ -78,7 +80,7 @@ public:
 private:
 	/* journal_dtables should only be constructed by a journal_dtable_warehouse */
 	inline journal_dtable() : initialized(false), jdt_map(blob_cmp), jdt_hash(10, blob_cmp, blob_cmp) {}
-	int init(dtype::ctype key_type, sys_journal::listener_id lid, bool always_append = false, sys_journal * journal = NULL);
+	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL);
 	
 	typedef __gnu_cxx::__pool_alloc<std::pair<const dtype, blob> > tree_pool_allocator;
 	typedef __gnu_cxx::__pool_alloc<std::pair<const dtype, blob *> > hash_pool_allocator;
@@ -115,7 +117,7 @@ private:
 	
 	virtual int journal_replay(void *& entry, size_t length);
 	
-	bool initialized, always_append;
+	bool initialized;
 	journal_dtable_map jdt_map;
 	journal_dtable_hash jdt_hash;
 };

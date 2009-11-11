@@ -267,7 +267,7 @@ int journal_dtable::remove(const dtype & key)
 	return insert(key, blob());
 }
 
-int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, bool always_append, sys_journal * journal)
+int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal)
 {
 	if(lid == sys_journal::NO_ID)
 		return -EINVAL;
@@ -277,7 +277,6 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, bo
 	assert(jdt_hash.empty());
 	assert(!cmp_name);
 	ktype = key_type;
-	this->always_append = always_append;
 	set_id(lid);
 	set_journal(journal);
 	initialized = true;
@@ -318,7 +317,7 @@ int journal_dtable::add_node(const dtype & key, const blob & value, bool append)
 {
 	journal_dtable_map::value_type pair(key, value);
 	journal_dtable_map::iterator it;
-	if(append || always_append)
+	if(append)
 		it = jdt_map.insert(jdt_map.end(), pair);
 	else
 		it = jdt_map.insert(pair).first;
@@ -441,7 +440,7 @@ journal_dtable * journal_dtable::journal_dtable_warehouse::create(sys_journal::l
 	if(!entry_key_type(entry, length, &key_type))
 		return NULL;
 	journal_dtable * jdt = new journal_dtable;
-	if(jdt->init(key_type, lid, false, journal) < 0)
+	if(jdt->init(key_type, lid, journal) < 0)
 	{
 		delete jdt;
 		jdt = NULL;
@@ -452,7 +451,7 @@ journal_dtable * journal_dtable::journal_dtable_warehouse::create(sys_journal::l
 journal_dtable * journal_dtable::journal_dtable_warehouse::create(sys_journal::listener_id lid, dtype::ctype key_type, sys_journal * journal) const
 {
 	journal_dtable * jdt = new journal_dtable;
-	if(jdt->init(key_type, lid, false, journal) < 0)
+	if(jdt->init(key_type, lid, journal) < 0)
 	{
 		delete jdt;
 		jdt = NULL;

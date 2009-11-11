@@ -1957,8 +1957,8 @@ int command_rollover(int argc, const char * argv[])
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
-	normal = journal_dtable::warehouse.obtain(normal_id, key_type, sysj);
-	temporary = journal_dtable::warehouse.obtain(temp_id, key_type, sysj);
+	normal = journal_dtable::obtain(key_type, normal_id, sysj);
+	temporary = journal_dtable::obtain(key_type, temp_id, sysj);
 	printf("normal = %p, temp = %p\n", normal, temporary);
 	EXPECT_SIZET("total", 2, journal_dtable::warehouse.size());
 	if(use_reverse)
@@ -2004,7 +2004,7 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_NOFAIL("tx_start", r);
 	temp_id = sys_journal::get_unique_id(true);
 	printf("temp = %d\n", temp_id);
-	temporary = journal_dtable::warehouse.obtain(temp_id, key_type, sysj);
+	temporary = journal_dtable::obtain(key_type, temp_id, sysj);
 	printf("temp = %p\n", temporary);
 	EXPECT_SIZET("total", 2, journal_dtable::warehouse.size());
 	if(use_reverse)
@@ -2050,7 +2050,7 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_NOFAIL("tx_start", r);
 	temp_id = sys_journal::get_unique_id(true);
 	printf("temp = %d\n", temp_id);
-	temporary = journal_dtable::warehouse.obtain(temp_id, key_type, sysj);
+	temporary = journal_dtable::obtain(key_type, temp_id, sysj);
 	printf("temp = %p\n", temporary);
 	EXPECT_SIZET("total", 2, journal_dtable::warehouse.size());
 	if(use_reverse)
@@ -2322,7 +2322,7 @@ int command_bdbtest(int argc, const char * argv[])
 	jid = sys_journal::get_unique_id();
 	if(jid == sys_journal::NO_ID)
 		return -EBUSY;
-	jdt = journal_dtable::create(dtype::BLOB, jid);
+	jdt = journal_dtable::obtain(dtype::BLOB, jid);
 	printf("jdt = %p\n", jdt);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
@@ -2397,7 +2397,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		jid = sys_journal::get_unique_id();
 		if(jid == sys_journal::NO_ID)
 			return -EBUSY;
-		jdt = journal_dtable::create(dtype::BLOB, jid);
+		jdt = journal_dtable::obtain(dtype::BLOB, jid);
 		printf("jdt = %p\n", jdt);
 		r = jdt->set_blob_cmp(&reverse);
 		printf("jdt->set_blob_cmp = %d\n", r);
