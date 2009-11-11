@@ -2158,6 +2158,8 @@ int command_rollover(int argc, const char * argv[])
 	delete sysj;
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
+	
+	close(fd);
 	return 0;
 }
 
