@@ -51,6 +51,11 @@ public:
 	{
 		return warehouse.obtain(lid, key_type, journal);
 	}
+	/* this one is mostly for testing and won't create if it doesn't already exist */
+	static inline journal_dtable * obtain(sys_journal::listener_id lid)
+	{
+		return warehouse.lookup(lid);
+	}
 	
 	/* reinitialize, optionally discarding the old entries from the journal */
 	/* NOTE: also clears and releases the blob comparator, if one has been set */

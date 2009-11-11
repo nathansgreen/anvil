@@ -1989,8 +1989,8 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_NOFAIL("sysj init", r);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
-	normal = journal_dtable::warehouse.lookup(normal_id);
-	temporary = journal_dtable::warehouse.lookup(temp_id);
+	normal = journal_dtable::obtain(normal_id);
+	temporary = journal_dtable::obtain(temp_id);
 	printf("normal = %p, temp = %p\n", normal, temporary);
 	EXPECT_SIZET("total", 1, journal_dtable::warehouse.size());
 	if(use_reverse)
@@ -2033,8 +2033,8 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_NOFAIL("sysj init", r);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
-	normal = journal_dtable::warehouse.lookup(normal_id);
-	temporary = journal_dtable::warehouse.lookup(temp_id);
+	normal = journal_dtable::obtain(normal_id);
+	temporary = journal_dtable::obtain(temp_id);
 	printf("normal = %p, temp = %p\n", normal, temporary);
 	EXPECT_SIZET("total", 1, journal_dtable::warehouse.size());
 	if(use_reverse)
@@ -2086,8 +2086,8 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_NOFAIL("sysj init", r);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
-	normal = journal_dtable::warehouse.lookup(normal_id);
-	temporary = journal_dtable::warehouse.lookup(temp_id);
+	normal = journal_dtable::obtain(normal_id);
+	temporary = journal_dtable::obtain(temp_id);
 	printf("normal = %p, temp = %p\n", normal, temporary);
 	EXPECT_SIZET("total", 1, journal_dtable::warehouse.size());
 	if(use_reverse)
@@ -2116,8 +2116,8 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_NOFAIL("sysj init", r);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
-	normal = journal_dtable::warehouse.lookup(normal_id);
-	temporary = journal_dtable::warehouse.lookup(temp_id);
+	normal = journal_dtable::obtain(normal_id);
+	temporary = journal_dtable::obtain(temp_id);
 	printf("normal = %p, temp = %p\n", normal, temporary);
 	EXPECT_SIZET("total", 1, journal_dtable::warehouse.size());
 	if(use_reverse)
@@ -2147,8 +2147,8 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_NOFAIL("sysj init", r);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
-	normal = journal_dtable::warehouse.lookup(normal_id);
-	temporary = journal_dtable::warehouse.lookup(temp_id);
+	normal = journal_dtable::obtain(normal_id);
+	temporary = journal_dtable::obtain(temp_id);
 	printf("normal = %p, temp = %p\n", normal, temporary);
 	EXPECT_SIZET("total", 0, journal_dtable::warehouse.size());
 	
