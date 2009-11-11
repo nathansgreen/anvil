@@ -1888,6 +1888,26 @@ int command_durability(int argc, const char * argv[])
 	return 0;
 }
 
+/* makes a dtype of the requested type from the numeric key */
+static dtype idtype(uint32_t value, dtype::ctype key_type)
+{
+	switch(key_type)
+	{
+		case dtype::UINT32:
+			return dtype(value);
+		case dtype::DOUBLE:
+			return dtype((double) value);
+		case dtype::STRING:
+			char string[32];
+			sprintf(string, "%u", value);
+			return dtype(string);
+		case dtype::BLOB:
+			/* endianness-sensitive... whatever */
+			return dtype(blob(sizeof(value), &value));
+	}
+	abort();
+}
+
 #define PRINT_FAIL printf("\a\e[1m\e[31m    **** ERROR ****  (%s:%d)\e[0m\n", __FILE__, __LINE__)
 #define EXPECT_NOFAIL(label, value) do { printf(label " = %d\n", value); if(value < 0) PRINT_FAIL; } while(0)
 #define EXPECT_SIZET(label, expect, test) do { size_t __value = test; printf(label " = %zu (expect %zu)\n", __value, (size_t) expect); if(__value != (expect)) PRINT_FAIL; } while(0)
@@ -1897,8 +1917,28 @@ int command_rollover(int argc, const char * argv[])
 	journal_dtable * normal;
 	journal_dtable * temporary;
 	sys_journal::listener_id normal_id, temp_id;
-	const char * dir = (argc > 1) ? argv[1] : ".";
-	int r, fd = open(dir, O_RDONLY);
+	dtype::ctype key_type = dtype::UINT32;
+	bool use_reverse = false;
+	const char * dir;
+	int r, fd;
+	
+	reverse_blob_comparator reverse;
+	/* let reverse know it's on the stack */
+	reverse.on_stack();
+	
+	if(argc > 1 && !strcmp(argv[1], "-b"))
+	{
+		argc--; argv++;
+		key_type = dtype::BLOB;
+		if(argc > 1 && !strcmp(argv[1], "-r"))
+		{
+			argc--; argv++;
+			use_reverse = true;
+		}
+	}
+	
+	dir = (argc > 1) ? argv[1] : ".";
+	fd = open(dir, O_RDONLY);
 	if(fd < 0)
 	{
 		perror(dir);
@@ -1917,17 +1957,24 @@ int command_rollover(int argc, const char * argv[])
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
-	normal = journal_dtable::warehouse.obtain(normal_id, dtype::UINT32, sysj);
-	temporary = journal_dtable::warehouse.obtain(temp_id, dtype::UINT32, sysj);
+	normal = journal_dtable::warehouse.obtain(normal_id, key_type, sysj);
+	temporary = journal_dtable::warehouse.obtain(temp_id, key_type, sysj);
 	printf("normal = %p, temp = %p\n", normal, temporary);
 	EXPECT_SIZET("total", 2, journal_dtable::warehouse.size());
+	if(use_reverse)
+	{
+		r = normal->set_blob_cmp(&reverse);
+		EXPECT_NOFAIL("normal set_cmp", r);
+		r = temporary->set_blob_cmp(&reverse);
+		EXPECT_NOFAIL("temp set_cmp", r);
+	}
 	
 	/* first test: insert records to normal and temporary, restart and see that they're gone */
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	r = normal->insert(10u, "key 10");
+	r = normal->insert(idtype(10, key_type), "key 10");
 	EXPECT_NOFAIL("normal insert(10)", r);
-	r = temporary->insert(20u, "key 20");
+	r = temporary->insert(idtype(20, key_type), "key 20");
 	EXPECT_NOFAIL("temp insert(20)", r);
 	delete temporary;
 	delete normal;
@@ -1946,16 +1993,26 @@ int command_rollover(int argc, const char * argv[])
 	temporary = journal_dtable::warehouse.lookup(temp_id);
 	printf("normal = %p, temp = %p\n", normal, temporary);
 	EXPECT_SIZET("total", 1, journal_dtable::warehouse.size());
+	if(use_reverse)
+	{
+		r = normal->set_blob_cmp(&reverse);
+		EXPECT_NOFAIL("normal set_cmp", r);
+	}
 	
 	/* next test: create another temporary ID and roll it over, restart and see that it works */
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
 	temp_id = sys_journal::get_unique_id(true);
 	printf("temp = %d\n", temp_id);
-	temporary = journal_dtable::warehouse.obtain(temp_id, dtype::UINT32, sysj);
+	temporary = journal_dtable::warehouse.obtain(temp_id, key_type, sysj);
 	printf("temp = %p\n", temporary);
 	EXPECT_SIZET("total", 2, journal_dtable::warehouse.size());
-	r = temporary->insert(30u, "key 30");
+	if(use_reverse)
+	{
+		r = temporary->set_blob_cmp(&reverse);
+		EXPECT_NOFAIL("temp set_cmp", r);
+	}
+	r = temporary->insert(idtype(30, key_type), "key 30");
 	EXPECT_NOFAIL("temp insert(30)", r);
 	EXPECT_SIZET("normal size", 1, normal->size());
 	r = sysj->rollover(temporary, normal);
@@ -1980,6 +2037,12 @@ int command_rollover(int argc, const char * argv[])
 	temporary = journal_dtable::warehouse.lookup(temp_id);
 	printf("normal = %p, temp = %p\n", normal, temporary);
 	EXPECT_SIZET("total", 1, journal_dtable::warehouse.size());
+	if(use_reverse)
+	{
+		EXPECT_SIZET("normal size", 0, normal->size());
+		r = normal->set_blob_cmp(&reverse);
+		EXPECT_NOFAIL("normal set_cmp", r);
+	}
 	EXPECT_SIZET("normal size", 2, normal->size());
 	
 	/* final test: check that rollover records clobber existing records */
@@ -1987,24 +2050,29 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_NOFAIL("tx_start", r);
 	temp_id = sys_journal::get_unique_id(true);
 	printf("temp = %d\n", temp_id);
-	temporary = journal_dtable::warehouse.obtain(temp_id, dtype::UINT32, sysj);
+	temporary = journal_dtable::warehouse.obtain(temp_id, key_type, sysj);
 	printf("temp = %p\n", temporary);
 	EXPECT_SIZET("total", 2, journal_dtable::warehouse.size());
-	r = temporary->insert(10u, "temp 10");
+	if(use_reverse)
+	{
+		r = temporary->set_blob_cmp(&reverse);
+		EXPECT_NOFAIL("temp set_cmp", r);
+	}
+	r = temporary->insert(idtype(10, key_type), "temp 10");
 	EXPECT_NOFAIL("temp insert(10)", r);
 	EXPECT_SIZET("temp size", 1, temporary->size());
-	r = normal->insert(10u, "normal 10");
+	r = normal->insert(idtype(10, key_type), "normal 10");
 	EXPECT_NOFAIL("normal insert(10)", r);
 	EXPECT_SIZET("normal size", 2, normal->size());
 	run_iterator(normal);
-	EXPECT_SIZET("key 10 size", 9, normal->find(10u).size());
+	EXPECT_SIZET("key 10 size", 9, normal->find(idtype(10, key_type)).size());
 	r = sysj->rollover(temporary, normal);
 	EXPECT_NOFAIL("sysj rollover", r);
 	r = temporary->rollover(normal);
 	EXPECT_NOFAIL("memory rollover", r);
 	EXPECT_SIZET("normal size", 2, normal->size());
 	run_iterator(normal);
-	EXPECT_SIZET("key 10 size", 7, normal->find(10u).size());
+	EXPECT_SIZET("key 10 size", 7, normal->find(idtype(10, key_type)).size());
 	delete temporary;
 	delete normal;
 	sysj->deinit();
@@ -2022,13 +2090,20 @@ int command_rollover(int argc, const char * argv[])
 	temporary = journal_dtable::warehouse.lookup(temp_id);
 	printf("normal = %p, temp = %p\n", normal, temporary);
 	EXPECT_SIZET("total", 1, journal_dtable::warehouse.size());
+	if(use_reverse)
+	{
+		EXPECT_SIZET("normal size", 0, normal->size());
+		r = normal->set_blob_cmp(&reverse);
+		EXPECT_NOFAIL("normal set_cmp", r);
+	}
 	EXPECT_SIZET("normal size", 2, normal->size());
 	run_iterator(normal);
-	EXPECT_SIZET("key 10 size", 7, normal->find(10u).size());
+	EXPECT_SIZET("key 10 size", 7, normal->find(idtype(10, key_type)).size());
 	
 	/* filter and check the results */
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
+	delete normal;
 	r = sysj->filter();
 	EXPECT_NOFAIL("filter", r);
 	sysj->deinit();
@@ -2045,9 +2120,15 @@ int command_rollover(int argc, const char * argv[])
 	temporary = journal_dtable::warehouse.lookup(temp_id);
 	printf("normal = %p, temp = %p\n", normal, temporary);
 	EXPECT_SIZET("total", 1, journal_dtable::warehouse.size());
+	if(use_reverse)
+	{
+		EXPECT_SIZET("normal size", 0, normal->size());
+		r = normal->set_blob_cmp(&reverse);
+		EXPECT_NOFAIL("normal set_cmp", r);
+	}
 	EXPECT_SIZET("normal size", 2, normal->size());
 	run_iterator(normal);
-	EXPECT_SIZET("key 10 size", 7, normal->find(10u).size());
+	EXPECT_SIZET("key 10 size", 7, normal->find(idtype(10, key_type)).size());
 	
 	/* discard normal, filter and check the results */
 	r = tx_start();
