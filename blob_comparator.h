@@ -14,16 +14,21 @@
 #include "blob.h"
 #include "istr.h"
 
-/* a blob comparator compares blobs in a way other than just memcmp(), allowing
- * applications to sort dtables with blob keys in arbitrary ways */
+/* A blob comparator compares blobs in a way other than just memcmp(), allowing
+ * applications to sort dtables with blob keys in arbitrary ways. */
+/* NOTE: blob comparators must be heap-allocated; they cannot be stored on the
+ * stack. When a blob comparator is allocated it gets a use count of 1. Its
+ * release() method should be called by the allocating code once it has passed
+ * it to wherever it wants; that code in turn should retain() it and itself
+ * call release() again later, when it is finished with the comparator. */
 class blob_comparator
 {
 public:
-	/* compare() need not compare nonexistent blobs; they cannot be keys */
+	/* compare() need not compare nonexistent blobs; they cannot be keys. */
 	virtual int compare(const blob & a, const blob & b) const = 0;
 	
 	/* hash() should be overridden if you compare non-identical blobs as
-	 * equal; if not, you can just use this default implementation */
+	 * equal; if not, you can just use this default implementation. */
 	inline virtual size_t hash(const blob & blob) const
 	{
 		/* uses FNV hash taken from stl::tr1::hash */
@@ -37,25 +42,23 @@ public:
 		return r;
 	}
 	
-	/* a blob comparator has a name so that it can be stored into dtables
+	/* A blob comparator has a name so that it can be stored into dtables
 	 * which are created using this comparator, and later the name can be
 	 * checked when opening those dtables to try to verify that the same
-	 * sort order will be used (since otherwise the file will not work) */
-	inline blob_comparator(const istr & name) : name(name), stack(false), usage(1) {}
+	 * sort order will be used (since otherwise the file will not work). */
+	inline blob_comparator(const istr & name) : name(name), usage(1) {}
 	inline virtual ~blob_comparator() { assert(!usage); }
 	
 	inline void retain() const { usage++; }
-	inline void release() const { if(!--usage && !stack) delete this; }
-	inline void on_stack() { assert(!stack && usage == 1); stack = true; usage = 0; }
+	inline void release() const { if(!--usage) delete this; }
 	
 	const istr name;
 private:
-	bool stack;
 	mutable int usage;
 };
 
-/* this class can be used to wrap a blob comparator pointer so that it can be
- * used for STL methods like std::sort() */
+/* This class can be used to wrap a blob comparator pointer so that it can be
+ * used for STL methods like std::sort(). */
 class blob_comparator_object
 {
 public:
@@ -70,7 +73,7 @@ private:
 	const blob_comparator * blob_cmp;
 };
 
-/* this class can be used in place of a NULL blob comparator pointer */
+/* This class can be used in place of a NULL blob comparator pointer. */
 class blob_comparator_null
 {
 public:
@@ -80,8 +83,8 @@ public:
 	}
 };
 
-/* if it is necessary to change the comparator during the use of an STL
- * container like std::set, then blob_comparator_refobject will help you out */
+/* If it is necessary to change the comparator during the use of an STL
+ * container like std::set, then blob_comparator_refobject will help you out. */
 class blob_comparator_refobject
 {
 public:

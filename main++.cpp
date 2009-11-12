@@ -1923,9 +1923,7 @@ int command_rollover(int argc, const char * argv[])
 	bool use_reverse = false;
 	int r;
 	
-	reverse_blob_comparator reverse;
-	/* let reverse know it's on the stack */
-	reverse.on_stack();
+	blob_comparator * reverse = new reverse_blob_comparator;
 	
 	if(argc > 1 && !strcmp(argv[1], "-b"))
 	{
@@ -1950,9 +1948,9 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_SIZET("total", 2, warehouse.size());
 	if(use_reverse)
 	{
-		r = normal->set_blob_cmp(&reverse);
+		r = normal->set_blob_cmp(reverse);
 		EXPECT_NOFAIL("normal set_cmp", r);
-		r = temporary->set_blob_cmp(&reverse);
+		r = temporary->set_blob_cmp(reverse);
 		EXPECT_NOFAIL("temp set_cmp", r);
 	}
 	
@@ -1980,7 +1978,7 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_SIZET("total", 1, warehouse.size());
 	if(use_reverse)
 	{
-		r = normal->set_blob_cmp(&reverse);
+		r = normal->set_blob_cmp(reverse);
 		EXPECT_NOFAIL("normal set_cmp", r);
 	}
 	
@@ -1994,7 +1992,7 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_SIZET("total", 2, warehouse.size());
 	if(use_reverse)
 	{
-		r = temporary->set_blob_cmp(&reverse);
+		r = temporary->set_blob_cmp(reverse);
 		EXPECT_NOFAIL("temp set_cmp", r);
 	}
 	r = temporary->insert(idtype(30, key_type), "key 30");
@@ -2021,7 +2019,7 @@ int command_rollover(int argc, const char * argv[])
 	if(use_reverse)
 	{
 		EXPECT_SIZET("normal size", 0, normal->size());
-		r = normal->set_blob_cmp(&reverse);
+		r = normal->set_blob_cmp(reverse);
 		EXPECT_NOFAIL("normal set_cmp", r);
 	}
 	EXPECT_SIZET("normal size", 2, normal->size());
@@ -2036,7 +2034,7 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_SIZET("total", 2, warehouse.size());
 	if(use_reverse)
 	{
-		r = temporary->set_blob_cmp(&reverse);
+		r = temporary->set_blob_cmp(reverse);
 		EXPECT_NOFAIL("temp set_cmp", r);
 	}
 	r = temporary->insert(idtype(10, key_type), "temp 10");
@@ -2070,7 +2068,7 @@ int command_rollover(int argc, const char * argv[])
 	if(use_reverse)
 	{
 		EXPECT_SIZET("normal size", 0, normal->size());
-		r = normal->set_blob_cmp(&reverse);
+		r = normal->set_blob_cmp(reverse);
 		EXPECT_NOFAIL("normal set_cmp", r);
 	}
 	EXPECT_SIZET("normal size", 2, normal->size());
@@ -2099,7 +2097,7 @@ int command_rollover(int argc, const char * argv[])
 	if(use_reverse)
 	{
 		EXPECT_SIZET("normal size", 0, normal->size());
-		r = normal->set_blob_cmp(&reverse);
+		r = normal->set_blob_cmp(reverse);
 		EXPECT_NOFAIL("normal set_cmp", r);
 	}
 	EXPECT_SIZET("normal size", 2, normal->size());
@@ -2134,6 +2132,7 @@ int command_rollover(int argc, const char * argv[])
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
+	reverse->release();
 	return 0;
 }
 
@@ -2356,10 +2355,7 @@ int command_blob_cmp(int argc, const char * argv[])
 {
 	int r;
 	struct timeval start, end;
-	reverse_blob_comparator reverse;
-	
-	/* let reverse know it's on the stack */
-	reverse.on_stack();
+	blob_comparator * reverse = new reverse_blob_comparator;
 	
 	if(argc < 2 || strcmp(argv[1], "perf"))
 	{
@@ -2377,7 +2373,7 @@ int command_blob_cmp(int argc, const char * argv[])
 			return -EBUSY;
 		jdt = warehouse.obtain(jid, dtype::BLOB, sysj);
 		EXPECT_NONULL("jdt", jdt);
-		r = jdt->set_blob_cmp(&reverse);
+		r = jdt->set_blob_cmp(reverse);
 		EXPECT_NOFAIL("jdt->set_blob_cmp", r);
 		for(int i = 0; i < 10; i++)
 		{
@@ -2406,7 +2402,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		printf("expected comparator: %s\n", (const char *) jdt->get_cmp_name());
 		EXPECT_SIZET("jdt size", jdt->size(), 0);
 		
-		r = jdt->set_blob_cmp(&reverse);
+		r = jdt->set_blob_cmp(reverse);
 		EXPECT_NOFAIL("jdt->set_blob_cmp", r);
 		EXPECT_SIZET("jdt size", jdt->size(), 10);
 		
@@ -2421,6 +2417,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		r = tx_end(0);
 		EXPECT_NOFAIL("tx_end", r);
 		
+		reverse->release();
 		return 0;
 	}
 	
@@ -2477,7 +2474,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	sst = new simple_stable;
 	r = sst->init(AT_FDCWD, "cmp_test", config);
 	printf("sst->init = %d\n", r);
-	r = sst->set_blob_cmp(&reverse);
+	r = sst->set_blob_cmp(reverse);
 	printf("sst->set_blob_cmp = %d\n", r);
 	
 	printf("Start timing! (5000000 reverse blob key inserts to %d rows)\n", ROW_COUNT);
@@ -2553,7 +2550,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	sst = new simple_stable;
 	r = sst->init(AT_FDCWD, "cmp_test", config);
 	printf("sst->init = %d\n", r);
-	r = sst->set_blob_cmp(&reverse);
+	r = sst->set_blob_cmp(reverse);
 	printf("sst->set_blob_cmp = %d\n", r);
 	r = sst->maintain();
 	printf("sst->maintain = %d\n", r);
@@ -2592,6 +2589,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		printf("failed! (sum = %u, check = %u)\n", sum, check);
 	
 	delete sst;
+	reverse->release();
 	return (sum == check) ? 0 : -1;
 	
 fail_maintain:
@@ -2599,6 +2597,7 @@ fail_insert:
 	tx_end(0);
 fail_tx_start:
 	delete sst;
+	reverse->release();
 	return r;
 }
 
