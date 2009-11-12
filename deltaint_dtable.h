@@ -36,16 +36,19 @@ public:
 		return value;
 	}
 	
+	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
+	DECLARE_RO_FACTORY(deltaint_dtable);
+	
 	inline deltaint_dtable() : base(NULL) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
+	
+protected:
 	inline virtual ~deltaint_dtable()
 	{
 		if(base)
 			deinit();
 	}
-	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
-	DECLARE_RO_FACTORY(deltaint_dtable);
 	
 private:
 	class iter : public iter_source<deltaint_dtable, dtable_wrap_iter_noindex>

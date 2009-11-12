@@ -41,19 +41,21 @@ public:
 	/* do maintenance based on parameters */
 	virtual int maintain(bool force = false);
 	
+	virtual int set_blob_cmp(const blob_comparator * cmp);
+	
 	static int create(int dfd, const char * name, const params & config, dtype::ctype key_type);
 	DECLARE_RW_FACTORY(keydiv_dtable);
 	
 	inline keydiv_dtable() {}
 	int init(int dfd, const char * name, const params & config);
 	void deinit();
+	
+protected:
 	inline virtual ~keydiv_dtable()
 	{
 		if(sub.size())
 			deinit();
 	}
-	
-	virtual int set_blob_cmp(const blob_comparator * cmp);
 	
 private:
 	struct kddtable_header

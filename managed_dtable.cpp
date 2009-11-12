@@ -101,7 +101,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 				delayed_query = actual_sysj;
 			else if(r < 0)
 			{
-				delete source;
+				source->destroy();
 				goto fail_disks;
 			}
 			disks.push_back(dtable_list_entry(journal, jid));
@@ -154,10 +154,10 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	return 0;
 	
 fail_query:
-	delete journal;
+	journal->destroy();
 fail_disks:
 	for(size_t i = 0; i < disks.size(); i++)
-		delete disks[i].disk;
+		disks[i].disk->destroy();
 	disks.clear();
 fail_header:
 	tx_close(meta);
@@ -193,9 +193,9 @@ void managed_dtable::deinit()
 		}
 	}
 	delete overlay;
-	delete journal;
+	journal->destroy();
 	for(size_t i = 0; i < disks.size(); i++)
-		delete disks[i].disk;
+		disks[i].disk->destroy();
 	disks.clear();
 	close(md_dfd);
 	md_dfd = -1;
@@ -448,7 +448,7 @@ int managed_dtable::combiner::finish()
 		mdt->header.ddt_count = mdt->disks.size();
 		if(reset_journal)
 			mdt->header.journal_id = old_id;
-		delete result;
+		result->destroy();
 		fail();
 		return r;
 	}
@@ -471,11 +471,11 @@ int managed_dtable::combiner::finish()
 			else if(copy[i].type == MDTE_TYPE_JOURNAL)
 			{
 				copy[i].journal->deinit(true);
-				delete copy[i].journal;
+				copy[i].journal->destroy();
 			}
 			else
 			{
-				delete copy[i].disk;
+				copy[i].disk->destroy();
 				sprintf(name, "md_data.%u", copy[i].ddt_number);
 				/* recursive unlink */
 				tx_unlink(mdt->md_dfd, name, 1);
@@ -634,7 +634,7 @@ void managed_dtable::doomed_dtable::invoke()
 		case DISK:
 		{
 			char name[32];
-			delete doomed.disk;
+			doomed.disk->destroy();
 			sprintf(name, "md_data.%u", ddt_number);
 			/* make sure we have a transaction */
 			tx_start_r();
@@ -649,7 +649,7 @@ void managed_dtable::doomed_dtable::invoke()
 			/* discard */
 			doomed.journal->deinit(true);
 			tx_end_r();
-			delete doomed.journal;
+			doomed.journal->destroy();
 			break;
 		case OVERLAY:
 			delete doomed.overlay;

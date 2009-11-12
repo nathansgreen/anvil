@@ -127,6 +127,8 @@ public:
 	inline virtual int maintain(bool force = false) { return maintain(force, bg_default); }
 	int maintain(bool force, bool background);
 	
+	virtual int set_blob_cmp(const blob_comparator * cmp);
+	
 	/* loan the background thread the token, if it wants it, so it can proceed */
 	void background_loan();
 	/* wait for a background operation to finish and return its return value */
@@ -141,13 +143,13 @@ public:
 	}
 	int init(int dfd, const char * name, const params & config, sys_journal * sysj = NULL);
 	void deinit();
+	
+protected:
 	inline virtual ~managed_dtable()
 	{
 		if(md_dfd >= 0)
 			deinit();
 	}
-	
-	virtual int set_blob_cmp(const blob_comparator * cmp);
 	
 private:
 	struct mdtable_header

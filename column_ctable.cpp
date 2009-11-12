@@ -369,7 +369,7 @@ void column_ctable::deinit()
 	if(column_count)
 	{
 		for(size_t i = 0; i < column_count; i++)
-			delete column_table[i];
+			column_table[i]->destroy();
 		delete[] column_table;
 		delete[] column_name;
 		column_map.empty();
@@ -484,7 +484,7 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 fail_load:
 	for(size_t i = 0; i < column_count; i++)
 		if(column_table[i])
-			delete column_table[i];
+			column_table[i]->destroy();
 fail_names:
 	column_map.empty();
 fail_config:

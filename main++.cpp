@@ -254,7 +254,7 @@ int command_dtable(int argc, const char * argv[])
 	run_iterator(mdt);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-	delete mdt;
+	mdt->destroy();
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, path, config);
@@ -267,7 +267,7 @@ int command_dtable(int argc, const char * argv[])
 	run_iterator(mdt);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-	delete mdt;
+	mdt->destroy();
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, path, config);
@@ -285,7 +285,7 @@ int command_dtable(int argc, const char * argv[])
 	run_iterator(mdt);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-	delete mdt;
+	mdt->destroy();
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, path, config);
@@ -298,13 +298,13 @@ int command_dtable(int argc, const char * argv[])
 	run_iterator(mdt);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-	delete mdt;
+	mdt->destroy();
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, path, config);
 	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
 	run_iterator(mdt);
-	delete mdt;
+	mdt->destroy();
 	
 	return 0;
 }
@@ -463,7 +463,7 @@ int command_edtable(int argc, const char * argv[])
 	run_iterator(mdt);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-	delete mdt;
+	mdt->destroy();
 	
 	printf("Waiting 3 seconds for digest interval...\n");
 	sleep(3);
@@ -482,7 +482,7 @@ int command_edtable(int argc, const char * argv[])
 	run_iterator(mdt);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-	delete mdt;
+	mdt->destroy();
 	
 	printf("Waiting 2 seconds for digest interval...\n");
 	sleep(2);
@@ -496,7 +496,7 @@ int command_edtable(int argc, const char * argv[])
 	run_iterator(mdt);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
-	delete mdt;
+	mdt->destroy();
 	
 	if(argc > 1 && !strcmp(argv[1], "perf"))
 	{
@@ -532,7 +532,7 @@ int command_edtable(int argc, const char * argv[])
 		r = mdt->init(AT_FDCWD, "excp_perf", config);
 		printf("mdt->init = %d\n", r);
 		excp_perf(mdt);
-		delete mdt;
+		mdt->destroy();
 		
 		/* should we also run with exception_dtable but simple_dtable underneath, to
 		 * isolate the overhead without the performance benefits of array_dtable? */
@@ -563,7 +563,7 @@ int command_edtable(int argc, const char * argv[])
 		r = mdt->init(AT_FDCWD, "exbl_perf", config);
 		printf("mdt->init = %d\n", r);
 		excp_perf(mdt);
-		delete mdt;
+		mdt->destroy();
 	}
 	
 	return 0;
@@ -689,7 +689,7 @@ int command_odtable(int argc, const char * argv[])
 	printf("tx_end = %d\n", r);
 	
 	ovdt_perf(dt);
-	delete dt;
+	dt->destroy();
 	
 	b = config.get("base", &base);
 	assert(b);
@@ -701,7 +701,7 @@ int command_odtable(int argc, const char * argv[])
 	dt = dtable_factory::load(base, AT_FDCWD, "ovdt_perf/md_data.0", base_config);
 	printf("dtable_factory::load = %p\n", dt);
 	ovdt_perf(dt);
-	delete dt;
+	dt->destroy();
 	
 	return 0;
 }
@@ -734,7 +734,7 @@ int command_ldtable(int argc, const char * argv[])
 	printf("dtable_factory::load = %p\n", dt);
 	
 	excp_perf(dt);
-	delete dt;
+	dt->destroy();
 	
 	config = params();
 	r = params::parse(LITERAL(
@@ -757,7 +757,7 @@ int command_ldtable(int argc, const char * argv[])
 	printf("dtable_factory::load = %p\n", dt);
 	
 	excp_perf(dt);
-	delete dt;
+	dt->destroy();
 	
 	return 0;
 }
@@ -788,12 +788,12 @@ int command_ussdtable(int argc, const char * argv[])
 	table = base->open(AT_FDCWD, "usst_test", config);
 	printf("uss::open = %p\n", table);
 	run_iterator(table);
-	delete table;
+	table->destroy();
 	
 	table = dtable_factory::load("fixed_dtable", AT_FDCWD, "usst_test", params());
 	printf("dtable_factory::load = %p\n", table);
 	run_iterator(table);
-	delete table;
+	table->destroy();
 	
 	mdt.insert(3u, "other");
 	r = base->create(AT_FDCWD, "usst_fail", config, &mdt);
@@ -933,13 +933,13 @@ int command_bfdtable(int argc, const char * argv[])
 	printf("tx_end = %d\n", r);
 	
 	bfdt_perf(dt);
-	delete dt;
+	dt->destroy();
 	
 	printf("Repeat with direct access...\n");
 	dt = dtable_factory::load("simple_dtable", AT_FDCWD, "bfdt_perf/md_data.0/base", params());
 	printf("dtable_factory::load = %p\n", dt);
 	bfdt_perf(dt);
-	delete dt;
+	dt->destroy();
 	
 	return 0;
 }
@@ -978,12 +978,12 @@ int command_sidtable(int argc, const char * argv[])
 	table = base->open(AT_FDCWD, "sidt_test", config);
 	printf("sid::open = %p\n", table);
 	run_iterator(table);
-	delete table;
+	table->destroy();
 	
 	table = dtable_factory::load("array_dtable", AT_FDCWD, "sidt_test", params());
 	printf("dtable_factory::load = %p\n", table);
 	run_iterator(table);
-	delete table;
+	table->destroy();
 	
 	value = 320;
 	mdt.insert(3u, blob(sizeof(value), &value));
@@ -1055,14 +1055,14 @@ int command_didtable(int argc, const char * argv[])
 			printf("failed!\n");
 			print(value_mdt, "memory find %u: ", key);
 			print(value_ddt, " delta find %u: ", key);
-			delete table;
+			table->destroy();
 			table = NULL;
 			break;
 		}
 	}
 	if(table)
 	{
-		delete table;
+		table->destroy();
 		printf("OK!\n");
 	}
 	
@@ -1169,17 +1169,17 @@ int command_didtable(int argc, const char * argv[])
 		printf("failed!\n");
 	delete test_it;
 	delete ref_it;
-	delete table;
+	table->destroy();
 	
 	table = dtable_factory::load("simple_dtable", AT_FDCWD, "didt_test/base", params());
 	printf("dtable_factory::load = %p\n", table);
 	run_iterator(table);
-	delete table;
+	table->destroy();
 	
 	table = dtable_factory::load("simple_dtable", AT_FDCWD, "didt_test/ref", params());
 	printf("dtable_factory::load = %p\n", table);
 	run_iterator(table);
-	delete table;
+	table->destroy();
 	
 	return 0;
 }
@@ -1229,7 +1229,7 @@ static void iterator_test(const istr & type, const char * name, const params & c
 		r = tx_end(0);
 		printf("tx_end = %d\n", r);
 	}
-	delete dt;
+	dt->destroy();
 	
 	dt = dtable_factory::load(type, AT_FDCWD, name, config);
 	printf("dtable_factory::load = %p\n", dt);
@@ -1368,7 +1368,7 @@ static void iterator_test(const istr & type, const char * name, const params & c
 		printf(")\n");
 	}
 	delete it;
-	delete dt;
+	dt->destroy();
 }
 
 int command_kddtable(int argc, const char * argv[])
@@ -1883,7 +1883,7 @@ int command_durability(int argc, const char * argv[])
 		}
 	}
 	
-	delete dt;
+	dt->destroy();
 	
 	return 0;
 }
@@ -1976,8 +1976,8 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_NOFAIL("normal insert(10)", r);
 	r = temporary->insert(idtype(20, key_type), "key 20");
 	EXPECT_NOFAIL("temp insert(20)", r);
-	delete temporary;
-	delete normal;
+	temporary->destroy();
+	normal->destroy();
 	sysj->deinit();
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
@@ -2020,8 +2020,8 @@ int command_rollover(int argc, const char * argv[])
 	r = temporary->rollover(normal);
 	EXPECT_NOFAIL("memory rollover", r);
 	EXPECT_SIZET("normal size", 2, normal->size());
-	delete temporary;
-	delete normal;
+	temporary->destroy();
+	normal->destroy();
 	sysj->deinit();
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
@@ -2073,8 +2073,8 @@ int command_rollover(int argc, const char * argv[])
 	EXPECT_SIZET("normal size", 2, normal->size());
 	run_iterator(normal);
 	EXPECT_SIZET("key 10 size", 7, normal->find(idtype(10, key_type)).size());
-	delete temporary;
-	delete normal;
+	temporary->destroy();
+	normal->destroy();
 	sysj->deinit();
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
@@ -2103,7 +2103,7 @@ int command_rollover(int argc, const char * argv[])
 	/* filter and check the results */
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	delete normal;
+	normal->destroy();
 	r = sysj->filter();
 	EXPECT_NOFAIL("filter", r);
 	sysj->deinit();
@@ -2134,7 +2134,7 @@ int command_rollover(int argc, const char * argv[])
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
 	normal->deinit(true);
-	delete normal;
+	normal->destroy();
 	r = sysj->filter();
 	EXPECT_NOFAIL("filter", r);
 	sysj->deinit();
@@ -2370,7 +2370,7 @@ int command_bdbtest(int argc, const char * argv[])
 	
 	tx_start();
 	jdt->deinit(true);
-	delete jdt;
+	jdt->destroy();
 	tx_end(0);
 	return 0;
 }
@@ -2440,7 +2440,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		r = tx_end(0);
 		printf("tx_end = %d\n", r);
 		
-		delete jdt;
+		jdt->destroy();
 		return 0;
 	}
 	
@@ -2949,7 +2949,7 @@ static int command_performance_dtable(int argc, const char * argv[])
 	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
 	printf("Average: %"PRIu64" inserts/second\n", 10000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
-	delete dt;
+	dt->destroy();
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
@@ -3000,21 +3000,21 @@ static int command_performance_dtable(int argc, const char * argv[])
 		printf("OK!\n");
 	}
 	
-	delete dt;
+	dt->destroy();
 	return 0;
 	
 fail_iter:
 	delete iter;
 fail_verify:
 	printf("failed!\n");
-	delete dt;
+	dt->destroy();
 	return -1;
 	
 fail_maintain:
 fail_insert:
 	tx_end(0);
 fail_tx_start:
-	delete dt;
+	dt->destroy();
 	return r;
 }
 

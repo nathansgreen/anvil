@@ -119,7 +119,7 @@ void cache_dtable::deinit()
 		cache.clear();
 		while(!order.empty())
 			order.pop();
-		delete base;
+		base->destroy();
 		base = NULL;
 		dtable::deinit();
 	}

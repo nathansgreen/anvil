@@ -49,19 +49,21 @@ public:
 		return value;
 	}
 	
+	static inline bool static_indexed_access(const params & config) { return true; }
+	
+	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
+	DECLARE_RO_FACTORY(btree_dtable);
+	
 	inline btree_dtable() : base(NULL) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
+	
+protected:
 	inline virtual ~btree_dtable()
 	{
 		if(base)
 			deinit();
 	}
-	
-	static inline bool static_indexed_access(const params & config) { return true; }
-	
-	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
-	DECLARE_RO_FACTORY(btree_dtable);
 	
 private:
 	struct btree_dtable_header

@@ -457,7 +457,7 @@ anvil_dtable * anvil_dtable_open(const char * type, int dfd, const char * name, 
 void anvil_dtable_kill(anvil_dtable * c)
 {
 	anvil_dtable_union safer(c);
-	delete safer.cpp;
+	safer.cpp->destroy();
 }
 
 int anvil_dtable_find(const anvil_dtable * c, const anvil_dtype * key, anvil_blob * value)

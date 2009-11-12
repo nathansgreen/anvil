@@ -76,7 +76,7 @@ public:
 		int r = disk->init(dfd, name, config);
 		if(r < 0)
 		{
-			delete disk;
+			disk->destroy();
 			disk = NULL;
 		}
 		else

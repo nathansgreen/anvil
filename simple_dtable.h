@@ -43,19 +43,21 @@ public:
 	virtual bool contains_index(size_t index) const;
 	inline virtual size_t size() const { return key_count; }
 	
+	static inline bool static_indexed_access(const params & config) { return true; }
+	
+	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
+	DECLARE_RO_FACTORY(simple_dtable);
+	
 	inline simple_dtable() : fp(NULL) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
+	
+protected:
 	inline virtual ~simple_dtable()
 	{
 		if(fp)
 			deinit();
 	}
-	
-	static inline bool static_indexed_access(const params & config) { return true; }
-	
-	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
-	DECLARE_RO_FACTORY(simple_dtable);
 	
 private:
 	struct dtable_header {

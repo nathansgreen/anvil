@@ -508,7 +508,7 @@ void simple_ctable::deinit()
 		delete[] column_name;
 		column_map.empty();
 		column_count = 0;
-		delete base;
+		base->destroy();
 		base = NULL;
 		ctable::deinit();
 	}

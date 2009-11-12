@@ -446,7 +446,7 @@ int simple_stable::init(int dfd, const char * name, const params & config)
 fail_check:
 	delete ct_data;
 fail_data:
-	delete dt_meta;
+	dt_meta->destroy();
 fail_meta:
 	close(md_dfd);
 	md_dfd = -1;
@@ -459,8 +459,8 @@ void simple_stable::deinit()
 		return;
 	column_map.clear();
 	delete ct_data;
-	delete dt_meta;
 	ct_data = NULL;
+	dt_meta->destroy();
 	dt_meta = NULL;
 	close(md_dfd);
 	md_dfd = -1;

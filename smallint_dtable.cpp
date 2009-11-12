@@ -144,7 +144,7 @@ void smallint_dtable::deinit()
 {
 	if(base)
 	{
-		delete base;
+		base->destroy();
 		base = NULL;
 		dtable::deinit();
 	}

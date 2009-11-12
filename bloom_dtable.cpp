@@ -255,7 +255,7 @@ int bloom_dtable::init(int dfd, const char * file, const params & config)
 	return 0;
 	
 fail_filter:
-	delete base;
+	base->destroy();
 	base = NULL;
 fail_base:
 	close(bf_dfd);
@@ -267,7 +267,7 @@ void bloom_dtable::deinit()
 	if(base)
 	{
 		filter.deinit();
-		delete base;
+		base->destroy();
 		base = NULL;
 		dtable::deinit();
 	}
@@ -338,13 +338,13 @@ int bloom_dtable::create(int dfd, const char * file, const params & config, dtab
 	if(r < 0)
 		goto fail_write;
 	
-	delete base_dtable;
+	base_dtable->destroy();
 	
 	close(bf_dfd);
 	return 0;
 	
 fail_write:
-	delete base_dtable;
+	base_dtable->destroy();
 fail_reopen:
 	util::rm_r(bf_dfd, "base");
 fail_create:

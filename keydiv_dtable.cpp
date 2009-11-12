@@ -282,7 +282,7 @@ int keydiv_dtable::init(int dfd, const char * name, const params & config)
 	
 fail_sub:
 	for(size_t i = 0; i < sub.size(); i++)
-		delete sub[i];
+		sub[i]->destroy();
 fail_meta:
 	sub.clear();
 	dividers.clear();
@@ -295,7 +295,7 @@ void keydiv_dtable::deinit()
 	if(!sub.size())
 		return;
 	for(size_t i = 0; i < sub.size(); i++)
-		delete sub[i];
+		sub[i]->destroy();
 	sub.clear();
 	dtable::deinit();
 }

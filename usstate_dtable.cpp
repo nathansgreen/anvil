@@ -160,7 +160,7 @@ void usstate_dtable::deinit()
 	if(base)
 	{
 		passthrough_value = blob();
-		delete base;
+		base->destroy();
 		base = NULL;
 		dtable::deinit();
 	}

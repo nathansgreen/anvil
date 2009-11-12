@@ -150,8 +150,8 @@ public:
 	inline virtual int insert(const dtype & key, const blob & blob, bool append = false) { return -ENOSYS; }
 	inline virtual int remove(const dtype & key) { return -ENOSYS; }
 	inline dtable() : usage(0) {}
-	/* subclass destructors should [indirectly] call dtable::deinit() to avoid these asserts */
-	inline virtual ~dtable() { assert(!blob_cmp); assert(!usage.get()); }
+	/* calls the destructor by default, but can be overridden */
+	inline virtual void destroy() const { delete this; }
 	
 	/* when using blob keys and a custom blob comparator, this will be necessary */
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
@@ -229,6 +229,9 @@ protected:
 		}
 		cmp_name = NULL;
 	}
+	
+	/* subclass destructors should [indirectly] call dtable::deinit() to avoid these asserts */
+	inline virtual ~dtable() { assert(!blob_cmp); assert(!usage.get()); }
 	
 	/* helper for create() methods: checks source and shadow to make sure they agree */
 	template<class T>

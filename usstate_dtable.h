@@ -44,16 +44,19 @@ public:
 	/* usstate_dtable supports indexed access if its base does */
 	static bool static_indexed_access(const params & config);
 	
+	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
+	DECLARE_RO_FACTORY(usstate_dtable);
+	
 	inline usstate_dtable() : base(NULL) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
+	
+protected:
 	inline virtual ~usstate_dtable()
 	{
 		if(base)
 			deinit();
 	}
-	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
-	DECLARE_RO_FACTORY(usstate_dtable);
 	
 private:
 	inline void static_asserts()

@@ -163,7 +163,7 @@ int btree_dtable::init(int dfd, const char * file, const params & config)
 fail_format:
 	delete btree;
 fail_open:
-	delete base;
+	base->destroy();
 	base = NULL;
 fail_base:
 	close(bt_dfd);
@@ -175,7 +175,7 @@ void btree_dtable::deinit()
 	if(base)
 	{
 		delete btree;
-		delete base;
+		base->destroy();
 		base = NULL;
 		dtable::deinit();
 	}
@@ -514,13 +514,13 @@ int btree_dtable::create(int dfd, const char * file, const params & config, dtab
 	if(r < 0)
 		goto fail_write;
 	
-	delete base_dtable;
+	base_dtable->destroy();
 	
 	close(bt_dfd);
 	return 0;
 	
 fail_write:
-	delete base_dtable;
+	base_dtable->destroy();
 fail_reopen:
 	util::rm_r(bt_dfd, "base");
 fail_create:

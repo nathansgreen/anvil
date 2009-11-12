@@ -31,6 +31,7 @@ public:
 	int init(const dtable * dt1, ...);
 	int init(const dtable ** dts, size_t count);
 	void deinit();
+	/* overlay_dtable has a public destructor (and no factory) */
 	inline virtual ~overlay_dtable()
 	{
 		if(tables)

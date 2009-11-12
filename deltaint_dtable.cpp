@@ -313,10 +313,10 @@ fail_iter:
 	delete scan_iter;
 	scan_iter = NULL;
 fail_scan:
-	delete reference;
+	reference->destroy();
 	reference = NULL;
 fail_reference:
-	delete base;
+	base->destroy();
 	base = NULL;
 fail_base:
 	close(di_dfd);
@@ -331,9 +331,9 @@ void deltaint_dtable::deinit()
 		ref_iter = NULL;
 		delete scan_iter;
 		scan_iter = NULL;
-		delete reference;
+		reference->destroy();
 		reference = NULL;
-		delete base;
+		base->destroy();
 		base = NULL;
 		dtable::deinit();
 	}

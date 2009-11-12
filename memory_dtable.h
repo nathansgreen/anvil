@@ -54,6 +54,7 @@ public:
 		mdt_map.clear();
 	}
 	void deinit();
+	/* memory_dtable has a public destructor (and no factory) */
 	inline virtual ~memory_dtable()
 	{
 		if(ready)

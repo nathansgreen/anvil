@@ -42,16 +42,19 @@ public:
 	/* smallint_dtable supports indexed access if its base does */
 	static bool static_indexed_access(const params & config);
 	
+	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
+	DECLARE_RO_FACTORY(smallint_dtable);
+	
 	inline smallint_dtable() : base(NULL) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
+	
+protected:
 	inline virtual ~smallint_dtable()
 	{
 		if(base)
 			deinit();
 	}
-	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
-	DECLARE_RO_FACTORY(smallint_dtable);
 	
 private:
 	class iter : public iter_source<smallint_dtable, dtable_wrap_iter>

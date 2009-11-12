@@ -280,10 +280,10 @@ int exception_dtable::init(int dfd, const char * file, const params & config)
 	return 0;
 	
 fail_ktype:
-	delete alt;
+	alt->destroy();
 	alt = NULL;
 fail_alt:
-	delete base;
+	base->destroy();
 	base = NULL;
 fail_base:
 	close(excp_dfd);
@@ -295,9 +295,9 @@ void exception_dtable::deinit()
 	if(base || alt)
 	{
 		reject_value = blob();
-		delete alt;
+		alt->destroy();
 		alt = NULL;
-		delete base;
+		base->destroy();
 		base = NULL;
 		dtable::deinit();
 	}

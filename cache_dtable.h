@@ -43,18 +43,20 @@ public:
 		return value;
 	}
 	
+	inline virtual int maintain(bool force = false) { return base->maintain(force); }
+	
+	DECLARE_WRAP_FACTORY(cache_dtable);
+	
 	inline cache_dtable() : base(NULL), chain(this), cache(10, blob_cmp, blob_cmp) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
+	
+protected:
 	inline virtual ~cache_dtable()
 	{
 		if(base)
 			deinit();
 	}
-	
-	inline virtual int maintain(bool force = false) { return base->maintain(force); }
-	
-	DECLARE_WRAP_FACTORY(cache_dtable);
 	
 private:
 	struct entry

@@ -21,17 +21,20 @@ public:
 	virtual iter * iterator() const;
 	virtual bool present(const dtype & key, bool * found) const;
 	virtual blob lookup(const dtype & key, bool * found) const;
+	
+	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
+	DECLARE_RO_FACTORY(exception_dtable);
+	
+	inline exception_dtable() : base(NULL), alt(NULL) {}
 	int init(int dfd, const char * file, const params & config);
 	void deinit();
-	inline exception_dtable() : base(NULL), alt(NULL) {}
+	
+protected:
 	inline virtual ~exception_dtable()
 	{
 		if(base || alt)
 			deinit();
 	}
-	
-	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
-	DECLARE_RO_FACTORY(exception_dtable);
 	
 private:
 	class iter : public iter_source<exception_dtable>
