@@ -47,8 +47,10 @@ public:
 	}
 	
 	/* convenience method that uses the built-in warehouse; note the parameter order */
-	static inline journal_dtable * obtain(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL)
+	static inline journal_dtable * obtain(sys_journal::listener_id lid, dtype::ctype key_type, sys_journal * journal = NULL)
 	{
+		if(!journal)
+			journal = sys_journal::get_global_journal();
 		return warehouse.obtain(lid, key_type, journal);
 	}
 	/* this one is mostly for testing and won't create if it doesn't already exist */
@@ -72,17 +74,15 @@ public:
 	
 	static journal_dtable_warehouse warehouse;
 	
-	/* reinitialize, optionally discarding the old entries from the journal */
+	/* reinitialize, discarding the old entries from the journal and setting a new ID */
 	/* NOTE: also clears and releases the blob comparator, if one has been set */
-	int reinit(sys_journal::listener_id lid, bool discard = true);
-	void deinit(bool discard = false);
-	/* only actually destroy if we're not in a warehouse */
-	//inline virtual void destroy() const { if(!get_warehouse()) delete this; }
+	int reinit(sys_journal::listener_id lid);
+	void deinit();
 	
 protected:
 	/* journal_dtables should only be constructed by a journal_dtable_warehouse */
 	inline journal_dtable() : initialized(false), jdt_map(blob_cmp), jdt_hash(10, blob_cmp, blob_cmp) {}
-	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal = NULL);
+	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal);
 	inline virtual ~journal_dtable()
 	{
 		if(initialized)

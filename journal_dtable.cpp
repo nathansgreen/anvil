@@ -283,14 +283,13 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sy
 	return 0;
 }
 
-int journal_dtable::reinit(sys_journal::listener_id lid, bool discard)
+int journal_dtable::reinit(sys_journal::listener_id lid)
 {
 	if(!initialized)
 		return -EBUSY;
 	if(lid == sys_journal::NO_ID)
 		return -EINVAL;
-	if(discard)
-		journal_discard();
+	journal_discard();
 	if(blob_cmp)
 	{
 		blob_cmp->release();
@@ -303,10 +302,8 @@ int journal_dtable::reinit(sys_journal::listener_id lid, bool discard)
 	return 0;
 }
 
-void journal_dtable::deinit(bool discard)
+void journal_dtable::deinit()
 {
-	if(discard)
-		journal_discard();
 	jdt_hash.clear();
 	jdt_map.clear();
 	initialized = false;
@@ -341,7 +338,7 @@ int journal_dtable::real_rollover(listening_dtable * target) const
 	journal_dtable_map::const_iterator it;
 	for(it = jdt_map.begin(); it != jdt_map.end(); ++it)
 	{
-		int r = target->accept(it->first, it->second);
+		int r = send(target, it->first, it->second);
 		if(r < 0)
 			/* FIXME: we're pretty screwed if this occurs... might be best to abort */
 			return r;

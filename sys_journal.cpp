@@ -375,6 +375,8 @@ int sys_journal::init(int dfd, const char * file, listening_dtable_warehouse * w
 	data_header header;
 	bool do_playback = false;
 	SYSJ_DEBUG("%d, %s, %d", dfd, file, create);
+	if(warehouse->size())
+		return -EINVAL;
 	if(meta_fd)
 		deinit();
 	live_entries = 0;
@@ -469,7 +471,7 @@ int sys_journal::init(int dfd, const char * file, listening_dtable_warehouse * w
 	sequence = info.seq;
 	if(do_playback)
 	{
-		int r = playback(NULL);
+		int r = playback();
 		if(r < 0)
 		{
 			deinit();
@@ -530,21 +532,21 @@ void sys_journal::discard_rollover_ids(listener_id lid)
 	}
 }
 
-int sys_journal::playback(listening_dtable * const target)
+int sys_journal::playback()
 {
-	listener_id_set failed, temporary;
+	listener_id_set temporary;
 	size_t offset = sizeof(data_header);
-	SYSJ_DEBUG("%d", target ? target->id() : NO_ID);
+	SYSJ_DEBUG("");
+	
 	assert(offset <= info_size);
 	assert(info_size <= data_size);
 	assert(data_size == data.end());
-	if(!target)
-	{
-		if(info_size != data_size)
-			return -EINVAL;
-		live_entries = 0;
-		live_entry_count.clear();
-	}
+	
+	if(info_size != data_size)
+		return -EINVAL;
+	live_entries = 0;
+	live_entry_count.clear();
+	
 	while(offset < info_size)
 	{
 		int r;
@@ -558,136 +560,92 @@ int sys_journal::playback(listening_dtable * const target)
 		{
 			/* this is a discard record */
 			SYSJ_DEBUG_IN("discard %d", entry.id);
-			/* warn if entry.id == target->id() ? */
-			if(!target)
+			live_entry_map::iterator count = live_entry_count.find(entry.id);
+			if(count != live_entry_count.end())
 			{
-				live_entry_map::iterator count = live_entry_count.find(entry.id);
-				if(count != live_entry_count.end())
-				{
-					live_entries -= count->second;
-					live_entry_count.erase(count);
-				}
-				discard_rollover_ids(entry.id);
-				if(is_temporary(entry.id))
-					temporary.erase(entry.id);
-				listener = warehouse->lookup(entry.id);
-				if(listener)
-					/* will remove itself from the warehouse */
-					delete listener;
+				live_entries -= count->second;
+				live_entry_count.erase(count);
+			}
+			discard_rollover_ids(entry.id);
+			if(is_temporary(entry.id))
+				temporary.erase(entry.id);
+			listener = warehouse->lookup(entry.id);
+			if(listener)
+			{
+				warehouse->remove(listener);
+				delete listener;
 			}
 			continue;
 		}
 		if(entry.length == (size_t) -2)
 		{
 			/* this is a rollover record */
-			SYSJ_DEBUG_IN("rollover %d", entry.id);
-			if(!target)
+			listener_id to;
+			if(data.read(offset, &to) < 0)
+				return -EIO;
+			offset += sizeof(to);
+			assert(is_temporary(entry.id));
+			SYSJ_DEBUG_IN("rollover %d -> %d", entry.id, to);
+			listening_dtable * from_ldt = warehouse->lookup(entry.id);
+			if(from_ldt)
 			{
-				listener_id to;
-				if(data.read(offset, &to) < 0)
-					return -EIO;
-				offset += sizeof(to);
-				assert(is_temporary(entry.id));
-				SYSJ_DEBUG_IN("rollover %d -> %d", entry.id, to);
-				listening_dtable * from_ldt = warehouse->lookup(entry.id);
-				if(from_ldt)
+				listening_dtable * to_ldt = warehouse->lookup(to);
+				if(to_ldt)
 				{
-					listening_dtable * to_ldt = warehouse->lookup(to);
-					if(to_ldt)
-					{
-						r = from_ldt->rollover(to_ldt);
-						assert(r >= 0);
-						/* will remove itself from the warehouse */
-						delete from_ldt;
-					}
-					else
-						from_ldt->set_id(to);
-				}
-				if(is_temporary(to))
-				{
-					temporary.insert(to);
-					roll_over_rollover_ids(entry.id, to);
+					r = from_ldt->rollover(to_ldt);
+					assert(r >= 0);
+					warehouse->remove(from_ldt);
+					delete from_ldt;
 				}
 				else
-					roll_over_rollover_ids(entry.id, to, &temporary);
+					from_ldt->set_id(to);
+			}
+			if(is_temporary(to))
+			{
+				temporary.insert(to);
+				roll_over_rollover_ids(entry.id, to);
 			}
 			else
-				offset += sizeof(listener_id);
+				roll_over_rollover_ids(entry.id, to, &temporary);
 			continue;
 		}
 		SYSJ_DEBUG_IN("record for ID %d, length %zu", entry.id, entry.length);
-		if(target)
-		{
-			/* skip other entries */
-			if(target->id() != entry.id)
-			{
-				offset += entry.length;
-				continue;
-			}
-			listener = target;
-			
-			entry_data = malloc(entry.length);
-			if(!entry_data)
-				return -ENOMEM;
-			if(data.read(offset, entry_data, entry.length) != (ssize_t) entry.length)
-			{
-				free(entry_data);
-				return -EIO;
-			}
-			offset += entry.length;
-		}
+		live_entry_map::iterator count = live_entry_count.find(entry.id);
+		if(count != live_entry_count.end())
+			count->second++;
 		else
+			live_entry_count[entry.id] = 1;
+		live_entries++;
+		
+		if(is_temporary(entry.id))
+			temporary.insert(entry.id);
+		
+		entry_data = malloc(entry.length);
+		if(!entry_data)
+			return -ENOMEM;
+		if(data.read(offset, entry_data, entry.length) != (ssize_t) entry.length)
 		{
-			live_entry_map::iterator count = live_entry_count.find(entry.id);
-			if(count != live_entry_count.end())
-				count->second++;
-			else
-				live_entry_count[entry.id] = 1;
-			live_entries++;
-			
-			/* skip this record if we've failed before to replay a record to
-			 * this listener, e.g. because it needs a blob comparator first */
-			if(failed.count(entry.id))
-			{
-				offset += entry.length;
-				continue;
-			}
-			
-			if(is_temporary(entry.id))
-				temporary.insert(entry.id);
-			
-			entry_data = malloc(entry.length);
-			if(!entry_data)
-				return -ENOMEM;
-			if(data.read(offset, entry_data, entry.length) != (ssize_t) entry.length)
-			{
-				free(entry_data);
-				return -EIO;
-			}
-			offset += entry.length;
-			
-			listener = warehouse->obtain(entry.id, entry_data, entry.length, this);
-			if(!listener)
-			{
-				free(entry_data);
-				return -EIO;
-			}
+			free(entry_data);
+			return -EIO;
+		}
+		offset += entry.length;
+		
+		listener = warehouse->obtain(entry.id, entry_data, entry.length, this);
+		if(!listener)
+		{
+			free(entry_data);
+			return -EIO;
 		}
 		/* data is passed by reference */
 		r = listener->journal_replay(entry_data, entry.length);
 		if(entry_data)
 			free(entry_data);
 		if(r < 0)
-		{
-			if(target)
-				return r;
-			failed.insert(entry.id);
-		}
+			return r;
 	}
 	if(offset != info_size)
 		return -EIO;
-	/* we only check for this during system journal initialization */
-	if(!target && !temporary.empty())
+	if(!temporary.empty())
 	{
 		/* abandoned temporary IDs were found, discard them */
 		listener_id_set::iterator it;
@@ -697,12 +655,10 @@ int sys_journal::playback(listening_dtable * const target)
 			assert(listener);
 			discard(*it);
 			assert(listener->get_warehouse() == warehouse);
-			/* will remove itself from the warehouse */
+			warehouse->remove(listener);
 			delete listener;
 		}
 	}
-	if(!failed.empty())
-		return -EBUSY;
 	assert(data_size == data.end());
 	return 0;
 }
@@ -716,6 +672,8 @@ void sys_journal::deinit(bool erase)
 		if(dirty)
 			flush_tx();
 		assert(!dirty);
+		/* destroy all the listeners by clearing the warehouse */
+		warehouse->clear();
 		if(registered)
 		{
 			tx_unregister_pre_end(&handle);
@@ -741,6 +699,24 @@ void sys_journal::deinit(bool erase)
 		}
 		discarded.clear();
 	}
+}
+
+sys_journal * sys_journal::spawn_init(const char * file, listening_dtable_warehouse * warehouse, bool create, bool filter_on_empty)
+{
+	int r;
+	sys_journal * journal;
+	if(!global_journal.meta_fd)
+		return NULL;
+	journal = new sys_journal;
+	if(!journal)
+		return NULL;
+	r = journal->init(global_journal.meta_dfd, file, warehouse, create, filter_on_empty);
+	if(r < 0)
+	{
+		delete journal;
+		journal = NULL;
+	}
+	return journal;
 }
 
 sys_journal sys_journal::global_journal;

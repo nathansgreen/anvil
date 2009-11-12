@@ -21,12 +21,13 @@
 int managed_dtable::init(int dfd, const char * name, const params & config, sys_journal * sysj)
 {
 	istr fast_config = "fastbase_config";
-	sys_journal * actual_sysj = sysj ? sysj : sys_journal::get_global_journal();
 	tx_fd meta;
 	off_t meta_off;
 	int r = -1, size;
 	if(md_dfd >= 0)
 		deinit();
+	if(!sysj)
+		sysj = sys_journal::get_global_journal();
 	base = dtable_factory::lookup(config, "base");
 	if(!base)
 		return -EINVAL;
@@ -82,7 +83,6 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 			goto fail_header;
 	}
 	
-	delayed_query = NULL;
 	for(uint32_t i = 0; i < header.ddt_count; i++)
 	{
 		mdtable_entry ddt;
@@ -93,17 +93,9 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		if(ddt.type == MDTE_TYPE_JOURNAL)
 		{
 			sys_journal::listener_id jid = ddt.ddt_number;
-			journal_dtable * source = journal_dtable::obtain(ktype, jid, sysj);
-			r = actual_sysj->get_entries(source);
+			journal_dtable * source = journal_dtable::obtain(jid, ktype, sysj);
 			if(!cmp_name)
 				cmp_name = source->get_cmp_name();
-			if(r == -EBUSY && cmp_name)
-				delayed_query = actual_sysj;
-			else if(r < 0)
-			{
-				source->destroy();
-				goto fail_disks;
-			}
 			disks.push_back(dtable_list_entry(journal, jid));
 		}
 		else
@@ -121,19 +113,16 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		}
 	}
 	
-	journal = journal_dtable::obtain(ktype, header.journal_id, sysj);
-	r = actual_sysj->get_entries(journal);
+	journal = journal_dtable::obtain(header.journal_id, ktype, sysj);
 	if(!cmp_name)
+	{
 		cmp_name = journal->get_cmp_name();
-	if(r == -EBUSY && cmp_name)
-		delayed_query = actual_sysj;
-	else if(r < 0)
-		goto fail_query;
-	/* if the journal did not provide it, try to get the comparator name
-	 * from the first disk dtable - journal_dtable doesn't save the name if
-	 * it's empty, since you could in principle change it at that point */
-	if(!cmp_name && disks.size())
-		cmp_name = disks[0].disk->get_cmp_name();
+		/* if the journal did not provide it, try to get the comparator name
+		 * from the first disk dtable - journal_dtable doesn't save the name if
+		 * it's empty, since you could in principle change it at that point */
+		if(!cmp_name && disks.size())
+			cmp_name = disks[0].disk->get_cmp_name();
+	}
 	
 	/* no more failure possible */
 	tx_close(meta);
@@ -153,8 +142,6 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	
 	return 0;
 	
-fail_query:
-	journal->destroy();
 fail_disks:
 	for(size_t i = 0; i < disks.size(); i++)
 		disks[i].disk->destroy();
@@ -225,19 +212,6 @@ int managed_dtable::set_blob_cmp(const blob_comparator * cmp)
 	{
 		value = disks[i].disk->set_blob_cmp(cmp);
 		assert(value >= 0);
-		if(disks[i].type == MDTE_TYPE_JOURNAL && delayed_query)
-		{
-			value = delayed_query->get_entries(disks[i].journal);
-			assert(value >= 0);
-		}
-	}
-	if(delayed_query)
-	{
-		value = delayed_query->get_entries(journal);
-		/* not sure how that could fail at this point,
-		 * but if so don't clear delayed_query */
-		if(value >= 0)
-			delayed_query = NULL;
 	}
 	return value;
 }
@@ -319,7 +293,7 @@ int managed_dtable::combiner::prepare(bool shift_journal)
 			return r;
 		}
 		
-		mdt->journal = journal_dtable::obtain(mdt->ktype, mdt->header.journal_id, sj);
+		mdt->journal = journal_dtable::obtain(mdt->header.journal_id, mdt->ktype, sj);
 		if(mdt->blob_cmp)
 			mdt->journal->set_blob_cmp(mdt->blob_cmp);
 		
@@ -469,10 +443,8 @@ int managed_dtable::combiner::finish()
 				mdt->doomed_dtables.insert(doomed);
 			}
 			else if(copy[i].type == MDTE_TYPE_JOURNAL)
-			{
-				copy[i].journal->deinit(true);
-				copy[i].journal->destroy();
-			}
+				/* also destroys it */
+				copy[i].journal->discard();
 			else
 			{
 				copy[i].disk->destroy();
@@ -507,7 +479,7 @@ int managed_dtable::combiner::finish()
 			doomed_dtable * doomed = new doomed_dtable(mdt, mdt->journal);
 			/* FIXME: we can actually discard the sysj entries now, as long as we keep them in memory */
 			mdt->doomed_dtables.insert(doomed);
-			mdt->journal = journal_dtable::obtain(mdt->ktype, mdt->header.journal_id, sj);
+			mdt->journal = journal_dtable::obtain(mdt->header.journal_id, mdt->ktype, sj);
 		}
 		else
 			mdt->journal->reinit(mdt->header.journal_id);
@@ -646,10 +618,9 @@ void managed_dtable::doomed_dtable::invoke()
 		case JOURNAL:
 			/* make sure we have a transaction */
 			tx_start_r();
-			/* discard */
-			doomed.journal->deinit(true);
+			/* also destroys it */
+			doomed.journal->discard();
 			tx_end_r();
-			doomed.journal->destroy();
 			break;
 		case OVERLAY:
 			delete doomed.overlay;

@@ -24,10 +24,13 @@ UNAME_M:=$(shell uname -m)
 # NOTE: all factory-constructible classes (dtables, etc.) must come before
 # the corresponding factory registries. See factory_impl.h for the reason.
 # For the same reason, transaction.cpp must come after sys_journal.cpp here.
+# Any static listening_dtable_warehouses (e.g. journal_dtable_warehouse)
+# must also be listed after sys_journal.cpp, if the global sys_journal is
+# not explicitly deinitialized by client code.
 
 ifeq ($(UNAME_S),Darwin)
 # Well, except that on OS X they must be listed in the other order
-CPPSOURCES=$(FACTORIES) $(LIBRARIES) $(DTABLES) $(MISC_STUFF)
+CPPSOURCES=$(FACTORIES) $(MISC_STUFF) $(DTABLES) $(LIBRARIES)
 else
 CPPSOURCES=$(LIBRARIES) $(DTABLES) $(MISC_STUFF) $(FACTORIES)
 endif

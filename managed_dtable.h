@@ -346,10 +346,6 @@ private:
 	const dtable_factory * base;
 	const dtable_factory * fastbase;
 	params base_config, fastbase_config;
-	/* in case a blob comparator is needed for the journal, it may return
-	 * -EBUSY and we will need to query it later when the blob comparator is
-	 *  set; we set delayed_query when this case is detected in init() */
-	sys_journal * delayed_query;
 	size_t digest_size;
 	bool digest_on_close, close_digest_fastbase, autocombine;
 };

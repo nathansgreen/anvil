@@ -42,38 +42,38 @@ public:
 		/* doesn't actually handle the data given, just uses it to help create the listener */
 		virtual listening_dtable * obtain(listener_id id, const void * entry, size_t length, sys_journal * journal) = 0;
 		virtual listening_dtable * obtain(listener_id id, dtype::ctype key_type, sys_journal * journal) = 0;
-		/* for diagnostic purposes, mostly: return the number of listeners */
+		/* return the current number of listeners */
 		virtual size_t size() const = 0;
 	private:
 		/* change the listener ID for the given listener */
 		virtual bool reset(listening_dtable * listener, listener_id id) = 0;
 		/* remove a listener from this warehouse */
 		virtual bool remove(listening_dtable * listener) = 0;
-		/* so that listening_dtable can access these methods */
-		friend class listening_dtable;
+		/* remove and destroy all listeners in this warehouse */
+		virtual void clear() = 0;
+		
+		friend class sys_journal;
 	};
-	
-	/* must declare this as a template class to friend it below */
-	template<class T> class listening_dtable_warehouse_impl;
 	
 	class listening_dtable : public dtable
 	{
 	public:
-		/* copies all data from this listening dtable to another, but
-		 * only in memory - use only after sys_journal rollover */
+		/* copies all data from this listening dtable to another by writing a rollover
+		 * record to the journal and then merging the in-memory state into the target */
 		inline int rollover(listening_dtable * target) const
 		{
 			assert(is_temporary(id()));
 			/* abuse source_shadow_ok() slightly and use it here; it will work fine */
 			if(!source_shadow_ok(this, target))
 				return -EINVAL;
+			int r = journal->rollover(this, target);
+			if(r < 0)
+				return r;
 			if(cmp_name && !blob_cmp)
 				return pending_rollover(target);
 			assert(ldt_pending.empty() && target->ldt_pending.empty());
 			return real_rollover(target);
 		}
-		/* only for use in implementing real_rollover() and replay_pending(), dangerous otherwise */
-		virtual int accept(const dtype & key, const blob & value, bool append = false) = 0;
 		
 		inline listening_dtable() : local_id(NO_ID), warehouse(NULL), journal(NULL) {}
 		
@@ -89,7 +89,21 @@ public:
 			return r;
 		}
 		
-		inline virtual ~listening_dtable() { if(warehouse) warehouse->remove(this); }
+		/* discard the journal entries, remove from the warehouse, and destroy */
+		inline int discard()
+		{
+			int r = journal->discard(this);
+			if(r < 0)
+				return r;
+			if(warehouse)
+				warehouse->remove(this);
+			destroy();
+			return 0;
+		}
+		
+		/* only actually destroy if we're not in a warehouse */
+		inline virtual void destroy() const { if(!warehouse) delete this; }
+		inline virtual ~listening_dtable() { assert(!warehouse); }
 		
 	protected:
 		inline int set_id(listener_id lid)
@@ -108,14 +122,17 @@ public:
 		
 		inline int journal_append(void * entry, size_t length)
 		{
-			sys_journal * j = journal ? journal : get_global_journal();
-			return j->append(this, entry, length);
+			return journal->append(this, entry, length);
 		}
 		
 		inline int journal_discard()
 		{
-			sys_journal * j = journal ? journal : get_global_journal();
-			return j->discard(this);
+			return journal->discard(this);
+		}
+		
+		inline int send(listening_dtable * target, const dtype & key, const blob & value, bool append = false) const
+		{
+			return target->accept(key, value, append);
 		}
 		
 		/* see the note below about unique_blob_store */
@@ -134,6 +151,9 @@ public:
 			assert(!warehouse || !this->warehouse);
 			this->warehouse = warehouse;
 		}
+		
+		/* called by real_rollover() (via send() above) and replay_pending() */
+		virtual int accept(const dtype & key, const blob & value, bool append) = 0;
 		
 		listener_id local_id;
 		listening_dtable_warehouse * warehouse;
@@ -169,8 +189,6 @@ public:
 		virtual int real_rollover(listening_dtable * target) const = 0;
 		
 		friend class sys_journal;
-		template<class T>
-		friend class listening_dtable_warehouse_impl;
 	};
 	
 	template<class T>
@@ -214,7 +232,7 @@ public:
 		
 		virtual size_t size() const { return map.size(); }
 		
-		virtual ~listening_dtable_warehouse_impl()
+		virtual void clear()
 		{
 			typename id_ptr_map::iterator it = map.begin();
 			while(it != map.end())
@@ -222,7 +240,14 @@ public:
 				T * listener = it->second;
 				++it;
 				listener->set_warehouse(NULL);
+				listener->destroy();
 			}
+			map.clear();
+		}
+		
+		virtual ~listening_dtable_warehouse_impl()
+		{
+			clear();
 		}
 		
 	protected:
@@ -246,6 +271,7 @@ public:
 			if(it == map.end())
 				return false;
 			assert(it->second == listener);
+			listener->set_warehouse(NULL);
 			map.erase(it);
 			return true;
 		}
@@ -259,34 +285,8 @@ public:
 		id_ptr_map map;
 	};
 	
-	int append(listening_dtable * listener, void * entry, size_t length);
-	/* make a note that this listener's entries are no longer needed */
-	inline int discard(listening_dtable * listener)
-	{
-		listener_id lid = listener->id();
-		assert(warehouse->lookup(lid) == listener);
-		return discard(lid);
-	}
-	/* roll over the entries from a temporary listener to another; the
-	 * listeners themselves must work out how to merge their runtime
-	 * state (presumably with listening_dtable::rollover() above) */
-	inline int rollover(listening_dtable * from, listening_dtable * to)
-	{
-		listener_id from_id = from->id();
-		listener_id to_id = to->id();
-		assert(warehouse->lookup(from_id) == from);
-		assert(warehouse->lookup(to_id) == to);
-		return rollover(from_id, to_id);
-	}
 	/* remove any discarded entries from this journal */
 	int filter();
-	/* gets only those entries that have been committed */
-	inline int get_entries(listening_dtable * listener)
-	{
-		if(!listener)
-			return -EINVAL;
-		return playback(listener);
-	}
 	
 	inline sys_journal() : meta_dfd(-1), meta_fd(NULL), dirty(false), registered(false), data_size(0), info_size(0)
 	{
@@ -308,6 +308,9 @@ public:
 	{
 		return &global_journal;
 	}
+	/* allocates and initializes a new sys_journal in the same directory as the global journal */
+	static sys_journal * spawn_init(const char * file, listening_dtable_warehouse * warehouse, bool create = false, bool filter_on_empty = true);
+	
 	static int set_unique_id_file(int dfd, const char * file, bool create = false);
 	/* temporary IDs are odd rather than even and are automatically discarded
 	 * during recovery unless they have been rolled into a non-temporary ID */
@@ -328,8 +331,30 @@ private:
 	size_t live_entries;
 	listening_dtable_warehouse * warehouse;
 	
-	/* internal versions of discard and rollover just take listener IDs */
+	int append(listening_dtable * listener, void * entry, size_t length);
+	
+	/* make a note that this listener's entries are no longer needed */
+	inline int discard(listening_dtable * listener)
+	{
+		listener_id lid = listener->id();
+		assert(warehouse->lookup(lid) == listener);
+		return discard(lid);
+	}
 	int discard(listener_id lid);
+	
+	/* roll over the entries from a temporary listener to another; the
+	 * listeners themselves must work out how to merge their runtime
+	 * state (presumably with listening_dtable::rollover() above) */
+	inline int rollover(const listening_dtable * from, listening_dtable * to)
+	{
+		listener_id from_id = from->id();
+		listener_id to_id = to->id();
+		assert(warehouse->lookup(from_id) == from);
+		assert(warehouse->lookup(to_id) == to);
+		assert(from->get_journal() == this);
+		assert(to->get_journal() == this);
+		return rollover(from_id, to_id);
+	}
 	int rollover(listener_id from, listener_id to);
 	
 	typedef __gnu_cxx::hash_map<listener_id, size_t> live_entry_map;
@@ -360,8 +385,8 @@ private:
 	void roll_over_rollover_ids(listener_id from, listener_id to, listener_id_set * remove = NULL);
 	void discard_rollover_ids(listener_id lid);
 	
-	/* if target is NULL, play back the entire journal, creating listeners as necessary */
-	int playback(listening_dtable * const target);
+	/* play back the entire journal, creating listeners as necessary */
+	int playback();
 	/* copy the entries in this journal to a new one, omitting the discarded entries */
 	int filter(int dfd, const char * file, size_t * new_size);
 	/* flushes the data file and tx_write()s the meta file */
