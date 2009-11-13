@@ -51,6 +51,15 @@ int command_performance(int argc, const char * argv[]);
 int command_bdbtest(int argc, const char * argv[]);
 };
 
+#define PRINT_FAIL printf("\a\e[1m\e[31m    **** ERROR ****  (%s:%d)\e[0m\n", __FILE__, __LINE__)
+#define EXPECT_NEVER(label, args...) do { printf(label "\n", ##args); PRINT_FAIL; } while(0)
+#define EXPECT_FAIL(label, result) do { printf(label " = %d (expect failure)\n", result); if(result >= 0) PRINT_FAIL; } while(0)
+#define EXPECT_NOFAIL(label, result) do { printf(label " = %d\n", result); if(result < 0) PRINT_FAIL; } while(0)
+#define EXPECT_NOFAIL_FORMAT(label, result, args...) do { printf(label " = %d\n", ##args, result); if(result < 0) PRINT_FAIL; } while(0)
+#define EXPECT_NOFAIL_COUNT(label, result, name, value) do { printf(label " = %d, %zu " name "\n", result, value); if(result < 0) PRINT_FAIL; } while(0)
+#define EXPECT_NONULL(label, ptr) do { printf(label " = %p\n", ptr); if(!ptr) PRINT_FAIL; } while(0)
+#define EXPECT_SIZET(label, expect, test) do { size_t __value = test; printf(label " = %zu (expect %zu)\n", __value, (size_t) expect); if(__value != (expect)) PRINT_FAIL; } while(0)
+
 static void print(dtype x)
 {
 	switch(x.type)
@@ -122,7 +131,7 @@ static void run_iterator(dtable * table)
 	{
 		if(!more)
 		{
-			printf("iter->next() returned false, but iter->valid() says there is more!\n");
+			EXPECT_NEVER("iter->next() returned false, but iter->valid() says there is more!");
 			break;
 		}
 		print(iter->key());
@@ -144,7 +153,7 @@ static void run_iterator(ctable * table)
 		dtype key = iter->key();
 		if(!more)
 		{
-			printf("iter->next() returned false, but iter->valid() says there is more!\n");
+			EXPECT_NEVER("iter->next() returned false, but iter->valid() says there is more!");
 			break;
 		}
 		if(first || key.compare(old_key))
@@ -175,7 +184,7 @@ static void run_iterator(stable * table)
 		const char * type = dtype::name(columns->type());
 		if(!more)
 		{
-			printf("columns->next() returned false, but columns->valid() says there is more!\n");
+			EXPECT_NEVER("columns->next() returned false, but columns->valid() says there is more!");
 			break;
 		}
 		printf("%s:\t%s (%zu row%s)\n", (const char *) columns->name(), type, rows, (rows == 1) ? "" : "s");
@@ -189,7 +198,7 @@ static void run_iterator(stable * table)
 		dtype key = iter->key();
 		if(!more)
 		{
-			printf("iter->next() returned false, but iter->valid() says there is more!\n");
+			EXPECT_NEVER("iter->next() returned false, but iter->valid() says there is more!");
 			break;
 		}
 		if(first || key.compare(old_key))
@@ -206,6 +215,52 @@ static void run_iterator(stable * table)
 		more = iter->next();
 	}
 	delete iter;
+}
+
+static void print_elapsed(const struct timeval * start, struct timeval * end, bool elapsed = false)
+{
+	end->tv_sec -= start->tv_sec;
+	if(end->tv_usec < start->tv_usec)
+	{
+		end->tv_usec += 1000000;
+		end->tv_sec--;
+	}
+	end->tv_usec -= start->tv_usec;
+	printf("%d.%06d seconds%s.\n", (int) end->tv_sec, (int) end->tv_usec, elapsed ? " elapsed" : "");
+}
+
+static void print_elapsed(const struct timeval * start, bool elapsed = false)
+{
+	struct timeval end;
+	gettimeofday(&end, NULL);
+	print_elapsed(start, &end, elapsed);
+}
+
+static void print_progress(const struct timeval * start, struct timeval * now, int percent)
+{
+	now->tv_sec -= start->tv_sec;
+	if(now->tv_usec < start->tv_usec)
+	{
+		now->tv_usec += 1000000;
+		now->tv_sec--;
+	}
+	now->tv_usec -= start->tv_usec;
+	printf("%d%% done after %d.%06d seconds.\n", percent, (int) now->tv_sec, (int) now->tv_usec);
+}
+
+static void print_progress(const struct timeval * start, int percent)
+{
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	print_progress(start, &now, percent);
+}
+
+static void wait_digest(int seconds)
+{
+	printf("Waiting %d second%s for digest interval... ", seconds, (seconds == 1) ? "" : "s");
+	fflush(stdout);
+	sleep(seconds);
+	printf("done.\n");
 }
 
 int command_info(int argc, const char * argv[])
@@ -231,78 +286,78 @@ int command_dtable(int argc, const char * argv[])
 		config.set_class("base", simple_dtable);
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = managed_dtable::create(AT_FDCWD, path, config, dtype::UINT32);
-	printf("dtable::create(%s) = %d\n", path, r);
+	EXPECT_NOFAIL_FORMAT("dtable::create(%s)", r, path);
 	if(r < 0)
 	{
 		tx_end(0);
 		return r;
 	}
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, path, config);
-	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = mdt->insert(6u, blob("hello"));
-	printf("mdt->insert = %d\n", r);
+	EXPECT_NOFAIL("mdt->insert", r);
 	r = mdt->insert(4u, blob("world"));
-	printf("mdt->insert = %d\n", r);
+	EXPECT_NOFAIL("mdt->insert", r);
 	run_iterator(mdt);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	mdt->destroy();
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, path, config);
-	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = mdt->digest();
-	printf("mdt->digest = %d\n", r);
+	EXPECT_NOFAIL("mdt->digest", r);
 	run_iterator(mdt);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	mdt->destroy();
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, path, config);
-	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = mdt->insert(8u, blob("icanhas"));
-	printf("mdt->insert = %d\n", r);
+	EXPECT_NOFAIL("mdt->insert", r);
 	r = mdt->insert(2u, blob("cheezburger"));
-	printf("mdt->insert = %d\n", r);
+	EXPECT_NOFAIL("mdt->insert", r);
 	run_iterator(mdt);
 	r = mdt->digest();
-	printf("mdt->digest = %d\n", r);
+	EXPECT_NOFAIL("mdt->digest", r);
 	run_iterator(mdt);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	mdt->destroy();
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, path, config);
-	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = mdt->combine();
-	printf("mdt->combine = %d\n", r);
+	EXPECT_NOFAIL("mdt->combine", r);
 	run_iterator(mdt);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	mdt->destroy();
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, path, config);
-	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
 	run_iterator(mdt);
 	mdt->destroy();
 	
@@ -315,9 +370,9 @@ static int excp_perf(dtable * table)
 	blob fixed("aoife");
 	blob exception("pandora");
 	int sum[2] = {0, 0};
-	struct timeval start, end;
+	struct timeval start;
 	int r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	
 	printf("Populating table... ");
 	fflush(stdout);
@@ -352,24 +407,16 @@ static int excp_perf(dtable * table)
 	delete it;
 	printf("(0x%08X, 0x%08X)\n", sum[0], sum[1]);
 	
-	printf("Waiting 2 seconds for digest interval...\n");
-	sleep(2);
+	wait_digest(2);
+	
 	printf("Maintaining... ");
 	fflush(stdout);
 	gettimeofday(&start, NULL);
 	r = table->maintain();
-	gettimeofday(&end, NULL);
-	end.tv_sec -= start.tv_sec;
-	if(end.tv_usec < start.tv_usec)
-	{
-		end.tv_usec += 1000000;
-		end.tv_sec--;
-	}
-	end.tv_usec -= start.tv_usec;
-	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
-	printf("maintain = %d\n", r);
+	print_elapsed(&start);
+	EXPECT_NOFAIL("maintain", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	printf("Verifying data... ");
 	fflush(stdout);
@@ -399,22 +446,14 @@ static int excp_perf(dtable * table)
 		uint32_t key = rand() % 4000000;
 		blob value = table->find(key);
 	}
-	gettimeofday(&end, NULL);
-	end.tv_sec -= start.tv_sec;
-	if(end.tv_usec < start.tv_usec)
-	{
-		end.tv_usec += 1000000;
-		end.tv_sec--;
-	}
-	end.tv_usec -= start.tv_usec;
-	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
+	print_elapsed(&start);
 	
 	return 0;
 	
 fail_tx:
 	tx_end(0);
 fail:
-	printf("fail!\n");
+	EXPECT_NEVER("fail!");
 	return -1;
 }
 
@@ -438,64 +477,64 @@ int command_edtable(int argc, const char * argv[])
 		"combine_interval" int 4
 		"combine_count" int 4
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = managed_dtable::create(AT_FDCWD, "excp_test", config, dtype::UINT32);
-	printf("dtable::create = %d\n", r);
+	EXPECT_NOFAIL("dtable::create", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, "excp_test", config);
-	printf("mdt->init = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = mdt->insert(0u, fixed);
-	printf("mdt->insert = %d\n", r);
+	EXPECT_NOFAIL("mdt->insert", r);
 	r = mdt->insert(1u, fixed);
-	printf("mdt->insert = %d\n", r);
+	EXPECT_NOFAIL("mdt->insert", r);
 	r = mdt->insert(3u, fixed);
-	printf("mdt->insert = %d\n", r);
+	EXPECT_NOFAIL("mdt->insert", r);
 	run_iterator(mdt);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	mdt->destroy();
 	
-	printf("Waiting 3 seconds for digest interval...\n");
-	sleep(3);
+	wait_digest(3);
+	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, "excp_test", config);
-	printf("mdt->init = %d\n", r);
+	EXPECT_NOFAIL("mdt->init", r);
 	r = mdt->maintain();
-	printf("mdt->maintain = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	EXPECT_NOFAIL_COUNT("mdt->maintain", r, "disk dtables", mdt->disk_dtables());
 	run_iterator(mdt);
 	r = mdt->insert(2u, exception);
-	printf("mdt->insert = %d\n", r);
+	EXPECT_NOFAIL("mdt->insert", r);
 	r = mdt->insert(8u, exception);
-	printf("mdt->insert = %d\n", r);
+	EXPECT_NOFAIL("mdt->insert", r);
 	run_iterator(mdt);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	mdt->destroy();
 	
-	printf("Waiting 2 seconds for digest interval...\n");
-	sleep(2);
+	wait_digest(2);
+	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	mdt = new managed_dtable;
 	r = mdt->init(AT_FDCWD, "excp_test", config);
-	printf("mdt->init = %d\n", r);
+	EXPECT_NOFAIL("mdt->init", r);
 	r = mdt->maintain();
-	printf("mdt->maintain = %d, %zu disk dtables\n", r, mdt->disk_dtables());
+	EXPECT_NOFAIL_COUNT("mdt->maintain", r, "disk dtables", mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	mdt->destroy();
 	
 	if(argc > 1 && !strcmp(argv[1], "perf"))
@@ -516,21 +555,21 @@ int command_edtable(int argc, const char * argv[])
 			"combine_interval" int 12
 			"combine_count" int 8
 		]), &config);
-		printf("params::parse = %d\n", r);
+		EXPECT_NOFAIL("params::parse", r);
 		config.print();
 		printf("\n");
 		
 		r = tx_start();
-		printf("tx_start = %d\n", r);
+		EXPECT_NOFAIL("tx_start", r);
 		r = managed_dtable::create(AT_FDCWD, "excp_perf", config, dtype::UINT32);
-		printf("dtable::create = %d\n", r);
+		EXPECT_NOFAIL("dtable::create", r);
 		r = tx_end(0);
-		printf("tx_end = %d\n", r);
+		EXPECT_NOFAIL("tx_end", r);
 		
 		/* run a test with it */
 		mdt = new managed_dtable;
 		r = mdt->init(AT_FDCWD, "excp_perf", config);
-		printf("mdt->init = %d\n", r);
+		EXPECT_NOFAIL("mdt->init", r);
 		excp_perf(mdt);
 		mdt->destroy();
 		
@@ -547,21 +586,21 @@ int command_edtable(int argc, const char * argv[])
 			"combine_interval" int 12
 			"combine_count" int 8
 		]), &config);
-		printf("params::parse = %d\n", r);
+		EXPECT_NOFAIL("params::parse", r);
 		config.print();
 		printf("\n");
 		
 		r = tx_start();
-		printf("tx_start = %d\n", r);
+		EXPECT_NOFAIL("tx_start", r);
 		r = managed_dtable::create(AT_FDCWD, "exbl_perf", config, dtype::UINT32);
-		printf("dtable::create = %d\n", r);
+		EXPECT_NOFAIL("dtable::create", r);
 		r = tx_end(0);
-		printf("tx_end = %d\n", r);
+		EXPECT_NOFAIL("tx_end", r);
 		
 		/* run the same test */
 		mdt = new managed_dtable;
 		r = mdt->init(AT_FDCWD, "exbl_perf", config);
-		printf("mdt->init = %d\n", r);
+		EXPECT_NOFAIL("mdt->init", r);
 		excp_perf(mdt);
 		mdt->destroy();
 	}
@@ -571,7 +610,7 @@ int command_edtable(int argc, const char * argv[])
 
 static int ovdt_perf(dtable * table)
 {
-	struct timeval start, end;
+	struct timeval start;
 	dtable::iter * it;
 	
 	printf("Random lookups... ");
@@ -582,15 +621,7 @@ static int ovdt_perf(dtable * table)
 		uint32_t key = rand() % 4000000;
 		blob value = table->find(key);
 	}
-	gettimeofday(&end, NULL);
-	end.tv_sec -= start.tv_sec;
-	if(end.tv_usec < start.tv_usec)
-	{
-		end.tv_usec += 1000000;
-		end.tv_sec--;
-	}
-	end.tv_usec -= start.tv_usec;
-	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
+	print_elapsed(&start);
 	
 	printf("Linear scans... ");
 	fflush(stdout);
@@ -605,15 +636,7 @@ static int ovdt_perf(dtable * table)
 		while(it->prev())
 			it->value();
 	}
-	gettimeofday(&end, NULL);
-	end.tv_sec -= start.tv_sec;
-	if(end.tv_usec < start.tv_usec)
-	{
-		end.tv_usec += 1000000;
-		end.tv_sec--;
-	}
-	end.tv_usec -= start.tv_usec;
-	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
+	print_elapsed(&start);
 	delete it;
 	
 	return 0;
@@ -642,22 +665,22 @@ int command_odtable(int argc, const char * argv[])
 		"combine_interval" int 12
 		"combine_count" int 8
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "ovdt_perf", config, dtype::UINT32);
-	printf("dtable::create = %d\n", r);
+	EXPECT_NOFAIL("dtable::create", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "ovdt_perf", config);
-	printf("dtable_factory::load = %p\n", dt);
+	EXPECT_NONULL("dtable_factory::load", dt);
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	printf("Populating table... ");
 	fflush(stdout);
 	for(int i = 0; i < 4000000; i++)
@@ -670,23 +693,23 @@ int command_odtable(int argc, const char * argv[])
 		if(r < 0)
 		{
 			tx_end(0);
-			printf("fail!\n");
+			EXPECT_NEVER("fail!");
 			return -1;
 		}
 	}
 	printf("done.\n");
 	
-	printf("Waiting 2 seconds for digest interval...\n");
-	sleep(2);
+	wait_digest(2);
+	
 	printf("Maintaining... ");
 	fflush(stdout);
 	r = dt->maintain();
-	printf("done. (= %d)\n", r);
+	EXPECT_NOFAIL("done. r", r);
 	/* insert one final key so that there's something in the journal for the overlay to look at */
 	r = dt->insert(2000000u, fixed);
-	printf("dt->insert = %d\n", r);
+	EXPECT_NOFAIL("dt->insert", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	ovdt_perf(dt);
 	dt->destroy();
@@ -699,7 +722,7 @@ int command_odtable(int argc, const char * argv[])
 	printf("\n");
 	/* load the first disk dtable directly */
 	dt = dtable_factory::load(base, AT_FDCWD, "ovdt_perf/md_data.0", base_config);
-	printf("dtable_factory::load = %p\n", dt);
+	EXPECT_NONULL("dtable_factory::load", dt);
 	ovdt_perf(dt);
 	dt->destroy();
 	
@@ -719,19 +742,19 @@ int command_ldtable(int argc, const char * argv[])
 		"base" class(dt) linear_dtable
 		"digest_interval" int 2
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "lldt_test", config, dtype::UINT32);
-	printf("dtable::create = %d\n", r);
+	EXPECT_NOFAIL("dtable::create", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "lldt_test", config);
-	printf("dtable_factory::load = %p\n", dt);
+	EXPECT_NONULL("dtable_factory::load", dt);
 	
 	excp_perf(dt);
 	dt->destroy();
@@ -742,19 +765,19 @@ int command_ldtable(int argc, const char * argv[])
 		"base" class(dt) simple_dtable
 		"digest_interval" int 2
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "lsdt_test", config, dtype::UINT32);
-	printf("dtable::create = %d\n", r);
+	EXPECT_NOFAIL("dtable::create", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "lsdt_test", config);
-	printf("dtable_factory::load = %p\n", dt);
+	EXPECT_NONULL("dtable_factory::load", dt);
 	
 	excp_perf(dt);
 	dt->destroy();
@@ -774,7 +797,7 @@ int command_ussdtable(int argc, const char * argv[])
 	config [
 		"base" class(dt) fixed_dtable
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
@@ -784,27 +807,27 @@ int command_ussdtable(int argc, const char * argv[])
 	run_iterator(&mdt);
 	
 	r = base->create(AT_FDCWD, "usst_test", config, &mdt);
-	printf("uss::create = %d\n", r);
+	EXPECT_NOFAIL("uss::create", r);
 	table = base->open(AT_FDCWD, "usst_test", config);
-	printf("uss::open = %p\n", table);
+	EXPECT_NONULL("uss::open", table);
 	run_iterator(table);
 	table->destroy();
 	
 	table = dtable_factory::load("fixed_dtable", AT_FDCWD, "usst_test", params());
-	printf("dtable_factory::load = %p\n", table);
+	EXPECT_NONULL("dtable_factory::load", table);
 	run_iterator(table);
 	table->destroy();
 	
 	mdt.insert(3u, "other");
 	r = base->create(AT_FDCWD, "usst_fail", config, &mdt);
-	printf("uss::create = %d (expect failure)\n", r);
+	EXPECT_FAIL("uss::create", r);
 	
 	return 0;
 }
 
 static int bfdt_perf(dtable * table)
 {
-	struct timeval start, end;
+	struct timeval start;
 	
 	printf("Extant lookups... ");
 	fflush(stdout);
@@ -819,15 +842,7 @@ static int bfdt_perf(dtable * table)
 			fflush(stdout);
 		}
 	}
-	gettimeofday(&end, NULL);
-	end.tv_sec -= start.tv_sec;
-	if(end.tv_usec < start.tv_usec)
-	{
-		end.tv_usec += 1000000;
-		end.tv_sec--;
-	}
-	end.tv_usec -= start.tv_usec;
-	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
+	print_elapsed(&start);
 	
 	printf("Nonexistent lookups... ");
 	fflush(stdout);
@@ -842,15 +857,7 @@ static int bfdt_perf(dtable * table)
 			fflush(stdout);
 		}
 	}
-	gettimeofday(&end, NULL);
-	end.tv_sec -= start.tv_sec;
-	if(end.tv_usec < start.tv_usec)
-	{
-		end.tv_usec += 1000000;
-		end.tv_sec--;
-	}
-	end.tv_usec -= start.tv_usec;
-	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
+	print_elapsed(&start);
 	
 	printf("Mixed lookups... ");
 	fflush(stdout);
@@ -860,15 +867,7 @@ static int bfdt_perf(dtable * table)
 		uint32_t key = rand() % 8000000;
 		blob value = table->find(key);
 	}
-	gettimeofday(&end, NULL);
-	end.tv_sec -= start.tv_sec;
-	if(end.tv_usec < start.tv_usec)
-	{
-		end.tv_usec += 1000000;
-		end.tv_sec--;
-	}
-	end.tv_usec -= start.tv_usec;
-	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
+	print_elapsed(&start);
 	
 	return 0;
 }
@@ -891,22 +890,22 @@ int command_bfdtable(int argc, const char * argv[])
 		"combine_interval" int 12
 		"combine_count" int 8
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "bfdt_perf", config, dtype::UINT32);
-	printf("dtable::create = %d\n", r);
+	EXPECT_NOFAIL("dtable::create", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "bfdt_perf", config);
-	printf("dtable_factory::load = %p\n", dt);
+	EXPECT_NONULL("dtable_factory::load", dt);
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	printf("Populating table... ");
 	fflush(stdout);
 	for(int i = 0; i < 4000000; i++)
@@ -917,27 +916,27 @@ int command_bfdtable(int argc, const char * argv[])
 		if(r < 0)
 		{
 			tx_end(0);
-			printf("fail!\n");
+			EXPECT_NEVER("fail!");
 			return -1;
 		}
 	}
 	printf("done.\n");
 	
-	printf("Waiting 2 seconds for digest interval...\n");
-	sleep(2);
+	wait_digest(2);
+	
 	printf("Maintaining... ");
 	fflush(stdout);
 	r = dt->maintain();
-	printf("done. (= %d)\n", r);
+	EXPECT_NOFAIL("done. r", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	bfdt_perf(dt);
 	dt->destroy();
 	
 	printf("Repeat with direct access...\n");
 	dt = dtable_factory::load("simple_dtable", AT_FDCWD, "bfdt_perf/md_data.0/base", params());
-	printf("dtable_factory::load = %p\n", dt);
+	EXPECT_NONULL("dtable_factory::load", dt);
 	bfdt_perf(dt);
 	dt->destroy();
 	
@@ -962,7 +961,7 @@ int command_sidtable(int argc, const char * argv[])
 		]
 		"bytes" int 1
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
@@ -974,21 +973,21 @@ int command_sidtable(int argc, const char * argv[])
 	run_iterator(&mdt);
 	
 	r = base->create(AT_FDCWD, "sidt_test", config, &mdt);
-	printf("sid::create = %d\n", r);
+	EXPECT_NOFAIL("sid::create", r);
 	table = base->open(AT_FDCWD, "sidt_test", config);
-	printf("sid::open = %p\n", table);
+	EXPECT_NONULL("sid::open", table);
 	run_iterator(table);
 	table->destroy();
 	
 	table = dtable_factory::load("array_dtable", AT_FDCWD, "sidt_test", params());
-	printf("dtable_factory::load = %p\n", table);
+	EXPECT_NONULL("dtable_factory::load", table);
 	run_iterator(table);
 	table->destroy();
 	
 	value = 320;
 	mdt.insert(3u, blob(sizeof(value), &value));
 	r = base->create(AT_FDCWD, "sidt_fail", config, &mdt);
-	printf("sid::create = %d (expect failure)\n", r);
+	EXPECT_FAIL("sid::create", r);
 	
 	return 0;
 }
@@ -1023,7 +1022,7 @@ int command_didtable(int argc, const char * argv[])
 		"ref" class(dt) simple_dtable
 		"skip" int 4
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
@@ -1037,9 +1036,9 @@ int command_didtable(int argc, const char * argv[])
 	run_iterator(&mdt);
 	
 	r = base->create(AT_FDCWD, "didt_test", config, &mdt);
-	printf("did::create = %d\n", r);
+	EXPECT_NOFAIL("did::create", r);
 	table = base->open(AT_FDCWD, "didt_test", config);
-	printf("did::open = %p\n", table);
+	EXPECT_NONULL("did::open", table);
 	run_iterator(table);
 	printf("Check random lookups... ");
 	fflush(stdout);
@@ -1052,7 +1051,7 @@ int command_didtable(int argc, const char * argv[])
 		blob value_ddt = table->find(key);
 		if(value_mdt.compare(value_ddt))
 		{
-			printf("failed!\n");
+			EXPECT_NEVER("failed!");
 			print(value_mdt, "memory find %u: ", key);
 			print(value_ddt, " delta find %u: ", key);
 			table->destroy();
@@ -1067,7 +1066,7 @@ int command_didtable(int argc, const char * argv[])
 	}
 	
 	table = base->open(AT_FDCWD, "didt_test", config);
-	printf("did::open = %p\n", table);
+	EXPECT_NONULL("did::open", table);
 	
 	printf("Checking iterator behavior... ");
 	fflush(stdout);
@@ -1166,18 +1165,18 @@ int command_didtable(int argc, const char * argv[])
 	if(ok)
 		printf("%zu operations OK!\n", count);
 	else
-		printf("failed!\n");
+		EXPECT_NEVER("failed!");
 	delete test_it;
 	delete ref_it;
 	table->destroy();
 	
 	table = dtable_factory::load("simple_dtable", AT_FDCWD, "didt_test/base", params());
-	printf("dtable_factory::load = %p\n", table);
+	EXPECT_NONULL("dtable_factory::load", table);
 	run_iterator(table);
 	table->destroy();
 	
 	table = dtable_factory::load("simple_dtable", AT_FDCWD, "didt_test/ref", params());
-	printf("dtable_factory::load = %p\n", table);
+	EXPECT_NONULL("dtable_factory::load", table);
 	run_iterator(table);
 	table->destroy();
 	
@@ -1190,11 +1189,11 @@ static void iterator_test(const istr & type, const char * name, const params & c
 	dtable * dt;
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = dtable_factory::setup(type, AT_FDCWD, name, config, dtype::UINT32);
-	printf("dtable::create = %d\n", r);
+	EXPECT_NOFAIL("dtable::create", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	const char * layers[] = {"358", "079", "", "2457", "1267"};
 #define LAYERS (sizeof(layers) / sizeof(layers[0]))
@@ -1202,12 +1201,12 @@ static void iterator_test(const istr & type, const char * name, const params & c
 	blob values[VALUES];
 	
 	dt = dtable_factory::load(type, AT_FDCWD, name, config);
-	printf("dtable_factory::load = %p\n", dt);
+	EXPECT_NONULL("dtable_factory::load", dt);
 	for(size_t i = 0; i < LAYERS; i++)
 	{
 		int delay = i ? 2 : 3;
 		r = tx_start();
-		printf("tx_start = %d\n", r);
+		EXPECT_NOFAIL("tx_start", r);
 		for(const char * value = layers[i]; *value; value++)
 		{
 			uint32_t key = *value - '0';
@@ -1215,24 +1214,23 @@ static void iterator_test(const istr & type, const char * name, const params & c
 			snprintf(content, sizeof(content), "L%zu-K%u", i, key * 2);
 			values[key] = blob(content);
 			r = dt->insert(key * 2, values[key]);
-			printf("dt->insert(%d, %s) = %d\n", key, content, r);
+			EXPECT_NOFAIL_FORMAT("dt->insert(%d, %s)", r, key, content);
 		}
 		run_iterator(dt);
 		
-		printf("Waiting %d seconds for digest interval...\n", delay);
-		sleep(delay);
+		wait_digest(delay);
 		
 		r = dt->maintain();
-		printf("dt->maintain() = %d\n", r);
+		EXPECT_NOFAIL("dt->maintain()", r);
 		run_iterator(dt);
 		
 		r = tx_end(0);
-		printf("tx_end = %d\n", r);
+		EXPECT_NOFAIL("tx_end", r);
 	}
 	dt->destroy();
 	
 	dt = dtable_factory::load(type, AT_FDCWD, name, config);
-	printf("dtable_factory::load = %p\n", dt);
+	EXPECT_NONULL("dtable_factory::load", dt);
 	run_iterator(dt);
 	
 	printf("Checking iterator behavior... ");
@@ -1348,7 +1346,8 @@ static void iterator_test(const istr & type, const char * name, const params & c
 		printf("%zu operations OK!\n", count);
 	else
 	{
-		printf("failed! (");
+		EXPECT_NEVER("failed!");
+		printf("(");
 		if(it->valid())
 		{
 			if(it_pos >= VALUES)
@@ -1401,7 +1400,7 @@ int command_kddtable(int argc, const char * argv[])
 		"divider_2" int 12
 		"divider_3" int 15
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
@@ -1430,51 +1429,53 @@ int command_ctable(int argc, const char * argv[])
 		"column1_name" string "world"
 		"column2_name" string "foo"
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = ctable_factory::setup("simple_ctable", AT_FDCWD, "msct_test", config, dtype::UINT32);
-	printf("setup = %d\n", r);
+	EXPECT_NOFAIL("setup", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	sct = ctable_factory::load("simple_ctable", AT_FDCWD, "msct_test", config);
-	printf("load = %p\n", sct);
+	EXPECT_NONULL("load", sct);
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = sct->insert(8u, "hello", blob("icanhas"));
-	printf("sct->insert(8, hello) = %d\n", r);
+	EXPECT_NOFAIL("sct->insert(8, hello)", r);
 	run_iterator(sct);
 	r = sct->insert(8u, "world", blob("cheezburger"));
-	printf("sct->insert(8, world) = %d\n", r);
+	EXPECT_NOFAIL("sct->insert(8, world)", r);
 	run_iterator(sct);
-	printf("Waiting 1 second for digest interval...\n");
-	sleep(1);
+	
+	wait_digest(1);
+	
 	r = sct->maintain();
-	printf("sct->maintain() = %d\n", r);
+	EXPECT_NOFAIL("sct->maintain()", r);
 	run_iterator(sct);
 	r = sct->remove(8u, "hello");
-	printf("sct->remove(8, hello) = %d\n", r);
+	EXPECT_NOFAIL("sct->remove(8, hello)", r);
 	run_iterator(sct);
 	r = sct->insert(10u, "foo", blob("bar"));
-	printf("sct->insert(10, foo) = %d\n", r);
+	EXPECT_NOFAIL("sct->insert(10, foo)", r);
 	run_iterator(sct);
 	r = sct->remove(8u);
-	printf("sct->remove(8) = %d\n", r);
+	EXPECT_NOFAIL("sct->remove(8)", r);
 	run_iterator(sct);
 	r = sct->insert(12u, "foo", blob("zot"));
-	printf("sct->insert(12, foo) = %d\n", r);
+	EXPECT_NOFAIL("sct->insert(12, foo)", r);
 	run_iterator(sct);
-	printf("Waiting 1 second for digest interval...\n");
-	sleep(1);
+	
+	wait_digest(1);
+	
 	r = sct->maintain();
-	printf("sct->maintain() = %d\n", r);
+	EXPECT_NOFAIL("sct->maintain()", r);
 	run_iterator(sct);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	delete sct;
 	
 	return 0;
@@ -1506,15 +1507,15 @@ int command_cctable(int argc, const char * argv[])
 			]
 		]
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = base->create(AT_FDCWD, "cctr_test", config, dtype::UINT32);
-	printf("cct::create = %d\n", r);
+	EXPECT_NOFAIL("cct::create", r);
 	
 	ct = base->open(AT_FDCWD, "cctr_test", config);
-	printf("cct::open = %p\n", ct);
+	EXPECT_NONULL("cct::open", ct);
 	delete ct;
 	
 	config = params();
@@ -1550,18 +1551,18 @@ int command_cctable(int argc, const char * argv[])
 			"digest_interval" int 2
 		]
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	
 	r = base->create(AT_FDCWD, "cctw_test", config, dtype::UINT32);
-	printf("cct::create = %d\n", r);
+	EXPECT_NOFAIL("cct::create", r);
 	
 	ct = base->open(AT_FDCWD, "cctw_test", config);
-	printf("cct::open = %p\n", ct);
+	EXPECT_NONULL("cct::open", ct);
 	for(uint32_t i = 0; i < 20; i++)
 	{
 		values[0].value = last[rand() % 6];
@@ -1575,19 +1576,18 @@ int command_cctable(int argc, const char * argv[])
 	delete ct;
 	
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
-	printf("Waiting 3 seconds for digest interval...\n");
-	sleep(3);
+	wait_digest(3);
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	ct = base->open(AT_FDCWD, "cctw_test", config);
-	printf("cct::open = %p\n", ct);
+	EXPECT_NONULL("cct::open", ct);
 	run_iterator(ct);
 	delete ct;
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	return 0;
 }
@@ -1685,25 +1685,28 @@ int command_consistency(int argc, const char * argv[])
 		"column40_name" string "40" "column41_name" string "41" "column42_name" string "42" "column43_name" string "43" "column44_name" string "44"
 		"column45_name" string "45" "column46_name" string "46" "column47_name" string "47" "column48_name" string "48" "column49_name" string "49"
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	if(argc > 1 && !strcmp(argv[1], "check"))
 	{
 		r = tx_start();
-		printf("tx_start = %d\n", r);
+		EXPECT_NOFAIL("tx_start", r);
 		
 		ct = ctable_factory::load("column_ctable", AT_FDCWD, "cons_test", config);
-		printf("load = %p\n", ct);
+		EXPECT_NONULL("load", ct);
 		
 		printf("Consistency check: ");
 		fflush(stdout);
-		printf("%s\n", consistency_check(ct, buckets) ? "OK!" : "failed.");
+		if(consistency_check(ct, buckets))
+			printf("OK!\n");
+		else
+			EXPECT_NEVER("failed.");
 		print_buckets(buckets);
 		
 		r = tx_end(0);
-		printf("tx_end = %d\n", r);
+		EXPECT_NOFAIL("tx_end", r);
 		return 0;
 	}
 	
@@ -1711,13 +1714,13 @@ int command_consistency(int argc, const char * argv[])
 		values[i].value = value;
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	
 	r = ctable_factory::setup("column_ctable", AT_FDCWD, "cons_test", config, dtype::UINT32);
-	printf("setup = %d\n", r);
+	EXPECT_NOFAIL("setup", r);
 	
 	ct = ctable_factory::load("column_ctable", AT_FDCWD, "cons_test", config);
-	printf("load = %p\n", ct);
+	EXPECT_NONULL("load", ct);
 	for(uint32_t i = 0; i < 500; i++)
 	{
 		r = ct->insert(i, values, CONS_TEST_COLS);
@@ -1726,17 +1729,20 @@ int command_consistency(int argc, const char * argv[])
 	delete ct;
 	
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	
 	ct = ctable_factory::load("column_ctable", AT_FDCWD, "cons_test", config);
-	printf("load = %p\n", ct);
+	EXPECT_NONULL("load", ct);
 	
 	printf("Consistency check: ");
 	fflush(stdout);
-	printf("%s\n", consistency_check(ct, buckets) ? "OK!" : "failed.");
+	if(consistency_check(ct, buckets))
+		printf("OK!\n");
+	else
+		EXPECT_NEVER("failed.");
 	print_buckets(buckets);
 	
 	for(uint32_t i = 0; i < CONS_TEST_ITERATIONS; i++)
@@ -1778,16 +1784,19 @@ int command_consistency(int argc, const char * argv[])
 	
 	printf("Consistency check: ");
 	fflush(stdout);
-	printf("%s\n", consistency_check(ct, buckets) ? "OK!" : "failed.");
+	if(consistency_check(ct, buckets))
+		printf("OK!\n");
+	else
+		EXPECT_NEVER("failed.");
 	print_buckets(buckets);
 	
-	printf("Waiting 5 seconds for digest interval...\n");
-	sleep(5);
+	wait_digest(5);
+	
 	ct->maintain();
 	delete ct;
 	
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	return 0;
 }
@@ -1819,24 +1828,24 @@ int command_durability(int argc, const char * argv[])
 		"combine_interval" int 4
 		"combine_count" int 4
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	
 	if(!check)
 	{
 		r = dtable_factory::setup("managed_dtable", AT_FDCWD, "dura_test", config, dtype::UINT32);
-		printf("dtable::create = %d\n", r);
+		EXPECT_NOFAIL("dtable::create", r);
 	}
 	
 	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "dura_test", config);
-	printf("dtable_factory::load = %p\n", dt);
+	EXPECT_NONULL("dtable_factory::load", dt);
 	
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	if(check)
 	{
@@ -1908,10 +1917,6 @@ static dtype idtype(uint32_t value, dtype::ctype key_type)
 	abort();
 }
 
-#define PRINT_FAIL printf("\a\e[1m\e[31m    **** ERROR ****  (%s:%d)\e[0m\n", __FILE__, __LINE__)
-#define EXPECT_NOFAIL(label, value) do { printf(label " = %d\n", value); if(value < 0) PRINT_FAIL; } while(0)
-#define EXPECT_NONULL(label, ptr) do { printf(label " = %p\n", ptr); if(!ptr) PRINT_FAIL; } while(0)
-#define EXPECT_SIZET(label, expect, test) do { size_t __value = test; printf(label " = %zu (expect %zu)\n", __value, (size_t) expect); if(__value != (expect)) PRINT_FAIL; } while(0)
 int command_rollover(int argc, const char * argv[])
 {
 	sys_journal * sysj;
@@ -2030,7 +2035,7 @@ int command_rollover(int argc, const char * argv[])
 	temp_id = sys_journal::get_unique_id(true);
 	printf("temp = %d\n", temp_id);
 	temporary = warehouse.obtain(temp_id, key_type, sysj);
-	printf("temp = %p\n", temporary);
+	EXPECT_NONULL("temp", temporary);
 	EXPECT_SIZET("total", 2, warehouse.size());
 	if(use_reverse)
 	{
@@ -2174,64 +2179,64 @@ int command_stable(int argc, const char * argv[])
 			"column2_name" string "zapf"
 		]
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = simple_stable::create(AT_FDCWD, "msst_test", config, dtype::UINT32);
-	printf("stable::create = %d\n", r);
+	EXPECT_NOFAIL("stable::create", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	sst = new simple_stable;
 	r = sst->init(AT_FDCWD, "msst_test", config);
-	printf("sst->init = %d\n", r);
+	EXPECT_NOFAIL("sst->init", r);
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	run_iterator(sst);
 	r = sst->insert(5u, "twice", 10u);
-	printf("sst->insert(5, twice) = %d\n", r);
+	EXPECT_NOFAIL("sst->insert(5, twice)", r);
 	run_iterator(sst);
 	r = sst->insert(6u, "funky", "face");
-	printf("sst->insert(6, funky) = %d\n", r);
+	EXPECT_NOFAIL("sst->insert(6, funky)", r);
 	run_iterator(sst);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	delete sst;
 	
 	sst = new simple_stable;
 	r = sst->init(AT_FDCWD, "msst_test", config);
-	printf("sst->init = %d\n", r);
+	EXPECT_NOFAIL("sst->init", r);
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	run_iterator(sst);
 	r = sst->insert(6u, "twice", 12u);
-	printf("sst->insert(5, twice) = %d\n", r);
+	EXPECT_NOFAIL("sst->insert(5, twice)", r);
 	run_iterator(sst);
 	r = sst->insert(5u, "zapf", "dingbats");
-	printf("sst->insert(6, zapf) = %d\n", r);
+	EXPECT_NOFAIL("sst->insert(6, zapf)", r);
 	run_iterator(sst);
 	r = sst->remove(6u);
-	printf("sst->remove(6) = %d\n", r);
+	EXPECT_NOFAIL("sst->remove(6)", r);
 	run_iterator(sst);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	delete sst;
 	
-	printf("Waiting 3 seconds for digest interval...\n");
-	sleep(3);
+	wait_digest(3);
+	
 	sst = new simple_stable;
 	/* must start the transaction first since it will do maintenance */
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = sst->init(AT_FDCWD, "msst_test", config);
-	printf("sst->init = %d\n", r);
+	EXPECT_NOFAIL("sst->init", r);
 	r = sst->maintain();
-	printf("sst->maintain() = %d\n", r);
+	EXPECT_NOFAIL("sst->maintain()", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	delete sst;
 	
 	return 0;
@@ -2260,7 +2265,7 @@ int command_iterator(int argc, const char * argv[])
 		"base" class(dt) simple_dtable
 		"digest_interval" int 2
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
@@ -2274,7 +2279,7 @@ int command_bdbtest(int argc, const char * argv[])
 	/* TODO: this isn't the complete bdb test; we need to try different durability checks */
 	const uint32_t KEYSIZE = 8;
 	const uint32_t VALSIZE = 32;
-	struct timeval start, end;
+	struct timeval start;
 	
 	int r;
 	sys_journal::listener_id jid;
@@ -2291,60 +2296,47 @@ int command_bdbtest(int argc, const char * argv[])
 	gettimeofday(&start, NULL);
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	jid = sys_journal::get_unique_id();
 	if(jid == sys_journal::NO_ID)
 		return -EBUSY;
 	jdt = journal_dtable::obtain(jid, dtype::BLOB);
-	printf("jdt = %p\n", jdt);
+	EXPECT_NONULL("jdt", jdt);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	for(int i = 0; i < 1000000; i++)
 	{
 		r = tx_start();
 		if(r < 0)
 		{
-			printf("TX error\n");
+			EXPECT_NEVER("tx_start failure");
 			break;
 		}
 		r = jdt->insert(dtype(key), value);
 		assert(r >= 0);
 		if((i % 100000) == 99999)
 		{
-			gettimeofday(&end, NULL);
-			end.tv_sec -= start.tv_sec;
-			if(end.tv_usec < start.tv_usec)
-			{
-				end.tv_usec += 1000000;
-				end.tv_sec--;
-			}
-			end.tv_usec -= start.tv_usec;
-			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 10000, (int) end.tv_sec, (int) end.tv_usec);
+			print_progress(&start, (i + 1) / 10000);
 			fflush(stdout);
 		}
 		r = tx_end(0);
 		if(r < 0)
 		{
-			printf("TX error\n");
+			EXPECT_NEVER("tx_end failure");
 			break;
 		}
 	}
 	
-	gettimeofday(&end, NULL);
-	end.tv_sec -= start.tv_sec;
-	if(end.tv_usec < start.tv_usec)
-	{
-		end.tv_usec += 1000000;
-		end.tv_sec--;
-	}
-	end.tv_usec -= start.tv_usec;
-	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
+	printf("Timing finished! ");
+	print_elapsed(&start, true);
 	
-	tx_start();
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
 	/* also destroys it */
 	jdt->discard();
-	tx_end(0);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
 	return 0;
 }
 
@@ -2460,22 +2452,22 @@ int command_blob_cmp(int argc, const char * argv[])
 			"column0_name" string "sum"
 		]
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = simple_stable::create(AT_FDCWD, "cmp_test", config, dtype::BLOB);
-	printf("stable::create = %d\n", r);
+	EXPECT_NOFAIL("stable::create", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	sst = new simple_stable;
 	r = sst->init(AT_FDCWD, "cmp_test", config);
-	printf("sst->init = %d\n", r);
+	EXPECT_NOFAIL("sst->init", r);
 	r = sst->set_blob_cmp(reverse);
-	printf("sst->set_blob_cmp = %d\n", r);
+	EXPECT_NOFAIL("sst->set_blob_cmp", r);
 	
 	printf("Start timing! (5000000 reverse blob key inserts to %d rows)\n", ROW_COUNT);
 	gettimeofday(&start, NULL);
@@ -2500,15 +2492,7 @@ int command_blob_cmp(int argc, const char * argv[])
 			goto fail_insert;
 		if((i % 500000) == 499999)
 		{
-			gettimeofday(&end, NULL);
-			end.tv_sec -= start.tv_sec;
-			if(end.tv_usec < start.tv_usec)
-			{
-				end.tv_usec += 1000000;
-				end.tv_sec--;
-			}
-			end.tv_usec -= start.tv_usec;
-			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 50000, (int) end.tv_sec, (int) end.tv_usec);
+			print_progress(&start, (i + 1) / 50000);
 			fflush(stdout);
 		}
 		if((i % 10000) == 9999)
@@ -2533,29 +2517,23 @@ int command_blob_cmp(int argc, const char * argv[])
 	}
 	
 	gettimeofday(&end, NULL);
-	end.tv_sec -= start.tv_sec;
-	if(end.tv_usec < start.tv_usec)
-	{
-		end.tv_usec += 1000000;
-		end.tv_sec--;
-	}
-	end.tv_usec -= start.tv_usec;
-	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
+	printf("Timing finished! ");
+	print_elapsed(&start, &end, true);
 	printf("Average: %"PRIu64" inserts/second\n", 5000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
 	delete sst;
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	sst = new simple_stable;
 	r = sst->init(AT_FDCWD, "cmp_test", config);
-	printf("sst->init = %d\n", r);
+	EXPECT_NOFAIL("sst->init", r);
 	r = sst->set_blob_cmp(reverse);
-	printf("sst->set_blob_cmp = %d\n", r);
+	EXPECT_NOFAIL("sst->set_blob_cmp", r);
 	r = sst->maintain();
-	printf("sst->maintain = %d\n", r);
+	EXPECT_NOFAIL("sst->maintain", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	printf("Verifying writes... ");
 	fflush(stdout);
@@ -2586,7 +2564,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	if(sum == check)
 		printf("OK!\n");
 	else
-		printf("failed! (sum = %u, check = %u)\n", sum, check);
+		EXPECT_NEVER("failed! (sum = %u, check = %u)", sum, check);
 	
 	delete sst;
 	reverse->release();
@@ -2651,20 +2629,20 @@ static int command_performance_stable(int argc, const char * argv[])
 			"column4_name" string "c_five"
 		]
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = simple_stable::create(AT_FDCWD, "perf_test", config, dtype::UINT32);
-	printf("stable::create = %d\n", r);
+	EXPECT_NOFAIL("stable::create", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	sst = new simple_stable;
 	r = sst->init(AT_FDCWD, "perf_test", config);
-	printf("sst->init = %d\n", r);
+	EXPECT_NOFAIL("sst->init", r);
 	
 	for(uint32_t i = 0; i < ROW_COUNT; i++)
 		for(uint32_t j = 0; j < COLUMN_NAMES; j++)
@@ -2691,15 +2669,7 @@ static int command_performance_stable(int argc, const char * argv[])
 			goto fail_insert;
 		if((i % 200000) == 199999)
 		{
-			gettimeofday(&end, NULL);
-			end.tv_sec -= start.tv_sec;
-			if(end.tv_usec < start.tv_usec)
-			{
-				end.tv_usec += 1000000;
-				end.tv_sec--;
-			}
-			end.tv_usec -= start.tv_usec;
-			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 20000, (int) end.tv_sec, (int) end.tv_usec);
+			print_progress(&start, (i + 1) / 20000);
 			fflush(stdout);
 		}
 		if((i % 10000) == 9999)
@@ -2722,21 +2692,15 @@ static int command_performance_stable(int argc, const char * argv[])
 	}
 	
 	gettimeofday(&end, NULL);
-	end.tv_sec -= start.tv_sec;
-	if(end.tv_usec < start.tv_usec)
-	{
-		end.tv_usec += 1000000;
-		end.tv_sec--;
-	}
-	end.tv_usec -= start.tv_usec;
-	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
+	printf("Timing finished! ");
+	print_elapsed(&start, &end, true);
 	printf("Average: %"PRIu64" inserts/second\n", 2000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
 	delete sst;
 	
 	sst = new simple_stable;
 	r = sst->init(AT_FDCWD, "perf_test", config);
-	printf("sst->init = %d\n", r);
+	EXPECT_NOFAIL("sst->init", r);
 	
 	printf("Verifying writes... ");
 	fflush(stdout);
@@ -2814,8 +2778,8 @@ static int command_performance_stable(int argc, const char * argv[])
 fail_iter:
 	delete iter;
 fail_verify:
-	printf("failed!\n");
 	delete sst;
+	EXPECT_NEVER("failed!");
 	return -1;
 	
 fail_maintain:
@@ -2823,6 +2787,7 @@ fail_insert:
 	tx_end(0);
 fail_tx_start:
 	delete sst;
+	EXPECT_NEVER("failed!");
 	return r;
 }
 
@@ -2850,19 +2815,19 @@ static int command_performance_dtable(int argc, const char * argv[])
 			"combine_count" int 6
 		]
 	]), &config);
-	printf("params::parse = %d\n", r);
+	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	r = dtable_factory::setup("cache_dtable", AT_FDCWD, "dtpf_test", config, dtype::UINT32);
-	printf("dtable_factory::setup = %d\n", r);
+	EXPECT_NOFAIL("dtable_factory::setup", r);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpf_test", config);
-	printf("dtable_factory::load = %p\n", dt);
+	EXPECT_NONULL("dtable_factory::load", dt);
 	
 	for(uint32_t i = 0; i < DT_ROW_COUNT; i++)
 		table_copy[i] = (uint32_t) -1;
@@ -2887,15 +2852,7 @@ static int command_performance_dtable(int argc, const char * argv[])
 			goto fail_insert;
 		if((i % 1000000) == 999999)
 		{
-			gettimeofday(&end, NULL);
-			end.tv_sec -= start.tv_sec;
-			if(end.tv_usec < start.tv_usec)
-			{
-				end.tv_usec += 1000000;
-				end.tv_sec--;
-			}
-			end.tv_usec -= start.tv_usec;
-			printf("%d%% done after %d.%06d seconds.\n", (i + 1) / 100000, (int) end.tv_sec, (int) end.tv_usec);
+			print_progress(&start, (i + 1) / 100000);
 			fflush(stdout);
 		}
 		if((i % 10000) == 9999)
@@ -2918,24 +2875,18 @@ static int command_performance_dtable(int argc, const char * argv[])
 	}
 	
 	gettimeofday(&end, NULL);
-	end.tv_sec -= start.tv_sec;
-	if(end.tv_usec < start.tv_usec)
-	{
-		end.tv_usec += 1000000;
-		end.tv_sec--;
-	}
-	end.tv_usec -= start.tv_usec;
-	printf("Timing finished! %d.%06d seconds elapsed.\n", (int) end.tv_sec, (int) end.tv_usec);
+	printf("Timing finished! ");
+	print_elapsed(&start, &end, true);
 	printf("Average: %"PRIu64" inserts/second\n", 10000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
 	
 	dt->destroy();
 	
 	r = tx_start();
-	printf("tx_start = %d\n", r);
+	EXPECT_NOFAIL("tx_start", r);
 	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpf_test", config);
-	printf("dtable_factory::load = %p\n", dt);
+	EXPECT_NONULL("dtable_factory::load", dt);
 	r = tx_end(0);
-	printf("tx_end = %d\n", r);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	printf("Verifying writes... ");
 	fflush(stdout);
@@ -2985,7 +2936,7 @@ static int command_performance_dtable(int argc, const char * argv[])
 fail_iter:
 	delete iter;
 fail_verify:
-	printf("failed!\n");
+	EXPECT_NEVER("failed!");
 	dt->destroy();
 	return -1;
 	
