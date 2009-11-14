@@ -47,7 +47,7 @@ void cache_dtable::add_cache(const dtype & key, const blob & value, bool found) 
 blob cache_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	if(atx != NO_ABORTABLE_TX)
-		return base->lookup(key, found);
+		return base->lookup(key, found, atx);
 	cache_map::const_iterator iter = cache.find(key);
 	if(iter != cache.end())
 	{

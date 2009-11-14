@@ -32,6 +32,11 @@ public:
 	virtual int insert(const dtype & key, const blob & blob, bool append = false, ATX_OPT);
 	virtual int remove(const dtype & key, ATX_OPT);
 	
+	/* cache_dtable is aware of abortable transactions */
+	inline virtual abortable_tx create_tx() { return base->create_tx(); }
+	inline virtual int commit_tx(ATX_REQ) { return base->commit_tx(atx); }
+	inline virtual void abort_tx(ATX_REQ) { return base->abort_tx(atx); }
+	
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
 	{
 		int value = base->set_blob_cmp(cmp);
