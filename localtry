@@ -24,6 +24,7 @@ dtable
 rollover
 rollover -b
 rollover -b -r
+abort
 edtable
 #edtable perf
 odtable
