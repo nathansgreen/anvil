@@ -189,6 +189,158 @@ void managed_dtable::deinit()
 	dtable::deinit();
 }
 
+dtable::iter * managed_dtable::iterator(ATX_DEF) const
+{
+	if(atx != NO_ABORTABLE_TX)
+	{
+		atx_map::const_iterator it = open_atx_map.find(atx);
+		if(it == open_atx_map.end())
+			/* bad abortable transaction ID */
+			return NULL;
+		return iterator_chain_usage(&chain, it->second.overlay);
+	}
+	/* returns overlay->iterator() */
+	return iterator_chain_usage(&chain, overlay);
+}
+
+bool managed_dtable::present(const dtype & key, bool * found, ATX_DEF) const
+{
+	if(atx != NO_ABORTABLE_TX)
+	{
+		atx_map::const_iterator it = open_atx_map.find(atx);
+		if(it == open_atx_map.end())
+		{
+			/* bad abortable transaction ID */
+			*found = false;
+			return false;
+		}
+		return it->second.overlay->present(key, found);
+	}
+	return overlay->present(key, found);
+}
+
+blob managed_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
+{
+	if(atx != NO_ABORTABLE_TX)
+	{
+		atx_map::const_iterator it = open_atx_map.find(atx);
+		if(it == open_atx_map.end())
+		{
+			/* bad abortable transaction ID */
+			*found = false;
+			return blob();
+		}
+		return it->second.overlay->lookup(key, found);
+	}
+	return overlay->lookup(key, found);
+}
+
+int managed_dtable::insert(const dtype & key, const blob & blob, bool append, ATX_DEF)
+{
+	int r;
+	if(!blob.exists() && !contains(key, atx))
+		return 0;
+	if(atx != NO_ABORTABLE_TX)
+	{
+		atx_map::iterator it = open_atx_map.find(atx);
+		if(it == open_atx_map.end())
+			/* bad abortable transaction ID */
+			return -EINVAL;
+		return it->second.journal->insert(key, blob, append);
+	}
+	r = journal->insert(key, blob, append);
+	if(r >= 0 && digest_size && journal->size() >= digest_size)
+		r = digest();
+	return r;
+}
+
+int managed_dtable::remove(const dtype & key, ATX_DEF)
+{
+	int r;
+	if(!find(key, atx).exists())
+		return 0;
+	if(atx != NO_ABORTABLE_TX)
+	{
+		atx_map::iterator it = open_atx_map.find(atx);
+		if(it == open_atx_map.end())
+			/* bad abortable transaction ID */
+			return -EINVAL;
+		return it->second.journal->remove(key);
+	}
+	r = journal->remove(key);
+	if(r >= 0 && digest_size && journal->size() >= digest_size)
+		r = digest();
+	return r;
+}
+
+abortable_tx managed_dtable::create_tx()
+{
+	int r;
+	atx_state * state;
+	sys_journal::listener_id lid;
+	
+	if(cmp_name && !blob_cmp)
+		return NO_ABORTABLE_TX;
+	
+	sys_journal * sysj = sys_journal::get_global_journal();
+	abortable_tx atx = create_tx_id();
+	assert(atx != NO_ABORTABLE_TX);
+	
+	state = &open_atx_map[atx];
+	
+	lid = sys_journal::get_unique_id(true);
+	assert(lid != sys_journal::NO_ID);
+	state->journal = journal_dtable::obtain(lid, ktype, sysj);
+	assert(state->journal);
+	if(blob_cmp)
+		state->journal->set_blob_cmp(blob_cmp);
+	
+	state->overlay = new overlay_dtable;
+	assert(state->overlay);
+	r = state->overlay->init(state->journal, overlay, NULL);
+	assert(r >= 0);
+	if(blob_cmp)
+		state->overlay->set_blob_cmp(blob_cmp);
+	
+	return atx;
+}
+
+int managed_dtable::commit_tx(ATX_DEF)
+{
+	return commit_abort_tx(atx, true);
+}
+
+void managed_dtable::abort_tx(ATX_DEF)
+{
+	commit_abort_tx(atx, false);
+}
+
+int managed_dtable::commit_abort_tx(ATX_DEF, bool commit)
+{
+	atx_map::iterator it = open_atx_map.find(atx);
+	if(it == open_atx_map.end())
+		/* bad abortable transaction ID */
+		return -EINVAL;
+	if(commit)
+		it->second.journal->rollover(journal);
+	if(it->second.overlay->in_use())
+	{
+		doomed_dtable * doomed = new doomed_dtable(this, it->second.overlay);
+		doomed_dtables.insert(doomed);
+	}
+	else
+		it->second.overlay->destroy();
+	if(it->second.journal->in_use())
+	{
+		doomed_dtable * doomed = new doomed_dtable(this, it->second.journal);
+		doomed_dtables.insert(doomed);
+	}
+	else
+		it->second.journal->discard();
+	open_atx_map.erase(it);
+	return 0;
+}
+
 int managed_dtable::set_blob_cmp(const blob_comparator * cmp)
 {
 	int value;

@@ -79,12 +79,12 @@ const dtable * journal_dtable::iter::source() const
 	return dt_source;
 }
 
-dtable::iter * journal_dtable::iterator() const
+dtable::iter * journal_dtable::iterator(ATX_DEF) const
 {
 	return new iter(this);
 }
 
-bool journal_dtable::present(const dtype & key, bool * found) const
+bool journal_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	journal_dtable_hash::const_iterator it = jdt_hash.find(key);
 	if(it != jdt_hash.end())
@@ -96,7 +96,7 @@ bool journal_dtable::present(const dtype & key, bool * found) const
 	return false;
 }
 
-blob journal_dtable::lookup(const dtype & key, bool * found) const
+blob journal_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	journal_dtable_hash::const_iterator it = jdt_hash.find(key);
 	if(it != jdt_hash.end())
@@ -251,7 +251,7 @@ int journal_dtable::log(const dtype & key, const blob & blob, bool append)
 	abort();
 }
 
-int journal_dtable::insert(const dtype & key, const blob & blob, bool append)
+int journal_dtable::insert(const dtype & key, const blob & blob, bool append, ATX_DEF)
 {
 	int r;
 	if(key.type != ktype || (ktype == dtype::BLOB && !key.blb.exists()))
@@ -262,7 +262,7 @@ int journal_dtable::insert(const dtype & key, const blob & blob, bool append)
 	return set_node(key, blob, append);
 }
 
-int journal_dtable::remove(const dtype & key)
+int journal_dtable::remove(const dtype & key, ATX_DEF)
 {
 	return insert(key, blob());
 }

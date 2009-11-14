@@ -118,12 +118,12 @@ const dtable * array_dtable::iter::source() const
 	return dt_source;
 }
 
-dtable::iter * array_dtable::iterator() const
+dtable::iter * array_dtable::iterator(ATX_DEF) const
 {
 	return new iter(this);
 }
 
-bool array_dtable::present(const dtype & key, bool * found) const
+bool array_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	uint8_t type;
 	assert(key.type == dtype::UINT32);
@@ -236,7 +236,7 @@ int array_dtable::find_key(const dtype_test & test, size_t * index) const
 	return -ENOENT;
 }
 
-blob array_dtable::lookup(const dtype & key, bool * found) const
+blob array_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	assert(key.type == dtype::UINT32);
 	if(key.u32 < min_key || min_key + array_size <= key.u32)

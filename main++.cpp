@@ -8,6 +8,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <string.h>
 #include <inttypes.h>
@@ -44,6 +45,7 @@ int command_cctable(int argc, const char * argv[]);
 int command_consistency(int argc, const char * argv[]);
 int command_durability(int argc, const char * argv[]);
 int command_rollover(int argc, const char * argv[]);
+int command_abort(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
@@ -59,8 +61,9 @@ int command_bdbtest(int argc, const char * argv[]);
 #define EXPECT_NOFAIL_COUNT(label, result, name, value) do { printf(label " = %d, %zu " name "\n", result, value); if(result < 0) PRINT_FAIL; } while(0)
 #define EXPECT_NONULL(label, ptr) do { printf(label " = %p\n", ptr); if(!ptr) PRINT_FAIL; } while(0)
 #define EXPECT_SIZET(label, expect, test) do { size_t __value = test; printf(label " = %zu (expect %zu)\n", __value, (size_t) expect); if(__value != (expect)) PRINT_FAIL; } while(0)
+#define EXPECT_NOTU32(label, expect, test) do { uint32_t __value = test; printf(label " = %u\n", __value); if(__value == (expect)) PRINT_FAIL; } while(0)
 
-static void print(dtype x)
+static void print(const dtype & x)
 {
 	switch(x.type)
 	{
@@ -83,7 +86,7 @@ static void print(dtype x)
 	}
 }
 
-static void print(blob x, const char * prefix = NULL, ...)
+static void print(const blob & x, const char * prefix = NULL, ...)
 {
 	va_list ap;
 	va_start(ap, prefix);
@@ -122,10 +125,10 @@ static void print(blob x, const char * prefix = NULL, ...)
 	va_end(ap);
 }
 
-static void run_iterator(dtable * table)
+static void run_iterator(const dtable * table, ATX_OPT)
 {
 	bool more = true;
-	dtable::iter * iter = table->iterator();
+	dtable::iter * iter = table->iterator(atx);
 	printf("dtable contents:\n");
 	while(iter->valid())
 	{
@@ -142,7 +145,7 @@ static void run_iterator(dtable * table)
 	delete iter;
 }
 
-static void run_iterator(ctable * table)
+static void run_iterator(const ctable * table)
 {
 	dtype old_key(0u);
 	bool more = true, first = true;
@@ -171,7 +174,7 @@ static void run_iterator(ctable * table)
 	delete iter;
 }
 
-static void run_iterator(stable * table)
+static void run_iterator(const stable * table)
 {
 	dtype old_key(0u);
 	bool more = true, first = true;
@@ -1801,8 +1804,6 @@ int command_consistency(int argc, const char * argv[])
 	return 0;
 }
 
-#include <signal.h>
-
 static bool durability_stop = false;
 
 static void durable_death(int signal)
@@ -2141,6 +2142,101 @@ int command_rollover(int argc, const char * argv[])
 	return 0;
 }
 
+/* FIXME: once managed_dtable supports proper sys_journal specification, this
+ * should also test that aborting/committing transactions works across reinit */
+int command_abort(int argc, const char * argv[])
+{
+	int r;
+	dtable * dt;
+	params config;
+	abortable_tx atx;
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) simple_dtable
+		"digest_interval" int 2
+		"combine_interval" int 4
+		"combine_count" int 4
+	]), &config);
+	EXPECT_NOFAIL("params::parse", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "abtx_test", config, dtype::UINT32);
+	EXPECT_NOFAIL("dtable::create", r);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	r = dt->insert(1u, blob("A"));
+	EXPECT_NOFAIL("dt->insert(1)", r);
+	r = dt->insert(2u, blob("B"));
+	EXPECT_NOFAIL("dt->insert(2)", r);
+	run_iterator(dt);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 1, dt->find(2u).size());
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	atx = dt->create_tx();
+	EXPECT_NOTU32("atx", NO_ABORTABLE_TX, atx);
+	r = dt->insert(2u, blob("B (atx)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(2, atx)", r);
+	r = dt->insert(3u, blob("C (atx)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(3, atx)", r);
+	run_iterator(dt);
+	run_iterator(dt, atx);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 1, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 0, dt->find(3u).size());
+	EXPECT_SIZET("key 1 atx size", 1, dt->find(1u, atx).size());
+	EXPECT_SIZET("key 2 atx size", 7, dt->find(2u, atx).size());
+	EXPECT_SIZET("key 3 atx size", 7, dt->find(3u, atx).size());
+	dt->abort_tx(atx);
+	printf("abort_tx\n");
+	run_iterator(dt);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	atx = dt->create_tx();
+	EXPECT_NOTU32("atx", NO_ABORTABLE_TX, atx);
+	r = dt->insert(2u, blob("B (atx)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(2, atx)", r);
+	r = dt->insert(3u, blob("C (atx)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(3, atx)", r);
+	r = dt->insert(3u, blob("C"), true);
+	EXPECT_NOFAIL("dt->insert(3)", r);
+	run_iterator(dt);
+	run_iterator(dt, atx);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 1, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 1, dt->find(3u).size());
+	EXPECT_SIZET("key 1 atx size", 1, dt->find(1u, atx).size());
+	EXPECT_SIZET("key 2 atx size", 7, dt->find(2u, atx).size());
+	EXPECT_SIZET("key 3 atx size", 7, dt->find(3u, atx).size());
+	r = dt->commit_tx(atx);
+	EXPECT_NOFAIL("commit_tx", r);
+	run_iterator(dt);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 7, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 7, dt->find(3u).size());
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	dt->destroy();
+	
+	return 0;
+}
+
 int command_stable(int argc, const char * argv[])
 {
 	int r;
@@ -2392,11 +2488,11 @@ int command_blob_cmp(int argc, const char * argv[])
 		EXPECT_NOFAIL("tx_end", r);
 		
 		printf("expected comparator: %s\n", (const char *) jdt->get_cmp_name());
-		EXPECT_SIZET("jdt size", jdt->size(), 0);
+		EXPECT_SIZET("jdt size", 0, jdt->size());
 		
 		r = jdt->set_blob_cmp(reverse);
 		EXPECT_NOFAIL("jdt->set_blob_cmp", r);
-		EXPECT_SIZET("jdt size", jdt->size(), 10);
+		EXPECT_SIZET("jdt size", 10, jdt->size());
 		
 		run_iterator(jdt);
 		

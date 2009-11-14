@@ -69,7 +69,7 @@ bool btree_dtable::iter::seek(const dtype_test & test)
 	return found;
 }
 
-dtable::iter * btree_dtable::iterator() const
+dtable::iter * btree_dtable::iterator(ATX_DEF) const
 {
 	iter * value;
 	dtable::iter * source = base->iterator();
@@ -84,7 +84,7 @@ dtable::iter * btree_dtable::iterator() const
 	return value;
 }
 
-bool btree_dtable::present(const dtype & key, bool * found) const
+bool btree_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	size_t index = btree_lookup(key, found);
 	if(!*found)
@@ -92,7 +92,7 @@ bool btree_dtable::present(const dtype & key, bool * found) const
 	return base->contains_index(index);
 }
 
-blob btree_dtable::lookup(const dtype & key, bool * found) const
+blob btree_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	size_t index = btree_lookup(key, found);
 	if(!*found)

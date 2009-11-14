@@ -29,14 +29,14 @@
 class keydiv_dtable : public dtable
 {
 public:
-	virtual iter * iterator() const;
-	virtual bool present(const dtype & key, bool * found) const;
-	virtual blob lookup(const dtype & key, bool * found) const;
+	virtual iter * iterator(ATX_OPT) const;
+	virtual bool present(const dtype & key, bool * found, ATX_OPT) const;
+	virtual blob lookup(const dtype & key, bool * found, ATX_OPT) const;
 	
 	inline virtual bool writable() const { return sub[0]->writable(); }
 	
-	virtual int insert(const dtype & key, const blob & blob, bool append = false);
-	virtual int remove(const dtype & key);
+	virtual int insert(const dtype & key, const blob & blob, bool append = false, ATX_OPT);
+	virtual int remove(const dtype & key, ATX_OPT);
 	
 	/* do maintenance based on parameters */
 	virtual int maintain(bool force = false);
@@ -80,7 +80,7 @@ private:
 		virtual metablob meta() const;
 		virtual blob value() const;
 		virtual const dtable * source() const;
-		inline iter(const keydiv_dtable * source);
+		inline iter(const keydiv_dtable * source, ATX_REQ);
 		virtual ~iter();
 		
 	private:

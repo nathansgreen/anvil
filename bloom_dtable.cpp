@@ -192,7 +192,7 @@ void bloom_dtable::bloom::add(const dtype & key, size_t k, size_t bits)
 	abort();
 }
 
-bool bloom_dtable::present(const dtype & key, bool * found) const
+bool bloom_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	if(!filter.check(key, k, bits))
 	{
@@ -202,7 +202,7 @@ bool bloom_dtable::present(const dtype & key, bool * found) const
 	return base->present(key, found);
 }
 
-blob bloom_dtable::lookup(const dtype & key, bool * found) const
+blob bloom_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	if(!filter.check(key, k, bits))
 	{

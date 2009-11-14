@@ -31,9 +31,9 @@
 class array_dtable : public dtable
 {
 public:
-	virtual iter * iterator() const;
-	virtual bool present(const dtype & key, bool * found) const;
-	virtual blob lookup(const dtype & key, bool * found) const;
+	virtual iter * iterator(ATX_OPT) const;
+	virtual bool present(const dtype & key, bool * found, ATX_OPT) const;
+	virtual blob lookup(const dtype & key, bool * found, ATX_OPT) const;
 	virtual blob index(size_t index) const;
 	virtual bool contains_index(size_t index) const;
 	inline virtual size_t size() const { return key_count; }

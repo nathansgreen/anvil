@@ -150,12 +150,12 @@ const dtable * linear_dtable::iter::source() const
 	return dt_source;
 }
 
-dtable::iter * linear_dtable::iterator() const
+dtable::iter * linear_dtable::iterator(ATX_DEF) const
 {
 	return new iter(this);
 }
 
-bool linear_dtable::present(const dtype & key, bool * found) const
+bool linear_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	size_t data_length, index;
 	assert(key.type == dtype::UINT32);
@@ -265,7 +265,7 @@ blob linear_dtable::get_value(size_t index, bool * found) const
 	return value;
 }
 
-blob linear_dtable::lookup(const dtype & key, bool * found) const
+blob linear_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	size_t index;
 	assert(key.type == dtype::UINT32);

@@ -18,9 +18,9 @@
 class exception_dtable : public dtable
 {
 public:
-	virtual iter * iterator() const;
-	virtual bool present(const dtype & key, bool * found) const;
-	virtual blob lookup(const dtype & key, bool * found) const;
+	virtual iter * iterator(ATX_OPT) const;
+	virtual bool present(const dtype & key, bool * found, ATX_OPT) const;
+	virtual blob lookup(const dtype & key, bool * found, ATX_OPT) const;
 	
 	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
 	DECLARE_RO_FACTORY(exception_dtable);

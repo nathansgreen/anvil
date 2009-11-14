@@ -27,13 +27,13 @@
 class bloom_dtable : public dtable
 {
 public:
-	virtual iter * iterator() const
+	virtual iter * iterator(ATX_OPT) const
 	{
 		/* returns base->iterator() */
-		return iterator_chain_usage(&chain, base);
+		return iterator_chain_usage(&chain, base, atx);
 	}
-	virtual bool present(const dtype & key, bool * found) const;
-	virtual blob lookup(const dtype & key, bool * found) const;
+	virtual bool present(const dtype & key, bool * found, ATX_OPT) const;
+	virtual blob lookup(const dtype & key, bool * found, ATX_OPT) const;
 	virtual blob index(size_t index) const { return base->index(index); }
 	virtual bool contains_index(size_t index) const { return base->contains_index(index); }
 	virtual size_t size() const { return base->size(); }

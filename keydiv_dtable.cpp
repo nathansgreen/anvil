@@ -13,13 +13,13 @@
 #include "util.h"
 #include "keydiv_dtable.h"
 
-keydiv_dtable::iter::iter(const keydiv_dtable * source)
+keydiv_dtable::iter::iter(const keydiv_dtable * source, ATX_DEF)
 	: iter_source<keydiv_dtable>(source), current_index(0)
 {
 	subs = new sub[source->sub.size()];
 	for(size_t i = 0; i < source->sub.size(); i++)
 	{
-		subs[i].iter = source->sub[i]->iterator();
+		subs[i].iter = source->sub[i]->iterator(atx);
 		subs[i].at_first = true;
 		subs[i].at_end = !subs[i].iter->valid();
 	}
@@ -164,37 +164,37 @@ const dtable * keydiv_dtable::iter::source() const
 	return dt_source;
 }
 
-dtable::iter * keydiv_dtable::iterator() const
+dtable::iter * keydiv_dtable::iterator(ATX_DEF) const
 {
-	return new iter(this);
+	return new iter(this, atx);
 }
 
-bool keydiv_dtable::present(const dtype & key, bool * found) const
+bool keydiv_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	size_t index = key_index(key);
 	assert(index < sub.size());
-	return sub[index]->present(key, found);
+	return sub[index]->present(key, found, atx);
 }
 
-blob keydiv_dtable::lookup(const dtype & key, bool * found) const
+blob keydiv_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	size_t index = key_index(key);
 	assert(index < sub.size());
-	return sub[index]->lookup(key, found);
+	return sub[index]->lookup(key, found, atx);
 }
 
-int keydiv_dtable::insert(const dtype & key, const blob & blob, bool append)
+int keydiv_dtable::insert(const dtype & key, const blob & blob, bool append, ATX_DEF)
 {
 	size_t index = key_index(key);
 	assert(index < sub.size());
-	return sub[index]->insert(key, blob, append);
+	return sub[index]->insert(key, blob, append, atx);
 }
 
-int keydiv_dtable::remove(const dtype & key)
+int keydiv_dtable::remove(const dtype & key, ATX_DEF)
 {
 	size_t index = key_index(key);
 	assert(index < sub.size());
-	return sub[index]->remove(key);
+	return sub[index]->remove(key, atx);
 }
 
 int keydiv_dtable::maintain(bool force)

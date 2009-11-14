@@ -32,7 +32,7 @@ blob smallint_dtable::iter::value() const
 	return unpack(base->value(), dt_source->byte_count);
 }
 
-dtable::iter * smallint_dtable::iterator() const
+dtable::iter * smallint_dtable::iterator(ATX_DEF) const
 {
 	iter * value;
 	dtable::iter * source = base->iterator();
@@ -74,12 +74,12 @@ bool smallint_dtable::pack(blob * unpacked, size_t byte_count)
 	return !unpacked->exists();
 }
 
-bool smallint_dtable::present(const dtype & key, bool * found) const
+bool smallint_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	return base->present(key, found);
 }
 
-blob smallint_dtable::lookup(const dtype & key, bool * found) const
+blob smallint_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	blob value = base->lookup(key, found);
 	if(value.exists())

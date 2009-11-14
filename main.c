@@ -607,6 +607,7 @@ int command_cctable(int argc, const char * argv[]);
 int command_consistency(int argc, const char * argv[]);
 int command_durability(int argc, const char * argv[]);
 int command_rollover(int argc, const char * argv[]);
+int command_abort(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
@@ -655,6 +656,7 @@ struct {
 	{"consistency", "Test Anvil consistency model.", command_consistency},
 	{"durability", "Test Anvil durability model.", command_durability},
 	{"rollover", "Test system journal rollover.", command_rollover},
+	{"abort", "Test abortable dtable transactions.", command_abort},
 	{"stable", "Test stable functionality.", command_stable},
 	{"iterator", "Test iterator functionality.", command_iterator},
 	{"blob_cmp", "Test blob_cmp functionality.", command_blob_cmp},

@@ -15,6 +15,7 @@
 #endif
 
 #include <vector>
+#include <ext/hash_map>
 #include "avl/set.h"
 
 #include "dtable.h"
@@ -37,43 +38,20 @@ class managed_dtable : public dtable
 {
 public:
 	/* send to overlay_dtable */
-	inline virtual iter * iterator() const
-	{
-		/* returns overlay->iterator() */
-		return iterator_chain_usage(&chain, overlay);
-	}
-	inline virtual bool present(const dtype & key, bool * found) const
-	{
-		return overlay->present(key, found);
-	}
-	inline virtual blob lookup(const dtype & key, bool * found) const
-	{
-		return overlay->lookup(key, found);
-	}
+	virtual iter * iterator(ATX_OPT) const;
+	virtual bool present(const dtype & key, bool * found, ATX_OPT) const;
+	virtual blob lookup(const dtype & key, bool * found, ATX_OPT) const;
 	
 	inline virtual bool writable() const { return true; }
 	
 	/* send to journal_dtable */
-	inline virtual int insert(const dtype & key, const blob & blob, bool append = false)
-	{
-		int r;
-		if(!blob.exists() && !contains(key))
-			return 0;
-		r = journal->insert(key, blob, append);
-		if(r >= 0 && digest_size && journal->size() >= digest_size)
-			r = digest();
-		return r;
-	}
-	inline virtual int remove(const dtype & key)
-	{
-		int r;
-		if(!find(key).exists())
-			return 0;
-		r = journal->remove(key);
-		if(r >= 0 && digest_size && journal->size() >= digest_size)
-			r = digest();
-		return r;
-	}
+	virtual int insert(const dtype & key, const blob & blob, bool append = false, ATX_OPT);
+	virtual int remove(const dtype & key, ATX_OPT);
+	
+	/* managed_dtable supports abortable transactions */
+	virtual abortable_tx create_tx();
+	virtual int commit_tx(ATX_REQ);
+	virtual void abort_tx(ATX_REQ);
 	
 	/* return the number of disk dtables */
 	inline size_t disk_dtables()
@@ -335,6 +313,16 @@ private:
 		uint32_t ddt_number;
 	};
 	avl::set<doomed_dtable *> doomed_dtables;
+	
+	struct atx_state
+	{
+		journal_dtable * journal;
+		overlay_dtable * overlay;
+	};
+	typedef __gnu_cxx::hash_map<abortable_tx, atx_state> atx_map;
+	atx_map open_atx_map;
+	
+	int commit_abort_tx(ATX_REQ, bool commit);
 	
 	int md_dfd;
 	mdtable_header header;

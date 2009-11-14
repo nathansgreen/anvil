@@ -263,12 +263,12 @@ const dtable * overlay_dtable::iter::source() const
 	return subs[current_index].iter->source();
 }
 
-dtable::iter * overlay_dtable::iterator() const
+dtable::iter * overlay_dtable::iterator(ATX_DEF) const
 {
 	return new iter(this);
 }
 
-bool overlay_dtable::present(const dtype & key, bool * found) const
+bool overlay_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	for(size_t i = 0; i < table_count; i++)
 	{
@@ -280,7 +280,7 @@ bool overlay_dtable::present(const dtype & key, bool * found) const
 	return false;
 }
 
-blob overlay_dtable::lookup(const dtype & key, bool * found) const
+blob overlay_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	for(size_t i = 0; i < table_count; i++)
 	{

@@ -80,8 +80,8 @@ private:
 	const char * column[max_columns];
 };
 
-/* FIXME: we should have a key array dtable, for indexing based on integer keys but variable size values */
-/* FIXME: an ascii dtable would be nice too, ignoring the high bit of each byte (difficulty: how to calculate decoded size?) */
+/* FIXME: we should use linear_dtable where appropriate in these configurations */
+/* FIXME: an ASCII dtable would be nice too, ignoring the high bit of each byte (difficulty: how to calculate decoded size?) */
 #include "tpch_config.h"
 
 struct tpch_table_info {

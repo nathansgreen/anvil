@@ -31,13 +31,13 @@
 class memory_dtable : public dtable
 {
 public:
-	virtual iter * iterator() const;
-	virtual bool present(const dtype & key, bool * found) const;
-	virtual blob lookup(const dtype & key, bool * found) const;
+	virtual iter * iterator(ATX_OPT) const;
+	virtual bool present(const dtype & key, bool * found, ATX_OPT) const;
+	virtual blob lookup(const dtype & key, bool * found, ATX_OPT) const;
 	
 	inline virtual bool writable() const { return true; }
-	virtual int insert(const dtype & key, const blob & blob, bool append = false);
-	virtual int remove(const dtype & key);
+	virtual int insert(const dtype & key, const blob & blob, bool append = false, ATX_OPT);
+	virtual int remove(const dtype & key, ATX_OPT);
 	
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
 	{

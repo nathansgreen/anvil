@@ -215,7 +215,7 @@ blob deltaint_dtable::iter::value() const
 	return exists ? blob(sizeof(uint32_t), &current) : blob();
 }
 
-dtable::iter * deltaint_dtable::iterator() const
+dtable::iter * deltaint_dtable::iterator(ATX_DEF) const
 {
 	iter * value;
 	dtable::iter * source = base->iterator();
@@ -230,12 +230,12 @@ dtable::iter * deltaint_dtable::iterator() const
 	return value;
 }
 
-bool deltaint_dtable::present(const dtype & key, bool * found) const
+bool deltaint_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	return base->present(key, found);
 }
 
-blob deltaint_dtable::lookup(const dtype & key, bool * found) const
+blob deltaint_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	uint32_t value;
 	blob blob_value;

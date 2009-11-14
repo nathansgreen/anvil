@@ -127,12 +127,12 @@ const dtable * fixed_dtable::iter::source() const
 	return dt_source;
 }
 
-dtable::iter * fixed_dtable::iterator() const
+dtable::iter * fixed_dtable::iterator(ATX_DEF) const
 {
 	return new iter(this);
 }
 
-bool fixed_dtable::present(const dtype & key, bool * found) const
+bool fixed_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	bool data_exists;
 	if(find_key(key, &data_exists) < 0)
@@ -227,7 +227,7 @@ blob fixed_dtable::get_value(size_t index) const
 	return data_exists ? get_value(index, data_offset) : blob();
 }
 
-blob fixed_dtable::lookup(const dtype & key, bool * found) const
+blob fixed_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	bool data_exists;
 	size_t index;

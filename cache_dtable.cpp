@@ -4,16 +4,18 @@
 
 #include "cache_dtable.h"
 
-dtable::iter * cache_dtable::iterator() const
+dtable::iter * cache_dtable::iterator(ATX_DEF) const
 {
 	/* use the underlying iterator directly; we don't want to kill our cache iterating
 	 * though everything, nor would it be easy to take advantage of our cache anyway */
 	/* returns base->iterator() */
-	return iterator_chain_usage(&chain, base);
+	return iterator_chain_usage(&chain, base, atx);
 }
 
-bool cache_dtable::present(const dtype & key, bool * found) const
+bool cache_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
+	if(atx != NO_ABORTABLE_TX)
+		return base->present(key, found, atx);
 	cache_map::const_iterator iter = cache.find(key);
 	if(iter != cache.end())
 	{
@@ -42,8 +44,10 @@ void cache_dtable::add_cache(const dtype & key, const blob & value, bool found) 
 	assert(cache.size() == order.size());
 }
 
-blob cache_dtable::lookup(const dtype & key, bool * found) const
+blob cache_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
+	if(atx != NO_ABORTABLE_TX)
+		return base->lookup(key, found);
 	cache_map::const_iterator iter = cache.find(key);
 	if(iter != cache.end())
 	{
@@ -55,8 +59,10 @@ blob cache_dtable::lookup(const dtype & key, bool * found) const
 	return value;
 }
 
-int cache_dtable::insert(const dtype & key, const blob & blob, bool append)
+int cache_dtable::insert(const dtype & key, const blob & blob, bool append, ATX_DEF)
 {
+	if(atx != NO_ABORTABLE_TX)
+		return base->insert(key, blob, append, atx);
 	cache_map::iterator iter;
 	int value = base->insert(key, blob, append);
 	if(value < 0)
@@ -72,8 +78,10 @@ int cache_dtable::insert(const dtype & key, const blob & blob, bool append)
 	return value;
 }
 
-int cache_dtable::remove(const dtype & key)
+int cache_dtable::remove(const dtype & key, ATX_DEF)
 {
+	if(atx != NO_ABORTABLE_TX)
+		return base->remove(key, atx);
 	cache_map::iterator iter;
 	int value = base->remove(key);
 	if(value < 0)

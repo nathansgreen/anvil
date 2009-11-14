@@ -18,13 +18,22 @@
 #include "callback.h"
 #include "blob_comparator.h"
 
+/* abortable transaction handle */
+typedef uint32_t abortable_tx;
+#define NO_ABORTABLE_TX ((abortable_tx) 0)
+/* make it easier to add this parameter to many functions */
+#define ATX_DEF abortable_tx atx
+/* for prototypes, required or optional parameter */
+#define ATX_REQ ATX_DEF
+#define ATX_OPT ATX_REQ = NO_ABORTABLE_TX
+
 /* key tables (used for shadow checks) */
 class ktable
 {
 public:
-	virtual bool present(const dtype & key, bool * found) const = 0;
+	virtual bool present(const dtype & key, bool * found, ATX_OPT) const = 0;
 	/* contains(key) == dtable::find(key).exists(), but maybe more efficient */
-	inline bool contains(const dtype & key) const { bool found; return present(key, &found); }
+	inline bool contains(const dtype & key, ATX_OPT) const { bool found; return present(key, &found, atx); }
 	inline dtype::ctype key_type() const { return ktype; }
 	inline const blob_comparator * get_blob_cmp() const { return blob_cmp; }
 	inline const istr & get_cmp_name() const { return cmp_name; }
@@ -139,16 +148,25 @@ public:
 		const T * dt_source;
 	};
 	
-	virtual iter * iterator() const = 0;
-	virtual blob lookup(const dtype & key, bool * found) const = 0;
-	inline blob find(const dtype & key) const { bool found; return lookup(key, &found); }
+	/* read-only stuff */
+	virtual iter * iterator(ATX_OPT) const = 0;
+	virtual blob lookup(const dtype & key, bool * found, ATX_OPT) const = 0;
+	inline blob find(const dtype & key, ATX_OPT) const { bool found; return lookup(key, &found, atx); }
 	/* index(), contains_index(), and size() only work when iter::seek_index() works, see above */
 	inline virtual blob index(size_t index) const { return blob(); }
 	inline virtual bool contains_index(size_t index) const { return false; }
 	inline virtual size_t size() const { return (size_t) -1; }
+	
 	inline virtual bool writable() const { return false; }
-	inline virtual int insert(const dtype & key, const blob & blob, bool append = false) { return -ENOSYS; }
-	inline virtual int remove(const dtype & key) { return -ENOSYS; }
+	/* writable dtables support these */
+	inline virtual int insert(const dtype & key, const blob & blob, bool append = false, ATX_OPT) { return -ENOSYS; }
+	inline virtual int remove(const dtype & key, ATX_OPT) { return -ENOSYS; }
+	
+	/* abortable transactions; not supported by default */
+	inline virtual abortable_tx create_tx() { return NO_ABORTABLE_TX; }
+	inline virtual int commit_tx(ATX_REQ) { return -ENOSYS; }
+	inline virtual void abort_tx(ATX_REQ) {}
+	
 	inline dtable() : usage(0) {}
 	/* calls the destructor by default, but can be overridden */
 	inline virtual void destroy() const { delete this; }
@@ -206,9 +224,9 @@ protected:
 	/* iterator usage counting */
 	inline void retain() const { usage.inc(); }
 	inline void release() const { if(!usage.dec()) unused_callbacks.invoke(); }
-	inline iter * iterator_chain_usage(chain_callback * chain, dtable * source) const
+	inline iter * iterator_chain_usage(chain_callback * chain, dtable * source, ATX_OPT) const
 	{
-		iter * it = source->iterator();
+		iter * it = source->iterator(atx);
 		if(it && !usage.get())
 		{
 			retain();
@@ -257,9 +275,21 @@ protected:
 		return true;
 	}
 	
+	/* these IDs, unlike sys_journal IDs, are ephemeral and
+	 * restart from zero every time the system starts up */
+	static inline abortable_tx create_tx_id()
+	{
+		abortable_tx atx;
+		do { atx = atx_handle.inc(); } while(atx == NO_ABORTABLE_TX);
+		return atx;
+	}
+	
 private:
 	mutable atomic<int> usage;
 	mutable callbacks unused_callbacks;
+	
+	static atomic<abortable_tx> atx_handle;
+	
 	void operator=(const dtable &);
 	dtable(const dtable &);
 };

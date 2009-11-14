@@ -136,12 +136,12 @@ const dtable * ustr_dtable::iter::source() const
 	return dt_source;
 }
 
-dtable::iter * ustr_dtable::iterator() const
+dtable::iter * ustr_dtable::iterator(ATX_DEF) const
 {
 	return new iter(this);
 }
 
-bool ustr_dtable::present(const dtype & key, bool * found) const
+bool ustr_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	size_t data_length;
 	if(find_key(key, &data_length) < 0)
@@ -271,7 +271,7 @@ blob ustr_dtable::get_value(size_t index) const
 	return (data_length != (size_t) -1) ? get_value(index, data_length, data_offset) : blob();
 }
 
-blob ustr_dtable::lookup(const dtype & key, bool * found) const
+blob ustr_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	size_t data_length, index;
 	off_t data_offset;

@@ -78,12 +78,12 @@ const dtable * memory_dtable::iter::source() const
 	return dt_source;
 }
 
-dtable::iter * memory_dtable::iterator() const
+dtable::iter * memory_dtable::iterator(ATX_DEF) const
 {
 	return new iter(this);
 }
 
-bool memory_dtable::present(const dtype & key, bool * found) const
+bool memory_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	memory_dtable_hash::const_iterator it = mdt_hash.find(key);
 	if(it != mdt_hash.end())
@@ -95,7 +95,7 @@ bool memory_dtable::present(const dtype & key, bool * found) const
 	return false;
 }
 
-blob memory_dtable::lookup(const dtype & key, bool * found) const
+blob memory_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	memory_dtable_hash::const_iterator it = mdt_hash.find(key);
 	if(it != mdt_hash.end())
@@ -107,14 +107,14 @@ blob memory_dtable::lookup(const dtype & key, bool * found) const
 	return blob();
 }
 
-int memory_dtable::insert(const dtype & key, const blob & blob, bool append)
+int memory_dtable::insert(const dtype & key, const blob & blob, bool append, ATX_DEF)
 {
 	if(key.type != ktype || (ktype == dtype::BLOB && !key.blb.exists()))
 		return -EINVAL;
 	return set_node(key, blob, append);
 }
 
-int memory_dtable::remove(const dtype & key)
+int memory_dtable::remove(const dtype & key, ATX_DEF)
 {
 	if(full_remove)
 	{

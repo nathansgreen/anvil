@@ -211,12 +211,12 @@ exception_dtable::iter::~iter()
 	current_sub = NULL;
 }
 
-dtable::iter * exception_dtable::iterator() const
+dtable::iter * exception_dtable::iterator(ATX_DEF) const
 {
 	return new iter(this);
 }
 
-bool exception_dtable::present(const dtype & key, bool * found) const
+bool exception_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	bool result = base->present(key, found);
 	if(*found)
@@ -224,7 +224,7 @@ bool exception_dtable::present(const dtype & key, bool * found) const
 	return alt->present(key, found);
 }
 
-blob exception_dtable::lookup(const dtype & key, bool * found) const
+blob exception_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	blob value = base->lookup(key, found);
 	/* we don't use the blob comparator here; it must match exactly */

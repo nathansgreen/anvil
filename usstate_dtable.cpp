@@ -40,7 +40,7 @@ blob usstate_dtable::iter::value() const
 	return unpack(base->value(), dt_source->passthrough_value);
 }
 
-dtable::iter * usstate_dtable::iterator() const
+dtable::iter * usstate_dtable::iterator(ATX_DEF) const
 {
 	iter * value;
 	dtable::iter * source = base->iterator();
@@ -89,12 +89,12 @@ bool usstate_dtable::pack(blob * unpacked, const blob & passthrough_value)
 	return true;
 }
 
-bool usstate_dtable::present(const dtype & key, bool * found) const
+bool usstate_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	return base->present(key, found);
 }
 
-blob usstate_dtable::lookup(const dtype & key, bool * found) const
+blob usstate_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	blob value = base->lookup(key, found);
 	if(value.exists())

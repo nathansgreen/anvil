@@ -21,9 +21,9 @@
 class deltaint_dtable : public dtable
 {
 public:
-	virtual iter * iterator() const;
-	virtual bool present(const dtype & key, bool * found) const;
-	virtual blob lookup(const dtype & key, bool * found) const;
+	virtual iter * iterator(ATX_OPT) const;
+	virtual bool present(const dtype & key, bool * found, ATX_OPT) const;
+	virtual blob lookup(const dtype & key, bool * found, ATX_OPT) const;
 	
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
 	{
