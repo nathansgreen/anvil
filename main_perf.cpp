@@ -9,11 +9,285 @@
 #include "openat.h"
 #include "transaction.h"
 
+#include "util.h"
 #include "sys_journal.h"
 #include "journal_dtable.h"
 #include "managed_dtable.h"
 #include "simple_stable.h"
 #include "reverse_blob_comparator.h"
+
+#define ROW_COUNT 50000
+#define DT_ROW_COUNT 200000
+
+int command_abort(int argc, const char * argv[])
+{
+	int r;
+	dtable * dt;
+	params config;
+	abortable_tx atx;
+	sys_journal * sysj;
+	journal_dtable::journal_dtable_warehouse warehouse;
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) simple_dtable
+		"digest_interval" int 2
+		"combine_interval" int 4
+		"combine_count" int 4
+	]), &config);
+	EXPECT_NOFAIL("params::parse", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "abtx_test", config, dtype::UINT32);
+	EXPECT_NOFAIL("dtable::create", r);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, true);
+	EXPECT_NONULL("sysj spawn", sysj);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config, sysj);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	r = dt->insert(1u, blob("A"));
+	EXPECT_NOFAIL("dt->insert(1)", r);
+	r = dt->insert(2u, blob("B"));
+	EXPECT_NOFAIL("dt->insert(2)", r);
+	run_iterator(dt);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 1, dt->find(2u).size());
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	EXPECT_SIZET("total", 1, warehouse.size());
+	atx = dt->create_tx();
+	EXPECT_NOTU32("atx", NO_ABORTABLE_TX, atx);
+	EXPECT_SIZET("total", 2, warehouse.size());
+	r = dt->insert(2u, blob("B (atx)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(2, atx)", r);
+	r = dt->insert(3u, blob("C (atx)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(3, atx)", r);
+	r = dt->insert(4u, blob("D (atx)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(4, atx)", r);
+	run_iterator(dt);
+	run_iterator(dt, atx);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 1, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 0, dt->find(3u).size());
+	EXPECT_SIZET("key 4 size", 0, dt->find(4u).size());
+	EXPECT_SIZET("key 1 atx size", 1, dt->find(1u, atx).size());
+	EXPECT_SIZET("key 2 atx size", 7, dt->find(2u, atx).size());
+	EXPECT_SIZET("key 3 atx size", 7, dt->find(3u, atx).size());
+	EXPECT_SIZET("key 4 atx size", 7, dt->find(4u, atx).size());
+	EXPECT_SIZET("total", 2, warehouse.size());
+	dt->abort_tx(atx);
+	printf("abort_tx\n");
+	EXPECT_SIZET("total", 1, warehouse.size());
+	run_iterator(dt);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	EXPECT_SIZET("total", 1, warehouse.size());
+	atx = dt->create_tx();
+	EXPECT_NOTU32("atx", NO_ABORTABLE_TX, atx);
+	EXPECT_SIZET("total", 2, warehouse.size());
+	r = dt->insert(2u, blob("B (atx2)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(2, atx2)", r);
+	r = dt->insert(3u, blob("C (atx2)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(3, atx2)", r);
+	r = dt->insert(3u, blob("C"), true);
+	EXPECT_NOFAIL("dt->insert(3)", r);
+	run_iterator(dt);
+	run_iterator(dt, atx);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 1, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 1, dt->find(3u).size());
+	EXPECT_SIZET("key 1 atx size", 1, dt->find(1u, atx).size());
+	EXPECT_SIZET("key 2 atx size", 8, dt->find(2u, atx).size());
+	EXPECT_SIZET("key 3 atx size", 8, dt->find(3u, atx).size());
+	EXPECT_SIZET("total", 2, warehouse.size());
+	r = dt->commit_tx(atx);
+	EXPECT_NOFAIL("commit_tx", r);
+	EXPECT_SIZET("total", 1, warehouse.size());
+	run_iterator(dt);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 8, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 8, dt->find(3u).size());
+	dt->destroy();
+	delete sysj;
+	EXPECT_SIZET("total", 0, warehouse.size());
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	/* restart everything and make sure it's all still correct */
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, false);
+	EXPECT_NONULL("sysj spawn", sysj);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config, sysj);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	EXPECT_SIZET("total", 1, warehouse.size());
+	run_iterator(dt);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 8, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 8, dt->find(3u).size());
+	EXPECT_SIZET("key 4 size", 0, dt->find(4u).size());
+	dt->destroy();
+	sysj->deinit(true);
+	delete sysj;
+	EXPECT_SIZET("total", 0, warehouse.size());
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	if(argc > 1 && !strcmp(argv[1], "perf"))
+	{
+		/* run the performance test as well */
+		bool use_atx = false;
+		
+		config = params();
+		r = params::parse(LITERAL(
+		config [
+			"base" class(dt) simple_dtable
+			"digest_interval" int 2
+			"combine_interval" int 8
+			"combine_count" int 6
+		]), &config);
+		EXPECT_NOFAIL("params::parse", r);
+		config.print();
+		printf("\n");
+			
+		do {
+			printf("Abortable transaction performance test: use_atx = %d\n", use_atx);
+			struct timeval start, end;
+			size_t atx_count = use_atx ? 1 : 0;
+			
+			r = tx_start();
+			EXPECT_NOFAIL("tx_start", r);
+			sysj = sys_journal::spawn_init("test_journal", &warehouse, true);
+			EXPECT_NONULL("sysj spawn", sysj);
+			r = dtable_factory::setup("managed_dtable", AT_FDCWD, "abtx_perf", config, dtype::UINT32);
+			EXPECT_NOFAIL("dtable_factory::setup", r);
+			r = tx_end(0);
+			EXPECT_NOFAIL("tx_end", r);
+			
+			r = tx_start();
+			EXPECT_NOFAIL("tx_start", r);
+			dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_perf", config, sysj);
+			EXPECT_NONULL("dtable_factory::load", dt);
+			if(use_atx)
+			{
+				atx = dt->create_tx();
+				EXPECT_NOTU32("atx", NO_ABORTABLE_TX, atx);
+			}
+			else
+				atx = NO_ABORTABLE_TX;
+			r = tx_end(0);
+			EXPECT_NOFAIL("tx_end", r);
+			
+			printf("Start timing! (10000000 inserts to %d rows)\n", DT_ROW_COUNT);
+			gettimeofday(&start, NULL);
+			
+			for(int i = 0; i < 10000000; i++)
+			{
+				uint32_t row = rand() % DT_ROW_COUNT;
+				uint32_t value = rand();
+				if(!(i % 1000))
+				{
+					r = tx_start();
+					if(r < 0)
+					{
+						EXPECT_NEVER("tx_start failure");
+						break;
+					}
+				}
+				r = dt->insert(row, blob(sizeof(value), &value));
+				assert(r >= 0);
+				if((i % 1000000) == 999999)
+				{
+					print_progress(&start, (i + 1) / 100000);
+					fflush(stdout);
+				}
+				if(use_atx && !(rand() % 100))
+				{
+					r = dt->commit_tx(atx);
+					if(r < 0)
+					{
+						EXPECT_NEVER("commit_tx failure");
+						break;
+					}
+					atx = dt->create_tx();
+					if(atx == NO_ABORTABLE_TX)
+					{
+						EXPECT_NEVER("create_tx failure");
+						break;
+					}
+					atx_count++;
+				}
+				if((i % 10000) == 9999)
+				{
+					r = dt->maintain();
+					if(r < 0)
+					{
+						EXPECT_NEVER("maintain failure");
+						break;
+					}
+				}
+				if((i % 500000) == 499999)
+				{
+					r = sysj->filter();
+					if(r < 0)
+					{
+						EXPECT_NEVER("filter failure");
+						break;
+					}
+				}
+				if((i % 1000) == 999)
+				{
+					r = tx_end(0);
+					if(r < 0)
+					{
+						EXPECT_NEVER("tx_end failure");
+						break;
+					}
+				}
+			}
+			if(use_atx)
+			{
+				r = tx_start();
+				EXPECT_NOFAIL("tx_start", r);
+				r = dt->commit_tx(atx);
+				EXPECT_NOFAIL("commit_tx", r);
+				r = tx_end(0);
+				EXPECT_NOFAIL("tx_end", r);
+			}
+			
+			gettimeofday(&end, NULL);
+			printf("Timing finished! ");
+			print_elapsed(&start, &end, true);
+			printf("Average: %"PRIu64" inserts/second\n", 10000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
+			printf("Total abortable transactions: %zu\n", atx_count);
+			
+			r = tx_start();
+			EXPECT_NOFAIL("tx_start", r);
+			dt->destroy();
+			sysj->deinit(true);
+			delete sysj;
+			util::rm_r(AT_FDCWD, "abtx_perf");
+			EXPECT_SIZET("total", 0, warehouse.size());
+			r = tx_end(0);
+			EXPECT_NOFAIL("tx_end", r);
+		} while((use_atx = !use_atx));
+	}
+	
+	return 0;
+}
 
 static int excp_perf(dtable * table)
 {
@@ -191,6 +465,7 @@ int command_edtable(int argc, const char * argv[])
 	
 	if(argc > 1 && !strcmp(argv[1], "perf"))
 	{
+		/* run the performance test as well */
 		config = params();
 		r = params::parse(LITERAL(
 		config [
@@ -558,9 +833,6 @@ int command_bfdtable(int argc, const char * argv[])
 	return 0;
 }
 
-#define ROW_COUNT 50000
-#define DT_ROW_COUNT 200000
-
 int command_blob_cmp(int argc, const char * argv[])
 {
 	int r;
@@ -570,6 +842,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	
 	if(argc < 2 || strcmp(argv[1], "perf"))
 	{
+		/* don't run the performance test, just do this fast test */
 		sys_journal * sysj;
 		journal_dtable * jdt;
 		sys_journal::listener_id jid;
@@ -722,7 +995,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		}
 		if((i % 500000) == 499999)
 		{
-			r = sys_journal::get_global_journal()->filter();
+			r = sysj->filter();
 			if(r < 0)
 				goto fail_maintain;
 		}
@@ -900,7 +1173,7 @@ static int command_performance_stable(int argc, const char * argv[])
 		}
 		if((i % 500000) == 499999)
 		{
-			r = sys_journal::get_global_journal()->filter();
+			r = sysj->filter();
 			if(r < 0)
 				goto fail_maintain;
 		}
@@ -1084,7 +1357,7 @@ static int command_performance_dtable(int argc, const char * argv[])
 		}
 		if((i % 500000) == 499999)
 		{
-			r = sys_journal::get_global_journal()->filter();
+			r = sysj->filter();
 			if(r < 0)
 				goto fail_maintain;
 		}
@@ -1179,6 +1452,7 @@ int command_performance(int argc, const char * argv[])
 int command_bdbtest(int argc, const char * argv[])
 {
 	/* TODO: this isn't the complete bdb test; we need to try different durability checks */
+	sys_journal * sysj = sys_journal::get_global_journal();
 	const uint32_t KEYSIZE = 8;
 	const uint32_t VALSIZE = 32;
 	struct timeval start;
@@ -1202,7 +1476,7 @@ int command_bdbtest(int argc, const char * argv[])
 	jid = sys_journal::get_unique_id();
 	if(jid == sys_journal::NO_ID)
 		return -EBUSY;
-	jdt = journal_dtable::warehouse.obtain(jid, dtype::BLOB, sys_journal::get_global_journal());
+	jdt = journal_dtable::warehouse.obtain(jid, dtype::BLOB, sysj);
 	EXPECT_NONULL("jdt", jdt);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);

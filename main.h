@@ -24,6 +24,7 @@ extern "C" {
 #endif
 
 /* in main_perf.cpp */
+int command_abort(int argc, const char * argv[]);
 int command_edtable(int argc, const char * argv[]);
 int command_odtable(int argc, const char * argv[]);
 int command_ldtable(int argc, const char * argv[]);
@@ -44,7 +45,6 @@ int command_cctable(int argc, const char * argv[]);
 int command_consistency(int argc, const char * argv[]);
 int command_durability(int argc, const char * argv[]);
 int command_rollover(int argc, const char * argv[]);
-int command_abort(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 
