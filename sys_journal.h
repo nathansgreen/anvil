@@ -44,6 +44,7 @@ public:
 		virtual listening_dtable * obtain(listener_id id, dtype::ctype key_type, sys_journal * journal) = 0;
 		/* return the current number of listeners */
 		virtual size_t size() const = 0;
+		virtual ~listening_dtable_warehouse() {}
 	private:
 		/* change the listener ID for the given listener */
 		virtual bool reset(listening_dtable * listener, listener_id id) = 0;
