@@ -207,7 +207,7 @@ int command_abort(int argc, const char * argv[])
 						break;
 					}
 				}
-				r = dt->insert(row, blob(sizeof(value), &value));
+				r = dt->insert(row, blob(sizeof(value), &value), false, atx);
 				assert(r >= 0);
 				if((i % 1000000) == 999999)
 				{
