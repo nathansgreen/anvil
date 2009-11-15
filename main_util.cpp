@@ -1,0 +1,212 @@
+/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+ * of the University of California. It is distributed under the terms of
+ * version 2 of the GNU GPL. See the file LICENSE for details. */
+
+#include <ctype.h>
+#include <stdarg.h>
+#include <unistd.h>
+
+#include "main.h"
+
+void print(const dtype & x)
+{
+	switch(x.type)
+	{
+		case dtype::UINT32:
+			printf("%u", x.u32);
+			break;
+		case dtype::DOUBLE:
+			printf("%lg", x.dbl);
+			break;
+		case dtype::STRING:
+			printf("%s", (const char *) x.str);
+			break;
+		case dtype::BLOB:
+			size_t size = x.blb.size();
+			printf("%zu[", size);
+			for(size_t i = 0; i < size && i < 8; i++)
+				printf("%02X%s", x.blb[i], (i < size - 1) ? " " : "");
+			printf((size > 8) ? "...]" : "]");
+			break;
+	}
+}
+
+void print(const blob & x, const char * prefix, ...)
+{
+	va_list ap;
+	va_start(ap, prefix);
+	if(!x.exists())
+	{
+		if(prefix)
+			vprintf(prefix, ap);
+		printf("(non-existent)\n");
+		va_end(ap);
+		return;
+	}
+	for(size_t i = 0; i < x.size(); i += 16)
+	{
+		size_t m = i + 16;
+		if(prefix)
+			vprintf(prefix, ap);
+		for(size_t j = i; j < m; j++)
+		{
+			if(j < x.size())
+				printf("%02x ", x[j]);
+			else
+				printf("   ");
+			if((i % 16) == 8)
+				printf(" ");
+		}
+		printf(" |");
+		for(size_t j = i; j < m; j++)
+		{
+			if(j < x.size())
+				printf("%c", isprint(x[j]) ? x[j] : '.');
+			else
+				printf(" ");
+		}
+		printf("|\n");
+	}
+	va_end(ap);
+}
+
+void run_iterator(const dtable * table, ATX_DEF)
+{
+	bool more = true;
+	dtable::iter * iter = table->iterator(atx);
+	printf("dtable contents:\n");
+	while(iter->valid())
+	{
+		if(!more)
+		{
+			EXPECT_NEVER("iter->next() returned false, but iter->valid() says there is more!");
+			break;
+		}
+		print(iter->key());
+		printf(":");
+		print(iter->value(), "\t");
+		more = iter->next();
+	}
+	delete iter;
+}
+
+void run_iterator(const ctable * table)
+{
+	dtype old_key(0u);
+	bool more = true, first = true;
+	ctable::iter * iter = table->iterator();
+	printf("ctable contents:\n");
+	while(iter->valid())
+	{
+		dtype key = iter->key();
+		if(!more)
+		{
+			EXPECT_NEVER("iter->next() returned false, but iter->valid() says there is more!");
+			break;
+		}
+		if(first || key.compare(old_key))
+		{
+			printf("==> key ");
+			print(key);
+			printf("\n");
+			old_key = key;
+			first = false;
+		}
+		printf("%s:", (const char *) iter->name());
+		print(iter->value(), "\t");
+		more = iter->next();
+	}
+	delete iter;
+}
+
+void run_iterator(const stable * table)
+{
+	dtype old_key(0u);
+	bool more = true, first = true;
+	stable::column_iter * columns = table->columns();
+	stable::iter * iter = table->iterator();
+	printf("stable columns:\n");
+	while(columns->valid())
+	{
+		size_t rows = columns->row_count();
+		const char * type = dtype::name(columns->type());
+		if(!more)
+		{
+			EXPECT_NEVER("columns->next() returned false, but columns->valid() says there is more!");
+			break;
+		}
+		printf("%s:\t%s (%zu row%s)\n", (const char *) columns->name(), type, rows, (rows == 1) ? "" : "s");
+		more = columns->next();
+	}
+	delete columns;
+	more = true;
+	printf("stable contents:\n");
+	while(iter->valid())
+	{
+		dtype key = iter->key();
+		if(!more)
+		{
+			EXPECT_NEVER("iter->next() returned false, but iter->valid() says there is more!");
+			break;
+		}
+		if(first || key.compare(old_key))
+		{
+			printf("==> key ");
+			print(key);
+			printf("\n");
+			old_key = key;
+			first = false;
+		}
+		printf("%s:\t", (const char *) iter->column());
+		print(iter->value());
+		printf("\n");
+		more = iter->next();
+	}
+	delete iter;
+}
+
+void print_elapsed(const struct timeval * start, struct timeval * end, bool elapsed)
+{
+	end->tv_sec -= start->tv_sec;
+	if(end->tv_usec < start->tv_usec)
+	{
+		end->tv_usec += 1000000;
+		end->tv_sec--;
+	}
+	end->tv_usec -= start->tv_usec;
+	printf("%d.%06d seconds%s.\n", (int) end->tv_sec, (int) end->tv_usec, elapsed ? " elapsed" : "");
+}
+
+void print_elapsed(const struct timeval * start, bool elapsed)
+{
+	struct timeval end;
+	gettimeofday(&end, NULL);
+	print_elapsed(start, &end, elapsed);
+}
+
+void print_progress(const struct timeval * start, struct timeval * now, int percent)
+{
+	now->tv_sec -= start->tv_sec;
+	if(now->tv_usec < start->tv_usec)
+	{
+		now->tv_usec += 1000000;
+		now->tv_sec--;
+	}
+	now->tv_usec -= start->tv_usec;
+	printf("%d%% done after %d.%06d seconds.\n", percent, (int) now->tv_sec, (int) now->tv_usec);
+}
+
+void print_progress(const struct timeval * start, int percent)
+{
+	struct timeval now;
+	gettimeofday(&now, NULL);
+	print_progress(start, &now, percent);
+}
+
+void wait_digest(int seconds)
+{
+	printf("Waiting %d second%s for digest interval... ", seconds, (seconds == 1) ? "" : "s");
+	fflush(stdout);
+	sleep(seconds);
+	printf("done.\n");
+}

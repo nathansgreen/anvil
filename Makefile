@@ -43,8 +43,8 @@ COBJECTS=$(CSOURCES:.c=.o)
 CPPOBJECTS=$(CPPSOURCES:.cpp=.o)
 OBJECTS=$(COBJECTS) $(CPPOBJECTS)
 
-MAIN_SRC=main.c main++.cpp tpch.cpp
-MAIN_OBJ=main.o main++.o tpch.o
+MAIN_SRC=main.c main_util.cpp main_perf.cpp main_test.cpp tpch.cpp
+MAIN_OBJ=main.o main_util.o main_perf.o main_test.o tpch.o
 
 .PHONY: all clean clean-all count count-all php
 
