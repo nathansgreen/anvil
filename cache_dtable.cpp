@@ -97,7 +97,7 @@ int cache_dtable::remove(const dtype & key, ATX_DEF)
 	return value;
 }
 
-int cache_dtable::init(int dfd, const char * file, const params & config)
+int cache_dtable::init(int dfd, const char * file, const params & config, sys_journal * sysj)
 {
 	int r;
 	const dtable_factory * factory;
@@ -112,7 +112,7 @@ int cache_dtable::init(int dfd, const char * file, const params & config)
 		return -EINVAL;
 	if(!config.get("base_config", &base_config, params()))
 		return -EINVAL;
-	base = factory->open(dfd, file, base_config);
+	base = factory->open(dfd, file, base_config, sysj);
 	if(!base)
 		return -1;
 	ktype = base->key_type();

@@ -26,7 +26,7 @@ public:
 	DECLARE_RO_FACTORY(exception_dtable);
 	
 	inline exception_dtable() : base(NULL), alt(NULL) {}
-	int init(int dfd, const char * file, const params & config);
+	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
 	void deinit();
 	
 protected:

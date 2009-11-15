@@ -378,7 +378,7 @@ void column_ctable::deinit()
 	}
 }
 
-int column_ctable::init(int dfd, const char * file, const params & config)
+int column_ctable::init(int dfd, const char * file, const params & config, sys_journal * sysj)
 {
 	int cct_dfd, r;
 	const dtable_factory * base = NULL;
@@ -470,7 +470,7 @@ int column_ctable::init(int dfd, const char * file, const params & config)
 		name = string;
 		r = config.get(name, &column_config, base_config);
 		assert(r);
-		column_table[i] = column->open(cct_dfd, column_name[i], column_config);
+		column_table[i] = column->open(cct_dfd, column_name[i], column_config, sysj);
 		if(!column_table[i])
 			goto fail_load;
 	}

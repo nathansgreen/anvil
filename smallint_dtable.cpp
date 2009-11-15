@@ -117,7 +117,7 @@ bool smallint_dtable::static_indexed_access(const params & config)
 	return factory->indexed_access(base_config);
 }
 
-int smallint_dtable::init(int dfd, const char * file, const params & config)
+int smallint_dtable::init(int dfd, const char * file, const params & config, sys_journal * sysj)
 {
 	const dtable_factory * factory;
 	params base_config;
@@ -132,7 +132,7 @@ int smallint_dtable::init(int dfd, const char * file, const params & config)
 	if(!config.get("bytes", &bytes, 0) || bytes < 1 || bytes > 3)
 		return -EINVAL;
 	byte_count = bytes;
-	base = factory->open(dfd, file, base_config);
+	base = factory->open(dfd, file, base_config, sysj);
 	if(!base)
 		return -1;
 	ktype = base->key_type();

@@ -411,7 +411,7 @@ dtype::ctype simple_stable::key_type() const
 	return ct_data->key_type();
 }
 
-int simple_stable::init(int dfd, const char * name, const params & config)
+int simple_stable::init(int dfd, const char * name, const params & config, sys_journal * sysj)
 {
 	int r = -1;
 	params meta_config, data_config;
@@ -429,10 +429,10 @@ int simple_stable::init(int dfd, const char * name, const params & config)
 	md_dfd = openat(dfd, name, O_RDONLY);
 	if(md_dfd < 0)
 		return md_dfd;
-	dt_meta = meta->open(md_dfd, "st_meta", meta_config);
+	dt_meta = meta->open(md_dfd, "st_meta", meta_config, sysj);
 	if(!dt_meta)
 		goto fail_meta;
-	ct_data = data->open(md_dfd, "st_data", data_config);
+	ct_data = data->open(md_dfd, "st_data", data_config, sysj);
 	if(!ct_data)
 		goto fail_data;
 	

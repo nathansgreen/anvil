@@ -260,7 +260,7 @@ bool fixed_dtable::contains_index(size_t index) const
 	return data_exists;
 }
 
-int fixed_dtable::init(int dfd, const char * file, const params & config)
+int fixed_dtable::init(int dfd, const char * file, const params & config, sys_journal * sysj)
 {
 	int r = -1;
 	dtable_header header;

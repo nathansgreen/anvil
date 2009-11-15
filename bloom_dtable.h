@@ -56,7 +56,7 @@ public:
 	DECLARE_RO_FACTORY(bloom_dtable);
 	
 	inline bloom_dtable() : base(NULL), chain(this) {}
-	int init(int dfd, const char * file, const params & config);
+	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
 	void deinit();
 
 protected:

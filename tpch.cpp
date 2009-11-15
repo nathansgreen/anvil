@@ -15,6 +15,7 @@
 
 #include "dtable_factory.h"
 #include "ctable_factory.h"
+#include "sys_journal.h"
 
 extern "C" {
 int command_tpchtype(int argc, const char * argv[]);
@@ -150,7 +151,7 @@ static ctable * create_and_open(const tpch_table_info & info)
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);
 	
-	table = ctable_factory::load(info.type, AT_FDCWD, info.name, config);
+	table = ctable_factory::load(info.type, AT_FDCWD, info.name, config, sys_journal::get_global_journal());
 	printf("ctable_factory::load = %p\n", table);
 	
 	return table;
@@ -385,7 +386,7 @@ static ctable * open_in_tx(const tpch_table_info & info, bool print_config = fal
 	
 	r = tx_start();
 	printf("tx_start = %d\n", r);
-	table = ctable_factory::load(info.type, AT_FDCWD, info.name, config);
+	table = ctable_factory::load(info.type, AT_FDCWD, info.name, config, sys_journal::get_global_journal());
 	printf("ctable_factory::load = %p\n", table);
 	r = tx_end(0);
 	printf("tx_end = %d\n", r);

@@ -362,7 +362,7 @@ int keydiv_dtable::maintain(bool force)
 	return r;
 }
 
-int keydiv_dtable::init(int dfd, const char * name, const params & config)
+int keydiv_dtable::init(int dfd, const char * name, const params & config, sys_journal * sysj)
 {
 	abortable_tx atx;
 	int r, kdd_dfd, meta;
@@ -421,7 +421,7 @@ int keydiv_dtable::init(int dfd, const char * name, const params & config)
 		char name[32];
 		dtable * source;
 		sprintf(name, "kdd_data.%u", i);
-		source = base->open(kdd_dfd, name, base_config);
+		source = base->open(kdd_dfd, name, base_config, sysj);
 		if(!source)
 			goto fail_sub;
 		sub.push_back(source);

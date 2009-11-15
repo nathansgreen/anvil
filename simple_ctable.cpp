@@ -431,7 +431,7 @@ int simple_ctable::remove(const dtype & key, size_t * indices, size_t count)
 	return r;
 }
 
-int simple_ctable::init(int dfd, const char * file, const params & config)
+int simple_ctable::init(int dfd, const char * file, const params & config, sys_journal * sysj)
 {
 	const dtable_factory * factory;
 	params base_config;
@@ -481,7 +481,7 @@ int simple_ctable::init(int dfd, const char * file, const params & config)
 		column_map[column_name[i]] = i;
 	}
 	
-	base = factory->open(ct_dfd, "base", base_config);
+	base = factory->open(ct_dfd, "base", base_config, sysj);
 	if(!base)
 		goto fail_names;
 	ktype = base->key_type();

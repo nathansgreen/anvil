@@ -119,7 +119,7 @@ public:
 		: digest_thread(this, &managed_dtable::digest_thread_main), bg_digesting(false), bg_default(false), md_dfd(-1), chain(this)
 	{
 	}
-	int init(int dfd, const char * name, const params & config, sys_journal * sysj = NULL);
+	int init(int dfd, const char * name, const params & config, sys_journal * sysj);
 	void deinit();
 	
 protected:

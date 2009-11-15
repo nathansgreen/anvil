@@ -40,7 +40,7 @@ public:
 	virtual int maintain(bool force = false);
 	
 	inline column_ctable() : column_table(NULL) {}
-	int init(int dfd, const char * file, const params & config = params());
+	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
 	void deinit();
 	inline virtual ~column_ctable()
 	{

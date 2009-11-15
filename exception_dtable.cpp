@@ -240,7 +240,7 @@ blob exception_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 	return value;
 }
 
-int exception_dtable::init(int dfd, const char * file, const params & config)
+int exception_dtable::init(int dfd, const char * file, const params & config, sys_journal * sysj)
 {
 	const dtable_factory * base_factory;
 	const dtable_factory * alt_factory;
@@ -265,10 +265,10 @@ int exception_dtable::init(int dfd, const char * file, const params & config)
 	excp_dfd = openat(dfd, file, O_RDONLY);
 	if(excp_dfd < 0)
 		return excp_dfd;
-	base = base_factory->open(excp_dfd, "base", base_config);
+	base = base_factory->open(excp_dfd, "base", base_config, sysj);
 	if(!base)
 		goto fail_base;
-	alt = alt_factory->open(excp_dfd, "alt", alt_config);
+	alt = alt_factory->open(excp_dfd, "alt", alt_config, sysj);
 	if(!alt)
 		goto fail_alt;
 	ktype = base->key_type();

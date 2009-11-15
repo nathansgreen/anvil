@@ -304,7 +304,7 @@ bool ustr_dtable::contains_index(size_t index) const
 	return data_length != (size_t) -1;
 }
 
-int ustr_dtable::init(int dfd, const char * file, const params & config)
+int ustr_dtable::init(int dfd, const char * file, const params & config, sys_journal * sysj)
 {
 	int r = -1;
 	dtable_header header;

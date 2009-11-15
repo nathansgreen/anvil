@@ -276,6 +276,7 @@ int command_dtable(int argc, const char * argv[])
 {
 	int r;
 	managed_dtable * mdt;
+	sys_journal * sysj = sys_journal::get_global_journal();
 	const char * path;
 	params config;
 	
@@ -301,7 +302,7 @@ int command_dtable(int argc, const char * argv[])
 	EXPECT_NOFAIL("tx_end", r);
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, path, config);
+	r = mdt->init(AT_FDCWD, path, config, sysj);
 	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
@@ -315,7 +316,7 @@ int command_dtable(int argc, const char * argv[])
 	mdt->destroy();
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, path, config);
+	r = mdt->init(AT_FDCWD, path, config, sysj);
 	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
@@ -328,7 +329,7 @@ int command_dtable(int argc, const char * argv[])
 	mdt->destroy();
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, path, config);
+	r = mdt->init(AT_FDCWD, path, config, sysj);
 	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
@@ -346,7 +347,7 @@ int command_dtable(int argc, const char * argv[])
 	mdt->destroy();
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, path, config);
+	r = mdt->init(AT_FDCWD, path, config, sysj);
 	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
 	run_iterator(mdt);
 	r = tx_start();
@@ -359,7 +360,7 @@ int command_dtable(int argc, const char * argv[])
 	mdt->destroy();
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, path, config);
+	r = mdt->init(AT_FDCWD, path, config, sysj);
 	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
 	run_iterator(mdt);
 	mdt->destroy();
@@ -465,6 +466,7 @@ int command_edtable(int argc, const char * argv[])
 	int r;
 	blob fixed("fixed");
 	blob exception("exception");
+	sys_journal * sysj = sys_journal::get_global_journal();
 	managed_dtable * mdt;
 	params config;
 	
@@ -492,7 +494,7 @@ int command_edtable(int argc, const char * argv[])
 	EXPECT_NOFAIL("tx_end", r);
 	
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "excp_test", config);
+	r = mdt->init(AT_FDCWD, "excp_test", config, sysj);
 	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
@@ -512,7 +514,7 @@ int command_edtable(int argc, const char * argv[])
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "excp_test", config);
+	r = mdt->init(AT_FDCWD, "excp_test", config, sysj);
 	EXPECT_NOFAIL("mdt->init", r);
 	r = mdt->maintain();
 	EXPECT_NOFAIL_COUNT("mdt->maintain", r, "disk dtables", mdt->disk_dtables());
@@ -531,7 +533,7 @@ int command_edtable(int argc, const char * argv[])
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
 	mdt = new managed_dtable;
-	r = mdt->init(AT_FDCWD, "excp_test", config);
+	r = mdt->init(AT_FDCWD, "excp_test", config, sysj);
 	EXPECT_NOFAIL("mdt->init", r);
 	r = mdt->maintain();
 	EXPECT_NOFAIL_COUNT("mdt->maintain", r, "disk dtables", mdt->disk_dtables());
@@ -571,7 +573,7 @@ int command_edtable(int argc, const char * argv[])
 		
 		/* run a test with it */
 		mdt = new managed_dtable;
-		r = mdt->init(AT_FDCWD, "excp_perf", config);
+		r = mdt->init(AT_FDCWD, "excp_perf", config, sysj);
 		EXPECT_NOFAIL("mdt->init", r);
 		excp_perf(mdt);
 		mdt->destroy();
@@ -602,7 +604,7 @@ int command_edtable(int argc, const char * argv[])
 		
 		/* run the same test */
 		mdt = new managed_dtable;
-		r = mdt->init(AT_FDCWD, "exbl_perf", config);
+		r = mdt->init(AT_FDCWD, "exbl_perf", config, sysj);
 		EXPECT_NOFAIL("mdt->init", r);
 		excp_perf(mdt);
 		mdt->destroy();
@@ -647,6 +649,7 @@ static int ovdt_perf(dtable * table)
 
 int command_odtable(int argc, const char * argv[])
 {
+	sys_journal * sysj = sys_journal::get_global_journal();
 	params config, base_config;
 	blob exception("pandora");
 	blob fixed("aoife");
@@ -679,7 +682,7 @@ int command_odtable(int argc, const char * argv[])
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
-	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "ovdt_perf", config);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "ovdt_perf", config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	
 	r = tx_start();
@@ -724,7 +727,7 @@ int command_odtable(int argc, const char * argv[])
 	base_config.print();
 	printf("\n");
 	/* load the first disk dtable directly */
-	dt = dtable_factory::load(base, AT_FDCWD, "ovdt_perf/md_data.0", base_config);
+	dt = dtable_factory::load(base, AT_FDCWD, "ovdt_perf/md_data.0", base_config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	ovdt_perf(dt);
 	dt->destroy();
@@ -739,6 +742,7 @@ int command_ldtable(int argc, const char * argv[])
 	int r;
 	dtable * dt;
 	params config;
+	sys_journal * sysj = sys_journal::get_global_journal();
 	
 	r = params::parse(LITERAL(
 	config [
@@ -756,7 +760,7 @@ int command_ldtable(int argc, const char * argv[])
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
-	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "lldt_test", config);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "lldt_test", config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	
 	excp_perf(dt);
@@ -779,7 +783,7 @@ int command_ldtable(int argc, const char * argv[])
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
-	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "lsdt_test", config);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "lsdt_test", config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	
 	excp_perf(dt);
@@ -794,6 +798,7 @@ int command_ussdtable(int argc, const char * argv[])
 	params config;
 	dtable * table;
 	memory_dtable mdt;
+	sys_journal * sysj = sys_journal::get_global_journal();
 	const dtable_factory * base = dtable_factory::lookup("usstate_dtable");
 	
 	r = params::parse(LITERAL(
@@ -811,12 +816,12 @@ int command_ussdtable(int argc, const char * argv[])
 	
 	r = base->create(AT_FDCWD, "usst_test", config, &mdt);
 	EXPECT_NOFAIL("uss::create", r);
-	table = base->open(AT_FDCWD, "usst_test", config);
+	table = base->open(AT_FDCWD, "usst_test", config, sysj);
 	EXPECT_NONULL("uss::open", table);
 	run_iterator(table);
 	table->destroy();
 	
-	table = dtable_factory::load("fixed_dtable", AT_FDCWD, "usst_test", params());
+	table = dtable_factory::load("fixed_dtable", AT_FDCWD, "usst_test", params(), sysj);
 	EXPECT_NONULL("dtable_factory::load", table);
 	run_iterator(table);
 	table->destroy();
@@ -877,6 +882,7 @@ static int bfdt_perf(dtable * table)
 
 int command_bfdtable(int argc, const char * argv[])
 {
+	sys_journal * sysj = sys_journal::get_global_journal();
 	params config;
 	dtable * dt;
 	int r;
@@ -904,7 +910,7 @@ int command_bfdtable(int argc, const char * argv[])
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
-	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "bfdt_perf", config);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "bfdt_perf", config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	
 	r = tx_start();
@@ -938,7 +944,7 @@ int command_bfdtable(int argc, const char * argv[])
 	dt->destroy();
 	
 	printf("Repeat with direct access...\n");
-	dt = dtable_factory::load("simple_dtable", AT_FDCWD, "bfdt_perf/md_data.0/base", params());
+	dt = dtable_factory::load("simple_dtable", AT_FDCWD, "bfdt_perf/md_data.0/base", params(), sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	bfdt_perf(dt);
 	dt->destroy();
@@ -953,6 +959,7 @@ int command_sidtable(int argc, const char * argv[])
 	uint32_t value;
 	dtable * table;
 	memory_dtable mdt;
+	sys_journal * sysj = sys_journal::get_global_journal();
 	const dtable_factory * base = dtable_factory::lookup("smallint_dtable");
 	
 	r = params::parse(LITERAL(
@@ -977,12 +984,12 @@ int command_sidtable(int argc, const char * argv[])
 	
 	r = base->create(AT_FDCWD, "sidt_test", config, &mdt);
 	EXPECT_NOFAIL("sid::create", r);
-	table = base->open(AT_FDCWD, "sidt_test", config);
+	table = base->open(AT_FDCWD, "sidt_test", config, sysj);
 	EXPECT_NONULL("sid::open", table);
 	run_iterator(table);
 	table->destroy();
 	
-	table = dtable_factory::load("array_dtable", AT_FDCWD, "sidt_test", params());
+	table = dtable_factory::load("array_dtable", AT_FDCWD, "sidt_test", params(), sysj);
 	EXPECT_NONULL("dtable_factory::load", table);
 	run_iterator(table);
 	table->destroy();
@@ -1003,6 +1010,7 @@ int command_didtable(int argc, const char * argv[])
 	size_t count = 0;
 	memory_dtable mdt;
 	uint32_t key = 10, value = 0;
+	sys_journal * sysj = sys_journal::get_global_journal();
 	const dtable_factory * base = dtable_factory::lookup("deltaint_dtable");
 	bool verbose = false, ok = true;
 	dtable::iter * ref_it;
@@ -1040,7 +1048,7 @@ int command_didtable(int argc, const char * argv[])
 	
 	r = base->create(AT_FDCWD, "didt_test", config, &mdt);
 	EXPECT_NOFAIL("did::create", r);
-	table = base->open(AT_FDCWD, "didt_test", config);
+	table = base->open(AT_FDCWD, "didt_test", config, sysj);
 	EXPECT_NONULL("did::open", table);
 	run_iterator(table);
 	printf("Check random lookups... ");
@@ -1068,7 +1076,7 @@ int command_didtable(int argc, const char * argv[])
 		printf("OK!\n");
 	}
 	
-	table = base->open(AT_FDCWD, "didt_test", config);
+	table = base->open(AT_FDCWD, "didt_test", config, sysj);
 	EXPECT_NONULL("did::open", table);
 	
 	printf("Checking iterator behavior... ");
@@ -1173,12 +1181,12 @@ int command_didtable(int argc, const char * argv[])
 	delete ref_it;
 	table->destroy();
 	
-	table = dtable_factory::load("simple_dtable", AT_FDCWD, "didt_test/base", params());
+	table = dtable_factory::load("simple_dtable", AT_FDCWD, "didt_test/base", params(), sysj);
 	EXPECT_NONULL("dtable_factory::load", table);
 	run_iterator(table);
 	table->destroy();
 	
-	table = dtable_factory::load("simple_dtable", AT_FDCWD, "didt_test/ref", params());
+	table = dtable_factory::load("simple_dtable", AT_FDCWD, "didt_test/ref", params(), sysj);
 	EXPECT_NONULL("dtable_factory::load", table);
 	run_iterator(table);
 	table->destroy();
@@ -1190,6 +1198,7 @@ static void iterator_test(const istr & type, const char * name, const params & c
 {
 	int r;
 	dtable * dt;
+	sys_journal * sysj = sys_journal::get_global_journal();
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
@@ -1203,7 +1212,7 @@ static void iterator_test(const istr & type, const char * name, const params & c
 #define VALUES 10
 	blob values[VALUES];
 	
-	dt = dtable_factory::load(type, AT_FDCWD, name, config);
+	dt = dtable_factory::load(type, AT_FDCWD, name, config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	for(size_t i = 0; i < LAYERS; i++)
 	{
@@ -1232,7 +1241,7 @@ static void iterator_test(const istr & type, const char * name, const params & c
 	}
 	dt->destroy();
 	
-	dt = dtable_factory::load(type, AT_FDCWD, name, config);
+	dt = dtable_factory::load(type, AT_FDCWD, name, config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	run_iterator(dt);
 	
@@ -1416,6 +1425,7 @@ int command_ctable(int argc, const char * argv[])
 {
 	int r;
 	ctable * sct;
+	sys_journal * sysj = sys_journal::get_global_journal();
 	
 	params config;
 	r = params::parse(LITERAL(
@@ -1443,7 +1453,7 @@ int command_ctable(int argc, const char * argv[])
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
-	sct = ctable_factory::load("simple_ctable", AT_FDCWD, "msct_test", config);
+	sct = ctable_factory::load("simple_ctable", AT_FDCWD, "msct_test", config, sysj);
 	EXPECT_NONULL("load", sct);
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
@@ -1489,6 +1499,7 @@ int command_cctable(int argc, const char * argv[])
 	int r;
 	ctable * ct;
 	ctable::colval values[3] = {{0}, {1}, {2}};
+	sys_journal * sysj = sys_journal::get_global_journal();
 	const ctable_factory * base = ctable_factory::lookup("column_ctable");
 	blob first[8] = {"Amy", "Bill", "Charlie", "Diana", "Edward", "Flora", "Gail", "Henry"};
 	blob last[6] = {"Nobel", "O'Toole", "Patterson", "Quayle", "Roberts", "Smith"};
@@ -1517,7 +1528,7 @@ int command_cctable(int argc, const char * argv[])
 	r = base->create(AT_FDCWD, "cctr_test", config, dtype::UINT32);
 	EXPECT_NOFAIL("cct::create", r);
 	
-	ct = base->open(AT_FDCWD, "cctr_test", config);
+	ct = base->open(AT_FDCWD, "cctr_test", config, sysj);
 	EXPECT_NONULL("cct::open", ct);
 	delete ct;
 	
@@ -1564,7 +1575,7 @@ int command_cctable(int argc, const char * argv[])
 	r = base->create(AT_FDCWD, "cctw_test", config, dtype::UINT32);
 	EXPECT_NOFAIL("cct::create", r);
 	
-	ct = base->open(AT_FDCWD, "cctw_test", config);
+	ct = base->open(AT_FDCWD, "cctw_test", config, sysj);
 	EXPECT_NONULL("cct::open", ct);
 	for(uint32_t i = 0; i < 20; i++)
 	{
@@ -1585,7 +1596,7 @@ int command_cctable(int argc, const char * argv[])
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	ct = base->open(AT_FDCWD, "cctw_test", config);
+	ct = base->open(AT_FDCWD, "cctw_test", config, sysj);
 	EXPECT_NONULL("cct::open", ct);
 	run_iterator(ct);
 	delete ct;
@@ -1662,6 +1673,7 @@ int command_consistency(int argc, const char * argv[])
 	size_t buckets[CONS_TEST_BUCKETS];
 	uint32_t initial = CONS_TEST_INITIAL;
 	blob value(sizeof(initial), &initial);
+	sys_journal * sysj = sys_journal::get_global_journal();
 	ctable::colval values[CONS_TEST_COLS] = {{0}, { 1}, { 2}, { 3}, { 4}, { 5}, { 6}, { 7}, { 8}, { 9},
 	                                        {10}, {11}, {12}, {13}, {14}, {15}, {16}, {17}, {18}, {19},
 	                                        {20}, {21}, {22}, {23}, {24}, {25}, {26}, {27}, {28}, {29},
@@ -1697,7 +1709,7 @@ int command_consistency(int argc, const char * argv[])
 		r = tx_start();
 		EXPECT_NOFAIL("tx_start", r);
 		
-		ct = ctable_factory::load("column_ctable", AT_FDCWD, "cons_test", config);
+		ct = ctable_factory::load("column_ctable", AT_FDCWD, "cons_test", config, sysj);
 		EXPECT_NONULL("load", ct);
 		
 		printf("Consistency check: ");
@@ -1722,7 +1734,7 @@ int command_consistency(int argc, const char * argv[])
 	r = ctable_factory::setup("column_ctable", AT_FDCWD, "cons_test", config, dtype::UINT32);
 	EXPECT_NOFAIL("setup", r);
 	
-	ct = ctable_factory::load("column_ctable", AT_FDCWD, "cons_test", config);
+	ct = ctable_factory::load("column_ctable", AT_FDCWD, "cons_test", config, sysj);
 	EXPECT_NONULL("load", ct);
 	for(uint32_t i = 0; i < 500; i++)
 	{
@@ -1737,7 +1749,7 @@ int command_consistency(int argc, const char * argv[])
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
 	
-	ct = ctable_factory::load("column_ctable", AT_FDCWD, "cons_test", config);
+	ct = ctable_factory::load("column_ctable", AT_FDCWD, "cons_test", config, sysj);
 	EXPECT_NONULL("load", ct);
 	
 	printf("Consistency check: ");
@@ -1815,6 +1827,7 @@ int command_durability(int argc, const char * argv[])
 {
 	params config;
 	tx_id transaction_id;
+	sys_journal * sysj = sys_journal::get_global_journal();
 	uint32_t tx_seq;
 	dtable * dt;
 	bool check;
@@ -1842,7 +1855,7 @@ int command_durability(int argc, const char * argv[])
 		EXPECT_NOFAIL("dtable::create", r);
 	}
 	
-	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "dura_test", config);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "dura_test", config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	
 	r = tx_end(0);
@@ -2150,6 +2163,7 @@ int command_abort(int argc, const char * argv[])
 	dtable * dt;
 	params config;
 	abortable_tx atx;
+	sys_journal * sysj = sys_journal::get_global_journal();
 	
 	r = params::parse(LITERAL(
 	config [
@@ -2171,7 +2185,7 @@ int command_abort(int argc, const char * argv[])
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	r = dt->insert(1u, blob("A"));
 	EXPECT_NOFAIL("dt->insert(1)", r);
@@ -2240,8 +2254,9 @@ int command_abort(int argc, const char * argv[])
 int command_stable(int argc, const char * argv[])
 {
 	int r;
-	simple_stable * sst;
 	params config;
+	simple_stable * sst;
+	sys_journal * sysj = sys_journal::get_global_journal();
 	
 	r = params::parse(LITERAL(
 	config [
@@ -2287,7 +2302,7 @@ int command_stable(int argc, const char * argv[])
 	EXPECT_NOFAIL("tx_end", r);
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "msst_test", config);
+	r = sst->init(AT_FDCWD, "msst_test", config, sysj);
 	EXPECT_NOFAIL("sst->init", r);
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
@@ -2303,7 +2318,7 @@ int command_stable(int argc, const char * argv[])
 	delete sst;
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "msst_test", config);
+	r = sst->init(AT_FDCWD, "msst_test", config, sysj);
 	EXPECT_NOFAIL("sst->init", r);
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
@@ -2327,7 +2342,7 @@ int command_stable(int argc, const char * argv[])
 	/* must start the transaction first since it will do maintenance */
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	r = sst->init(AT_FDCWD, "msst_test", config);
+	r = sst->init(AT_FDCWD, "msst_test", config, sysj);
 	EXPECT_NOFAIL("sst->init", r);
 	r = sst->maintain();
 	EXPECT_NOFAIL("sst->maintain()", r);
@@ -2443,6 +2458,7 @@ int command_blob_cmp(int argc, const char * argv[])
 {
 	int r;
 	struct timeval start, end;
+	sys_journal * sysj = sys_journal::get_global_journal();
 	blob_comparator * reverse = new reverse_blob_comparator;
 	
 	if(argc < 2 || strcmp(argv[1], "perf"))
@@ -2560,7 +2576,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	EXPECT_NOFAIL("tx_end", r);
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "cmp_test", config);
+	r = sst->init(AT_FDCWD, "cmp_test", config, sysj);
 	EXPECT_NOFAIL("sst->init", r);
 	r = sst->set_blob_cmp(reverse);
 	EXPECT_NOFAIL("sst->set_blob_cmp", r);
@@ -2622,7 +2638,7 @@ int command_blob_cmp(int argc, const char * argv[])
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "cmp_test", config);
+	r = sst->init(AT_FDCWD, "cmp_test", config, sysj);
 	EXPECT_NOFAIL("sst->init", r);
 	r = sst->set_blob_cmp(reverse);
 	EXPECT_NOFAIL("sst->set_blob_cmp", r);
@@ -2685,6 +2701,7 @@ static int command_performance_stable(int argc, const char * argv[])
 	stable::iter * iter;
 	struct timeval start, end;
 	uint32_t table_copy[ROW_COUNT][COLUMN_NAMES];
+	sys_journal * sysj = sys_journal::get_global_journal();
 	params config;
 	
 	r = params::parse(LITERAL(
@@ -2737,7 +2754,7 @@ static int command_performance_stable(int argc, const char * argv[])
 	EXPECT_NOFAIL("tx_end", r);
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "perf_test", config);
+	r = sst->init(AT_FDCWD, "perf_test", config, sysj);
 	EXPECT_NOFAIL("sst->init", r);
 	
 	for(uint32_t i = 0; i < ROW_COUNT; i++)
@@ -2795,7 +2812,7 @@ static int command_performance_stable(int argc, const char * argv[])
 	delete sst;
 	
 	sst = new simple_stable;
-	r = sst->init(AT_FDCWD, "perf_test", config);
+	r = sst->init(AT_FDCWD, "perf_test", config, sysj);
 	EXPECT_NOFAIL("sst->init", r);
 	
 	printf("Verifying writes... ");
@@ -2894,6 +2911,7 @@ static int command_performance_dtable(int argc, const char * argv[])
 	dtable::iter * iter;
 	struct timeval start, end;
 	uint32_t table_copy[DT_ROW_COUNT];
+	sys_journal * sysj = sys_journal::get_global_journal();
 	params config;
 	
 	r = params::parse(LITERAL(
@@ -2922,7 +2940,7 @@ static int command_performance_dtable(int argc, const char * argv[])
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
-	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpf_test", config);
+	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpf_test", config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	
 	for(uint32_t i = 0; i < DT_ROW_COUNT; i++)
@@ -2979,7 +2997,7 @@ static int command_performance_dtable(int argc, const char * argv[])
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpf_test", config);
+	dt = dtable_factory::load("cache_dtable", AT_FDCWD, "dtpf_test", config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);

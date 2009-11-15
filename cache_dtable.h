@@ -53,7 +53,7 @@ public:
 	DECLARE_WRAP_FACTORY(cache_dtable);
 	
 	inline cache_dtable() : base(NULL), chain(this), cache(10, blob_cmp, blob_cmp) {}
-	int init(int dfd, const char * file, const params & config);
+	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
 	void deinit();
 	
 protected:

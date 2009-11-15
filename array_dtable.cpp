@@ -267,7 +267,7 @@ bool array_dtable::contains_index(size_t index) const
 	return index_type(index) == ARRAY_INDEX_VALID;
 }
 
-int array_dtable::init(int dfd, const char * file, const params & config)
+int array_dtable::init(int dfd, const char * file, const params & config, sys_journal * sysj)
 {
 	dtable_header header;
 	if(fp)

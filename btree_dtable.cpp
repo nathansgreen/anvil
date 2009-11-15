@@ -115,7 +115,7 @@ size_t btree_dtable::size() const
 	return base->size();
 }
 
-int btree_dtable::init(int dfd, const char * file, const params & config)
+int btree_dtable::init(int dfd, const char * file, const params & config, sys_journal * sysj)
 {
 	const dtable_factory * factory;
 	params base_config;
@@ -132,7 +132,7 @@ int btree_dtable::init(int dfd, const char * file, const params & config)
 	bt_dfd = openat(dfd, file, O_RDONLY);
 	if(bt_dfd < 0)
 		return bt_dfd;
-	base = factory->open(bt_dfd, "base", base_config);
+	base = factory->open(bt_dfd, "base", base_config, sysj);
 	if(!base)
 		goto fail_base;
 	ktype = base->key_type();
@@ -506,7 +506,7 @@ int btree_dtable::create(int dfd, const char * file, const params & config, dtab
 	if(r < 0)
 		goto fail_create;
 	
-	base_dtable = base->open(bt_dfd, "base", base_config);
+	base_dtable = base->open(bt_dfd, "base", base_config, NULL);
 	if(!base_dtable)
 		goto fail_reopen;
 	

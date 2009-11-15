@@ -46,7 +46,7 @@ public:
 	DECLARE_RO_FACTORY(smallint_dtable);
 	
 	inline smallint_dtable() : base(NULL) {}
-	int init(int dfd, const char * file, const params & config);
+	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
 	void deinit();
 	
 protected:

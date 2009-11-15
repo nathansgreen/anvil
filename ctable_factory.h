@@ -16,17 +16,19 @@
 #include "factory.h"
 #include "ctable.h"
 
+class sys_journal;
+
 class ctable_factory_base
 {
 public:
-	virtual ctable * open(int dfd, const char * name, const params & config) const { return NULL; }
+	virtual ctable * open(int dfd, const char * name, const params & config, sys_journal * sysj) const { return NULL; }
 	
 	virtual int create(int dfd, const char * name, const params & config, dtype::ctype key_type) const { return -ENOSYS; }
 	
 	virtual ~ctable_factory_base() {}
 	
 	/* wrapper for open() that does lookup() */
-	static ctable * load(const istr & type, int dfd, const char * name, const params & config);
+	static ctable * load(const istr & type, int dfd, const char * name, const params & config, sys_journal * sysj);
 	/* wrapper for create() that does lookup() */
 	static int setup(const istr & type, int dfd, const char * name, const params & config, dtype::ctype key_type);
 };
@@ -39,10 +41,10 @@ class ctable_open_factory : public ctable_factory
 public:
 	ctable_open_factory(const istr & class_name) : ctable_factory(class_name) {}
 	
-	inline virtual ctable * open(int dfd, const char * name, const params & config) const
+	inline virtual ctable * open(int dfd, const char * name, const params & config, sys_journal * sysj) const
 	{
 		T * disk = new T;
-		int r = disk->init(dfd, name, config);
+		int r = disk->init(dfd, name, config, sysj);
 		if(r < 0)
 		{
 			delete disk;

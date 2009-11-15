@@ -48,7 +48,7 @@ public:
 	DECLARE_RO_FACTORY(usstate_dtable);
 	
 	inline usstate_dtable() : base(NULL) {}
-	int init(int dfd, const char * file, const params & config);
+	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
 	void deinit();
 	
 protected:

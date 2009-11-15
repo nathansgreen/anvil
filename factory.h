@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2008 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -19,8 +19,8 @@ class factory : public T
 public:
 	/* factory registry stuff */
 	static int add(const istr & class_name, const factory * factory);
-	static const factory<T> * lookup(const istr & class_name);
-	static const factory<T> * lookup(const params & config, const istr & config_name, const istr & alt_name = NULL);
+	static const factory * lookup(const istr & class_name);
+	static const factory * lookup(const params & config, const istr & config_name, const istr & alt_name = NULL);
 	static void remove(const istr & class_name, const factory * factory);
 	static size_t list(const istr ** names = NULL);
 	

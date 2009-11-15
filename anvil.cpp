@@ -450,7 +450,7 @@ int anvil_dtable_create_empty(const char * type, int dfd, const char * name, con
 anvil_dtable * anvil_dtable_open(const char * type, int dfd, const char * name, const anvil_params * config)
 {
 	anvil_params_union_const config_safer(config);
-	dtable * cpp = dtable_factory::load(type, dfd, name, *config_safer);
+	dtable * cpp = dtable_factory::load(type, dfd, name, *config_safer, sys_journal::get_global_journal());
 	return anvil_dtable_union(cpp);
 }
 
@@ -661,7 +661,7 @@ int anvil_ctable_create(const char * type, int dfd, const char * name, const anv
 anvil_ctable * anvil_ctable_open(const char * type, int dfd, const char * name, const anvil_params * config)
 {
 	anvil_params_union_const config_safer(config);
-	ctable * cpp = ctable_factory::load(type, dfd, name, *config_safer);
+	ctable * cpp = ctable_factory::load(type, dfd, name, *config_safer, sys_journal::get_global_journal());
 	return anvil_ctable_union(cpp);
 }
 

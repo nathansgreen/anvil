@@ -42,7 +42,7 @@ public:
 	
 	virtual dtype::ctype key_type() const;
 	
-	int init(int dfd, const char * name, const params & config);
+	int init(int dfd, const char * name, const params & config, sys_journal * sysj);
 	void deinit();
 	inline simple_stable() : md_dfd(-1), dt_meta(NULL), ct_data(NULL) {}
 	inline virtual ~simple_stable()

@@ -293,7 +293,7 @@ bool linear_dtable::contains_index(size_t index) const
 	return get_index(index);
 }
 
-int linear_dtable::init(int dfd, const char * file, const params & config)
+int linear_dtable::init(int dfd, const char * file, const params & config, sys_journal * sysj)
 {
 	int r = -1;
 	dtable_header header;

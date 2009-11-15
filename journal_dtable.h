@@ -69,7 +69,7 @@ public:
 protected:
 	/* journal_dtables should only be constructed by a journal_dtable_warehouse */
 	inline journal_dtable() : initialized(false), jdt_map(blob_cmp), jdt_hash(10, blob_cmp, blob_cmp) {}
-	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal);
+	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * sysj);
 	inline virtual ~journal_dtable()
 	{
 		if(initialized)

@@ -377,7 +377,7 @@ t_gtable * toilet_get_gtable(t_toilet * toilet, const char * name)
 	r = tx_start_r();
 	if(r < 0)
 		goto fail_open;
-	r = sst->init(toilet->path_fd, name, config);
+	r = sst->init(toilet->path_fd, name, config, sys_journal::get_global_journal());
 	tx_end_r();
 	if(r < 0)
 		goto fail_open;

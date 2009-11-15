@@ -53,7 +53,7 @@ public:
 	DECLARE_RW_FACTORY(keydiv_dtable);
 	
 	inline keydiv_dtable() : support_atx(false) {}
-	int init(int dfd, const char * name, const params & config);
+	int init(int dfd, const char * name, const params & config, sys_journal * sysj);
 	void deinit();
 	
 protected:

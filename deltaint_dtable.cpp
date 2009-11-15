@@ -269,7 +269,7 @@ blob deltaint_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 	return blob(sizeof(value), &value);
 }
 
-int deltaint_dtable::init(int dfd, const char * file, const params & config)
+int deltaint_dtable::init(int dfd, const char * file, const params & config, sys_journal * sysj)
 {
 	const dtable_factory * base_factory;
 	const dtable_factory * ref_factory;
@@ -288,10 +288,10 @@ int deltaint_dtable::init(int dfd, const char * file, const params & config)
 	di_dfd = openat(dfd, file, O_RDONLY);
 	if(di_dfd < 0)
 		return di_dfd;
-	base = base_factory->open(di_dfd, "base", base_config);
+	base = base_factory->open(di_dfd, "base", base_config, sysj);
 	if(!base)
 		goto fail_base;
-	reference = ref_factory->open(di_dfd, "ref", ref_config);
+	reference = ref_factory->open(di_dfd, "ref", ref_config, sysj);
 	if(!reference)
 		goto fail_reference;
 	ktype = base->key_type();

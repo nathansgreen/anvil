@@ -224,7 +224,7 @@ bool bloom_dtable::static_indexed_access(const params & config)
 	return factory->indexed_access(base_config);
 }
 
-int bloom_dtable::init(int dfd, const char * file, const params & config)
+int bloom_dtable::init(int dfd, const char * file, const params & config, sys_journal * sysj)
 {
 	const dtable_factory * factory;
 	params base_config;
@@ -239,7 +239,7 @@ int bloom_dtable::init(int dfd, const char * file, const params & config)
 	bf_dfd = openat(dfd, file, O_RDONLY);
 	if(bf_dfd < 0)
 		return bf_dfd;
-	base = factory->open(bf_dfd, "base", base_config);
+	base = factory->open(bf_dfd, "base", base_config, sysj);
 	if(!base)
 		goto fail_base;
 	ktype = base->key_type();
@@ -316,7 +316,7 @@ int bloom_dtable::create(int dfd, const char * file, const params & config, dtab
 	if(r < 0)
 		goto fail_create;
 	
-	base_dtable = base->open(bf_dfd, "base", base_config);
+	base_dtable = base->open(bf_dfd, "base", base_config, NULL);
 	if(!base_dtable)
 		goto fail_reopen;
 	

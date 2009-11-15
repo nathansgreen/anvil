@@ -17,11 +17,13 @@
 #include "dtable.h"
 #include "empty_dtable.h"
 
+class sys_journal;
+
 /* override one or both create() methods in subclasses */
 class dtable_factory_base
 {
 public:
-	virtual dtable * open(int dfd, const char * name, const params & config) const = 0;
+	virtual dtable * open(int dfd, const char * name, const params & config, sys_journal * sysj) const = 0;
 	
 	/* create a new empty table with the given key type - this default implementation
 	 * will use the other version of create() and an empty_dtable for the source */
@@ -55,7 +57,7 @@ public:
 	virtual ~dtable_factory_base() {}
 	
 	/* wrapper for open() that does lookup() */
-	static dtable * load(const istr & type, int dfd, const char * name, const params & config);
+	static dtable * load(const istr & type, int dfd, const char * name, const params & config, sys_journal * sysj);
 	/* wrappers for create() that do lookup() */
 	static int setup(const istr & type, int dfd, const char * name, const params & config, dtype::ctype key_type);
 	static int setup(const istr & type, int dfd, const char * name, const params & config, dtable::iter * source, const ktable * shadow = NULL);
@@ -70,10 +72,10 @@ class dtable_open_factory : public dtable_factory
 public:
 	dtable_open_factory(const istr & class_name) : dtable_factory(class_name) {}
 	
-	virtual dtable * open(int dfd, const char * name, const params & config) const
+	virtual dtable * open(int dfd, const char * name, const params & config, sys_journal * sysj) const
 	{
 		T * disk = new T;
-		int r = disk->init(dfd, name, config);
+		int r = disk->init(dfd, name, config, sysj);
 		if(r < 0)
 		{
 			disk->destroy();

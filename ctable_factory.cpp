@@ -8,10 +8,10 @@
 /* force the template to instantiate */
 template class factory<ctable_factory_base>;
 
-ctable * ctable_factory_base::load(const istr & type, int dfd, const char * name, const params & config)
+ctable * ctable_factory_base::load(const istr & type, int dfd, const char * name, const params & config, sys_journal * sysj)
 {
 	const ctable_factory * factory = ctable_factory::lookup(type);
-	return factory ? factory->open(dfd, name, config) : NULL;
+	return factory ? factory->open(dfd, name, config, sysj) : NULL;
 }
 
 int ctable_factory_base::setup(const istr & type, int dfd, const char * name, const params & config, dtype::ctype key_type)

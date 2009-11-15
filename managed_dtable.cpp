@@ -26,8 +26,6 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	int r = -1, size;
 	if(md_dfd >= 0)
 		deinit();
-	if(!sysj)
-		sysj = sys_journal::get_global_journal();
 	this->sysj = sysj;
 	warehouse = sysj->get_warehouse();
 	base = dtable_factory::lookup(config, "base");
@@ -106,9 +104,9 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 			dtable * source;
 			sprintf(name, "md_data.%u", ddt.ddt_number);
 			if(ddt.type == MDTE_TYPE_FASTBASE)
-				source = fastbase->open(md_dfd, name, fastbase_config);
+				source = fastbase->open(md_dfd, name, fastbase_config, sysj);
 			else
-				source = base->open(md_dfd, name, base_config);
+				source = base->open(md_dfd, name, base_config, sysj);
 			if(!source)
 				goto fail_disks;
 			disks.push_back(dtable_list_entry(source, ddt));
@@ -542,9 +540,9 @@ int managed_dtable::combiner::finish()
 		delete shadow;
 	
 	if(use_fastbase)
-		result = mdt->fastbase->open(mdt->md_dfd, name, mdt->fastbase_config);
+		result = mdt->fastbase->open(mdt->md_dfd, name, mdt->fastbase_config, mdt->sysj);
 	else
-		result = mdt->base->open(mdt->md_dfd, name, mdt->base_config);
+		result = mdt->base->open(mdt->md_dfd, name, mdt->base_config, mdt->sysj);
 	if(!result)
 	{
 		fail();

@@ -267,7 +267,7 @@ int journal_dtable::remove(const dtype & key, ATX_DEF)
 	return insert(key, blob());
 }
 
-int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * journal)
+int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * sysj)
 {
 	if(lid == sys_journal::NO_ID)
 		return -EINVAL;
@@ -278,7 +278,7 @@ int journal_dtable::init(dtype::ctype key_type, sys_journal::listener_id lid, sy
 	assert(!cmp_name);
 	ktype = key_type;
 	set_id(lid);
-	set_journal(journal);
+	set_journal(sysj);
 	initialized = true;
 	return 0;
 }

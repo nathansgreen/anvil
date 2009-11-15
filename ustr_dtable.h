@@ -51,7 +51,7 @@ public:
 	DECLARE_RO_FACTORY(ustr_dtable);
 	
 	inline ustr_dtable() : fp(NULL) {}
-	int init(int dfd, const char * file, const params & config);
+	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
 	void deinit();
 	
 protected:

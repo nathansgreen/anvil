@@ -59,7 +59,7 @@ public:
 	}
 	
 	inline simple_ctable() : base(NULL) {}
-	int init(int dfd, const char * file, const params & config);
+	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
 	void deinit();
 	inline virtual ~simple_ctable()
 	{
