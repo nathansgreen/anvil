@@ -16,9 +16,11 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
+#include "main.h"
 #include "openat.h"
 #include "transaction.h"
 #include "toilet.h"
+#include "tpch.h"
 
 static t_toilet * open_toilet = NULL;
 static t_gtable * open_gtable = NULL;
@@ -591,32 +593,6 @@ static int command_tx(int argc, const char * argv[])
 	
 	return 0;
 }
-
-int command_info(int argc, const char * argv[]);
-int command_dtable(int argc, const char * argv[]);
-int command_edtable(int argc, const char * argv[]);
-int command_odtable(int argc, const char * argv[]);
-int command_ldtable(int argc, const char * argv[]);
-int command_ussdtable(int argc, const char * argv[]);
-int command_bfdtable(int argc, const char * argv[]);
-int command_sidtable(int argc, const char * argv[]);
-int command_didtable(int argc, const char * argv[]);
-int command_kddtable(int argc, const char * argv[]);
-int command_ctable(int argc, const char * argv[]);
-int command_cctable(int argc, const char * argv[]);
-int command_consistency(int argc, const char * argv[]);
-int command_durability(int argc, const char * argv[]);
-int command_rollover(int argc, const char * argv[]);
-int command_abort(int argc, const char * argv[]);
-int command_stable(int argc, const char * argv[]);
-int command_iterator(int argc, const char * argv[]);
-int command_blob_cmp(int argc, const char * argv[]);
-int command_performance(int argc, const char * argv[]);
-int command_tpchtype(int argc, const char * argv[]);
-int command_tpchgen(int argc, const char * argv[]);
-int command_tpchopen(int argc, const char * argv[]);
-int command_tpchtest(int argc, const char * argv[]);
-int command_bdbtest(int argc, const char * argv[]);
 
 static int command_script(int argc, const char * argv[]);
 static int command_help(int argc, const char * argv[]);
