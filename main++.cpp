@@ -2155,15 +2155,14 @@ int command_rollover(int argc, const char * argv[])
 	return 0;
 }
 
-/* FIXME: once managed_dtable supports proper sys_journal specification, this
- * should also test that aborting/committing transactions works across reinit */
 int command_abort(int argc, const char * argv[])
 {
 	int r;
 	dtable * dt;
 	params config;
 	abortable_tx atx;
-	sys_journal * sysj = sys_journal::get_global_journal();
+	sys_journal * sysj;
+	journal_dtable::journal_dtable_warehouse warehouse;
 	
 	r = params::parse(LITERAL(
 	config [
@@ -2185,6 +2184,8 @@ int command_abort(int argc, const char * argv[])
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, true);
+	EXPECT_NONULL("sysj spawn", sysj);
 	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	r = dt->insert(1u, blob("A"));
@@ -2199,34 +2200,44 @@ int command_abort(int argc, const char * argv[])
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
+	EXPECT_SIZET("total", 1, warehouse.size());
 	atx = dt->create_tx();
 	EXPECT_NOTU32("atx", NO_ABORTABLE_TX, atx);
+	EXPECT_SIZET("total", 2, warehouse.size());
 	r = dt->insert(2u, blob("B (atx)"), true, atx);
 	EXPECT_NOFAIL("dt->insert(2, atx)", r);
 	r = dt->insert(3u, blob("C (atx)"), true, atx);
 	EXPECT_NOFAIL("dt->insert(3, atx)", r);
+	r = dt->insert(4u, blob("D (atx)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(4, atx)", r);
 	run_iterator(dt);
 	run_iterator(dt, atx);
 	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
 	EXPECT_SIZET("key 2 size", 1, dt->find(2u).size());
 	EXPECT_SIZET("key 3 size", 0, dt->find(3u).size());
+	EXPECT_SIZET("key 4 size", 0, dt->find(4u).size());
 	EXPECT_SIZET("key 1 atx size", 1, dt->find(1u, atx).size());
 	EXPECT_SIZET("key 2 atx size", 7, dt->find(2u, atx).size());
 	EXPECT_SIZET("key 3 atx size", 7, dt->find(3u, atx).size());
+	EXPECT_SIZET("key 4 atx size", 7, dt->find(4u, atx).size());
+	EXPECT_SIZET("total", 2, warehouse.size());
 	dt->abort_tx(atx);
 	printf("abort_tx\n");
+	EXPECT_SIZET("total", 1, warehouse.size());
 	run_iterator(dt);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
+	EXPECT_SIZET("total", 1, warehouse.size());
 	atx = dt->create_tx();
 	EXPECT_NOTU32("atx", NO_ABORTABLE_TX, atx);
-	r = dt->insert(2u, blob("B (atx)"), true, atx);
-	EXPECT_NOFAIL("dt->insert(2, atx)", r);
-	r = dt->insert(3u, blob("C (atx)"), true, atx);
-	EXPECT_NOFAIL("dt->insert(3, atx)", r);
+	EXPECT_SIZET("total", 2, warehouse.size());
+	r = dt->insert(2u, blob("B (atx2)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(2, atx2)", r);
+	r = dt->insert(3u, blob("C (atx2)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(3, atx2)", r);
 	r = dt->insert(3u, blob("C"), true);
 	EXPECT_NOFAIL("dt->insert(3)", r);
 	run_iterator(dt);
@@ -2235,18 +2246,41 @@ int command_abort(int argc, const char * argv[])
 	EXPECT_SIZET("key 2 size", 1, dt->find(2u).size());
 	EXPECT_SIZET("key 3 size", 1, dt->find(3u).size());
 	EXPECT_SIZET("key 1 atx size", 1, dt->find(1u, atx).size());
-	EXPECT_SIZET("key 2 atx size", 7, dt->find(2u, atx).size());
-	EXPECT_SIZET("key 3 atx size", 7, dt->find(3u, atx).size());
+	EXPECT_SIZET("key 2 atx size", 8, dt->find(2u, atx).size());
+	EXPECT_SIZET("key 3 atx size", 8, dt->find(3u, atx).size());
+	EXPECT_SIZET("total", 2, warehouse.size());
 	r = dt->commit_tx(atx);
 	EXPECT_NOFAIL("commit_tx", r);
+	EXPECT_SIZET("total", 1, warehouse.size());
 	run_iterator(dt);
 	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
-	EXPECT_SIZET("key 2 size", 7, dt->find(2u).size());
-	EXPECT_SIZET("key 3 size", 7, dt->find(3u).size());
+	EXPECT_SIZET("key 2 size", 8, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 8, dt->find(3u).size());
+	dt->destroy();
+	delete sysj;
+	EXPECT_SIZET("total", 0, warehouse.size());
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
+	/* restart everything and make sure it's all still correct */
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, false);
+	EXPECT_NONULL("sysj spawn", sysj);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config, sysj);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	EXPECT_SIZET("total", 1, warehouse.size());
+	run_iterator(dt);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 8, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 8, dt->find(3u).size());
+	EXPECT_SIZET("key 4 size", 0, dt->find(4u).size());
 	dt->destroy();
+	sysj->deinit(true);
+	delete sysj;
+	EXPECT_SIZET("total", 0, warehouse.size());
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
 	
 	return 0;
 }
