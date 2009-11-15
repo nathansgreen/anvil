@@ -2396,7 +2396,7 @@ int command_bdbtest(int argc, const char * argv[])
 	jid = sys_journal::get_unique_id();
 	if(jid == sys_journal::NO_ID)
 		return -EBUSY;
-	jdt = journal_dtable::obtain(jid, dtype::BLOB);
+	jdt = journal_dtable::warehouse.obtain(jid, dtype::BLOB, sys_journal::get_global_journal());
 	EXPECT_NONULL("jdt", jdt);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);

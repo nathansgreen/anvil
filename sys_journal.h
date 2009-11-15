@@ -76,6 +76,12 @@ public:
 		}
 		
 		inline listening_dtable() : local_id(NO_ID), warehouse(NULL), journal(NULL) {}
+		/* clear memory state, discard the current listener ID, set a new listener
+		 * ID, and clear and release the blob comparator (if one has been set) */
+		virtual int reinit(sys_journal::listener_id lid) = 0;
+		
+		/* listening dtables must implement size() */
+		virtual size_t size() const = 0;
 		
 		inline listener_id id() const { return local_id; }
 		inline listening_dtable_warehouse * get_warehouse() const { return warehouse; }
@@ -117,6 +123,7 @@ public:
 		
 		inline void set_journal(sys_journal * journal)
 		{
+			assert(journal);
 			this->journal = journal;
 		}
 		
@@ -303,6 +310,9 @@ public:
 		if(meta_fd)
 			deinit();
 	}
+	
+	/* get the warehouse in use by this sys_journal */
+	inline listening_dtable_warehouse * get_warehouse() const { return warehouse; }
 	
 	static inline sys_journal * get_global_journal()
 	{

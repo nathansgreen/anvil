@@ -46,19 +46,6 @@ public:
 		return listening_dtable::set_blob_cmp(cmp);
 	}
 	
-	/* convenience method that uses the built-in warehouse; note the parameter order */
-	static inline journal_dtable * obtain(sys_journal::listener_id lid, dtype::ctype key_type, sys_journal * journal = NULL)
-	{
-		if(!journal)
-			journal = sys_journal::get_global_journal();
-		return warehouse.obtain(lid, key_type, journal);
-	}
-	/* this one is mostly for testing and won't create if it doesn't already exist */
-	static inline journal_dtable * obtain(sys_journal::listener_id lid)
-	{
-		return warehouse.lookup(lid);
-	}
-	
 	/* for rollover */
 	virtual int real_rollover(listening_dtable * target) const;
 	inline virtual int accept(const dtype & key, const blob & value, bool append = false) { return set_node(key, value, append); }
@@ -74,9 +61,9 @@ public:
 	
 	static journal_dtable_warehouse warehouse;
 	
-	/* reinitialize, discarding the old entries from the journal and setting a new ID */
-	/* NOTE: also clears and releases the blob comparator, if one has been set */
-	int reinit(sys_journal::listener_id lid);
+	/* clear memory state, discard the current listener ID, set a new listener
+	 * ID, and clear and release the blob comparator (if one has been set) */
+	virtual int reinit(sys_journal::listener_id lid);
 	void deinit();
 	
 protected:

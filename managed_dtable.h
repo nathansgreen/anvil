@@ -21,7 +21,7 @@
 #include "dtable.h"
 #include "dtable_factory.h"
 #include "overlay_dtable.h"
-#include "journal_dtable.h"
+#include "sys_journal.h"
 
 #include "bg_thread.h"
 #include "msg_queue.h"
@@ -44,7 +44,7 @@ public:
 	
 	inline virtual bool writable() const { return true; }
 	
-	/* send to journal_dtable */
+	/* send to the listening dtable (probably journal_dtable) */
 	virtual int insert(const dtype & key, const blob & blob, bool append = false, ATX_OPT);
 	virtual int remove(const dtype & key, ATX_OPT);
 	
@@ -165,7 +165,7 @@ private:
 			uint32_t ddt_number;
 			struct
 			{
-				journal_dtable * journal;
+				sys_journal::listening_dtable * journal;
 				sys_journal::listener_id jid;
 			};
 		};
@@ -178,7 +178,7 @@ private:
 			: disk(dtable), ddt_number(number), type(fastbase ? MDTE_TYPE_FASTBASE : MDTE_TYPE_REGBASE)
 		{
 		}
-		inline dtable_list_entry(journal_dtable * journal, sys_journal::listener_id jid)
+		inline dtable_list_entry(sys_journal::listening_dtable * journal, sys_journal::listener_id jid)
 			: disk(journal), journal(journal), jid(jid), type(MDTE_TYPE_JOURNAL)
 		{
 		}
@@ -284,7 +284,7 @@ private:
 			doomed.disk = disk;
 			disk->add_unused_callback(this);
 		}
-		inline doomed_dtable(managed_dtable * mdt, journal_dtable * journal) : mdt(mdt), type(JOURNAL)
+		inline doomed_dtable(managed_dtable * mdt, sys_journal::listening_dtable * journal) : mdt(mdt), type(JOURNAL)
 		{
 			doomed.journal = journal;
 			journal->add_unused_callback(this);
@@ -307,7 +307,7 @@ private:
 		enum { DISK, JOURNAL, OVERLAY } type;
 		union {
 			dtable * disk;
-			journal_dtable * journal;
+			sys_journal::listening_dtable * journal;
 			overlay_dtable * overlay;
 		} doomed;
 		uint32_t ddt_number;
@@ -316,7 +316,7 @@ private:
 	
 	struct atx_state
 	{
-		journal_dtable * journal;
+		sys_journal::listening_dtable * journal;
 		overlay_dtable * overlay;
 	};
 	typedef __gnu_cxx::hash_map<abortable_tx, atx_state> atx_map;
@@ -330,7 +330,9 @@ private:
 	dtable_list disks;
 	overlay_dtable * overlay;
 	mutable chain_callback chain;
-	journal_dtable * journal;
+	sys_journal::listening_dtable * journal;
+	sys_journal::listening_dtable_warehouse * warehouse;
+	sys_journal * sysj;
 	const dtable_factory * base;
 	const dtable_factory * fastbase;
 	params base_config, fastbase_config;

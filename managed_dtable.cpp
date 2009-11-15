@@ -16,7 +16,7 @@
 
 /* FIXME: we need to explicitly store the blob comparator name in the
  * managed_dtable; counting on subordinate dtables to store it is insufficient,
- * since we might have no disk dtables and an empty journal_dtable */
+ * since we might have no disk dtables and an empty listening_dtable */
 
 int managed_dtable::init(int dfd, const char * name, const params & config, sys_journal * sysj)
 {
@@ -28,6 +28,8 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		deinit();
 	if(!sysj)
 		sysj = sys_journal::get_global_journal();
+	this->sysj = sysj;
+	warehouse = sysj->get_warehouse();
 	base = dtable_factory::lookup(config, "base");
 	if(!base)
 		return -EINVAL;
@@ -93,7 +95,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		if(ddt.type == MDTE_TYPE_JOURNAL)
 		{
 			sys_journal::listener_id jid = ddt.ddt_number;
-			journal_dtable * source = journal_dtable::obtain(jid, ktype, sysj);
+			sys_journal::listening_dtable * source = warehouse->obtain(jid, ktype, sysj);
 			if(!cmp_name)
 				cmp_name = source->get_cmp_name();
 			disks.push_back(dtable_list_entry(journal, jid));
@@ -113,13 +115,13 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		}
 	}
 	
-	journal = journal_dtable::obtain(header.journal_id, ktype, sysj);
+	journal = warehouse->obtain(header.journal_id, ktype, sysj);
 	if(!cmp_name)
 	{
 		cmp_name = journal->get_cmp_name();
 		/* if the journal did not provide it, try to get the comparator name
-		 * from the first disk dtable - journal_dtable doesn't save the name if
-		 * it's empty, since you could in principle change it at that point */
+		 * from the first disk dtable - listening_dtables don't save the name if
+		 * they're empty, since you could in principle change it at that point */
 		if(!cmp_name && disks.size())
 			cmp_name = disks[0].disk->get_cmp_name();
 	}
@@ -278,13 +280,11 @@ abortable_tx managed_dtable::create_tx()
 	int r;
 	atx_state * state;
 	sys_journal::listener_id lid;
-	sys_journal * sysj;
 	abortable_tx atx;
 	
 	if(cmp_name && !blob_cmp)
 		return NO_ABORTABLE_TX;
 	
-	sysj = sys_journal::get_global_journal();
 	atx = create_tx_id();
 	assert(atx != NO_ABORTABLE_TX);
 	
@@ -292,7 +292,7 @@ abortable_tx managed_dtable::create_tx()
 	
 	lid = sys_journal::get_unique_id(true);
 	assert(lid != sys_journal::NO_ID);
-	state->journal = journal_dtable::obtain(lid, ktype, sysj);
+	state->journal = warehouse->obtain(lid, ktype, sysj);
 	assert(state->journal);
 	if(blob_cmp)
 		state->journal->set_blob_cmp(blob_cmp);
@@ -421,8 +421,6 @@ int managed_dtable::combiner::prepare(bool shift_journal)
 	if(shift_journal && last == mdt->disks.size())
 	{
 		int r;
-		sys_journal * sj = mdt->journal->get_journal();
-		
 		/* We're about to do a digest that uses the current journal dtable, and it
 		 * will be done in the background. We can't allow the journal dtable to be
 		 * writable any more, or the digest will not have a consistent view of the
@@ -447,7 +445,7 @@ int managed_dtable::combiner::prepare(bool shift_journal)
 			return r;
 		}
 		
-		mdt->journal = journal_dtable::obtain(mdt->header.journal_id, mdt->ktype, sj);
+		mdt->journal = mdt->warehouse->obtain(mdt->header.journal_id, mdt->ktype, mdt->sysj);
 		if(mdt->blob_cmp)
 			mdt->journal->set_blob_cmp(mdt->blob_cmp);
 		
@@ -629,11 +627,10 @@ int managed_dtable::combiner::finish()
 	{
 		if(mdt->journal->in_use())
 		{
-			sys_journal * sj = mdt->journal->get_journal();
 			doomed_dtable * doomed = new doomed_dtable(mdt, mdt->journal);
 			/* FIXME: we can actually discard the sysj entries now, as long as we keep them in memory */
 			mdt->doomed_dtables.insert(doomed);
-			mdt->journal = journal_dtable::obtain(mdt->header.journal_id, mdt->ktype, sj);
+			mdt->journal = mdt->warehouse->obtain(mdt->header.journal_id, mdt->ktype, mdt->sysj);
 		}
 		else
 			mdt->journal->reinit(mdt->header.journal_id);
