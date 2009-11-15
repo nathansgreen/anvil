@@ -15,6 +15,7 @@
 #endif
 
 #include <vector>
+#include <ext/hash_map>
 
 #include "dtable.h"
 #include "dtable_factory.h"
@@ -38,6 +39,11 @@ public:
 	virtual int insert(const dtype & key, const blob & blob, bool append = false, ATX_OPT);
 	virtual int remove(const dtype & key, ATX_OPT);
 	
+	/* keydiv_dtable supports abortable transactions */
+	virtual abortable_tx create_tx();
+	virtual int commit_tx(ATX_REQ);
+	virtual void abort_tx(ATX_REQ);
+	
 	/* do maintenance based on parameters */
 	virtual int maintain(bool force = false);
 	
@@ -46,7 +52,7 @@ public:
 	static int create(int dfd, const char * name, const params & config, dtype::ctype key_type);
 	DECLARE_RW_FACTORY(keydiv_dtable);
 	
-	inline keydiv_dtable() {}
+	inline keydiv_dtable() : support_atx(false) {}
 	int init(int dfd, const char * name, const params & config);
 	void deinit();
 	
@@ -96,8 +102,24 @@ private:
 		size_t current_index;
 	};
 	
+	class atx_state
+	{
+	public:
+		inline atx_state() : atx(NULL) {}
+		inline int init(size_t size);
+		inline int populate(const keydiv_dtable * kddt) const;
+		inline abortable_tx get(size_t index, const keydiv_dtable * kddt) const;
+		inline int commit_tx(const keydiv_dtable * kddt);
+		inline void abort_tx(const keydiv_dtable * kddt);
+		inline ~atx_state() { assert(!atx); }
+	private:
+		abortable_tx * atx;
+	};
+	int map_atx(abortable_tx * atx, size_t index) const;
+	
 	typedef std::vector<dtable *> dtable_list;
 	typedef std::vector<dtype> divider_list;
+	typedef __gnu_cxx::hash_map<abortable_tx, atx_state> atx_map;
 	
 	template<class T, class C>
 	static int load_dividers(const params & config, size_t dt_count, divider_list * list, bool skip_check = false);
@@ -114,6 +136,8 @@ private:
 	
 	dtable_list sub;
 	divider_list dividers;
+	atx_map open_atx_map;
+	bool support_atx;
 };
 
 #endif /* __KEYDIV_DTABLE_H */

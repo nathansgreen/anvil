@@ -166,6 +166,15 @@ const dtable * keydiv_dtable::iter::source() const
 
 dtable::iter * keydiv_dtable::iterator(ATX_DEF) const
 {
+	if(atx != NO_ABORTABLE_TX)
+	{
+		atx_map::const_iterator it = open_atx_map.find(atx);
+		if(it == open_atx_map.end())
+			/* bad abortable transaction ID */
+			return NULL;
+		if(it->second.populate(this) < 0)
+			return NULL;
+	}
 	return new iter(this, atx);
 }
 
@@ -173,6 +182,12 @@ bool keydiv_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 {
 	size_t index = key_index(key);
 	assert(index < sub.size());
+	if(atx != NO_ABORTABLE_TX)
+		if(map_atx(&atx, index) < 0)
+		{
+			*found = false;
+			return false;
+		}
 	return sub[index]->present(key, found, atx);
 }
 
@@ -180,6 +195,12 @@ blob keydiv_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 {
 	size_t index = key_index(key);
 	assert(index < sub.size());
+	if(atx != NO_ABORTABLE_TX)
+		if(map_atx(&atx, index) < 0)
+		{
+			*found = false;
+			return blob();
+		}
 	return sub[index]->lookup(key, found, atx);
 }
 
@@ -187,6 +208,12 @@ int keydiv_dtable::insert(const dtype & key, const blob & blob, bool append, ATX
 {
 	size_t index = key_index(key);
 	assert(index < sub.size());
+	if(atx != NO_ABORTABLE_TX)
+	{
+		int r = map_atx(&atx, index);
+		if(r < 0)
+			return r;
+	}
 	return sub[index]->insert(key, blob, append, atx);
 }
 
@@ -194,7 +221,131 @@ int keydiv_dtable::remove(const dtype & key, ATX_DEF)
 {
 	size_t index = key_index(key);
 	assert(index < sub.size());
+	if(atx != NO_ABORTABLE_TX)
+	{
+		int r = map_atx(&atx, index);
+		if(r < 0)
+			return r;
+	}
 	return sub[index]->remove(key, atx);
+}
+
+/* keydiv_dtable does not need to do anything itself to support abortable
+ * transactions; however, it needs to pass these methods through to the
+ * underlying dtables. Since there may be many underlying dtables, and a
+ * given transaction may only touch a few, we create only local state at
+ * first and do the create_tx() calls on demand later. We have to do them
+ * all if an iterator is created within the transaction, however. */
+abortable_tx keydiv_dtable::create_tx()
+{
+	int r;
+	atx_state * state;
+	abortable_tx atx;
+	
+	if(!support_atx)
+		return -ENOSYS;
+	
+	atx = create_tx_id();
+	assert(atx != NO_ABORTABLE_TX);
+	
+	state = &open_atx_map[atx];
+	r = state->init(sub.size());
+	if(r < 0)
+	{
+		open_atx_map.erase(atx);
+		return NO_ABORTABLE_TX;
+	}
+	
+	return 0;
+}
+
+int keydiv_dtable::commit_tx(ATX_DEF)
+{
+	int r;
+	atx_map::iterator it = open_atx_map.find(atx);
+	if(it == open_atx_map.end())
+		/* bad abortable transaction ID */
+		return -EINVAL;
+	r = it->second.commit_tx(this);
+	if(r < 0)
+		return r;
+	open_atx_map.erase(it);
+	return 0;
+}
+
+void keydiv_dtable::abort_tx(ATX_DEF)
+{
+	atx_map::iterator it = open_atx_map.find(atx);
+	if(it == open_atx_map.end())
+		/* bad abortable transaction ID */
+		return;
+	it->second.commit_tx(this);
+	open_atx_map.erase(it);
+}
+
+int keydiv_dtable::atx_state::init(size_t size)
+{
+	assert(!atx);
+	atx = new abortable_tx[size];
+	if(!atx)
+		return -ENOMEM;
+	for(size_t i = 0; i < size; i++)
+		atx[i] = NO_ABORTABLE_TX;
+	return 0;
+}
+
+int keydiv_dtable::atx_state::populate(const keydiv_dtable * kddt) const
+{
+	for(size_t i = 0; i < kddt->sub.size(); i++)
+		if(atx[i] == NO_ABORTABLE_TX)
+		{
+			atx[i] = kddt->sub[i]->create_tx();
+			if(atx[i] == NO_ABORTABLE_TX)
+				return -1;
+		}
+	return 0;
+}
+
+abortable_tx keydiv_dtable::atx_state::get(size_t index, const keydiv_dtable * kddt) const
+{
+	if(atx[index] == NO_ABORTABLE_TX)
+		atx[index] = kddt->sub[index]->create_tx();
+	return atx[index];
+}
+
+int keydiv_dtable::atx_state::commit_tx(const keydiv_dtable * kddt)
+{
+	for(size_t i = 0; i < kddt->sub.size(); i++)
+		if(atx[i] != NO_ABORTABLE_TX)
+		{
+			int r = kddt->sub[i]->commit_tx(atx[i]);
+			if(r < 0)
+				return r;
+			atx[i] = NO_ABORTABLE_TX;
+		}
+	delete[] atx;
+	atx = NULL;
+	return 0;
+}
+
+void keydiv_dtable::atx_state::abort_tx(const keydiv_dtable * kddt)
+{
+	for(size_t i = 0; i < kddt->sub.size(); i++)
+		if(atx[i] != NO_ABORTABLE_TX)
+			kddt->sub[i]->abort_tx(atx[i]);
+	delete[] atx;
+	atx = NULL;
+}
+
+int keydiv_dtable::map_atx(abortable_tx * atx, size_t index) const
+{
+	atx_map::const_iterator it = open_atx_map.find(*atx);
+	if(it == open_atx_map.end())
+		/* bad abortable transaction ID */
+		return -EINVAL;
+	*atx = it->second.get(index, this);
+	assert(*atx != NO_ABORTABLE_TX);
+	return 0;
 }
 
 int keydiv_dtable::maintain(bool force)
@@ -213,6 +364,7 @@ int keydiv_dtable::maintain(bool force)
 
 int keydiv_dtable::init(int dfd, const char * name, const params & config)
 {
+	abortable_tx atx;
 	int r, kdd_dfd, meta;
 	const dtable_factory * base;
 	params base_config;
@@ -277,6 +429,11 @@ int keydiv_dtable::init(int dfd, const char * name, const params & config)
 	
 	if(sub[0]->get_cmp_name())
 		cmp_name = sub[0]->get_cmp_name();
+	
+	/* check for abortable transaction support */
+	atx = sub[0]->create_tx();
+	if((support_atx = (atx != NO_ABORTABLE_TX)))
+		sub[0]->abort_tx(atx);
 	
 	return 0;
 	
