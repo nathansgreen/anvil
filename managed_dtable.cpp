@@ -278,12 +278,14 @@ abortable_tx managed_dtable::create_tx()
 	int r;
 	atx_state * state;
 	sys_journal::listener_id lid;
+	sys_journal * sysj;
+	abortable_tx atx;
 	
 	if(cmp_name && !blob_cmp)
 		return NO_ABORTABLE_TX;
 	
-	sys_journal * sysj = sys_journal::get_global_journal();
-	abortable_tx atx = create_tx_id();
+	sysj = sys_journal::get_global_journal();
+	atx = create_tx_id();
 	assert(atx != NO_ABORTABLE_TX);
 	
 	state = &open_atx_map[atx];
