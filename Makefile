@@ -108,7 +108,7 @@ libanvil.a: libanvil.o
 ifeq ($(findstring -pg,$(CFLAGS)),-pg)
 # Link statically if we are profiling; gprof won't profile shared library code
 main: libanvil.a $(MAIN_OBJ)
-	$(CXX) -o $@ $(MAIN_OBJ) libanvil.a -lreadline -ltermcap $(LDFLAGS)
+	$(CXX) -o $@ $(MAIN_OBJ) libanvil.a -lpthread -lreadline -ltermcap $(LDFLAGS)
 else
 main: libanvil.$(SO) $(MAIN_OBJ)
 	$(CXX) -o $@ $(MAIN_OBJ) $(RTP) -L. -lanvil -lreadline -ltermcap $(LDFLAGS)
