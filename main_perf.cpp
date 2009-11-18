@@ -937,8 +937,6 @@ int command_bfdtable(int argc, const char * argv[])
 	}
 	printf("done.\n");
 	
-	wait_digest(2);
-	
 	printf("Maintaining... ");
 	fflush(stdout);
 	r = dt->maintain(true);
