@@ -79,6 +79,7 @@ edtable
 odtable
 ussdtable
 bfdtable
+#bfdtable metrics
 sidtable
 didtable
 kddtable

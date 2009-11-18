@@ -11,6 +11,7 @@
 
 #include "util.h"
 #include "sys_journal.h"
+#include "bloom_dtable.h"
 #include "journal_dtable.h"
 #include "managed_dtable.h"
 #include "simple_stable.h"
@@ -761,6 +762,45 @@ static int bfdt_perf(dtable * table)
 	return 0;
 }
 
+#if BFDT_PERF_TEST
+static int bfdt_mtrc(dtable * table)
+{
+	struct timeval start;
+	size_t exist = 0, listed = 0;
+	dtable::iter * iter = table->iterator();
+	uint32_t next_key = 0;
+	
+	printf("Calculating bloom_dtable metrics... ");
+	fflush(stdout);
+	gettimeofday(&start, NULL);
+	while(iter->valid())
+	{
+		dtype key = iter->key();
+		assert(key.type == dtype::UINT32);
+		
+		/* look up intermediate keys */
+		while(next_key < key.u32)
+			table->contains(next_key++);
+		next_key = key.u32 + 1;
+		
+		/* handle the current key */
+		if(iter->value().exists())
+			exist++;
+		else
+			table->contains(key);
+		listed++;
+		
+		iter->next();
+	}
+	print_elapsed(&start, true);
+	delete iter;
+	
+	assert(next_key);
+	printf("%zu/%u keys exist (%lg%%), %zu listed\n", exist, next_key, 100 * exist / (double) next_key, listed);
+	return 0;
+}
+#endif
+
 int command_bfdtable(int argc, const char * argv[])
 {
 	sys_journal * sysj = sys_journal::get_global_journal();
@@ -776,13 +816,98 @@ int command_bfdtable(int argc, const char * argv[])
 			"bloom_k" int 5
 			"base" class(dt) simple_dtable
 		]
-		"digest_interval" int 2
-		"combine_interval" int 12
-		"combine_count" int 8
+		"digest_interval" int 120
+		"combine_interval" int 480
+		"combine_count" int 6
+		"autocombine" bool false
 	]), &config);
 	EXPECT_NOFAIL("params::parse", r);
 	config.print();
 	printf("\n");
+	
+	if(argc > 1 && !strcmp(argv[1], "metrics"))
+	{
+#if !BFDT_PERF_TEST
+		EXPECT_NEVER("Not compiled with bloom_dtable metrics. Set BFDT_PERF_TEST.");
+#else
+		const int rounds = 20;
+		for(int round = 0; round < rounds; round++)
+		{
+			r = tx_start();
+			EXPECT_NOFAIL("tx_start", r);
+			r = dtable_factory::setup("managed_dtable", AT_FDCWD, "bfdt_mtrc", config, dtype::UINT32);
+			EXPECT_NOFAIL("dtable::create", r);
+			r = tx_end(0);
+			EXPECT_NOFAIL("tx_end", r);
+			
+			dt = dtable_factory::load("managed_dtable", AT_FDCWD, "bfdt_mtrc", config, sysj);
+			EXPECT_NONULL("dtable_factory::load", dt);
+			
+			r = tx_start();
+			EXPECT_NOFAIL("tx_start", r);
+			printf("Populating table... ");
+			fflush(stdout);
+			for(int i = 0; i < 1000000; i++)
+			{
+				uint32_t key = i * 2 + 1;
+				r = dt->insert(key, blob(sizeof(key), &key));
+				if(r < 0)
+				{
+					tx_end(0);
+					EXPECT_NEVER("fail!");
+					return -1;
+				}
+			}
+			printf("done.\n");
+			
+			printf("Maintaining... ");
+			fflush(stdout);
+			r = dt->maintain(true);
+			EXPECT_NOFAIL("done. r", r);
+			r = tx_end(0);
+			EXPECT_NOFAIL("tx_end", r);
+			
+			r = tx_start();
+			EXPECT_NOFAIL("tx_start", r);
+			printf("Depopulating table... ");
+			fflush(stdout);
+			for(int i = 0; i < 1000000; i++)
+			{
+				if(round <= i % rounds)
+					continue;
+				uint32_t key = i * 2 + 1;
+				r = dt->remove(key);
+				if(r < 0)
+				{
+					tx_end(0);
+					EXPECT_NEVER("remove() fail!");
+					return -1;
+				}
+			}
+			printf("done.\n");
+			
+			printf("Maintaining... ");
+			fflush(stdout);
+			r = dt->maintain(true);
+			EXPECT_NOFAIL("done. r", r);
+			dt->destroy();
+			r = sys_journal::get_global_journal()->filter();
+			EXPECT_NOFAIL("filter", r);
+			r = tx_end(0);
+			EXPECT_NOFAIL("tx_end", r);
+			
+			bloom_dtable::perf_enable = true;
+			dt = dtable_factory::load("managed_dtable", AT_FDCWD, "bfdt_mtrc", config, sysj);
+			EXPECT_NONULL("dtable_factory::load", dt);
+			bfdt_mtrc(dt);
+			dt->destroy();
+			bloom_dtable::perf_enable = false;
+			
+			util::rm_r(AT_FDCWD, "bfdt_mtrc");
+		}
+#endif
+		return 0;
+	}
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
@@ -816,7 +941,7 @@ int command_bfdtable(int argc, const char * argv[])
 	
 	printf("Maintaining... ");
 	fflush(stdout);
-	r = dt->maintain();
+	r = dt->maintain(true);
 	EXPECT_NOFAIL("done. r", r);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
