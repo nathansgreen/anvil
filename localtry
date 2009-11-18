@@ -32,6 +32,7 @@ odtable
 ussdtable
 bfdtable
 #bfdtable metrics
+#bfdtable oracle
 sidtable
 didtable
 kddtable

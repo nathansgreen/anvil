@@ -5,6 +5,8 @@
 #define _ATFILE_SOURCE
 #define __STDC_FORMAT_MACROS
 
+#include <stdlib.h>
+
 #include "main.h"
 #include "openat.h"
 #include "transaction.h"
@@ -801,6 +803,114 @@ static int bfdt_mtrc(dtable * table)
 }
 #endif
 
+static int bfdt_populate(dtable * dt, const size_t size, const size_t ops, const char * name, const dtable * ref)
+{
+	int r;
+	printf("Populating %s table... ", name);
+	fflush(stdout);
+	srand(8675309);
+	for(size_t i = 0; i < ops; i++)
+	{
+		uint32_t key = rand() % size;
+		bool insert = !(rand() & 1);
+		if(ref)
+		{
+			if(insert && ref->contains(key))
+				r = dt->insert(key, blob(sizeof(key), &key));
+			else
+				r = 0;
+		}
+		else
+		{
+			if(insert)
+				r = dt->insert(key, blob(sizeof(key), &key));
+			else
+				r = dt->remove(key);
+		}
+		if(r < 0)
+		{
+			EXPECT_NEVER("insert()/remove() fail!");
+			return -1;
+		}
+		if(i == ops / 2 || (i > ops / 2 && !(i % (ops / 10))))
+		{
+			r = dt->maintain(true);
+			if(r < 0)
+			{
+				EXPECT_NEVER("maintain() fail!");
+				return -1;
+			}
+		}
+	}
+	r = dt->maintain(true);
+	if(r < 0)
+	{
+		EXPECT_NEVER("maintain() fail!");
+		return -1;
+	}
+	printf("done.\n");
+	return 0;
+}
+
+static int bfdt_scan(dtable * table, const size_t size, const size_t lookups, const char * name, const dtable * ref)
+{
+	struct timeval start;
+	size_t never = 0, reset = 0, set = 0;
+	
+	printf("Summarize %s key status... ", name);
+	fflush(stdout);
+	gettimeofday(&start, NULL);
+	for(size_t i = 0; i < size; i++)
+	{
+		uint32_t key = i;
+		bool found, has = table->present(key, &found);
+		if(ref && has != ref->contains(key))
+			EXPECT_NEVER("key %u mismatch\n", key);
+		if(has)
+			set++;
+		else if(found)
+			reset++;
+		else
+			never++;
+	}
+	print_elapsed(&start);
+	printf("Results: %zu/%zu/%zu set/reset/never\n", set, reset, never);
+	
+	printf("Performance check... ");
+	fflush(stdout);
+	srand(9035768);
+	gettimeofday(&start, NULL);
+	for(size_t i = 0; i < lookups; i++)
+	{
+		uint32_t key = rand() % size;
+		table->contains(key);
+	}
+	print_elapsed(&start);
+	
+#if BFDT_PERF_TEST
+	printf("Effectiveness check... ");
+	fflush(stdout);
+	srand(9035768);
+	gettimeofday(&start, NULL);
+	for(size_t i = 0; i < lookups; i++)
+	{
+		uint32_t key = rand() % size;
+		bool has = table->contains(key);
+		if(!has)
+		{
+			bloom_dtable::perf_enable = true;
+			table->contains(key);
+			bloom_dtable::perf_enable = false;
+		}
+	}
+	print_elapsed(&start);
+#else
+	printf("Not compiled with bloom_dtable metrics. Set BFDT_PERF_TEST.\n");
+#endif
+	
+	return 0;
+}
+
 int command_bfdtable(int argc, const char * argv[])
 {
 	sys_journal * sysj = sys_journal::get_global_journal();
@@ -817,8 +927,8 @@ int command_bfdtable(int argc, const char * argv[])
 			"base" class(dt) simple_dtable
 		]
 		"digest_interval" int 120
-		"combine_interval" int 480
-		"combine_count" int 6
+		"combine_interval" int 960
+		"combine_count" int 10
 		"autocombine" bool false
 	]), &config);
 	EXPECT_NOFAIL("params::parse", r);
@@ -906,6 +1016,53 @@ int command_bfdtable(int argc, const char * argv[])
 			util::rm_r(AT_FDCWD, "bfdt_mtrc");
 		}
 #endif
+		return 0;
+	}
+	
+	if(argc > 1 && !strcmp(argv[1], "oracle"))
+	{
+		const size_t size = 1000000;
+		const size_t ops = size * 3;
+		dtable * ref;
+		
+		r = tx_start();
+		EXPECT_NOFAIL("tx_start", r);
+		
+		r = dtable_factory::setup("managed_dtable", AT_FDCWD, "bfdt_refr", config, dtype::UINT32);
+		EXPECT_NOFAIL("dtable::create", r);
+		ref = dtable_factory::load("managed_dtable", AT_FDCWD, "bfdt_refr", config, sysj);
+		EXPECT_NONULL("dtable_factory::load", ref);
+		bfdt_populate(ref, size, ops, "reference", NULL);
+		
+		r = dtable_factory::setup("managed_dtable", AT_FDCWD, "bfdt_orcl", config, dtype::UINT32);
+		EXPECT_NOFAIL("dtable::create", r);
+		dt = dtable_factory::load("managed_dtable", AT_FDCWD, "bfdt_orcl", config, sysj);
+		EXPECT_NONULL("dtable_factory::load", dt);
+		bfdt_populate(dt, size, ops, "oracle", ref);
+		
+		ref->destroy();
+		dt->destroy();
+		
+		r = tx_end(0);
+		EXPECT_NOFAIL("tx_end", r);
+		
+		ref = dtable_factory::load("managed_dtable", AT_FDCWD, "bfdt_refr", config, sysj);
+		EXPECT_NONULL("dtable_factory::load", ref);
+		bfdt_scan(ref, size, ops, "reference", NULL);
+		
+		dt = dtable_factory::load("managed_dtable", AT_FDCWD, "bfdt_orcl", config, sysj);
+		EXPECT_NONULL("dtable_factory::load", dt);
+		bfdt_scan(dt, size, ops, "oracle", ref);
+		
+#if BFDT_PERF_TEST
+		bloom_dtable::perf_enable = true;
+#endif
+		ref->destroy();
+		dt->destroy();
+#if BFDT_PERF_TEST
+		bloom_dtable::perf_enable = false;
+#endif
+		
 		return 0;
 	}
 	
