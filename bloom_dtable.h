@@ -21,6 +21,8 @@
 /* The bloom filter dtable must be created with another read-only dtable, and
  * builds a bloom filter for the keys. Negative lookups are then very fast. */
 
+#define BFDT_PERF_TEST 0
+
 #define BLOOM_DTABLE_MAGIC 0x1138B893
 #define BLOOM_DTABLE_VERSION 0
 
@@ -58,7 +60,11 @@ public:
 	inline bloom_dtable() : base(NULL), chain(this) {}
 	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
 	void deinit();
-
+	
+#if BFDT_PERF_TEST
+	static bool perf_enable;
+#endif
+	
 protected:
 	inline virtual ~bloom_dtable()
 	{
@@ -71,36 +77,22 @@ private:
 	{
 	public:
 		bloom() : filter(NULL) {}
+		/* for reading */
 		int init(int dfd, const char * file, size_t * m, size_t * k);
-		int init(size_t bytes)
-		{
-			if(filter)
-				deinit();
-			filter = new uint8_t[bytes];
-			if(!filter)
-				return -ENOMEM;
-			util::memset(filter, 0, bytes);
-			return 0;
-		}
+		/* for writing */
+		int init(size_t bytes);
 		int write(int dfd, const char * file, size_t m, size_t k) const;
-		void deinit()
-		{
-			if(filter)
-			{
-				delete[] filter;
-				filter = NULL;
-			}
-		}
+		void deinit();
 		~bloom()
 		{
 			if(filter)
 				deinit();
 		}
-		bool check(size_t number) const
+		inline bool check(size_t number) const
 		{
 			return (filter[number / 8] & (1 << (number % 8))) ? true : false;
 		}
-		void set(size_t number)
+		inline void set(size_t number)
 		{
 			filter[number / 8] |= 1 << (number % 8);
 		}
@@ -110,6 +102,10 @@ private:
 		void add(const dtype & key, size_t k, size_t bits);
 	private:
 		uint8_t * filter;
+#if BFDT_PERF_TEST
+		istr dir_name, file_name;
+		mutable size_t total_lookups, blocked_lookups;
+#endif
 	};
 
 	struct bloom_dtable_header

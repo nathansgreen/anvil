@@ -17,6 +17,11 @@
  * lookup is passed through. Since there can be no false negatives, this will
  * always work correctly. */
 
+#if BFDT_PERF_TEST
+#include <stdio.h>
+bool bloom_dtable::perf_enable = false;
+#endif
+
 #define HASH_SIZE 16 /* MD5 */
 #define HASH_BITS (HASH_SIZE * 8)
 
@@ -77,6 +82,16 @@ int bloom_dtable::bloom::init(int dfd, const char * file, size_t * m, size_t * k
 	*m = header.m;
 	*k = header.k;
 	delete data;
+#if BFDT_PERF_TEST
+	{
+		char * dir_string = getcwdat(dfd, NULL, 0);
+		dir_name = util::tilde_home(dir_string);
+		free(dir_string);
+		file_name = file;
+		total_lookups = 0;
+		blocked_lookups = 0;
+	}
+#endif
 	return 0;
 
 fail_free:
@@ -85,6 +100,40 @@ fail_free:
 fail_close:
 	delete data;
 	return -1;
+}
+
+int bloom_dtable::bloom::init(size_t bytes)
+{
+	if(filter)
+		deinit();
+	filter = new uint8_t[bytes];
+	if(!filter)
+		return -ENOMEM;
+	util::memset(filter, 0, bytes);
+#if BFDT_PERF_TEST
+	total_lookups = 0;
+	blocked_lookups = 0;
+#endif
+	return 0;
+}
+
+void bloom_dtable::bloom::deinit()
+{
+	if(filter)
+	{
+		delete[] filter;
+		filter = NULL;
+#if BFDT_PERF_TEST
+		if(perf_enable && total_lookups)
+		{
+			double percent = 100 * blocked_lookups / (double) total_lookups;
+			printf("Bloom filter %s/%s: ", dir_name.str(), file_name.str());
+			printf("%zu/%zu lookups blocked (%lg%%)\n", blocked_lookups, total_lookups, percent);
+		}
+		dir_name = NULL;
+		file_name = NULL;
+#endif
+	}
 }
 
 int bloom_dtable::bloom::write(int dfd, const char * file, size_t m, size_t k) const
@@ -120,10 +169,20 @@ fail:
 
 bool bloom_dtable::bloom::check(const uint8_t * hash, size_t k, size_t bits) const
 {
+#if BFDT_PERF_TEST
+	if(perf_enable)
+		total_lookups++;
+#endif
 	bitreader indices(hash, bits);
 	for(size_t i = 0; i < k; i++)
 		if(!check(indices.next()))
+		{
+#if BFDT_PERF_TEST
+			if(perf_enable)
+				blocked_lookups++;
+#endif
 			return false;
+		}
 	return true;
 }
 
