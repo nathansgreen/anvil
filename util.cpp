@@ -1,11 +1,12 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2008 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
 #define _ATFILE_SOURCE
 
-#include <sys/stat.h>
 #include <dirent.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 
 #include "openat.h"
 
@@ -50,4 +51,25 @@ int util::rm_r(int dfd, const char * path)
 	if(r < 0)
 		return r;
 	return unlinkat(dfd, path, AT_REMOVEDIR);
+}
+
+istr util::tilde_home(const istr & path)
+{
+	size_t length;
+	const char * home = getenv("HOME");
+	if(!home)
+		return path;
+	length = strlen(home);
+	if(!length)
+		return path;
+	if(home[length - 1] == '/')
+		if(!--length)
+			return path;
+	if(strncmp(path, home, length))
+		return path;
+	if(path[length] != '/')
+		return path[length] ? path : "~";
+	char result[path.length() - length + 2];
+	sprintf(result, "~%s", &path[length]);
+	return result;
 }

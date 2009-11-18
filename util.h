@@ -12,6 +12,8 @@
 #error util.h is a C++ header file
 #endif
 
+#include "istr.h"
+
 #define static_assert(x) do { switch(0) { case 0: case (x): ; } } while(0)
 
 /* useful utility stuff */
@@ -135,6 +137,7 @@ public:
 	
 	/* rm -r */
 	static int rm_r(int dfd, const char * path);
+	static istr tilde_home(const istr & path);
 };
 
 #endif /* __UTIL_H */
