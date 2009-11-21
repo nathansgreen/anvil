@@ -627,6 +627,7 @@ struct {
 	{"sidtable", "Test smallint dtable functionality.", command_sidtable},
 	{"didtable", "Test deltaint dtable functionality.", command_didtable},
 	{"kddtable", "Test keydiv dtable functionality.", command_kddtable},
+	{"udtable", "Test unique value dtable functionality.", command_udtable},
 	{"ctable", "Test ctable functionality.", command_ctable},
 	{"cctable", "Test column ctable functionality.", command_cctable},
 	{"consistency", "Test Anvil consistency model.", command_consistency},

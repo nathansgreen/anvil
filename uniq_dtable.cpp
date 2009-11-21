@@ -39,6 +39,8 @@ metablob uniq_dtable::iter::meta() const
 blob uniq_dtable::iter::value() const
 {
 	blob index_blob = base->value();
+	if(!index_blob.exists())
+		return index_blob;
 	assert(index_blob.size() == sizeof(uint32_t));
 	uint32_t index = index_blob.index<uint32_t>(0);
 	return dt_source->valuebase->find(index);
@@ -217,7 +219,7 @@ bool uniq_dtable::rev_iter_key::advance(bool do_first)
 		return true;
 	}
 	ref = window.append(value);
-	if(ref->index != current_value.index<uint32_t>(0))
+	if(!current_value.exists() || ref->index != current_value.index<uint32_t>(0))
 		current_value = blob(sizeof(ref->index), &ref->index);
 	return true;
 }
@@ -249,6 +251,8 @@ bool uniq_dtable::rev_iter_value::reject(blob * replacement)
 	 * reject the values and just checking everything is OK, or by actively
 	 * rejecting the values and only hoping the replacement is the same. We
 	 * use the second approach since it is less fragile. See advance(). */
+	/* TODO: currently each unique rejected value will be stored separately
+	 * even when the replacement values are the same. This should be fixed. */
 	sliding_window::idx_ref * ref;
 	if(failed)
 		return false;

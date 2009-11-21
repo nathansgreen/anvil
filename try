@@ -84,6 +84,7 @@ bfdtable
 sidtable
 didtable
 kddtable
+udtable
 ctable
 cctable
 stable

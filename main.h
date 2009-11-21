@@ -40,6 +40,7 @@ int command_ussdtable(int argc, const char * argv[]);
 int command_sidtable(int argc, const char * argv[]);
 int command_didtable(int argc, const char * argv[]);
 int command_kddtable(int argc, const char * argv[]);
+int command_udtable(int argc, const char * argv[]);
 int command_ctable(int argc, const char * argv[]);
 int command_cctable(int argc, const char * argv[]);
 int command_consistency(int argc, const char * argv[]);

@@ -632,6 +632,266 @@ int command_kddtable(int argc, const char * argv[])
 	return 0;
 }
 
+struct uniq_insert
+{
+	double key;
+	size_t index;
+};
+
+struct uniq_key
+{
+	double key;
+	size_t size;
+};
+
+static void verify_uniq_alts(const char ** strings, const uniq_insert * alts, size_t count, const char * type, const char * path, const params & config, sys_journal * sysj)
+{
+	dtable::iter * iter;
+	dtable * dt = dtable_factory::load(type, AT_FDCWD, path, config, sysj);
+	EXPECT_NONULL("dtable_factory::load alt", dt);
+	run_iterator(dt);
+	iter = dt->iterator();
+	for(size_t i = 0; i < count; i++)
+	{
+		if(!iter->valid())
+			EXPECT_NEVER("iterator not valid");
+		dtype key = iter->key();
+		blob value = iter->value();
+		blob expect = blob(strings[alts[i].index]);
+		assert(key.type == dtype::DOUBLE);
+		if(key.dbl != alts[i].key)
+			EXPECT_NEVER("incorrect key[%zu]", i);
+		if(value.compare(expect))
+			EXPECT_NEVER("incorrect value[%zu]", i);
+		iter->next();
+	}
+	if(iter->valid())
+		EXPECT_NEVER("iterator still valid");
+	delete iter;
+	dt->destroy();
+}
+
+static void verify_uniq_keys(const uniq_key * sizes, size_t count, const char * type, const char * path, const params & config, sys_journal * sysj)
+{
+	dtable::iter * iter;
+	dtable * dt = dtable_factory::load(type, AT_FDCWD, path, config, sysj);
+	EXPECT_NONULL("dtable_factory::load keys", dt);
+	run_iterator(dt);
+	iter = dt->iterator();
+	for(size_t i = 0; i < count; i++)
+	{
+		if(!iter->valid())
+			EXPECT_NEVER("iterator not valid");
+		dtype key = iter->key();
+		blob value = iter->value();
+		assert(key.type == dtype::DOUBLE);
+		if(key.dbl != sizes[i].key)
+			EXPECT_NEVER("incorrect key[%zu]", i);
+		if(sizes[i].size == (size_t) -1)
+		{
+			if(value.exists())
+				EXPECT_NEVER("incorrect value[%zu]", i);
+		}
+		else
+		{
+			if(value.size() != sizes[i].size)
+				EXPECT_NEVER("incorrect value[%zu]", i);
+		}
+		iter->next();
+	}
+	if(iter->valid())
+		EXPECT_NEVER("iterator still valid");
+	delete iter;
+	dt->destroy();
+}
+
+static void verify_uniq_values(const char ** strings, const size_t * values, size_t count, const char * type, const char * path, const params & config, sys_journal * sysj)
+{
+	dtable::iter * iter;
+	dtable * dt = dtable_factory::load(type, AT_FDCWD, path, config, sysj);
+	EXPECT_NONULL("dtable_factory::load values", dt);
+	run_iterator(dt);
+	iter = dt->iterator();
+	for(size_t i = 0; i < count; i++)
+	{
+		if(!iter->valid())
+			EXPECT_NEVER("iterator not valid");
+		dtype key = iter->key();
+		blob value = iter->value();
+		blob expect = blob(strings[values[i]]);
+		assert(key.type == dtype::UINT32);
+		if(key.u32 != i)
+			EXPECT_NEVER("incorrect key %u (expected %zu)", key.u32, i);
+		if(value.compare(expect))
+			EXPECT_NEVER("incorrect value[%zu]", i);
+		iter->next();
+	}
+	if(iter->valid())
+		EXPECT_NEVER("iterator still valid");
+	delete iter;
+	dt->destroy();
+}
+
+int command_udtable(int argc, const char * argv[])
+{
+	int r;
+	dtable * dt;
+	params config;
+	dtable::iter * iter;
+	sys_journal * sysj = sys_journal::get_global_journal();
+	const char * strings[] = {
+		"1",              /* 0 */
+		"* 5 *",          /* 1 */
+		"### 10 ###",     /* 2 */
+		"%%% 10 %%%",     /* 3 */
+		"&&& 10 &&&",     /* 4 */
+		"@@@ 10 @@@",     /* 5 */
+		"===== 14 =====", /* 6 */
+		"          ",     /* 7 (the reject value) */
+	};
+	const uniq_insert inserts[] = {
+		{0.0, 2}, {0.5, 2}, {1.0, 2}, {1.5, 2},
+		{2.0, 3}, {2.5, 2}, {3.0, 4}, {3.5, 2},
+		{4.0, 5}, {4.5, 4}, {5.0, 3}, {5.5, 0},
+		{6.0, 3}, {6.5, 4}, {7.0, 1}, {7.5, 5},
+		{8.0, 6}, {8.5, 6}, {9.0, 1}, {9.5, 2},
+	}, alts_0[] = {
+		{5.5, 0}, {7.0, 1}, {8.0, 6}, {8.5, 6}, {9.0, 1},
+	}, alts_1[] = { {7.25, 0} };
+	const uniq_key keys_0[] = {
+		{0.0, 4}, {0.5, 4}, {1.0, 4}, {1.5, 4},
+		{2.0, 4}, {2.5, 4}, {3.0, 4}, {3.5, 4},
+		{4.0, 4}, {4.5, 4}, {5.0, 4}, {5.5, 4},
+		{6.0, 4}, {6.5, 4}, {7.0, 4}, {7.5, 4},
+		{8.0, 4}, {8.5, 4}, {9.0, 4}, {9.5, 4},
+	}, keys_1[] = {
+		{0.5, -1}, {1.5, -1}, {7.25, 4}, {7.75, 4}, {8.25, 4},
+	};
+	/* TODO: there could be only one 7 here, but uniq_dtable
+	 * needs to be improved before it will do that correctly */
+	const size_t values_0[] = {2, 3, 4, 5, 7, 7, 7};
+	const size_t values_1[] = {7, 4, 5};
+#define INSERTS (sizeof(inserts) / sizeof(inserts[0]))
+#define ALTS_0 (sizeof(alts_0) / sizeof(alts_0[0]))
+#define ALTS_1 (sizeof(alts_1) / sizeof(alts_1[0]))
+#define KEYS_0 (sizeof(keys_0) / sizeof(keys_0[0]))
+#define KEYS_1 (sizeof(keys_1) / sizeof(keys_1[0]))
+#define VALUES_0 (sizeof(values_0) / sizeof(values_0[0]))
+#define VALUES_1 (sizeof(values_1) / sizeof(values_1[0]))
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) exception_dtable
+		"base_config" config [
+			"base" class(dt) uniq_dtable
+			"base_config" config [
+				"keybase" class(dt) fixed_dtable
+				"valuebase" class(dt) array_dtable
+				"valuebase_config" config [
+					"value_size" int 10
+				]
+			]
+			"alt" class(dt) simple_dtable
+			"reject_value" blob 20202020202020202020
+		]
+		"digest_interval" int 2
+		"combine_interval" int 12
+		"combine_count" int 8
+		"autocombine" bool false
+	]), &config);
+	EXPECT_NOFAIL("params::parse", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	
+	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "uqdt_test", config, dtype::DOUBLE);
+	EXPECT_NOFAIL("dtable::create", r);
+	
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "uqdt_test", config, sysj);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	
+	/* first, let's insert some values and digest */
+	for(size_t i = 0; i < INSERTS; i++)
+	{
+		blob value = blob(strings[inserts[i].index]);
+		r = dt->insert(inserts[i].key, value);
+		if(r < 0)
+			EXPECT_NEVER("insert(%lg)", inserts[i].key);
+	}
+	r = dt->maintain(true);
+	EXPECT_NOFAIL("maintain", r);
+	
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	/* print them to help diagnose errors */
+	run_iterator(dt);
+	
+	/* and check for errors */
+	iter = dt->iterator();
+	for(size_t i = 0; i < INSERTS; i++)
+	{
+		if(!iter->valid())
+			EXPECT_NEVER("iterator not valid");
+		dtype key = iter->key();
+		blob value = iter->value();
+		blob expect = blob(strings[inserts[i].index]);
+		assert(key.type == dtype::DOUBLE);
+		if(key.dbl != inserts[i].key)
+			EXPECT_NEVER("incorrect key[%zu]", i);
+		if(value.compare(expect))
+			EXPECT_NEVER("incorrect value[%zu]", i);
+		iter->next();
+	}
+	if(iter->valid())
+		EXPECT_NEVER("iterator still valid");
+	delete iter;
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	
+	/* insert a few more values and delete some of the old ones */
+	/* NOTE: the _1 tables above are based on the following code */
+	r = dt->insert(7.25, blob(strings[0]));
+	EXPECT_NOFAIL("insert(7.25)", r);
+	r = dt->insert(7.75, blob(strings[4]));
+	EXPECT_NOFAIL("insert(7.75)", r);
+	r = dt->insert(8.25, blob(strings[5]));
+	EXPECT_NOFAIL("insert(8.25)", r);
+	r = dt->insert(8.75, blob(strings[2]));
+	EXPECT_NOFAIL("insert(8.75)", r);
+	r = dt->remove(8.75);
+	EXPECT_NOFAIL("remove(8.75)", r);
+	r = dt->remove(0.5);
+	EXPECT_NOFAIL("remove(0.5)", r);
+	r = dt->remove(1.5);
+	EXPECT_NOFAIL("remove(1.5)", r);
+	r = dt->maintain(true);
+	EXPECT_NOFAIL("maintain", r);
+	
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	/* print them to help diagnose errors */
+	run_iterator(dt);
+	
+	dt->destroy();
+	
+	printf("Check underlying dtables...\n");
+	
+	verify_uniq_alts(strings, alts_0, ALTS_0, "simple_dtable", "uqdt_test/md_data.0/alt", params(), sysj);
+	verify_uniq_keys(keys_0, KEYS_0, "fixed_dtable", "uqdt_test/md_data.0/base/keys", params(), sysj);
+	verify_uniq_values(strings, values_0, VALUES_0, "array_dtable", "uqdt_test/md_data.0/base/values", params(), sysj);
+	
+	verify_uniq_alts(strings, alts_1, ALTS_1, "simple_dtable", "uqdt_test/md_data.1/alt", params(), sysj);
+	verify_uniq_keys(keys_1, KEYS_1, "fixed_dtable", "uqdt_test/md_data.1/base/keys", params(), sysj);
+	verify_uniq_values(strings, values_1, VALUES_1, "array_dtable", "uqdt_test/md_data.1/base/values", params(), sysj);
+	
+	return 0;
+}
+
 int command_ctable(int argc, const char * argv[])
 {
 	int r;
