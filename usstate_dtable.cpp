@@ -48,10 +48,7 @@ dtable::iter * usstate_dtable::iterator(ATX_DEF) const
 		return NULL;
 	value = new iter(source, this);
 	if(!value)
-	{
 		delete source;
-		return NULL;
-	}
 	return value;
 }
 
