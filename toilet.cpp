@@ -14,63 +14,17 @@
 #include "blowfish.h"
 
 #include "util.h"
+#include "anvil.h"
 #include "toilet.h"
 #include "params.h"
 #include "transaction.h"
 #include "sys_journal.h"
-#include "journal_dtable.h"
 #include "simple_stable.h"
-
-static void rename_gmon_out(void)
-{
-	struct stat gmon;
-	int r = stat("gmon.out", &gmon);
-	if(r >= 0)
-	{
-		char name[sizeof("gmon.out.") + 12];
-		for(uint32_t seq = 0; seq != (uint32_t) -1; seq++)
-		{
-			snprintf(name, sizeof(name), "gmon.out.%u", seq);
-			r = stat(name, &gmon);
-			if(r < 0)
-			{
-				fprintf(stderr, "%s() renaming gmon.out to %s\n", __FUNCTION__, name);
-				rename("gmon.out", name);
-				break;
-			}
-		}
-	}
-}
 
 int toilet_init(const char * path)
 {
-	int r, fd = open(path, O_RDONLY);
-	if(fd < 0)
-		return fd;
-	rename_gmon_out();
-	/* make maximum log size 4MB */
-	r = tx_init(fd, 4194304);
-	if(r >= 0)
-	{
-		r = tx_start_r();
-		if(r >= 0)
-		{
-			sys_journal * global = sys_journal::get_global_journal();
-			r = sys_journal::set_unique_id_file(fd, "sys_journal_id", true);
-			if(r >= 0)
-				r = global->init(fd, "sys_journal", &journal_dtable::warehouse, true);
-			if(r >= 0)
-			{
-				/* maybe we should not always do this here? */
-				r = global->filter();
-				r = tx_end_r();
-			}
-			else
-				tx_end_r();
-		}
-	}
-	close(fd);
-	return r;
+	/* call the new Anvil version, it's the same thing anyway */
+	return anvil_init(path);
 }
 
 int toilet_new(const char * path)
