@@ -274,8 +274,6 @@ void anvil_dtable_cache_close_iter(anvil_dtable_cache * c, anvil_dtable_iter * i
 
 #include <ext/hash_map>
 
-#include "blob.h"
-#include "istr.h"
 #include "params.h"
 #include "dtable.h"
 #include "ctable.h"

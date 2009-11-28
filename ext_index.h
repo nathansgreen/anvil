@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2008 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -9,7 +9,7 @@
 #error ext_index.h is a C++ header file
 #endif
 
-#include "dtable.h"
+#include "dtype.h"
 
 /* external (secondary) indices */
 

@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2008 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -9,10 +9,12 @@
 #error index_factory.h is a C++ header file
 #endif
 
-#include "istr.h"
-#include "params.h"
+#include "dtype.h"
 #include "factory.h"
 #include "ext_index.h"
+
+class dtable;
+class params;
 
 /* although ext_index itself does not suggest that it be implemented on top of dtables,
  * index_factory basically does require that for any ext_indexes built via factories */

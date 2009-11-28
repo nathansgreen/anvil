@@ -8,6 +8,7 @@
 #include <stdio.h>
 
 #include "factory.h"
+#include "params.h"
 
 /* Can we be guaranteed that the constructor for this map will be called before
  * the factory constructors that call add() below? Not officially, but in

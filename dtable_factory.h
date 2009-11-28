@@ -11,10 +11,10 @@
 #error dtable_factory.h is a C++ header file
 #endif
 
-#include "istr.h"
-#include "params.h"
-#include "factory.h"
+#include "dtype.h"
 #include "dtable.h"
+#include "factory.h"
+#include "params.h"
 
 class sys_journal;
 

@@ -10,8 +10,10 @@
 #endif
 
 #include <map>
+
 #include "istr.h"
-#include "params.h"
+
+class params;
 
 template<class T>
 class factory : public T

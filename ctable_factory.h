@@ -6,16 +6,18 @@
 #define __CTABLE_FACTORY_H
 
 #include <stdio.h>
+#include <errno.h>
+#include <stddef.h>
 
 #ifndef __cplusplus
 #error ctable_factory.h is a C++ header file
 #endif
 
-#include "istr.h"
-#include "params.h"
-#include "factory.h"
+#include "dtype.h"
 #include "ctable.h"
+#include "factory.h"
 
+class params;
 class sys_journal;
 
 class ctable_factory_base
