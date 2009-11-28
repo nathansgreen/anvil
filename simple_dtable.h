@@ -15,10 +15,9 @@
 #error simple_dtable.h is a C++ header file
 #endif
 
-#include "blob.h"
-#include "dtable.h"
 #include "dtable_factory.h"
-#include "rofile.h"
+
+class rofile;
 
 /* The simple dtable does nothing fancy to store the blobs efficiently. It just
  * stores the key and the blob literally, including size information. These

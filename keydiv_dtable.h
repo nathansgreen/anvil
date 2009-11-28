@@ -17,7 +17,6 @@
 #include <vector>
 #include <ext/hash_map>
 
-#include "dtable.h"
 #include "dtable_factory.h"
 
 /* A keydiv dtable splits the keyspace among several underlying dtables. This

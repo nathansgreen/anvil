@@ -13,10 +13,9 @@
 #error linear_dtable.h is a C++ header file
 #endif
 
-#include "blob.h"
-#include "dtable.h"
 #include "dtable_factory.h"
-#include "rofile.h"
+
+class rofile;
 
 /* The linear dtable is like the simple dtable in that it can store values of
  * any size, but like the array dtable in that the keys must be contiguous

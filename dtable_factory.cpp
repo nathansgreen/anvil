@@ -4,9 +4,16 @@
 
 #include "dtable_factory.h"
 #include "factory_impl.h"
+#include "empty_dtable.h"
 
 /* force the template to instantiate */
 template class factory<dtable_factory_base>;
+
+int dtable_factory_base::create(int dfd, const char * name, const params & config, dtype::ctype key_type) const
+{
+	empty_dtable empty(key_type);
+	return create(dfd, name, config, &empty, NULL);
+}
 
 dtable * dtable_factory_base::load(const istr & type, int dfd, const char * name, const params & config, sys_journal * sysj)
 {

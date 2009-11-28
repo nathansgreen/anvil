@@ -11,8 +11,6 @@
 
 #include <ext/hash_map>
 
-#include "blob.h"
-#include "dtable.h"
 #include "dtable_factory.h"
 #include "dtable_wrap_iter.h"
 #include "concat_queue.h"

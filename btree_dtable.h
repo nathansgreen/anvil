@@ -13,11 +13,10 @@
 #error btree_dtable.h is a C++ header file
 #endif
 
-#include "blob.h"
-#include "rofile.h"
-#include "dtable.h"
 #include "dtable_factory.h"
 #include "dtable_wrap_iter.h"
+
+class rofile;
 
 /* The btree dtable must be created with another read-only dtable, and builds a
  * btree key index for it. The base dtable must support indexed access. */

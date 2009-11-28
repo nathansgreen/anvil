@@ -9,16 +9,15 @@
 #include <inttypes.h>
 #include <sys/types.h>
 
-#include "stringtbl.h"
 
 #ifndef __cplusplus
 #error fixed_dtable.h is a C++ header file
 #endif
 
-#include "blob.h"
-#include "dtable.h"
 #include "dtable_factory.h"
-#include "rofile.h"
+#include "stringtbl.h"
+
+class rofile;
 
 /* The fixed dtable stores blobs of a fixed size. This allows it to omit the
  * size and offset fields that are present in simple_dtable. These dtables are

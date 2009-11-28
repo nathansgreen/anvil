@@ -17,8 +17,6 @@
 #include <ext/pool_allocator.h>
 #include "avl/map.h"
 
-#include "blob.h"
-#include "istr.h"
 #include "dtable.h"
 #include "sys_journal.h"
 

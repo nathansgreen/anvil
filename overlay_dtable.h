@@ -13,7 +13,6 @@
 #error overlay_dtable.h is a C++ header file
 #endif
 
-#include "blob.h"
 #include "dtable.h"
 
 /* The overlay dtable just combines underlying dtables in the order specified.

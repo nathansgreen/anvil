@@ -12,9 +12,9 @@
 #error istr.h is a C++ header file
 #endif
 
-#include "blob.h"
-
 #include <vector>
+
+#include "blob.h"
 
 /* This class is meant to replace uses of "const char *", but nothing more. In
  * particular, it is not a generic string class supporting a full library of

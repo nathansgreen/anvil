@@ -15,6 +15,7 @@
 #include <algorithm>
 
 #include "util.h"
+#include "rofile.h"
 #include "rwfile.h"
 #include "string_counter.h"
 #include "blob_buffer.h"

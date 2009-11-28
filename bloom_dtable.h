@@ -13,9 +13,6 @@
 #error bloom_dtable.h is a C++ header file
 #endif
 
-#include "util.h"
-#include "blob.h"
-#include "dtable.h"
 #include "dtable_factory.h"
 
 /* The bloom filter dtable must be created with another read-only dtable, and

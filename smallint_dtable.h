@@ -9,8 +9,6 @@
 #error smallint_dtable.h is a C++ header file
 #endif
 
-#include "blob.h"
-#include "dtable.h"
 #include "dtable_factory.h"
 #include "dtable_wrap_iter.h"
 

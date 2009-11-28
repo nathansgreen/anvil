@@ -17,8 +17,6 @@
 #include <ext/pool_allocator.h>
 #include "avl/map.h"
 
-#include "blob.h"
-#include "istr.h"
 #include "dtable.h"
 
 /* The memory dtable stores data in memory, like the journal dtable, but does

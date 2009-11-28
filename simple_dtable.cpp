@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "util.h"
+#include "rofile.h"
 #include "rwfile.h"
 #include "blob_buffer.h"
 #include "simple_dtable.h"

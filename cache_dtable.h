@@ -16,8 +16,6 @@
 #include <queue>
 #include <ext/hash_map>
 
-#include "blob.h"
-#include "dtable.h"
 #include "dtable_factory.h"
 
 /* The cache dtable sits on top of another dtable, and merely adds caching. */

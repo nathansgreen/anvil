@@ -7,6 +7,7 @@
 #include "openat.h"
 
 #include "util.h"
+#include "rofile.h"
 #include "btree_dtable.h"
 
 /* A btree dtable doesn't actually store the data itself - that's up to some

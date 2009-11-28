@@ -18,7 +18,6 @@
 #include <ext/hash_map>
 #include "avl/set.h"
 
-#include "dtable.h"
 #include "dtable_factory.h"
 #include "overlay_dtable.h"
 #include "sys_journal.h"

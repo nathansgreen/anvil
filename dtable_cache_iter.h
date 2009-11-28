@@ -13,7 +13,6 @@
 #error dtable_cache_iter.h is a C++ header file
 #endif
 
-#include "dtable.h"
 #include "dtable_wrap_iter.h"
 
 /* The dtable caching iterator caches the keys and values it returns, so that

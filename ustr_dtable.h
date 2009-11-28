@@ -17,10 +17,9 @@
 
 #include <vector>
 
-#include "blob.h"
-#include "dtable.h"
 #include "dtable_factory.h"
-#include "rofile.h"
+
+class rofile;
 
 /* The ustr (unique string) dtable is designed with simple_ctable in mind. It
  * scans the blobs for column names as stored by simple_ctable with sub_blob,

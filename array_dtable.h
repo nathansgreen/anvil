@@ -9,10 +9,9 @@
 #error array_dtable.h is a C++ header file
 #endif
 
-#include "blob.h"
-#include "dtable.h"
-#include "rofile.h"
 #include "dtable_factory.h"
+
+class rofile;
 
 #define ADTABLE_MAGIC 0x69AD02D3
 #define ADTABLE_VERSION 2
@@ -27,6 +26,7 @@
 #define ARRAY_INDEX_HOLE 0
 #define ARRAY_INDEX_DNE 1
 #define ARRAY_INDEX_VALID 2
+
 
 class array_dtable : public dtable
 {
