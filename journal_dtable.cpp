@@ -66,12 +66,12 @@ bool journal_dtable::iter::seek(const dtype_test & test)
 
 metablob journal_dtable::iter::meta() const
 {
-	return jit->second;
+	return *jit->second;
 }
 
 blob journal_dtable::iter::value() const
 {
-	return jit->second;
+	return *jit->second;
 }
 
 const dtable * journal_dtable::iter::source() const
@@ -90,7 +90,7 @@ bool journal_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 	if(it != jdt_hash.end())
 	{
 		*found = true;
-		return it->second->exists();
+		return it->second.exists();
 	}
 	*found = false;
 	return false;
@@ -102,7 +102,7 @@ blob journal_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 	if(it != jdt_hash.end())
 	{
 		*found = true;
-		return *(it->second);
+		return it->second;
 	}
 	*found = false;
 	return blob();
@@ -310,33 +310,29 @@ void journal_dtable::deinit()
 	dtable::deinit();
 }
 
-int journal_dtable::add_node(const dtype & key, const blob & value, bool append)
-{
-	journal_dtable_map::value_type pair(key, value);
-	journal_dtable_map::iterator it;
-	if(append)
-		it = jdt_map.insert(jdt_map.end(), pair);
-	else
-		it = jdt_map.insert(pair).first;
-	jdt_hash[key] = &(it->second);
-	return 0;
-}
-
 int journal_dtable::set_node(const dtype & key, const blob & value, bool append)
 {
-	journal_dtable_hash::iterator it = jdt_hash.find(key);
-	if(it != jdt_hash.end())
+	journal_dtable_hash::value_type hash_pair(key, value);
+	std::pair<journal_dtable_hash::iterator, bool> insert = jdt_hash.insert(hash_pair);
+	if(insert.second)
 	{
-		*(it->second) = value;
-		return 0;
+		/* add to map as well */
+		journal_dtable_map::value_type map_pair(key, &insert.first->second);
+		if(append)
+			jdt_map.insert(jdt_map.end(), map_pair);
+		else
+			jdt_map.insert(map_pair);
 	}
-	return add_node(key, value, append);
+	else
+		/* update value in hash */
+		insert.first->second = value;
+	return 0;
 }
 
 int journal_dtable::real_rollover(listening_dtable * target) const
 {
-	journal_dtable_map::const_iterator it;
-	for(it = jdt_map.begin(); it != jdt_map.end(); ++it)
+	journal_dtable_hash::const_iterator it;
+	for(it = jdt_hash.begin(); it != jdt_hash.end(); ++it)
 	{
 		int r = send(target, it->first, it->second);
 		if(r < 0)

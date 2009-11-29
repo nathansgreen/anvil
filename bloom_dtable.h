@@ -56,13 +56,13 @@ public:
 	
 	inline bloom_dtable() : base(NULL), chain(this) {}
 	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
-	void deinit();
 	
 #if BFDT_PERF_TEST
 	static bool perf_enable;
 #endif
 	
 protected:
+	void deinit();
 	inline virtual ~bloom_dtable()
 	{
 		if(base)

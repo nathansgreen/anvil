@@ -94,7 +94,7 @@ int sys_journal::append(listening_dtable * listener, void * entry, size_t length
 	SYSJ_DEBUG("%d, %p, %zu", listener->id(), entry, length);
 	
 	header.id = listener->id();
-	assert(warehouse->lookup(header.id) == listener);
+	assert(warehouse_lookup(header.id) == listener);
 	assert(!discarded.count(header.id));
 	if(length == (size_t) -1)
 		return -EINVAL;
@@ -368,19 +368,22 @@ fail:
 	return (r < 0) ? r : -1;
 }
 
-int sys_journal::init(int dfd, const char * file, listening_dtable_warehouse * warehouse, bool create, bool filter_on_empty)
+int sys_journal::init(int dfd, const char * file, listening_dtable_warehouse * reg_warehouse, listening_dtable_warehouse * temp_warehouse, bool create, bool filter_on_empty)
 {
 	int r;
 	meta_journal info;
 	data_header header;
 	bool do_playback = false;
 	SYSJ_DEBUG("%d, %s, %d", dfd, file, create);
-	if(warehouse->size())
+	if(!temp_warehouse)
+		temp_warehouse = reg_warehouse;
+	if(reg_warehouse->size() || temp_warehouse->size())
 		return -EINVAL;
 	if(meta_fd)
 		deinit();
 	live_entries = 0;
-	this->warehouse = warehouse;
+	this->reg_warehouse = reg_warehouse;
+	this->temp_warehouse = temp_warehouse;
 	this->filter_on_empty = filter_on_empty;
 	meta_fd = tx_open(dfd, file, 0);
 	if(!meta_fd)
@@ -569,10 +572,10 @@ int sys_journal::playback()
 			discard_rollover_ids(entry.id);
 			if(is_temporary(entry.id))
 				temporary.erase(entry.id);
-			listener = warehouse->lookup(entry.id);
+			listener = warehouse_lookup(entry.id);
 			if(listener)
 			{
-				warehouse->remove(listener);
+				warehouse_remove(listener);
 				delete listener;
 			}
 			continue;
@@ -586,15 +589,15 @@ int sys_journal::playback()
 			offset += sizeof(to);
 			assert(is_temporary(entry.id));
 			SYSJ_DEBUG_IN("rollover %d -> %d", entry.id, to);
-			listening_dtable * from_ldt = warehouse->lookup(entry.id);
+			listening_dtable * from_ldt = warehouse_lookup(entry.id);
 			if(from_ldt)
 			{
-				listening_dtable * to_ldt = warehouse->lookup(to);
+				listening_dtable * to_ldt = warehouse_lookup(to);
 				if(to_ldt)
 				{
 					r = from_ldt->rollover(to_ldt);
 					assert(r >= 0);
-					warehouse->remove(from_ldt);
+					warehouse_remove(from_ldt);
 					delete from_ldt;
 				}
 				else
@@ -630,7 +633,7 @@ int sys_journal::playback()
 		}
 		offset += entry.length;
 		
-		listener = warehouse->obtain(entry.id, entry_data, entry.length, this);
+		listener = warehouse_obtain(entry.id, entry_data, entry.length);
 		if(!listener)
 		{
 			free(entry_data);
@@ -651,11 +654,12 @@ int sys_journal::playback()
 		listener_id_set::iterator it;
 		for(it = temporary.begin(); it != temporary.end(); ++it)
 		{
-			listening_dtable * listener = warehouse->lookup(*it);
+			listening_dtable * listener = warehouse_lookup(*it);
 			assert(listener);
 			discard(*it);
-			assert(listener->get_warehouse() == warehouse);
-			warehouse->remove(listener);
+			/* these are supposed to be in the temp warehouse */
+			assert(listener->get_warehouse() == temp_warehouse);
+			warehouse_remove(listener);
 			delete listener;
 		}
 	}
@@ -672,8 +676,9 @@ void sys_journal::deinit(bool erase)
 		if(dirty)
 			flush_tx();
 		assert(!dirty);
-		/* destroy all the listeners by clearing the warehouse */
-		warehouse->clear();
+		/* destroy all the listeners by clearing the warehouses */
+		reg_warehouse->clear();
+		temp_warehouse->clear();
 		if(registered)
 		{
 			tx_unregister_pre_end(&handle);
@@ -701,7 +706,7 @@ void sys_journal::deinit(bool erase)
 	}
 }
 
-sys_journal * sys_journal::spawn_init(const char * file, listening_dtable_warehouse * warehouse, bool create, bool filter_on_empty)
+sys_journal * sys_journal::spawn_init(const char * file, listening_dtable_warehouse * reg_warehouse, listening_dtable_warehouse * temp_warehouse, bool create, bool filter_on_empty)
 {
 	int r;
 	sys_journal * journal;
@@ -710,7 +715,7 @@ sys_journal * sys_journal::spawn_init(const char * file, listening_dtable_wareho
 	journal = new sys_journal;
 	if(!journal)
 		return NULL;
-	r = journal->init(global_journal.meta_dfd, file, warehouse, create, filter_on_empty);
+	r = journal->init(global_journal.meta_dfd, file, reg_warehouse, temp_warehouse, create, filter_on_empty);
 	if(r < 0)
 	{
 		delete journal;

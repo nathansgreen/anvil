@@ -27,7 +27,6 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	if(md_dfd >= 0)
 		deinit();
 	this->sysj = sysj;
-	warehouse = sysj->get_warehouse();
 	base = dtable_factory::lookup(config, "base");
 	if(!base)
 		return -EINVAL;
@@ -93,7 +92,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		if(ddt.type == MDTE_TYPE_JOURNAL)
 		{
 			sys_journal::listener_id jid = ddt.ddt_number;
-			sys_journal::listening_dtable * source = warehouse->obtain(jid, ktype, sysj);
+			sys_journal::listening_dtable * source = sysj->warehouse_obtain(jid, ktype);
 			if(!cmp_name)
 				cmp_name = source->get_cmp_name();
 			disks.push_back(dtable_list_entry(journal, jid));
@@ -113,7 +112,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 		}
 	}
 	
-	journal = warehouse->obtain(header.journal_id, ktype, sysj);
+	journal = sysj->warehouse_obtain(header.journal_id, ktype);
 	if(!cmp_name)
 	{
 		cmp_name = journal->get_cmp_name();
@@ -290,7 +289,7 @@ abortable_tx managed_dtable::create_tx()
 	
 	lid = sys_journal::get_unique_id(true);
 	assert(lid != sys_journal::NO_ID);
-	state->journal = warehouse->obtain(lid, ktype, sysj);
+	state->journal = sysj->warehouse_obtain(lid, ktype);
 	assert(state->journal);
 	if(blob_cmp)
 		state->journal->set_blob_cmp(blob_cmp);
@@ -443,7 +442,7 @@ int managed_dtable::combiner::prepare(bool shift_journal)
 			return r;
 		}
 		
-		mdt->journal = mdt->warehouse->obtain(mdt->header.journal_id, mdt->ktype, mdt->sysj);
+		mdt->journal = mdt->sysj->warehouse_obtain(mdt->header.journal_id, mdt->ktype);
 		if(mdt->blob_cmp)
 			mdt->journal->set_blob_cmp(mdt->blob_cmp);
 		
@@ -628,7 +627,7 @@ int managed_dtable::combiner::finish()
 			doomed_dtable * doomed = new doomed_dtable(mdt, mdt->journal);
 			/* FIXME: we can actually discard the sysj entries now, as long as we keep them in memory */
 			mdt->doomed_dtables.insert(doomed);
-			mdt->journal = mdt->warehouse->obtain(mdt->header.journal_id, mdt->ktype, mdt->sysj);
+			mdt->journal = mdt->sysj->warehouse_obtain(mdt->header.journal_id, mdt->ktype);
 		}
 		else
 			mdt->journal->reinit(mdt->header.journal_id);

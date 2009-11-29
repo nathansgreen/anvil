@@ -29,13 +29,15 @@ public:
 	inline overlay_dtable() : tables(NULL), table_count(0) {}
 	int init(const dtable * dt1, ...);
 	int init(const dtable ** dts, size_t count);
-	void deinit();
 	/* overlay_dtable has a public destructor (and no factory) */
 	inline virtual ~overlay_dtable()
 	{
 		if(tables)
 			deinit();
 	}
+	
+protected:
+	void deinit();
 	
 private:
 	class iter : public iter_source<overlay_dtable>

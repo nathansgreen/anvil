@@ -51,13 +51,15 @@ public:
 		mdt_hash.clear();
 		mdt_map.clear();
 	}
-	void deinit();
 	/* memory_dtable has a public destructor (and no factory) */
 	inline virtual ~memory_dtable()
 	{
 		if(ready)
 			deinit();
 	}
+	
+protected:
+	void deinit();
 	
 private:
 	typedef __gnu_cxx::__pool_alloc<std::pair<const dtype, blob> > tree_pool_allocator;

@@ -45,9 +45,9 @@ public:
 	
 	inline array_dtable() : fp(NULL), min_key(0), array_size(0), value_size(0) {}
 	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
-	void deinit();
 	
 protected:
+	void deinit();
 	inline virtual ~array_dtable()
 	{
 		if(fp)

@@ -53,9 +53,9 @@ public:
 	
 	inline keydiv_dtable() : support_atx(false) {}
 	int init(int dfd, const char * name, const params & config, sys_journal * sysj);
-	void deinit();
 	
 protected:
+	void deinit();
 	inline virtual ~keydiv_dtable()
 	{
 		if(sub.size())

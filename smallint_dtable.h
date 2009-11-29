@@ -45,9 +45,9 @@ public:
 	
 	inline smallint_dtable() : base(NULL) {}
 	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
-	void deinit();
 	
 protected:
+	void deinit();
 	inline virtual ~smallint_dtable()
 	{
 		if(base)

@@ -301,9 +301,9 @@ public:
 		handle.data = this;
 		handle.handle = flush_tx_static;
 	}
-	/* the warehouse will be used to create the necessary listening dtables
+	/* the warehouses will be used to create the necessary listening dtables
 	 * during playback, and will be populated with them for later retrieval */
-	int init(int dfd, const char * file, listening_dtable_warehouse * warehouse, bool create = false, bool filter_on_empty = true);
+	int init(int dfd, const char * file, listening_dtable_warehouse * reg_warehouse, listening_dtable_warehouse * temp_warehouse, bool create = false, bool filter_on_empty = true);
 	/* erase = true will tx_unlink() the journal - be sure you really want that */
 	void deinit(bool erase = false);
 	inline ~sys_journal()
@@ -312,15 +312,26 @@ public:
 			deinit();
 	}
 	
-	/* get the warehouse in use by this sys_journal */
-	inline listening_dtable_warehouse * get_warehouse() const { return warehouse; }
+	/* use the warehouse in use by this sys_journal */
+	inline listening_dtable * warehouse_lookup(listener_id lid)
+	{
+		return (is_temporary(lid) ? temp_warehouse : reg_warehouse)->lookup(lid);
+	}
+	inline listening_dtable * warehouse_obtain(listener_id lid, const void * entry, size_t length)
+	{
+		return (is_temporary(lid) ? temp_warehouse : reg_warehouse)->obtain(lid, entry, length, this);
+	}
+	inline listening_dtable * warehouse_obtain(listener_id lid, dtype::ctype key_type)
+	{
+		return (is_temporary(lid) ? temp_warehouse : reg_warehouse)->obtain(lid, key_type, this);
+	}
 	
 	static inline sys_journal * get_global_journal()
 	{
 		return &global_journal;
 	}
 	/* allocates and initializes a new sys_journal in the same directory as the global journal */
-	static sys_journal * spawn_init(const char * file, listening_dtable_warehouse * warehouse, bool create = false, bool filter_on_empty = true);
+	static sys_journal * spawn_init(const char * file, listening_dtable_warehouse * reg_warehouse, listening_dtable_warehouse * temp_warehouse, bool create = false, bool filter_on_empty = true);
 	
 	static int set_unique_id_file(int dfd, const char * file, bool create = false);
 	/* temporary IDs are odd rather than even and are automatically discarded
@@ -340,7 +351,14 @@ private:
 	uint32_t sequence;
 	tx_pre_end handle;
 	size_t live_entries;
-	listening_dtable_warehouse * warehouse;
+	listening_dtable_warehouse * reg_warehouse;
+	listening_dtable_warehouse * temp_warehouse;
+	
+	/* like warehouse_lookup() and warehouse_obtain above */
+	inline bool warehouse_remove(listening_dtable * listener)
+	{
+		return (is_temporary(listener->id()) ? temp_warehouse : reg_warehouse)->remove(listener);
+	}
 	
 	int append(listening_dtable * listener, void * entry, size_t length);
 	
@@ -348,7 +366,7 @@ private:
 	inline int discard(listening_dtable * listener)
 	{
 		listener_id lid = listener->id();
-		assert(warehouse->lookup(lid) == listener);
+		assert(warehouse_lookup(lid) == listener);
 		return discard(lid);
 	}
 	int discard(listener_id lid);
@@ -360,8 +378,8 @@ private:
 	{
 		listener_id from_id = from->id();
 		listener_id to_id = to->id();
-		assert(warehouse->lookup(from_id) == from);
-		assert(warehouse->lookup(to_id) == to);
+		assert(warehouse_lookup(from_id) == from);
+		assert(warehouse_lookup(to_id) == to);
 		assert(from->get_journal() == this);
 		assert(to->get_journal() == this);
 		return rollover(from_id, to_id);

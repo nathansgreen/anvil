@@ -49,9 +49,9 @@ public:
 	
 	inline simple_dtable() : fp(NULL) {}
 	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
-	void deinit();
 	
 protected:
+	void deinit();
 	inline virtual ~simple_dtable()
 	{
 		if(fp)

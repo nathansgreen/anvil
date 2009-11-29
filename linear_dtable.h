@@ -42,9 +42,9 @@ public:
 	
 	inline linear_dtable() : fp(NULL) {}
 	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
-	void deinit();
 	
 protected:
+	void deinit();
 	inline virtual ~linear_dtable()
 	{
 		if(fp)

@@ -14,6 +14,7 @@
 #include "dtable_cache_iter.h"
 #include "ctable_cache_iter.h"
 #include "journal_dtable.h"
+#include "temp_journal_dtable.h"
 #include "anvil.h"
 
 static void rename_gmon_out(void)
@@ -53,7 +54,7 @@ int anvil_init(const char * path)
 			sys_journal * global = sys_journal::get_global_journal();
 			r = sys_journal::set_unique_id_file(fd, "sys_journal_id", true);
 			if(r >= 0)
-				r = global->init(fd, "sys_journal", &journal_dtable::warehouse, true);
+				r = global->init(fd, "sys_journal", &journal_dtable::warehouse, &temp_journal_dtable::warehouse, true);
 			if(r >= 0)
 			{
 				/* maybe we should not always do this here? */

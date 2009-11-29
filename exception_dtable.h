@@ -25,9 +25,9 @@ public:
 	
 	inline exception_dtable() : base(NULL), alt(NULL) {}
 	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
-	void deinit();
 	
 protected:
+	void deinit();
 	inline virtual ~exception_dtable()
 	{
 		if(base || alt)

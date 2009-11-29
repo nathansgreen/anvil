@@ -119,9 +119,9 @@ public:
 	{
 	}
 	int init(int dfd, const char * name, const params & config, sys_journal * sysj);
-	void deinit();
 	
 protected:
+	void deinit();
 	inline virtual ~managed_dtable()
 	{
 		if(md_dfd >= 0)
@@ -330,7 +330,6 @@ private:
 	overlay_dtable * overlay;
 	mutable chain_callback chain;
 	sys_journal::listening_dtable * journal;
-	sys_journal::listening_dtable_warehouse * warehouse;
 	sys_journal * sysj;
 	const dtable_factory * base;
 	const dtable_factory * fastbase;

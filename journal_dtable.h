@@ -40,15 +40,13 @@ public:
 	inline virtual int set_blob_cmp(const blob_comparator * cmp)
 	{
 		/* we merely add this assertion, but it's important */
-		assert(jdt_map.empty() || blob_cmp);
+		assert(jdt_hash.empty() || blob_cmp);
 		return listening_dtable::set_blob_cmp(cmp);
 	}
 	
 	/* for rollover */
 	virtual int real_rollover(listening_dtable * target) const;
 	inline virtual int accept(const dtype & key, const blob & value, bool append = false) { return set_node(key, value, append); }
-	
-	static inline bool entry_key_type(const void * entry, size_t length, dtype::ctype * key_type);
 	
 	class journal_dtable_warehouse : public sys_journal::listening_dtable_warehouse_impl<journal_dtable>
 	{
@@ -62,28 +60,32 @@ public:
 	/* clear memory state, discard the current listener ID, set a new listener
 	 * ID, and clear and release the blob comparator (if one has been set) */
 	virtual int reinit(sys_journal::listener_id lid);
-	void deinit();
 	
 protected:
 	/* journal_dtables should only be constructed by a journal_dtable_warehouse */
 	inline journal_dtable() : initialized(false), jdt_map(blob_cmp), jdt_hash(10, blob_cmp, blob_cmp) {}
 	int init(dtype::ctype key_type, sys_journal::listener_id lid, sys_journal * sysj);
+	void deinit();
 	inline virtual ~journal_dtable()
 	{
 		if(initialized)
 			deinit();
 	}
 	
+	static bool entry_key_type(const void * entry, size_t length, dtype::ctype * key_type);
+	
+	int log(const dtype & key, const blob & blob, bool append);
+	
+	typedef __gnu_cxx::__pool_alloc<std::pair<const dtype, blob *> > tree_pool_allocator;
+	typedef __gnu_cxx::__pool_alloc<std::pair<const dtype, blob> > hash_pool_allocator;
+	typedef avl::map<dtype, blob *, dtype_comparator_refobject, tree_pool_allocator> journal_dtable_map;
+	typedef __gnu_cxx::hash_map<const dtype, blob, dtype_hashing_comparator, dtype_hashing_comparator, hash_pool_allocator> journal_dtable_hash;
+	
+	bool initialized;
+	journal_dtable_map jdt_map;
+	journal_dtable_hash jdt_hash;
+	
 private:
-	typedef __gnu_cxx::__pool_alloc<std::pair<const dtype, blob> > tree_pool_allocator;
-	typedef __gnu_cxx::__pool_alloc<std::pair<const dtype, blob *> > hash_pool_allocator;
-	typedef avl::map<dtype, blob, dtype_comparator_refobject, tree_pool_allocator> journal_dtable_map;
-	typedef __gnu_cxx::hash_map<const dtype, blob *, dtype_hashing_comparator, dtype_hashing_comparator, hash_pool_allocator> journal_dtable_hash;
-	
-	inline int add_node(const dtype & key, const blob & value, bool append);
-	/* tries to set an existing node, and calls add_node() otherwise */
-	int set_node(const dtype & key, const blob & value, bool append);
-	
 	class iter : public iter_source<journal_dtable>
 	{
 	public:
@@ -106,13 +108,9 @@ private:
 	
 	int log_blob_cmp();
 	template<class T> inline int log(T * entry, const blob & blob, size_t offset = 0);
-	int log(const dtype & key, const blob & blob, bool append);
+	int set_node(const dtype & key, const blob & value, bool append);
 	
 	virtual int journal_replay(void *& entry, size_t length);
-	
-	bool initialized;
-	journal_dtable_map jdt_map;
-	journal_dtable_hash jdt_hash;
 };
 
 #endif /* __JOURNAL_DTABLE_H */

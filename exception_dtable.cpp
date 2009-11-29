@@ -369,7 +369,7 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 	
 	handler = new reject_iter(source, &alt_mdt, reject_value);
 	if(!handler)
-		goto fail_handler;
+		goto fail_mdt;
 	
 	r = base->create(excp_dfd, "base", base_config, handler, shadow);
 	if(r < 0)
@@ -381,7 +381,6 @@ int exception_dtable::create(int dfd, const char * file, const params & config, 
 		goto fail_alt;
 	
 	delete handler;
-	alt_mdt.deinit();
 	close(excp_dfd);
 	return 0;
 	
@@ -389,8 +388,6 @@ fail_alt:
 	util::rm_r(excp_dfd, "base");
 fail_base:
 	delete handler;
-fail_handler:
-	alt_mdt.deinit();
 fail_mdt:
 	close(excp_dfd);
 fail_open:

@@ -15,6 +15,7 @@
 #include "sys_journal.h"
 #include "bloom_dtable.h"
 #include "journal_dtable.h"
+#include "temp_journal_dtable.h"
 #include "managed_dtable.h"
 #include "simple_stable.h"
 #include "reverse_blob_comparator.h"
@@ -51,7 +52,7 @@ int command_abort(int argc, const char * argv[])
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	sysj = sys_journal::spawn_init("test_journal", &warehouse, true);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, true);
 	EXPECT_NONULL("sysj spawn", sysj);
 	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
@@ -132,7 +133,7 @@ int command_abort(int argc, const char * argv[])
 	/* restart everything and make sure it's all still correct */
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	sysj = sys_journal::spawn_init("test_journal", &warehouse, false);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, false);
 	EXPECT_NONULL("sysj spawn", sysj);
 	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
@@ -148,11 +149,13 @@ int command_abort(int argc, const char * argv[])
 	EXPECT_SIZET("total", 0, warehouse.size());
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
+	util::rm_r(AT_FDCWD, "abtx_test");
 	
 	if(argc > 1 && !strcmp(argv[1], "perf"))
 	{
 		/* run the performance test as well */
-		bool use_atx = false;
+		bool use_atx = false, use_temp = (argc > 2 && !strcmp(argv[2], "temp"));
+		temp_journal_dtable::temp_journal_dtable_warehouse temp_warehouse;
 		
 		config = params();
 		r = params::parse(LITERAL(
@@ -165,15 +168,15 @@ int command_abort(int argc, const char * argv[])
 		EXPECT_NOFAIL("params::parse", r);
 		config.print();
 		printf("\n");
-			
+		
 		do {
-			printf("Abortable transaction performance test: use_atx = %d\n", use_atx);
+			printf("Abortable transaction performance test: use_atx = %d, use_temp = %d\n", use_atx, use_temp);
 			struct timeval start, end;
 			size_t atx_count = use_atx ? 1 : 0;
 			
 			r = tx_start();
 			EXPECT_NOFAIL("tx_start", r);
-			sysj = sys_journal::spawn_init("test_journal", &warehouse, true);
+			sysj = sys_journal::spawn_init("test_journal", &warehouse, use_temp ? &temp_warehouse : NULL, true);
 			EXPECT_NONULL("sysj spawn", sysj);
 			r = dtable_factory::setup("managed_dtable", AT_FDCWD, "abtx_perf", config, dtype::UINT32);
 			EXPECT_NOFAIL("dtable_factory::setup", r);
@@ -284,6 +287,7 @@ int command_abort(int argc, const char * argv[])
 			delete sysj;
 			util::rm_r(AT_FDCWD, "abtx_perf");
 			EXPECT_SIZET("total", 0, warehouse.size());
+			EXPECT_SIZET("temp total", 0, temp_warehouse.size());
 			r = tx_end(0);
 			EXPECT_NOFAIL("tx_end", r);
 		} while((use_atx = !use_atx));
@@ -1130,7 +1134,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		
 		r = tx_start();
 		EXPECT_NOFAIL("tx_start", r);
-		sysj = sys_journal::spawn_init("test_journal", &warehouse, true);
+		sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, true);
 		EXPECT_NONULL("sysj spawn", sysj);
 		jid = sys_journal::get_unique_id();
 		if(jid == sys_journal::NO_ID)
@@ -1156,7 +1160,7 @@ int command_blob_cmp(int argc, const char * argv[])
 		r = tx_start();
 		EXPECT_NOFAIL("tx_start", r);
 		delete sysj;
-		sysj = sys_journal::spawn_init("test_journal", &warehouse, false);
+		sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, false);
 		EXPECT_NONULL("sysj spawn", sysj);
 		jdt = warehouse.lookup(jid);
 		EXPECT_NONULL("jdt", jdt);

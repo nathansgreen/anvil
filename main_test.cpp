@@ -1424,7 +1424,7 @@ int command_rollover(int argc, const char * argv[])
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	sysj = sys_journal::spawn_init("test_journal", &warehouse, true);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, true);
 	EXPECT_NONULL("sysj spawn", sysj);
 	normal_id = sys_journal::get_unique_id(false);
 	temp_id = sys_journal::get_unique_id(true);
@@ -1458,7 +1458,7 @@ int command_rollover(int argc, const char * argv[])
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	sysj = sys_journal::spawn_init("test_journal", &warehouse, false);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, false);
 	EXPECT_NONULL("sysj spawn", sysj);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
@@ -1498,7 +1498,7 @@ int command_rollover(int argc, const char * argv[])
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	sysj = sys_journal::spawn_init("test_journal", &warehouse, true);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, true);
 	EXPECT_NONULL("sysj spawn", sysj);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
@@ -1547,7 +1547,7 @@ int command_rollover(int argc, const char * argv[])
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	sysj = sys_journal::spawn_init("test_journal", &warehouse, true);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, true);
 	EXPECT_NONULL("sysj spawn", sysj);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
@@ -1576,7 +1576,7 @@ int command_rollover(int argc, const char * argv[])
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	sysj = sys_journal::spawn_init("test_journal", &warehouse, true);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, true);
 	EXPECT_NONULL("sysj spawn", sysj);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
@@ -1606,7 +1606,7 @@ int command_rollover(int argc, const char * argv[])
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	sysj = sys_journal::spawn_init("test_journal", &warehouse, true);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, true);
 	EXPECT_NONULL("sysj spawn", sysj);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);

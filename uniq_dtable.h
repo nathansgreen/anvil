@@ -49,9 +49,9 @@ public:
 	
 	inline uniq_dtable() : keybase(NULL), valuebase(NULL) {}
 	int init(int dfd, const char * file, const params & config, sys_journal * sysj);
-	void deinit();
 	
 protected:
+	void deinit();
 	inline virtual ~uniq_dtable()
 	{
 		if(keybase)
