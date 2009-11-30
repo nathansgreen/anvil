@@ -161,9 +161,9 @@ int command_abort(int argc, const char * argv[])
 		r = params::parse(LITERAL(
 		config [
 			"base" class(dt) simple_dtable
-			"digest_interval" int 2
-			"combine_interval" int 8
-			"combine_count" int 6
+			"digest_interval" int 20
+			"combine_interval" int 160
+			"combine_count" int 12
 		]), &config);
 		EXPECT_NOFAIL("params::parse", r);
 		config.print();
@@ -236,16 +236,16 @@ int command_abort(int argc, const char * argv[])
 					}
 					atx_count++;
 				}
-				if((i % 10000) == 9999)
+				if((i % 1000000) == 999999)
 				{
-					r = dt->maintain();
+					r = dt->maintain(true);
 					if(r < 0)
 					{
 						EXPECT_NEVER("maintain failure");
 						break;
 					}
 				}
-				if((i % 500000) == 499999)
+				if((i % 1000000) == 999999)
 				{
 					r = sysj->filter();
 					if(r < 0)
@@ -1025,7 +1025,7 @@ int command_bfdtable(int argc, const char * argv[])
 	
 	if(argc > 1 && !strcmp(argv[1], "oracle"))
 	{
-		const size_t size = 1000000;
+		const size_t size = 4000000;
 		const size_t ops = size * 3;
 		dtable * ref;
 		
@@ -1052,10 +1052,9 @@ int command_bfdtable(int argc, const char * argv[])
 		
 		ref = dtable_factory::load("managed_dtable", AT_FDCWD, "bfdt_refr", config, sysj);
 		EXPECT_NONULL("dtable_factory::load", ref);
-		bfdt_scan(ref, size, ops, "reference", NULL);
-		
 		dt = dtable_factory::load("managed_dtable", AT_FDCWD, "bfdt_orcl", config, sysj);
 		EXPECT_NONULL("dtable_factory::load", dt);
+		bfdt_scan(ref, size, ops, "reference", NULL);
 		bfdt_scan(dt, size, ops, "oracle", ref);
 		
 #if BFDT_PERF_TEST
