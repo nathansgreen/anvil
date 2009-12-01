@@ -7,6 +7,8 @@
 #include <errno.h>
 
 #include "util.h"
+#include "rofile.h"
+#include "rwfile.h"
 #include "locking.h"
 #include "blob_buffer.h"
 #include "stringtbl.h"
