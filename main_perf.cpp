@@ -72,10 +72,10 @@ void abort_perf(bool use_temp)
 		r = tx_end(0);
 		EXPECT_NOFAIL("tx_end", r);
 		
-		printf("Start timing! (10000000 inserts to %d rows)\n", DT_ROW_COUNT);
+		printf("Start timing! (40000000 inserts to %d rows)\n", DT_ROW_COUNT);
 		gettimeofday(&start, NULL);
 		
-		for(int i = 0; i < 10000000; i++)
+		for(int i = 0; i < 40000000; i++)
 		{
 			uint32_t row = rand() % DT_ROW_COUNT;
 			uint32_t value = rand();
@@ -90,9 +90,9 @@ void abort_perf(bool use_temp)
 			}
 			r = dt->insert(row, blob(sizeof(value), &value), false, atx);
 			assert(r >= 0);
-			if((i % 1000000) == 999999)
+			if((i % 2000000) == 1999999)
 			{
-				print_progress(&start, (i + 1) / 100000);
+				print_progress(&start, (i + 1) / 400000);
 				fflush(stdout);
 			}
 			if(use_atx && !(rand() % 100))
@@ -353,11 +353,11 @@ static int uqdt_perf(dtable * dt, const char * name)
 	{
 		uint32_t key = i * 2;
 		if(!(rand() % 4))
-			/* 25% chance of a popular blob */
-			r = dt->insert(key, popular[rand() % POPULAR_BLOBS]);
-		else
-			/* 75% chance of some other blob */
+			/* 25% chance of a random blob */
 			r = dt->insert(key, random_blob(75 + (rand() % 11)));
+		else
+			/* 75% chance of a popular blob */
+			r = dt->insert(key, popular[rand() % POPULAR_BLOBS]);
 		if(r < 0)
 		{
 			EXPECT_NEVER("insert() fail!");
@@ -490,9 +490,9 @@ int kddtable_perf(void)
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "urdt_perf", config, dtype::UINT32);
+	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "krdt_perf", config, dtype::UINT32);
 	EXPECT_NOFAIL("dtable::create", r);
-	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "urdt_perf", config, sysj);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "krdt_perf", config, sysj);
 	EXPECT_NONULL("dtable_factory::load", dt);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
