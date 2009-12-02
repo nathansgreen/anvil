@@ -167,6 +167,27 @@ void run_iterator(const stable * table)
 	delete iter;
 }
 
+void time_iterator(const dtable * table, size_t count, ATX_DEF)
+{
+	struct timeval start;
+	dtable::iter * iter = table->iterator(atx);
+	printf("Iterate %zu time%s... ", count, (count == 1) ? "" : "s");
+	fflush(stdout);
+	gettimeofday(&start, NULL);
+	for(size_t i = 0; i < count; i++)
+	{
+		iter->first();
+		while(iter->valid())
+		{
+			dtype key = iter->key();
+			dtype value = iter->value();
+			iter->next();
+		}
+	}
+	print_elapsed(&start);
+	delete iter;
+}
+
 void print_elapsed(const struct timeval * start, struct timeval * end, bool elapsed)
 {
 	end->tv_sec -= start->tv_sec;

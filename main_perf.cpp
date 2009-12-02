@@ -376,6 +376,8 @@ static int uqdt_perf(dtable * dt, const char * name)
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
+	time_iterator(dt, 3);
+	
 	printf("Random lookups... ");
 	fflush(stdout);
 	gettimeofday(&start, NULL);

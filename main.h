@@ -72,6 +72,7 @@ void print(const blob & x, const char * prefix = NULL, ...);
 void run_iterator(const dtable * table, ATX_OPT);
 void run_iterator(const ctable * table);
 void run_iterator(const stable * table);
+void time_iterator(const dtable * table, size_t count = 1, ATX_OPT);
 void print_elapsed(const struct timeval * start, struct timeval * end, bool elapsed = false);
 void print_elapsed(const struct timeval * start, bool elapsed = false);
 void print_progress(const struct timeval * start, struct timeval * now, int percent);
