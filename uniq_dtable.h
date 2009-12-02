@@ -10,6 +10,7 @@
 #endif
 
 #include <ext/hash_map>
+#include <ext/pool_allocator.h>
 
 #include "dtable_factory.h"
 #include "dtable_wrap_iter.h"
@@ -87,8 +88,13 @@ private:
 			next_index = 0;
 		}
 	private:
-		typedef __gnu_cxx::hash_map<blob, idx_ref, blob_hashing_comparator, blob_hashing_comparator> value_map;
-		typedef concat_queue<blob> value_queue;
+		typedef __gnu_cxx::__pool_alloc<std::pair<blob, idx_ref> > map_pool_allocator;
+		typedef __gnu_cxx::__pool_alloc<blob> queue_pool_allocator;
+		typedef __gnu_cxx::hash_map<blob, idx_ref, blob_hashing_comparator, blob_hashing_comparator, map_pool_allocator> value_map;
+		typedef concat_queue<blob, queue_pool_allocator> value_queue;
+		
+		/* the slow case of append() above */
+		inline idx_ref * slow_append(const blob & value);
 		
 		value_map values;
 		value_queue queue;

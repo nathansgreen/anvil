@@ -162,7 +162,6 @@ void uniq_dtable::deinit()
 
 uniq_dtable::sliding_window::idx_ref * uniq_dtable::sliding_window::append(const blob & value, bool * store)
 {
-	idx_ref * ref;
 	value_map::iterator it = values.find(value);
 	if(it != values.end())
 	{
@@ -172,6 +171,12 @@ uniq_dtable::sliding_window::idx_ref * uniq_dtable::sliding_window::append(const
 	}
 	if(store)
 		*store = true;
+	return slow_append(value);
+}
+
+uniq_dtable::sliding_window::idx_ref * uniq_dtable::sliding_window::slow_append(const blob & value)
+{
+	idx_ref * ref;
 	queue.append(value);
 	if(queue.size() == window_size)
 	{
