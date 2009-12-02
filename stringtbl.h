@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2008 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -15,14 +15,15 @@
 #include <vector>
 
 #include "blob.h"
-#include "rofile.h"
-#include "rwfile.h"
-#include "blob_comparator.h"
 
 /* A string table is a section of a file which maintains a collection of unique
  * strings in sorted order. String tables are immutable once created. */
 
 #define ST_LRU 16
+
+class rofile;
+class rwfile;
+class blob_comparator;
 
 class stringtbl
 {

@@ -85,7 +85,9 @@ bfdtable
 sidtable
 didtable
 kddtable
+#kddtable perf
 udtable
+#udtable perf
 ctable
 cctable
 stable

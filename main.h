@@ -24,8 +24,6 @@ extern "C" {
 #endif
 
 /* in main_perf.cpp */
-int command_abort(int argc, const char * argv[]);
-int command_edtable(int argc, const char * argv[]);
 int command_odtable(int argc, const char * argv[]);
 int command_ldtable(int argc, const char * argv[]);
 int command_bfdtable(int argc, const char * argv[]);
@@ -36,6 +34,7 @@ int command_bdbtest(int argc, const char * argv[]);
 /* in main_test.cpp */
 int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
+int command_edtable(int argc, const char * argv[]);
 int command_ussdtable(int argc, const char * argv[]);
 int command_sidtable(int argc, const char * argv[]);
 int command_didtable(int argc, const char * argv[]);
@@ -46,6 +45,7 @@ int command_cctable(int argc, const char * argv[]);
 int command_consistency(int argc, const char * argv[]);
 int command_durability(int argc, const char * argv[]);
 int command_rollover(int argc, const char * argv[]);
+int command_abort(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 
@@ -59,6 +59,13 @@ int command_iterator(int argc, const char * argv[]);
 #include "ctable.h"
 #include "stable.h"
 
+/* in main_perf.cpp */
+void abort_perf(bool use_temp);
+void edtable_perf(void);
+int kddtable_perf(void);
+int udtable_perf(void);
+int blob_cmp_perf(blob_comparator * blob_cmp);
+
 /* in main_util.cpp */
 void print(const dtype & x);
 void print(const blob & x, const char * prefix = NULL, ...);
@@ -70,6 +77,7 @@ void print_elapsed(const struct timeval * start, bool elapsed = false);
 void print_progress(const struct timeval * start, struct timeval * now, int percent);
 void print_progress(const struct timeval * start, int percent);
 void wait_digest(int seconds);
+blob random_blob(size_t size);
 
 #endif /* __cplusplus */
 

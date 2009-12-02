@@ -11,11 +11,9 @@
 
 #include <map>
 
-#include "dtable.h"
-#include "ctable.h"
-#include "stable.h"
 #include "dtable_factory.h"
 #include "ctable_factory.h"
+#include "stable.h"
 
 class simple_stable : public stable
 {
