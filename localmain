@@ -1,18 +1,24 @@
 #!/bin/bash
 
 # The directory to use
-DIR=test.local
+if [ -d mnt -a -w mnt ]
+then
+	DIR=mnt/test.mnt
+else
+	DIR=test.local
+fi
 
 # Uncomment to use valgrind
 #export VALGRIND="valgrind --trace-children=yes --leak-check=full"
 
-make || exit $?
+make -j2 || exit $?
 
 echo -n "Creating test directory... "
 rm -rf $DIR
 mkdir -p $DIR/journals
 ln -s "`pwd`/tpch" $DIR
 echo "done."
+sync
 
 (WD="`pwd`"; cd $DIR; ulimit -c unlimited; eval exec $VALGRIND '"$WD/anvil"')
 find $DIR -type f -print0 | xargs -0 ls -l
