@@ -122,6 +122,94 @@ int command_dtable(int argc, const char * argv[])
 	return 0;
 }
 
+int command_edtable(int argc, const char * argv[])
+{
+	int r;
+	blob fixed("fixed");
+	blob exception("exception");
+	sys_journal * sysj = sys_journal::get_global_journal();
+	managed_dtable * mdt;
+	params config;
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) exception_dtable
+		"base_config" config [
+			"base" class(dt) array_dtable
+			"alt" class(dt) simple_dtable
+			"reject_value" string "_____"
+		]
+		"digest_interval" int 2
+		"combine_interval" int 4
+		"combine_count" int 4
+	]), &config);
+	EXPECT_NOFAIL("params::parse", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = managed_dtable::create(AT_FDCWD, "excp_test", config, dtype::UINT32);
+	EXPECT_NOFAIL("dtable::create", r);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "excp_test", config, sysj);
+	EXPECT_NOFAIL_COUNT("mdt->init", r, "disk dtables", mdt->disk_dtables());
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = mdt->insert(0u, fixed);
+	EXPECT_NOFAIL("mdt->insert", r);
+	r = mdt->insert(1u, fixed);
+	EXPECT_NOFAIL("mdt->insert", r);
+	r = mdt->insert(3u, fixed);
+	EXPECT_NOFAIL("mdt->insert", r);
+	run_iterator(mdt);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	mdt->destroy();
+	
+	wait_digest(3);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "excp_test", config, sysj);
+	EXPECT_NOFAIL("mdt->init", r);
+	r = mdt->maintain();
+	EXPECT_NOFAIL_COUNT("mdt->maintain", r, "disk dtables", mdt->disk_dtables());
+	run_iterator(mdt);
+	r = mdt->insert(2u, exception);
+	EXPECT_NOFAIL("mdt->insert", r);
+	r = mdt->insert(8u, exception);
+	EXPECT_NOFAIL("mdt->insert", r);
+	run_iterator(mdt);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	mdt->destroy();
+	
+	wait_digest(2);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	mdt = new managed_dtable;
+	r = mdt->init(AT_FDCWD, "excp_test", config, sysj);
+	EXPECT_NOFAIL("mdt->init", r);
+	r = mdt->maintain();
+	EXPECT_NOFAIL_COUNT("mdt->maintain", r, "disk dtables", mdt->disk_dtables());
+	run_iterator(mdt);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	mdt->destroy();
+	
+	if(argc > 1 && !strcmp(argv[1], "perf"))
+		/* run the performance test as well */
+		edtable_perf();
+	
+	return 0;
+}
+
 int command_ussdtable(int argc, const char * argv[])
 {
 	int r;
@@ -600,6 +688,9 @@ int command_kddtable(int argc, const char * argv[])
 	bool verbose = false;
 	params config;
 	
+	if(argc > 1 && !strcmp(argv[1], "perf"))
+		return kddtable_perf();
+	
 	if(argc > 1 && !strcmp(argv[1], "-v"))
 	{
 		verbose = true;
@@ -778,6 +869,9 @@ int command_udtable(int argc, const char * argv[])
 #define KEYS_1 (sizeof(keys_1) / sizeof(keys_1[0]))
 #define VALUES_0 (sizeof(values_0) / sizeof(values_0[0]))
 #define VALUES_1 (sizeof(values_1) / sizeof(values_1[0]))
+	
+	if(argc > 1 && !strcmp(argv[1], "perf"))
+		return udtable_perf();
 	
 	r = params::parse(LITERAL(
 	config [
@@ -1626,6 +1720,144 @@ int command_rollover(int argc, const char * argv[])
 	return 0;
 }
 
+int command_abort(int argc, const char * argv[])
+{
+	int r;
+	dtable * dt;
+	params config;
+	abortable_tx atx;
+	sys_journal * sysj;
+	journal_dtable::journal_dtable_warehouse warehouse;
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) simple_dtable
+		"digest_interval" int 2
+		"combine_interval" int 4
+		"combine_count" int 4
+	]), &config);
+	EXPECT_NOFAIL("params::parse", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "abtx_test", config, dtype::UINT32);
+	EXPECT_NOFAIL("dtable::create", r);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, true);
+	EXPECT_NONULL("sysj spawn", sysj);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config, sysj);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	r = dt->insert(1u, blob("A"));
+	EXPECT_NOFAIL("dt->insert(1)", r);
+	r = dt->insert(2u, blob("B"));
+	EXPECT_NOFAIL("dt->insert(2)", r);
+	run_iterator(dt);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 1, dt->find(2u).size());
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	EXPECT_SIZET("total", 1, warehouse.size());
+	atx = dt->create_tx();
+	EXPECT_NOTU32("atx", NO_ABORTABLE_TX, atx);
+	EXPECT_SIZET("total", 2, warehouse.size());
+	r = dt->insert(2u, blob("B (atx)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(2, atx)", r);
+	r = dt->insert(3u, blob("C (atx)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(3, atx)", r);
+	r = dt->insert(4u, blob("D (atx)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(4, atx)", r);
+	run_iterator(dt);
+	run_iterator(dt, atx);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 1, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 0, dt->find(3u).size());
+	EXPECT_SIZET("key 4 size", 0, dt->find(4u).size());
+	EXPECT_SIZET("key 1 atx size", 1, dt->find(1u, atx).size());
+	EXPECT_SIZET("key 2 atx size", 7, dt->find(2u, atx).size());
+	EXPECT_SIZET("key 3 atx size", 7, dt->find(3u, atx).size());
+	EXPECT_SIZET("key 4 atx size", 7, dt->find(4u, atx).size());
+	EXPECT_SIZET("total", 2, warehouse.size());
+	dt->abort_tx(atx);
+	printf("abort_tx\n");
+	EXPECT_SIZET("total", 1, warehouse.size());
+	run_iterator(dt);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	EXPECT_SIZET("total", 1, warehouse.size());
+	atx = dt->create_tx();
+	EXPECT_NOTU32("atx", NO_ABORTABLE_TX, atx);
+	EXPECT_SIZET("total", 2, warehouse.size());
+	r = dt->insert(2u, blob("B (atx2)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(2, atx2)", r);
+	r = dt->insert(3u, blob("C (atx2)"), true, atx);
+	EXPECT_NOFAIL("dt->insert(3, atx2)", r);
+	r = dt->insert(3u, blob("C"), true);
+	EXPECT_NOFAIL("dt->insert(3)", r);
+	run_iterator(dt);
+	run_iterator(dt, atx);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 1, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 1, dt->find(3u).size());
+	EXPECT_SIZET("key 1 atx size", 1, dt->find(1u, atx).size());
+	EXPECT_SIZET("key 2 atx size", 8, dt->find(2u, atx).size());
+	EXPECT_SIZET("key 3 atx size", 8, dt->find(3u, atx).size());
+	EXPECT_SIZET("total", 2, warehouse.size());
+	r = dt->commit_tx(atx);
+	EXPECT_NOFAIL("commit_tx", r);
+	EXPECT_SIZET("total", 1, warehouse.size());
+	run_iterator(dt);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 8, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 8, dt->find(3u).size());
+	dt->destroy();
+	delete sysj;
+	EXPECT_SIZET("total", 0, warehouse.size());
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	/* restart everything and make sure it's all still correct */
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, false);
+	EXPECT_NONULL("sysj spawn", sysj);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config, sysj);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	EXPECT_SIZET("total", 1, warehouse.size());
+	run_iterator(dt);
+	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
+	EXPECT_SIZET("key 2 size", 8, dt->find(2u).size());
+	EXPECT_SIZET("key 3 size", 8, dt->find(3u).size());
+	EXPECT_SIZET("key 4 size", 0, dt->find(4u).size());
+	dt->destroy();
+	sysj->deinit(true);
+	delete sysj;
+	EXPECT_SIZET("total", 0, warehouse.size());
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	util::rm_r(AT_FDCWD, "abtx_test");
+	
+	if(argc > 1 && !strcmp(argv[1], "perf"))
+	{
+		/* run the performance test as well */
+		bool use_temp = (argc > 2 && !strcmp(argv[2], "temp"));
+		abort_perf(use_temp);
+	}
+	
+	return 0;
+}
+
 int command_stable(int argc, const char * argv[])
 {
 	int r;
@@ -1757,5 +1989,74 @@ int command_iterator(int argc, const char * argv[])
 	
 	iterator_test("managed_dtable", "iter_test", config, count, verbose);
 	
+	return 0;
+}
+
+int command_blob_cmp(int argc, const char * argv[])
+{
+	int r;
+	sys_journal * sysj;
+	journal_dtable * jdt;
+	sys_journal::listener_id jid;
+	journal_dtable::journal_dtable_warehouse warehouse;
+	blob_comparator * reverse = new reverse_blob_comparator;
+	
+	if(argc > 1 && !strcmp(argv[1], "perf"))
+		return blob_cmp_perf(reverse);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, true);
+	EXPECT_NONULL("sysj spawn", sysj);
+	jid = sys_journal::get_unique_id();
+	if(jid == sys_journal::NO_ID)
+		return -EBUSY;
+	jdt = warehouse.obtain(jid, dtype::BLOB, sysj);
+	EXPECT_NONULL("jdt", jdt);
+	r = jdt->set_blob_cmp(reverse);
+	EXPECT_NOFAIL("jdt->set_blob_cmp", r);
+	for(int i = 0; i < 10; i++)
+	{
+		uint32_t keydata = rand();
+		uint8_t valuedata = i;
+		blob key(sizeof(keydata), &keydata);
+		blob value(sizeof(valuedata), &valuedata);
+		r = jdt->insert(dtype(key), value);
+		EXPECT_NOFAIL("insert", r);
+	}
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	run_iterator(jdt);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	delete sysj;
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, false);
+	EXPECT_NONULL("sysj spawn", sysj);
+	jdt = warehouse.lookup(jid);
+	EXPECT_NONULL("jdt", jdt);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	printf("expected comparator: %s\n", (const char *) jdt->get_cmp_name());
+	EXPECT_SIZET("jdt size", 0, jdt->size());
+	
+	r = jdt->set_blob_cmp(reverse);
+	EXPECT_NOFAIL("jdt->set_blob_cmp", r);
+	EXPECT_SIZET("jdt size", 10, jdt->size());
+	
+	run_iterator(jdt);
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = jdt->discard();
+	EXPECT_NOFAIL("discard", r);
+	sysj->deinit(true);
+	delete sysj;
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	reverse->release();
 	return 0;
 }

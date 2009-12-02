@@ -4,9 +4,11 @@
 
 #include <ctype.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "main.h"
+#include "blob_buffer.h"
 
 void print(const dtype & x)
 {
@@ -209,4 +211,15 @@ void wait_digest(int seconds)
 	fflush(stdout);
 	sleep(seconds);
 	printf("done.\n");
+}
+
+blob random_blob(size_t size)
+{
+	blob_buffer buffer;
+	for(size_t i = 0; i < size; i++)
+	{
+		uint8_t byte = rand();
+		buffer << byte;
+	}
+	return buffer;
 }

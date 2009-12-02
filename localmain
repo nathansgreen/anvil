@@ -6,7 +6,7 @@ DIR=test.local
 # Uncomment to use valgrind
 #export VALGRIND="valgrind --trace-children=yes --leak-check=full"
 
-make || exit $?
+make -j2 || exit $?
 
 echo -n "Creating test directory... "
 rm -rf $DIR
