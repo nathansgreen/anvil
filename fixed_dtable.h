@@ -20,11 +20,12 @@
 class rofile;
 
 /* The fixed dtable stores blobs of a fixed size. This allows it to omit the
- * size and offset fields that are present in simple_dtable. These dtables are
- * read-only once they are created with the ::create() method. */
+ * size and offset fields that are present in simple_dtable, and to store the
+ * values in the same array with the keys. These dtables are read-only once they
+ * are created with the ::create() method. */
 
 #define FDTABLE_MAGIC 0x89B63A8E
-#define FDTABLE_VERSION 0
+#define FDTABLE_VERSION 1
 
 class fixed_dtable : public dtable
 {
@@ -96,10 +97,10 @@ private:
 	
 	rofile * fp;
 	size_t key_count;
-	size_t value_size;
+	size_t value_size, record_size;
 	stringtbl st;
 	uint8_t key_size;
-	off_t key_start_off, data_start_off;
+	off_t key_start_off;
 };
 
 #endif /* __FIXED_DTABLE_H */

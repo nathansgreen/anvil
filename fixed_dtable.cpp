@@ -19,8 +19,6 @@
 #include "blob_buffer.h"
 #include "fixed_dtable.h"
 
-/* TODO: the keys can be put in with the data since it's all fixed-size */
-
 /* fixed dtable file format:
  * bytes 0-3: magic number
  * bytes 4-7: format version
@@ -33,12 +31,10 @@
  * bytes 18-m, 22-m, or n+1-m: if key type is string/blob, a string table
  * byte 18 or m+1: main data tables
  * 
- * main data tables:
- * key array:
+ * main data table:
  * [] = byte 0-m: key
  * [] = byte m+1: value exists (bool)
- * each data blob:
- * [] = byte 0-m: data bytes */
+ * [] = byte m+2-n: data bytes */
 
 fixed_dtable::iter::iter(const fixed_dtable * source)
 	: iter_source<fixed_dtable>(source), index(0)
@@ -148,17 +144,17 @@ bool fixed_dtable::present(const dtype & key, bool * found, ATX_DEF) const
 dtype fixed_dtable::get_key(size_t index, bool * data_exists, off_t * data_offset) const
 {
 	assert(index < key_count);
-	uint8_t size = key_size + 1;
-	uint8_t bytes[size];
+	uint8_t read_size = key_size + 1;
+	uint8_t bytes[read_size];
 	int r;
 	
-	r = fp->read(key_start_off + size * index, bytes, size);
-	assert(r == size);
+	r = fp->read(key_start_off + record_size * index, bytes, read_size);
+	assert(r == read_size);
 	
 	if(data_exists)
 		*data_exists = bytes[key_size];
 	if(data_offset)
-		*data_offset = index * value_size;
+		*data_offset = index * record_size + read_size;
 	
 	switch(ktype)
 	{
@@ -214,7 +210,7 @@ blob fixed_dtable::get_value(size_t index, off_t data_offset) const
 	blob_buffer value(value_size);
 	value.set_size(value_size, false);
 	assert(value_size == value.size());
-	length = fp->read(data_start_off + data_offset, &value[0], value_size);
+	length = fp->read(key_start_off + data_offset, &value[0], value_size);
 	assert(length == value_size);
 	return value;
 }
@@ -278,6 +274,7 @@ int fixed_dtable::init(int dfd, const char * file, const params & config, sys_jo
 	key_start_off = sizeof(header);
 	value_size = header.value_size;
 	key_size = header.key_size;
+	record_size = key_size + 1 + value_size;
 	switch(header.key_type)
 	{
 		case 1:
@@ -316,7 +313,6 @@ int fixed_dtable::init(int dfd, const char * file, const params & config, sys_jo
 		default:
 			goto fail;
 	}
-	data_start_off = key_start_off + (key_size + 1) * key_count;
 	
 	return 0;
 	
@@ -458,12 +454,14 @@ int fixed_dtable::create(int dfd, const char * file, const params & config, dtab
 		int i = 0;
 		uint8_t bytes[header.key_size + 1];
 		dtype key = source->key();
-		metablob meta = source->meta();
-		source->next();
-		if(!meta.exists())
+		blob value = source->value();
+		if(!value.exists())
 			/* omit non-existent entries no longer needed */
 			if(!shadow || !shadow->contains(key))
+			{
+				source->next();
 				continue;
+			}
 		switch(key.type)
 		{
 			case dtype::UINT32:
@@ -484,25 +482,11 @@ int fixed_dtable::create(int dfd, const char * file, const params & config, dtab
 				max_key++;
 				break;
 		}
-		bytes[i++] = meta.exists();
+		bytes[i++] = value.exists();
 		r = out.append(bytes, i);
 		if(r != i)
 			goto fail_unlink;
-	}
-	
-	/* and the data itself */
-	source->first();
-	while(source->valid())
-	{
-		dtype key = source->key();
-		blob value = source->value();
-		if(!value.exists())
-			/* omit non-existent entries no longer needed */
-			if(!shadow || !shadow->contains(key))
-			{
-				source->next();
-				continue;
-			}
+		/* and the data itself */
 		if(value.exists() && value.size() != header.value_size)
 		{
 			/* all the items in this dtable must be the same size */
