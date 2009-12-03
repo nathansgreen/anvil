@@ -296,10 +296,11 @@ public:
 	/* remove any discarded entries from this journal */
 	int filter();
 	
-	inline sys_journal() : meta_dfd(-1), meta_fd(NULL), dirty(false), registered(false), data_size(0), info_size(0)
+	inline sys_journal() : meta_dfd(-1), meta_fd(NULL), dirty(false), data_size(0), info_size(0)
 	{
 		handle.data = this;
 		handle.handle = flush_tx_static;
+		handle.registered = 0;
 	}
 	/* the warehouses will be used to create the necessary listening dtables
 	 * during playback, and will be populated with them for later retrieval */
@@ -346,7 +347,7 @@ private:
 	rwfile data;
 	tx_fd meta_fd;
 	
-	bool dirty, registered, filter_on_empty;
+	bool dirty, filter_on_empty;
 	size_t data_size, info_size;
 	uint32_t sequence;
 	tx_pre_end handle;

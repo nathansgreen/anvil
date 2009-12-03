@@ -20,6 +20,9 @@ struct tx_pre_end {
 	/* fill in the data and handle fields */
 	void * data;
 	void (*handle)(void * data);
+	/* this field will tell you if this handler is registered;
+	 * it must be set to 0 before registering the first time */
+	int registered;
 	/* but leave this one alone */
 	struct tx_pre_end * _next;
 };
@@ -79,6 +82,7 @@ struct tx_handle {
 
 #include "journal.h"
 #include "blob_buffer.h"
+#include "locking.h"
 
 #define DEBUG_MF 0
 
@@ -164,6 +168,7 @@ private:
 		: path(path), usage(1), is_dirty(false)
 	{
 		assert(path);
+		mf_map_lock.assert_locked();
 		mf_map[path] = this;
 	}
 	
@@ -175,6 +180,7 @@ private:
 			int r = flush();
 			assert(r >= 0);
 		}
+		mf_map_lock.assert_locked();
 		mf_map.erase(path);
 	}
 	
@@ -186,6 +192,7 @@ private:
 	/* static stuff */
 	typedef std::map<istr, metafile *, strcmp_less> mf_map_t;
 	static mf_map_t mf_map;
+	static init_mutex mf_map_lock;
 	
 	static int journal_dir;
 	static journal * last_journal;
@@ -195,6 +202,7 @@ private:
 	
 	static tx_id last_tx_id;
 	static tx_pre_end * pre_end_handlers;
+	static init_mutex pre_end_handler_lock;
 	typedef std::map<tx_id, journal *> tx_map_t;
 	static tx_map_t tx_map; 
 	

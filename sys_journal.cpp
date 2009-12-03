@@ -103,11 +103,8 @@ int sys_journal::append(listening_dtable * listener, void * entry, size_t length
 	assert(data_size == data.end());
 	if(!dirty)
 	{
-		if(!registered)
-		{
+		if(!handle.registered)
 			tx_register_pre_end(&handle);
-			registered = true;
-		}
 		dirty = true;
 	}
 	r = data.append(&header);
@@ -151,11 +148,8 @@ int sys_journal::discard(listener_id lid)
 	assert(data_size == data.end());
 	if(!dirty)
 	{
-		if(!registered)
-		{
+		if(!handle.registered)
 			tx_register_pre_end(&handle);
-			registered = true;
-		}
 		dirty = true;
 	}
 	r = data.append(&header);
@@ -196,11 +190,8 @@ int sys_journal::rollover(listener_id from, listener_id to)
 	assert(data_size == data.end());
 	if(!dirty)
 	{
-		if(!registered)
-		{
+		if(!handle.registered)
 			tx_register_pre_end(&handle);
-			registered = true;
-		}
 		dirty = true;
 	}
 	r = data.append(&header);
@@ -679,11 +670,8 @@ void sys_journal::deinit(bool erase)
 		/* destroy all the listeners by clearing the warehouses */
 		reg_warehouse->clear();
 		temp_warehouse->clear();
-		if(registered)
-		{
+		if(handle.registered)
 			tx_unregister_pre_end(&handle);
-			registered = false;
-		}
 		r = data.close();
 		assert(r >= 0);
 		tx_close(meta_fd);
@@ -814,7 +802,6 @@ int sys_journal::flush_tx()
 
 void sys_journal::flush_tx_static(void * data)
 {
-	((sys_journal *) data)->registered = false;
 	int r = ((sys_journal *) data)->flush_tx();
 	assert(r >= 0);
 }

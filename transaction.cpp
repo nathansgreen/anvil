@@ -28,6 +28,15 @@
  * will not actually be done until the journal commits and thus they will not be
  * available for reading directly from the file system. */
 
+/* Only some parts of this library are thread-safe. In particular, it is safe
+ * for threads to concurrently use the tx_open(), tx_close(), tx_read(), and
+ * tx_write() functions, as long as each tx_fd is used by only one thread. (And
+ * note that opening the same file more than once will return the same tx_fd.)
+ * It is also safe to call tx_register_pre_end() and tx_unregister_pre_end().
+ * All other calls must be made by a single thread; furthermore, it is not safe
+ * for other threads to use tx_write() while that single thread executes any
+ * other transaction library function (e.g. tx_start() or tx_end()). */
+
 #define MF_TX_WRITE 1
 #define MF_TX_UNLINK 2
 #define MF_TX_RM_R 3
@@ -35,6 +44,7 @@
 #define MF_TEMP_EXT ".mf-tmp"
 
 metafile::mf_map_t metafile::mf_map;
+init_mutex metafile::mf_map_lock;
 
 istr metafile::full_path(int dfd, const char * name)
 {
@@ -51,6 +61,7 @@ metafile * metafile::open(int dfd, const char * name, bool create)
 	int fd;
 	metafile * fp = NULL;
 	mf_map_t::iterator itr;
+	scopelock scope(mf_map_lock);
 	istr path = full_path(dfd, name);
 	if(!path)
 		return NULL;
@@ -122,6 +133,7 @@ int metafile::flush()
 
 int metafile::unlink(int dfd, const char * name, bool recursive)
 {
+	scopelock scope(mf_map_lock);
 	istr path = full_path(dfd, name);
 	if(!path)
 		return -1;
@@ -157,6 +169,7 @@ size_t metafile::tx_log_size = 0;
 
 tx_id metafile::last_tx_id = -1;
 tx_pre_end * metafile::pre_end_handlers = NULL;
+init_mutex metafile::pre_end_handler_lock;
 metafile::tx_map_t metafile::tx_map;
 
 int metafile::record_processor(void * data, size_t length, void * param)
@@ -398,14 +411,18 @@ tx_id metafile::tx_end(bool assign_id)
 {
 	int r;
 	mf_map_t::iterator itr;
+	scopelock map_scope(mf_map_lock);
+	scopelock handler_scope(pre_end_handler_lock);
 	if(!current_journal)
 		return -ENOENT;
 	if(tx_recursion != 1)
 		return -EBUSY;
 	while(pre_end_handlers)
 	{
-		pre_end_handlers->handle(pre_end_handlers->data);
-		pre_end_handlers = pre_end_handlers->_next;
+		tx_pre_end * handler = pre_end_handlers;
+		pre_end_handlers = handler->_next;
+		handler->registered = 0;
+		handler->handle(handler->data);
 	}
 	itr = mf_map.begin();
 	while(itr != mf_map.end())
@@ -463,17 +480,22 @@ int metafile::tx_end_external(bool success)
 
 void metafile::tx_register_pre_end(tx_pre_end * handle)
 {
+	scopelock scope(pre_end_handler_lock);
+	assert(!handle->registered);
+	handle->registered = 1;
 	handle->_next = pre_end_handlers;
 	pre_end_handlers = handle;
 }
 
 void metafile::tx_unregister_pre_end(tx_pre_end * handle)
 {
+	scopelock scope(pre_end_handler_lock);
 	struct tx_pre_end ** prev = &pre_end_handlers;
 	while(*prev && *prev != handle)
 		prev = &(*prev)->_next;
 	if(*prev)
 		*prev = handle->_next;
+	handle->registered = 0;
 }
 
 int metafile::tx_sync(tx_id id)
