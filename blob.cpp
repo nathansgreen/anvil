@@ -17,7 +17,8 @@ blob::blob(size_t size, const void * data)
 	internal = (blob_internal *) malloc(sizeof(*internal) + size);
 	assert(internal);
 	internal->size = size;
-	internal->shares = 1;
+	/* set(), not inc(), since we skipped the constructor */
+	internal->shares.set(1);
 	util::memcpy(internal->bytes, data, size);
 }
 
@@ -27,24 +28,26 @@ blob::blob(const char * string)
 	internal = (blob_internal *) malloc(sizeof(*internal) + size);
 	assert(internal);
 	internal->size = size;
-	internal->shares = 1;
+	/* set(), not inc(), since we skipped the constructor */
+	internal->shares.set(1);
 	util::memcpy(internal->bytes, string, size);
 }
 
 blob::blob(const blob & x)
 {
 	if((internal = x.internal))
-		internal->shares++;
+		internal->shares.inc();
 }
 
 blob & blob::operator=(const blob & x)
 {
-	if(this == &x)
+	/* note that this includes the case where this == &x */
+	if(internal == x.internal)
 		return *this;
-	if(internal && !--internal->shares)
+	if(internal && !internal->shares.dec())
 		free(internal);
 	if((internal = x.internal))
-		internal->shares++;
+		internal->shares.inc();
 	return *this;
 }
 

@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "blob.h"
+#include "atomic.h"
 
 /* This class is meant to replace uses of "const char *", but nothing more. In
  * particular, it is not a generic string class supporting a full library of
@@ -42,7 +43,6 @@ public:
 	inline istr(const char * x, size_t length)
 	{
 		shared = share::alloc(length);
-		shared->count = 1;
 		if(length)
 			strncpy(shared->string, x, length);
 		shared->string[length] = 0;
@@ -53,7 +53,6 @@ public:
 	{
 		size_t length = strlen(x) + strlen(y) + (z ? strlen(z) : 0);
 		shared = share::alloc(length);
-		shared->count = 1;
 		strcpy(shared->string, x);
 		strcat(shared->string, y);
 		if(z)
@@ -65,13 +64,12 @@ public:
 	{
 		shared = x.shared;
 		if(shared)
-			shared->count++;
+			shared->count.inc();
 	}
 	
 	inline istr(const blob & x)
 	{
 		shared = share::alloc(x.size());
-		shared->count = 1;
 		if(x.size())
 			strncpy(shared->string, &x.index<char>(0), x.size());
 		shared->string[x.size()] = 0;
@@ -79,24 +77,24 @@ public:
 	
 	inline istr & operator=(const istr & x)
 	{
-		if(this == &x)
+		/* note that this includes the case where this == &x */
+		if(shared == x.shared)
 			return *this;
-		if(shared && --shared->count <= 0)
+		if(shared && !shared->count.dec())
 			free(shared);
 		shared = x.shared;
 		if(shared)
-			shared->count++;
+			shared->count.inc();
 		return *this;
 	}
 	
 	inline istr & operator=(const char * x)
 	{
-		if(shared && --shared->count <= 0)
+		if(shared && !shared->count.dec())
 			free(shared);
 		if(x)
 		{
 			shared = share::alloc(strlen(x));
-			shared->count = 1;
 			strcpy(shared->string, x);
 		}
 		else
@@ -150,7 +148,7 @@ public:
 	
 	inline ~istr()
 	{
-		if(shared && --shared->count <= 0)
+		if(shared && !shared->count.dec())
 			free(shared);
 	}
 	
@@ -168,13 +166,19 @@ public:
 private:
 	struct share
 	{
-		size_t count;
+		/* note that we'll be allocating this structure with
+		 * malloc, bypassing the atomic<size_t> constructor */
+		atomic<size_t> count;
 		char string[0];
 		static share * alloc(size_t length)
 		{
 			/* doing a little memory trick so can't just use new */
 			length += sizeof(share) + 4;
-			return (share *) malloc(length & ~3);
+			share * shared = (share *) malloc(length & ~3);
+			if(shared)
+				/* set(), not inc(), since we skipped the constructor */
+				shared->count.set(1);
+			return shared;
 		}
 	};
 	

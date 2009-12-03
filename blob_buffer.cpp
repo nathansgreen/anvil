@@ -38,13 +38,13 @@ blob_buffer::blob_buffer(const blob_buffer & x)
 
 blob_buffer & blob_buffer::operator=(const blob & x)
 {
-	if(internal && !--internal->shares)
+	if(internal && !internal->shares.dec())
 		free(internal);
 	if(x.internal)
 	{
 		buffer_capacity = x.internal->size;
 		internal = x.internal;
-		internal->shares++;
+		internal->shares.inc();
 	}
 	else
 	{
@@ -58,13 +58,13 @@ blob_buffer & blob_buffer::operator=(const blob_buffer & x)
 {
 	if(this == &x)
 		return *this;
-	if(internal && !--internal->shares)
+	if(internal && !internal->shares.dec())
 		free(internal);
 	if(x.internal)
 	{
 		buffer_capacity = x.buffer_capacity;
 		internal = x.internal;
-		internal->shares++;
+		internal->shares.inc();
 	}
 	else
 	{
@@ -85,7 +85,7 @@ int blob_buffer::overwrite(size_t offset, const void * data, size_t length)
 		r = touch();
 	if(r < 0)
 		return r;
-	assert(internal->shares == 1);
+	assert(internal->shares.get() == 1);
 	if(offset + length > internal->size)
 	{
 		if(offset > internal->size)
@@ -127,22 +127,28 @@ int blob_buffer::set_capacity(size_t capacity)
 		if(!internal)
 			return -ENOMEM;
 		internal->size = 0;
-		internal->shares = 1;
+		/* set(), not inc(), since we skipped the constructor */
+		internal->shares.set(1);
 		buffer_capacity = capacity;
 		return 0;
 	}
-	if(internal->shares > 1)
+	if(internal->shares.get() > 1)
 	{
 		copy = (blob::blob_internal *) malloc(sizeof(*internal) + capacity);
 		if(!copy)
 			return -ENOMEM;
 		copy->size = (internal->size > capacity) ? capacity : internal->size;
-		copy->shares = 1;
+		/* set(), not inc(), since we skipped the constructor */
+		copy->shares.set(1);
 		util::memcpy(copy->bytes, internal->bytes, copy->size);
-		internal->shares--;
+		/* handle a possible race with some other blob being destroyed */
+		if(!internal->shares.dec())
+			free(internal);
 	}
 	else
 	{
+		/* there is a small race here, if another thread makes a blob from
+		 * this blob_buffer just as we are altering it... so, don't do that */
 		copy = (blob::blob_internal *) realloc(internal, sizeof(*internal) + capacity);
 		if(!copy)
 			return -ENOMEM;
@@ -156,14 +162,17 @@ int blob_buffer::set_capacity(size_t capacity)
 
 int blob_buffer::touch()
 {
-	if(internal->shares > 1)
+	if(internal->shares.get() > 1)
 	{
 		blob::blob_internal * copy = (blob::blob_internal *) malloc(sizeof(*internal) + internal->size);
 		if(!copy)
 			return -ENOMEM;
 		util::memcpy(copy, internal, sizeof(*internal) + internal->size);
-		copy->shares = 1;
-		internal->shares--;
+		/* set(), not inc(), since we skipped the constructor */
+		copy->shares.set(1);
+		/* handle a possible race with some other blob being destroyed */
+		if(!internal->shares.dec())
+			free(internal);
 		internal = copy;
 	}
 	return 0;

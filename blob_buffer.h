@@ -32,7 +32,7 @@ public:
 	
 	inline ~blob_buffer()
 	{
-		if(internal && !--internal->shares)
+		if(internal && !internal->shares.dec())
 			free(internal);
 	}
 	
@@ -149,7 +149,7 @@ public:
 		blob value;
 		value.internal = internal;
 		if(internal)
-			internal->shares++;
+			internal->shares.inc();
 		return value;
 	}
 	

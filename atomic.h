@@ -58,6 +58,11 @@ public:
 		return __sync_fetch_and_and(&value, 0);
 	}
 	
+	inline void set(T value)
+	{
+		this->value = value;
+	}
+	
 private:
 	/* mutable only for get() which technically writes to it */
 	mutable T value;

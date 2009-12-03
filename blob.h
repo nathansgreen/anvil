@@ -18,6 +18,8 @@
 
 #include <vector>
 
+#include "atomic.h"
+
 /* blobs, the storage units of dtables */
 
 class blob_comparator;
@@ -51,7 +53,7 @@ public:
 	
 	inline ~blob()
 	{
-		if(internal && !--internal->shares)
+		if(internal && !internal->shares.dec())
 			free(internal);
 	}
 	
@@ -82,7 +84,7 @@ public:
 	
 	inline size_t shares() const
 	{
-		return internal ? internal->shares : 0;
+		return internal ? internal->shares.get() : 0;
 	}
 	
 	/* does this blob exist? */
@@ -108,7 +110,9 @@ private:
 	struct blob_internal
 	{
 		size_t size;
-		size_t shares;
+		/* note that we'll be allocating this structure with
+		 * malloc, bypassing the atomic<size_t> constructor */
+		atomic<size_t> shares;
 		uint8_t bytes[0];
 	} * internal;
 	
