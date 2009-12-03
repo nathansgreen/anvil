@@ -22,7 +22,9 @@ public:
 		if(running)
 			return;
 		stop_request = false;
-		pthread_create(&thread, NULL, _start_static, this);
+		running = true;
+		if(pthread_create(&thread, NULL, _start_static, this) < 0)
+			running = false;
 		pthread_detach(thread);
 	}
 	
@@ -83,7 +85,6 @@ private:
 	void _start()
 	{
 		scopelock scope(lock);
-		running = true;
 		scope.unlock();
 		/* call the method */
 		(object->*method)(&token);
