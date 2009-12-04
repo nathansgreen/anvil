@@ -50,9 +50,11 @@ MAIN_OBJ=main.o main_util.o main_perf.o main_test.o tpch.o
 
 -include config.mak
 
-PCFLAGS=-Wall -Wno-deprecated $(FSTITCH_CFLAGS) $(CONFIG_CFLAGS)
+PCFLAGS=-Wall $(FSTITCH_CFLAGS) $(CONFIG_CFLAGS)
+PCXXFLAGS=-Wno-deprecated $(CONFIG_CXXFLAGS)
 
 CFLAGS:=$(PCFLAGS) $(CFLAGS)
+CXXFLAGS:=$(PCXXFLAGS) $(CXXFLAGS)
 LDFLAGS:=$(FSTITCH_LDFLAGS) $(CONFIG_LDFLAGS) $(LDFLAGS)
 
 ifeq ($(findstring -pg,$(CFLAGS)),-pg)
@@ -91,7 +93,7 @@ all: config.mak tags main io_count.$(SO)
 	$(CC) -c $< -o $@ -O2 $(CFLAGS)
 
 %.o: %.cpp
-	$(CXX) -c $< -o $@ -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CPPFLAGS)
+	$(CXX) -c $< -o $@ -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CXXFLAGS)
 
 libanvil.$(SO): libanvil.o $(FSTITCH_LIB)
 	$(CXX) $(SHARED) -o $@ $< -ldl -lpthread $(LDFLAGS)
@@ -141,7 +143,7 @@ config.mak: configure
 	./configure --reconfigure
 
 .depend: $(SOURCES) $(MAIN_SRC) $(HEADERS) config.h
-	$(CXX) -MM $(PCFLAGS) $(CPPFLAGS) *.c *.cpp > .depend
+	$(CXX) -MM $(PCFLAGS) $(PCXXFLAGS) *.c *.cpp > .depend
 
 tags: $(SOURCES) $(MAIN_SRC) $(HEADERS) config.h
 	if ctags --version | grep -q Exuberant; then ctags -R; else touch tags; fi

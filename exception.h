@@ -8,7 +8,9 @@
 /* We disable exceptions, but some compilers don't like seeing try/catch
  * statements with them disabled. Define them to have no effect. */
 
+#if __GNUC__ >= 4 && __GNUC_MINOR__ >= 4
 #define try
 #define catch(...) if(0)
+#endif
 
 #endif /* __EXCEPTION_H */
