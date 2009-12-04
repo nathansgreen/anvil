@@ -4,6 +4,7 @@
 
 #include <errno.h>
 
+#include "exception.h"
 #include "hack_avl_map.h"
 #include "memory_dtable.h"
 

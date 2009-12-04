@@ -38,8 +38,7 @@ static int want_stats(void)
 	if(!maps)
 		/* can't open maps; assume we want stats */
 		return 1;
-	fgets(line, sizeof(line), maps);
-	while(!feof(maps))
+	while(fgets(line, sizeof(line), maps))
 	{
 		if(strstr(line, require))
 		{
@@ -47,7 +46,6 @@ static int want_stats(void)
 			fclose(maps);
 			return 1;
 		}
-		fgets(line, sizeof(line), maps);
 	}
 	/* required library not found; we don't want stats */
 	fclose(maps);

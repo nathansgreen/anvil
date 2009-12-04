@@ -15,6 +15,7 @@
 
 #include <ext/hash_map>
 #include <ext/pool_allocator.h>
+#include "exception.h"
 #include "avl/map.h"
 
 #include "dtable.h"

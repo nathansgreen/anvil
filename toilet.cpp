@@ -115,8 +115,7 @@ t_toilet * toilet_open(const char * path, FILE * errors)
 	version_file = fopenat(dir_fd, "=toilet-version", "r");
 	if(!version_file)
 		goto fail_fopen;
-	fgets(version_str, sizeof(version_str), version_file);
-	if(feof(version_file) || ferror(version_file))
+	if(!fgets(version_str, sizeof(version_str), version_file))
 		goto fail_fgets;
 	if(strcmp(version_str, "1\n"))
 		goto fail_fgets;

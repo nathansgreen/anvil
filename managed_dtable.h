@@ -16,6 +16,7 @@
 
 #include <vector>
 #include <ext/hash_map>
+#include "exception.h"
 #include "avl/set.h"
 
 #include "dtable_factory.h"

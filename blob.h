@@ -69,7 +69,7 @@ public:
 	{
 		assert(internal);
 		assert(off + (i + 1) * sizeof(T) <= internal->size);
-		return *(T *) &internal->bytes[off + i * sizeof(T)];
+		return *(T *) (void *) &internal->bytes[off + i * sizeof(T)];
 	}
 	
 	inline const void * data() const

@@ -50,7 +50,7 @@ MAIN_OBJ=main.o main_util.o main_perf.o main_test.o tpch.o
 
 -include config.mak
 
-PCFLAGS=-Wall $(FSTITCH_CFLAGS) $(CONFIG_CFLAGS)
+PCFLAGS=-Wall -Wno-deprecated $(FSTITCH_CFLAGS) $(CONFIG_CFLAGS)
 
 CFLAGS:=$(PCFLAGS) $(CFLAGS)
 LDFLAGS:=$(FSTITCH_LDFLAGS) $(CONFIG_LDFLAGS) $(LDFLAGS)

@@ -805,8 +805,7 @@ static int command_script(int argc, const char * argv[])
 		char line[64];
 		if(!script)
 			return -errno;
-		fgets(line, sizeof(line), script);
-		while(!feof(script))
+		while(fgets(line, sizeof(line), script))
 		{
 			int i, r = 0;
 			char * error;
@@ -822,7 +821,6 @@ static int command_script(int argc, const char * argv[])
 				break;
 			else if(r < 0)
 				printf("Error: %s\n", error);
-			fgets(line, sizeof(line), script);
 		}
 		fclose(script);
 	}

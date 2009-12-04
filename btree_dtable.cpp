@@ -266,7 +266,7 @@ uint32_t btree_dtable::page_union::filled() const
 bool btree_dtable::page_stack::page::append_pointer(size_t pointer)
 {
 	assert(filled + sizeof(uint32_t) <= BTREE_PAGE_SIZE);
-	*(uint32_t *) &data[filled] = pointer;
+	*(uint32_t *) (void *) &data[filled] = pointer;
 	filled += sizeof(uint32_t);
 	return filled == BTREE_PAGE_SIZE;
 }
@@ -275,8 +275,8 @@ bool btree_dtable::page_stack::page::append_pointer(size_t pointer)
 bool btree_dtable::page_stack::page::append_record(uint32_t key, size_t index)
 {
 	assert(filled + 2 * sizeof(uint32_t) <= BTREE_PAGE_SIZE);
-	*(uint32_t *) &data[filled] = key;
-	*(uint32_t *) &data[filled += sizeof(uint32_t)] = index;
+	*(uint32_t *) (void *) &data[filled] = key;
+	*(uint32_t *) (void *) &data[filled += sizeof(uint32_t)] = index;
 	filled += sizeof(uint32_t);
 	return filled == BTREE_PAGE_SIZE;
 }
@@ -296,7 +296,7 @@ void btree_dtable::page_stack::page::pad()
 	assert(filled <= BTREE_PAGE_SIZE - sizeof(uint32_t));
 	util::memset(&data[filled], 0, BTREE_PAGE_SIZE - filled);
 	/* we store the amount the page is filled into the last 32 bits */
-	*(uint32_t *) &data[BTREE_PAGE_SIZE - sizeof(uint32_t)] = filled;
+	*(uint32_t *) (void *) &data[BTREE_PAGE_SIZE - sizeof(uint32_t)] = filled;
 	filled = BTREE_PAGE_SIZE;
 }
 

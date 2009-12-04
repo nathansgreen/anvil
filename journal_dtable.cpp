@@ -5,6 +5,7 @@
 #include <errno.h>
 
 #include "util.h"
+#include "exception.h"
 #include "hack_avl_map.h"
 #include "journal_dtable.h"
 

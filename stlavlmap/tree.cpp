@@ -485,6 +485,7 @@ _avl_tree_rotate_left(_avl_tree_node_base* const __x,
                                 z->_M_parent->_M_right = x;
 
                 if (__leftmost == z)  // need to fix the header?
+                {
                         if (z->_M_right == 0)           // z->_M_left must be null also
                                                         // because z is leftmost. if z had _M_left,
                                                         // z wouldn't be leftmost.
@@ -492,13 +493,16 @@ _avl_tree_rotate_left(_avl_tree_node_base* const __x,
                                 // makes __leftmost == _M_header if z == root
                         else
                                 __leftmost = _avl_tree_node_base::_S_minimum(x);
+                }
 
-                        if (__rightmost == z) // if z is rightmost, z don't have _M_right
-                                if (z->_M_left == 0)         // z->_M_right must be null also
-                                        __rightmost = z->_M_parent;
-                                // makes __rightmost == _M_header if z == root
-                                else                      // x == z->_M_left
-                                        __rightmost = _avl_tree_node_base::_S_maximum(x);
+                if (__rightmost == z) // if z is rightmost, z don't have _M_right
+                {
+                        if (z->_M_left == 0)         // z->_M_right must be null also
+                                __rightmost = z->_M_parent;
+                        // makes __rightmost == _M_header if z == root
+                        else                      // x == z->_M_left
+                                __rightmost = _avl_tree_node_base::_S_maximum(x);
+                }
         }
 
         // Rebalancing

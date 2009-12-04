@@ -74,7 +74,7 @@ DIR * fdopendir(int dfd)
 {
 	static DIR * (*libc_fdopendir)(int) = NULL;
 	static int libc_checked = 0;
-	int save, cwd;
+	int save, cwd, v;
 	DIR * dir;
 	if(!libc_checked)
 	{
@@ -100,7 +100,8 @@ DIR * fdopendir(int dfd)
 		 * for the DIR * that we return. But more important is that only closedir() is
 		 * required after a successful fdopendir() - you need not call close(dfd) later. */
 		close(dfd);
-	fchdir(cwd);
+	v = fchdir(cwd);
+	assert(v >= 0);
 	close(cwd);
 	errno = save;
 	return dir;
@@ -110,7 +111,7 @@ DIR * fdopendir(int dfd)
  * /, but that's more complicated and unnecessary unless we care about races */
 char * getcwdat(int dfd, char * buf, size_t size)
 {
-	int cfd;
+	int cfd, v;
 	char * r;
 	if(dfd == AT_FDCWD)
 		return getcwd(buf, size);
@@ -125,7 +126,8 @@ char * getcwdat(int dfd, char * buf, size_t size)
 		return NULL;
 	}
 	r = getcwd(buf, size);
-	fchdir(cfd);
+	v = fchdir(cfd);
+	assert(v >= 0);
 	close(cfd);
 	return r;
 }
