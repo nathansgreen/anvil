@@ -69,6 +69,7 @@ int blob_cmp_perf(blob_comparator * blob_cmp);
 /* in main_util.cpp */
 void print(const dtype & x);
 void print(const blob & x, const char * prefix = NULL, ...);
+void run_iterator(dtable::iter * iter);
 void run_iterator(const dtable * table, ATX_OPT);
 void run_iterator(const ctable * table);
 void run_iterator(const stable * table);

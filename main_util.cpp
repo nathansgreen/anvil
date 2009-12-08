@@ -72,10 +72,9 @@ void print(const blob & x, const char * prefix, ...)
 	va_end(ap);
 }
 
-void run_iterator(const dtable * table, ATX_DEF)
+void run_iterator(dtable::iter * iter)
 {
 	bool more = true;
-	dtable::iter * iter = table->iterator(atx);
 	printf("dtable contents:\n");
 	while(iter->valid())
 	{
@@ -89,6 +88,12 @@ void run_iterator(const dtable * table, ATX_DEF)
 		print(iter->value(), "\t");
 		more = iter->next();
 	}
+}
+
+void run_iterator(const dtable * table, ATX_DEF)
+{
+	dtable::iter * iter = table->iterator(atx);
+	run_iterator(iter);
 	delete iter;
 }
 
