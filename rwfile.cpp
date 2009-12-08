@@ -29,7 +29,7 @@ int rwfile::create(int dfd, const char * file, bool tx_external, mode_t mode)
 	external = tx_external;
 	filled = 0;
 	write_offset = 0;
-	this->handler = NULL;
+	handler = NULL;
 	return 0;
 }
 
@@ -48,7 +48,7 @@ int rwfile::open(int dfd, const char * file, off_t end_offset, bool tx_external)
 	external = tx_external;
 	filled = 0;
 	write_offset = end_offset;
-	this->handler = NULL;
+	handler = NULL;
 	return 0;
 }
 
