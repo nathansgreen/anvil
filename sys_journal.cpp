@@ -66,6 +66,8 @@
 #define SYSJ_DATA_MAGIC 0x874C74FD
 #define SYSJ_DATA_VERSION 1
 
+#define assert_data_size() assert(data_size == (size_t) data.end())
+
 struct meta_journal
 {
 	uint32_t magic;
@@ -100,7 +102,7 @@ int sys_journal::append(listening_dtable * listener, void * entry, size_t length
 		return -EINVAL;
 	header.length = length;
 	
-	assert(data_size == data.end());
+	assert_data_size();
 	if(!dirty)
 	{
 		if(!handle.registered)
@@ -125,7 +127,7 @@ int sys_journal::append(listening_dtable * listener, void * entry, size_t length
 		live_entry_count[header.id] = 1;
 	live_entries++;
 	
-	assert(data_size == data.end());
+	assert_data_size();
 	return 0;
 }
 
@@ -145,7 +147,7 @@ int sys_journal::discard(listener_id lid)
 	header.id = lid;
 	header.length = (size_t) -1;
 	
-	assert(data_size == data.end());
+	assert_data_size();
 	if(!dirty)
 	{
 		if(!handle.registered)
@@ -164,7 +166,7 @@ int sys_journal::discard(listener_id lid)
 	if(!live_entries && filter_on_empty)
 		filter();
 	
-	assert(data_size == data.end());
+	assert_data_size();
 	return 0;
 }
 
@@ -187,7 +189,7 @@ int sys_journal::rollover(listener_id from, listener_id to)
 	header.id = from;
 	header.length = (size_t) -2;
 	
-	assert(data_size == data.end());
+	assert_data_size();
 	if(!dirty)
 	{
 		if(!handle.registered)
@@ -216,7 +218,7 @@ int sys_journal::rollover(listener_id from, listener_id to)
 	/* update the rollover ID map */
 	roll_over_rollover_ids(from, to);
 	
-	assert(data_size == data.end());
+	assert_data_size();
 	return 0;
 }
 
@@ -245,7 +247,7 @@ int sys_journal::filter()
 	/* size will be filled in by filter() below */
 	snprintf(seq, sizeof(seq), ".%u", info.seq);
 	assert(info_size == data_size);
-	assert(data_size == data.end());
+	assert_data_size();
 	
 	istr data_name = meta_name + seq;
 	r = tx_start_external();
@@ -277,7 +279,7 @@ int sys_journal::filter()
 	}
 	else
 		unlinkat(meta_dfd, data_name, 0);
-	assert(data_size == data.end());
+	assert_data_size();
 	return r;
 }
 
@@ -534,7 +536,7 @@ int sys_journal::playback()
 	
 	assert(offset <= info_size);
 	assert(info_size <= data_size);
-	assert(data_size == data.end());
+	assert_data_size();
 	
 	if(info_size != data_size)
 		return -EINVAL;
@@ -654,7 +656,7 @@ int sys_journal::playback()
 			delete listener;
 		}
 	}
-	assert(data_size == data.end());
+	assert_data_size();
 	return 0;
 }
 
@@ -781,7 +783,7 @@ int sys_journal::flush_tx()
 	
 	if(!dirty)
 		return 0;
-	assert(data_size == data.end());
+	assert_data_size();
 	r = data.flush();
 	if(r < 0)
 		return r;
@@ -796,7 +798,7 @@ int sys_journal::flush_tx()
 	
 	dirty = false;
 	info_size = data_size;
-	assert(data_size == data.end());
+	assert_data_size();
 	return 0;
 }
 
