@@ -81,7 +81,7 @@ void timeval_subtract(struct timeval * end, const struct timeval * start);
 void timeval_add(struct timeval * accumulator, const struct timeval * delta);
 void timeval_divide(struct timeval * time, int denominator, bool round = false);
 
-void print_timeval(const struct timeval * time, bool seconds = false);
+void print_timeval(const struct timeval * time, bool seconds = false, bool newline = false);
 void print_elapsed(const struct timeval * start, struct timeval * end, bool elapsed = false);
 void print_elapsed(const struct timeval * start, bool elapsed = false);
 void print_progress(const struct timeval * start, struct timeval * now, int percent);

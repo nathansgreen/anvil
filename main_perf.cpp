@@ -305,11 +305,10 @@ void abort_effect(void)
 		
 		printf("Weighted basic transaction time: ");
 		timeval_divide(&tx_sum, 10 - slice);
-		print_timeval(&tx_sum, true);
-		printf(", abortable: ");
+		print_timeval(&tx_sum, true, true);
+		printf("Weighted abortable transaction time: ");
 		timeval_divide(&atx_sum, slice);
-		print_timeval(&atx_sum, true);
-		printf(".\n");
+		print_timeval(&atx_sum, true, true);
 		
 		r = tx_start();
 		EXPECT_NOFAIL("tx_start", r);

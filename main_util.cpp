@@ -231,9 +231,9 @@ void timeval_divide(struct timeval * time, int denominator, bool round)
 	time->tv_usec = usec % 1000000;
 }
 
-void print_timeval(const struct timeval * time, bool seconds)
+void print_timeval(const struct timeval * time, bool seconds, bool newline)
 {
-	printf("%d.%06d%s", (int) time->tv_sec, (int) time->tv_usec, seconds ? " seconds" : "");
+	printf("%d.%06d%s%s", (int) time->tv_sec, (int) time->tv_usec, seconds ? " seconds" : "", newline ? ".\n" : "");
 }
 
 void print_elapsed(const struct timeval * start, struct timeval * end, bool elapsed)
