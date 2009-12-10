@@ -194,6 +194,8 @@ void abort_effect(void)
 	{
 		printf("Abortable transaction fraction: %d/10\n", slice);
 		struct timeval start, end;
+		struct timeval begin, finish;
+		struct timeval tx_sum = {0, 0}, atx_sum = {0, 0};
 		
 		r = tx_start();
 		EXPECT_NOFAIL("tx_start", r);
@@ -220,6 +222,7 @@ void abort_effect(void)
 			uint32_t value = rand();
 			if(!(i % 100))
 			{
+				gettimeofday(&begin, NULL);
 				r = tx_start();
 				if(r < 0)
 				{
@@ -265,6 +268,7 @@ void abort_effect(void)
 			}
 			if((i % 100) == 99)
 			{
+				bool was_atx;
 				if(atx != NO_ABORTABLE_TX)
 				{
 					r = dt->commit_tx(atx);
@@ -274,13 +278,22 @@ void abort_effect(void)
 						break;
 					}
 					atx = NO_ABORTABLE_TX;
+					was_atx = true;
 				}
+				else
+					was_atx = false;
 				r = tx_end(0);
 				if(r < 0)
 				{
 					EXPECT_NEVER("tx_end failure");
 					break;
 				}
+				gettimeofday(&finish, NULL);
+				timeval_subtract(&finish, &begin);
+				if(was_atx)
+					timeval_add(&atx_sum, &finish);
+				else
+					timeval_add(&tx_sum, &finish);
 			}
 		}
 		assert(atx == NO_ABORTABLE_TX);
@@ -289,6 +302,14 @@ void abort_effect(void)
 		gettimeofday(&end, NULL);
 		printf("Timing finished! ");
 		print_elapsed(&start, &end, true);
+		
+		printf("Weighted basic transaction time: ");
+		timeval_divide(&tx_sum, 10 - slice);
+		print_timeval(&tx_sum, true);
+		printf(", abortable: ");
+		timeval_divide(&atx_sum, slice);
+		print_timeval(&atx_sum, true);
+		printf(".\n");
 		
 		r = tx_start();
 		EXPECT_NOFAIL("tx_start", r);

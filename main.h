@@ -70,15 +70,23 @@ int blob_cmp_perf(blob_comparator * blob_cmp);
 /* in main_util.cpp */
 void print(const dtype & x);
 void print(const blob & x, const char * prefix = NULL, ...);
+
 void run_iterator(dtable::iter * iter);
 void run_iterator(const dtable * table, ATX_OPT);
 void run_iterator(const ctable * table);
 void run_iterator(const stable * table);
 void time_iterator(const dtable * table, size_t count = 1, ATX_OPT);
+
+void timeval_subtract(struct timeval * end, const struct timeval * start);
+void timeval_add(struct timeval * accumulator, const struct timeval * delta);
+void timeval_divide(struct timeval * time, int denominator, bool round = false);
+
+void print_timeval(const struct timeval * time, bool seconds = false);
 void print_elapsed(const struct timeval * start, struct timeval * end, bool elapsed = false);
 void print_elapsed(const struct timeval * start, bool elapsed = false);
 void print_progress(const struct timeval * start, struct timeval * now, int percent);
 void print_progress(const struct timeval * start, int percent);
+
 void wait_digest(int seconds);
 blob random_blob(size_t size);
 

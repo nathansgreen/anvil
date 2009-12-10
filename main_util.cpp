@@ -193,7 +193,7 @@ void time_iterator(const dtable * table, size_t count, ATX_DEF)
 	delete iter;
 }
 
-void print_elapsed(const struct timeval * start, struct timeval * end, bool elapsed)
+void timeval_subtract(struct timeval * end, const struct timeval * start)
 {
 	end->tv_sec -= start->tv_sec;
 	if(end->tv_usec < start->tv_usec)
@@ -202,6 +202,43 @@ void print_elapsed(const struct timeval * start, struct timeval * end, bool elap
 		end->tv_sec--;
 	}
 	end->tv_usec -= start->tv_usec;
+}
+
+void timeval_add(struct timeval * accumulator, const struct timeval * delta)
+{
+	accumulator->tv_sec += delta->tv_sec;
+	accumulator->tv_usec += delta->tv_usec;
+	if(accumulator->tv_usec >= 1000000)
+	{
+		accumulator->tv_usec -= 1000000;
+		accumulator->tv_sec++;
+	}
+}
+
+void timeval_divide(struct timeval * time, int denominator, bool round)
+{
+	uint64_t usec = time->tv_sec;
+	usec *= 1000000;
+	usec += time->tv_usec;
+	if(round)
+		usec += denominator / 2;
+	if(denominator)
+		usec /= denominator;
+	else
+		/* well, we hope it already is */
+		usec = 0;
+	time->tv_sec = usec / 1000000;
+	time->tv_usec = usec % 1000000;
+}
+
+void print_timeval(const struct timeval * time, bool seconds)
+{
+	printf("%d.%06d%s", (int) time->tv_sec, (int) time->tv_usec, seconds ? " seconds" : "");
+}
+
+void print_elapsed(const struct timeval * start, struct timeval * end, bool elapsed)
+{
+	timeval_subtract(end, start);
 	printf("%d.%06d seconds%s.\n", (int) end->tv_sec, (int) end->tv_usec, elapsed ? " elapsed" : "");
 }
 
@@ -214,13 +251,7 @@ void print_elapsed(const struct timeval * start, bool elapsed)
 
 void print_progress(const struct timeval * start, struct timeval * now, int percent)
 {
-	now->tv_sec -= start->tv_sec;
-	if(now->tv_usec < start->tv_usec)
-	{
-		now->tv_usec += 1000000;
-		now->tv_sec--;
-	}
-	now->tv_usec -= start->tv_usec;
+	timeval_subtract(now, start);
 	printf("%d%% done after %d.%06d seconds.\n", percent, (int) now->tv_sec, (int) now->tv_usec);
 }
 
