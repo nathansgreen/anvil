@@ -82,11 +82,7 @@ void abort_perf(bool use_temp)
 			if(!(i % 1000))
 			{
 				r = tx_start();
-				if(r < 0)
-				{
-					EXPECT_NEVER("tx_start failure");
-					break;
-				}
+				EXPECT_NOFAIL_SILENT_BREAK("tx_start", r);
 			}
 			r = dt->insert(row, blob(sizeof(value), &value), false, atx);
 			assert(r >= 0);
@@ -98,11 +94,7 @@ void abort_perf(bool use_temp)
 			if(use_atx && !(rand() % 100))
 			{
 				r = dt->commit_tx(atx);
-				if(r < 0)
-				{
-					EXPECT_NEVER("commit_tx failure");
-					break;
-				}
+				EXPECT_NOFAIL_SILENT_BREAK("commit_tx", r);
 				atx = dt->create_tx();
 				if(atx == NO_ABORTABLE_TX)
 				{
@@ -114,29 +106,17 @@ void abort_perf(bool use_temp)
 			if((i % 1000000) == 999999)
 			{
 				r = dt->maintain(true);
-				if(r < 0)
-				{
-					EXPECT_NEVER("maintain failure");
-					break;
-				}
+				EXPECT_NOFAIL_SILENT_BREAK("maintain", r);
 			}
 			if((i % 1000000) == 999999)
 			{
 				r = sysj->filter();
-				if(r < 0)
-				{
-					EXPECT_NEVER("filter failure");
-					break;
-				}
+				EXPECT_NOFAIL_SILENT_BREAK("filter", r);
 			}
 			if((i % 1000) == 999)
 			{
 				r = tx_end(0);
-				if(r < 0)
-				{
-					EXPECT_NEVER("tx_end failure");
-					break;
-				}
+				EXPECT_NOFAIL_SILENT_BREAK("tx_end", r);
 			}
 		}
 		if(use_atx)
@@ -224,11 +204,7 @@ void abort_effect(void)
 			{
 				gettimeofday(&begin, NULL);
 				r = tx_start();
-				if(r < 0)
-				{
-					EXPECT_NEVER("tx_start failure");
-					break;
-				}
+				EXPECT_NOFAIL_SILENT_BREAK("tx_start", r);
 				if((i / 100) % 10 < slice)
 				{
 					atx = dt->create_tx();
@@ -243,6 +219,27 @@ void abort_effect(void)
 			}
 			r = dt->insert(row, blob(sizeof(value), &value), false, atx);
 			assert(r >= 0);
+			if((i % 100) == 99)
+			{
+				bool was_atx;
+				if(atx != NO_ABORTABLE_TX)
+				{
+					r = dt->commit_tx(atx);
+					EXPECT_NOFAIL_SILENT_BREAK("commit_tx", r);
+					atx = NO_ABORTABLE_TX;
+					was_atx = true;
+				}
+				else
+					was_atx = false;
+				r = tx_end(0);
+				EXPECT_NOFAIL_SILENT_BREAK("tx_end", r);
+				gettimeofday(&finish, NULL);
+				timeval_subtract(&finish, &begin);
+				if(was_atx)
+					timeval_add(&atx_sum, &finish);
+				else
+					timeval_add(&tx_sum, &finish);
+			}
 			if((i % 100000) == 99999)
 			{
 				print_progress(&start, (i + 1) / 10000);
@@ -250,50 +247,14 @@ void abort_effect(void)
 			}
 			if((i % 100000) == 99999)
 			{
+				r = tx_start();
+				EXPECT_NOFAIL_SILENT_BREAK("tx_start", r);
 				r = dt->maintain(true);
-				if(r < 0)
-				{
-					EXPECT_NEVER("maintain failure");
-					break;
-				}
-			}
-			if((i % 100000) == 99999)
-			{
+				EXPECT_NOFAIL_SILENT_BREAK("maintain", r);
 				r = sysj->filter();
-				if(r < 0)
-				{
-					EXPECT_NEVER("filter failure");
-					break;
-				}
-			}
-			if((i % 100) == 99)
-			{
-				bool was_atx;
-				if(atx != NO_ABORTABLE_TX)
-				{
-					r = dt->commit_tx(atx);
-					if(r < 0)
-					{
-						EXPECT_NEVER("commit_tx failure");
-						break;
-					}
-					atx = NO_ABORTABLE_TX;
-					was_atx = true;
-				}
-				else
-					was_atx = false;
+				EXPECT_NOFAIL_SILENT_BREAK("filter", r);
 				r = tx_end(0);
-				if(r < 0)
-				{
-					EXPECT_NEVER("tx_end failure");
-					break;
-				}
-				gettimeofday(&finish, NULL);
-				timeval_subtract(&finish, &begin);
-				if(was_atx)
-					timeval_add(&atx_sum, &finish);
-				else
-					timeval_add(&tx_sum, &finish);
+				EXPECT_NOFAIL_SILENT_BREAK("tx_end", r);
 			}
 		}
 		assert(atx == NO_ABORTABLE_TX);
@@ -513,11 +474,7 @@ static int uqdt_perf(dtable * dt, const char * name)
 		else
 			/* 75% chance of a popular blob */
 			r = dt->insert(key, popular[rand() % POPULAR_BLOBS]);
-		if(r < 0)
-		{
-			EXPECT_NEVER("insert() fail!");
-			return -1;
-		}
+		EXPECT_NOFAIL_SILENT_RETURN("insert", r);
 	}
 	print_elapsed(&start);
 	printf("Converting to %s dtable... ", name);
@@ -742,12 +699,7 @@ int command_odtable(int argc, const char * argv[])
 			r = dt->insert(key, fixed);
 		else
 			r = dt->insert(key, exception);
-		if(r < 0)
-		{
-			tx_end(0);
-			EXPECT_NEVER("fail!");
-			return -1;
-		}
+		EXPECT_NOFAIL_SILENT_RETURN("insert", r, tx_end(0));
 	}
 	printf("done.\n");
 	
@@ -948,27 +900,15 @@ static int bfdt_populate(dtable * dt, const size_t size, const size_t ops, const
 			else
 				r = dt->remove(key);
 		}
-		if(r < 0)
-		{
-			EXPECT_NEVER("insert()/remove() fail!");
-			return -1;
-		}
+		EXPECT_NOFAIL_SILENT_RETURN("insert/remove", r);
 		if(i == ops / 2 || (i > ops / 2 && !(i % (ops / 10))))
 		{
 			r = dt->maintain(true);
-			if(r < 0)
-			{
-				EXPECT_NEVER("maintain() fail!");
-				return -1;
-			}
+			EXPECT_NOFAIL_SILENT_RETURN("maintain", r);
 		}
 	}
 	r = dt->maintain(true);
-	if(r < 0)
-	{
-		EXPECT_NEVER("maintain() fail!");
-		return -1;
-	}
+	EXPECT_NOFAIL_SILENT_RETURN("maintain", r);
 	printf("done.\n");
 	return 0;
 }
@@ -1082,12 +1022,7 @@ int command_bfdtable(int argc, const char * argv[])
 			{
 				uint32_t key = i * 2 + 1;
 				r = dt->insert(key, blob(sizeof(key), &key));
-				if(r < 0)
-				{
-					tx_end(0);
-					EXPECT_NEVER("fail!");
-					return -1;
-				}
+				EXPECT_NOFAIL_SILENT_RETURN("insert", r, tx_end(0));
 			}
 			printf("done.\n");
 			
@@ -1108,12 +1043,7 @@ int command_bfdtable(int argc, const char * argv[])
 					continue;
 				uint32_t key = i * 2 + 1;
 				r = dt->remove(key);
-				if(r < 0)
-				{
-					tx_end(0);
-					EXPECT_NEVER("remove() fail!");
-					return -1;
-				}
+				EXPECT_NOFAIL_SILENT_RETURN("remove", r, tx_end(0));
 			}
 			printf("done.\n");
 			
@@ -1205,12 +1135,7 @@ int command_bfdtable(int argc, const char * argv[])
 		uint32_t key = i * 2;
 		uint32_t value = i;
 		r = dt->insert(key, blob(sizeof(value), &value));
-		if(r < 0)
-		{
-			tx_end(0);
-			EXPECT_NEVER("fail!");
-			return -1;
-		}
+		EXPECT_NOFAIL_SILENT_RETURN("insert", r, tx_end(0));
 	}
 	printf("done.\n");
 	
@@ -1816,11 +1741,7 @@ int command_bdbtest(int argc, const char * argv[])
 	for(int i = 0; i < 1000000; i++)
 	{
 		r = tx_start();
-		if(r < 0)
-		{
-			EXPECT_NEVER("tx_start failure");
-			break;
-		}
+		EXPECT_NOFAIL_SILENT_BREAK("tx_start", r);
 		r = jdt->insert(dtype(key), value);
 		assert(r >= 0);
 		if((i % 100000) == 99999)
@@ -1829,11 +1750,7 @@ int command_bdbtest(int argc, const char * argv[])
 			fflush(stdout);
 		}
 		r = tx_end(0);
-		if(r < 0)
-		{
-			EXPECT_NEVER("tx_end failure");
-			break;
-		}
+		EXPECT_NOFAIL_SILENT_BREAK("tx_end", r);
 	}
 	
 	printf("Timing finished! ");

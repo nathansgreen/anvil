@@ -19,6 +19,9 @@
 #define EXPECT_SIZET(label, expect, test) do { size_t __value = test; printf(label " = %zu (expect %zu)\n", __value, (size_t) expect); if(__value != (expect)) PRINT_FAIL; } while(0)
 #define EXPECT_NOTU32(label, expect, test) do { uint32_t __value = test; printf(label " = %u\n", __value); if(__value == (expect)) PRINT_FAIL; } while(0)
 
+#define EXPECT_NOFAIL_SILENT_BREAK(label, result) if(result < 0) { EXPECT_NEVER(label " failure"); break; }
+#define EXPECT_NOFAIL_SILENT_RETURN(label, result, cleanup...) if(result < 0) { EXPECT_NEVER(label " failure"); cleanup; return result; }
+
 #ifdef __cplusplus
 extern "C" {
 #endif
