@@ -149,6 +149,7 @@ void abort_perf(bool use_temp)
 			EXPECT_NOFAIL("tx_end", r);
 		}
 		
+		sync();
 		gettimeofday(&end, NULL);
 		printf("Timing finished! ");
 		print_elapsed(&start, &end, true);
@@ -166,6 +167,140 @@ void abort_perf(bool use_temp)
 		r = tx_end(0);
 		EXPECT_NOFAIL("tx_end", r);
 	} while((use_atx = !use_atx));
+}
+
+void abort_effect(void)
+{
+	int r;
+	dtable * dt;
+	params config;
+	sys_journal * sysj;
+	abortable_tx atx = NO_ABORTABLE_TX;
+	journal_dtable::journal_dtable_warehouse warehouse;
+	temp_journal_dtable::temp_journal_dtable_warehouse temp_warehouse;
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) simple_dtable
+		"digest_interval" int 20
+		"combine_interval" int 160
+		"combine_count" int 12
+	]), &config);
+	EXPECT_NOFAIL("params::parse", r);
+	config.print();
+	printf("\n");
+	
+	for(int slice = 0; slice <= 10; slice++)
+	{
+		printf("Abortable transaction fraction: %d/10\n", slice);
+		struct timeval start, end;
+		
+		r = tx_start();
+		EXPECT_NOFAIL("tx_start", r);
+		sysj = sys_journal::spawn_init("test_journal", &warehouse, &temp_warehouse, true);
+		EXPECT_NONULL("sysj spawn", sysj);
+		r = dtable_factory::setup("managed_dtable", AT_FDCWD, "abtx_fect", config, dtype::UINT32);
+		EXPECT_NOFAIL("dtable_factory::setup", r);
+		r = tx_end(0);
+		EXPECT_NOFAIL("tx_end", r);
+		
+		r = tx_start();
+		EXPECT_NOFAIL("tx_start", r);
+		dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_fect", config, sysj);
+		EXPECT_NONULL("dtable_factory::load", dt);
+		r = tx_end(0);
+		EXPECT_NOFAIL("tx_end", r);
+		
+		printf("Start timing! (1000000 inserts to %d rows)\n", DT_ROW_COUNT);
+		gettimeofday(&start, NULL);
+		
+		for(int i = 0; i < 1000000; i++)
+		{
+			uint32_t row = rand() % DT_ROW_COUNT;
+			uint32_t value = rand();
+			if(!(i % 100))
+			{
+				r = tx_start();
+				if(r < 0)
+				{
+					EXPECT_NEVER("tx_start failure");
+					break;
+				}
+				if((i / 100) % 10 < slice)
+				{
+					atx = dt->create_tx();
+					if(atx == NO_ABORTABLE_TX)
+					{
+						EXPECT_NEVER("create_tx failure");
+						break;
+					}
+				}
+				else
+					atx = NO_ABORTABLE_TX;
+			}
+			r = dt->insert(row, blob(sizeof(value), &value), false, atx);
+			assert(r >= 0);
+			if((i % 100000) == 99999)
+			{
+				print_progress(&start, (i + 1) / 10000);
+				fflush(stdout);
+			}
+			if((i % 100000) == 99999)
+			{
+				r = dt->maintain(true);
+				if(r < 0)
+				{
+					EXPECT_NEVER("maintain failure");
+					break;
+				}
+			}
+			if((i % 100000) == 99999)
+			{
+				r = sysj->filter();
+				if(r < 0)
+				{
+					EXPECT_NEVER("filter failure");
+					break;
+				}
+			}
+			if((i % 100) == 99)
+			{
+				if(atx != NO_ABORTABLE_TX)
+				{
+					r = dt->commit_tx(atx);
+					if(r < 0)
+					{
+						EXPECT_NEVER("commit_tx failure");
+						break;
+					}
+					atx = NO_ABORTABLE_TX;
+				}
+				r = tx_end(0);
+				if(r < 0)
+				{
+					EXPECT_NEVER("tx_end failure");
+					break;
+				}
+			}
+		}
+		assert(atx == NO_ABORTABLE_TX);
+		
+		sync();
+		gettimeofday(&end, NULL);
+		printf("Timing finished! ");
+		print_elapsed(&start, &end, true);
+		
+		r = tx_start();
+		EXPECT_NOFAIL("tx_start", r);
+		dt->destroy();
+		sysj->deinit(true);
+		delete sysj;
+		util::rm_r(AT_FDCWD, "abtx_fect");
+		EXPECT_SIZET("total", 0, warehouse.size());
+		EXPECT_SIZET("temp total", 0, temp_warehouse.size());
+		r = tx_end(0);
+		EXPECT_NOFAIL("tx_end", r);
+	}
 }
 
 static int excp_perf(dtable * table)

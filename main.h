@@ -61,6 +61,7 @@ int command_iterator(int argc, const char * argv[]);
 
 /* in main_perf.cpp */
 void abort_perf(bool use_temp);
+void abort_effect(void);
 void edtable_perf(void);
 int kddtable_perf(void);
 int udtable_perf(void);

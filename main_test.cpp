@@ -1855,6 +1855,10 @@ int command_abort(int argc, const char * argv[])
 		abort_perf(use_temp);
 	}
 	
+	if(argc > 1 && !strcmp(argv[1], "effect"))
+		/* run the performance effect test as well */
+		abort_effect();
+	
 	return 0;
 }
 
