@@ -30,6 +30,7 @@ extern "C" {
 int command_odtable(int argc, const char * argv[]);
 int command_ldtable(int argc, const char * argv[]);
 int command_bfdtable(int argc, const char * argv[]);
+int command_oracle(int argc, const char * argv[]);
 int command_blob_cmp(int argc, const char * argv[]);
 int command_performance(int argc, const char * argv[]);
 int command_bdbtest(int argc, const char * argv[]);
