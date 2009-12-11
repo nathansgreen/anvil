@@ -19,6 +19,7 @@ libanvil.dylib
 libanvil.so
 main
 medic
+mnt
 tags
 test.local
 *.o
