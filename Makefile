@@ -46,7 +46,9 @@ OBJECTS=$(COBJECTS) $(CPPOBJECTS)
 MAIN_SRC=main.c main_util.cpp main_perf.cpp main_test.cpp tpch.cpp
 MAIN_OBJ=main.o main_util.o main_perf.o main_test.o tpch.o
 
-.PHONY: all clean clean-all count count-all php
+UTILS=average io_count.$(SO) medic
+
+.PHONY: all clean clean-all count count-all php utils
 
 -include config.mak
 
@@ -87,7 +89,9 @@ ifeq ($(findstring 64,$(UNAME_M)),64)
 CFLAGS:=$(PIC) $(CFLAGS)
 endif
 
-all: config.mak tags main io_count.$(SO)
+all: config.mak tags main
+
+utils: $(UTILS)
 
 %.o: %.c
 	$(CC) -c $< -o $@ -O2 $(CFLAGS)
@@ -122,8 +126,11 @@ io_count.$(SO): io_count.o
 medic: medic.o md5.o
 	$(CC) -o $@ $^
 
+average: average.o
+	$(CXX) -o $@ $^
+
 clean:
-	rm -f config.h config.mak main libanvil.$(SO) libanvil.a io_count.$(SO) medic *.o stlavlmap/*.o .depend tags
+	rm -f config.h config.mak main libanvil.$(SO) libanvil.a $(UTILS) *.o stlavlmap/*.o .depend tags
 
 clean-all: clean
 	php/clean

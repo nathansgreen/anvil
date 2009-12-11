@@ -1,6 +1,7 @@
 .fdb_history
 .copy_to
 .depend
+average
 config.h
 config.log
 config.mak
@@ -12,7 +13,6 @@ io_count.dylib
 fstitch
 main
 medic
-scratch
 tags
 test.local
 *.o
