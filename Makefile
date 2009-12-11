@@ -46,7 +46,7 @@ OBJECTS=$(COBJECTS) $(CPPOBJECTS)
 MAIN_SRC=main.c main_util.cpp main_perf.cpp main_test.cpp tpch.cpp
 MAIN_OBJ=main.o main_util.o main_perf.o main_test.o tpch.o
 
-UTILS=average io_count.$(SO) medic
+UTILS=average includes io_count.$(SO) medic
 
 .PHONY: all clean clean-all count count-all php utils
 
@@ -120,17 +120,30 @@ main: libanvil.$(SO) $(MAIN_OBJ)
 	$(CXX) -o $@ $(MAIN_OBJ) $(RTP) -L. -lanvil -lreadline -ltermcap $(LDFLAGS)
 endif
 
+average: average.o
+	$(CXX) -o $@ $^
+
+includes: includes.o
+	$(CXX) -o $@ $^
+
+includes.dot: includes $(HEADERS)
+	./includes > includes.dot
+
+includes.eps: includes.dot
+	dot -Tps2 includes.dot > includes.eps || rm includes.eps
+
+includes.pdf: includes.eps
+	epstopdf includes.eps
+
 io_count.$(SO): io_count.o
 	$(CC) $(SHARED) -o $@ $< -ldl $(LDFLAGS)
 
 medic: medic.o md5.o
 	$(CC) -o $@ $^
 
-average: average.o
-	$(CXX) -o $@ $^
-
 clean:
-	rm -f config.h config.mak main libanvil.$(SO) libanvil.a $(UTILS) *.o stlavlmap/*.o .depend tags
+	rm -f config.h config.mak main libanvil.$(SO) libanvil.a *.o stlavlmap/*.o .depend tags
+	rm -f $(UTILS) includes.dot includes.eps includes.pdf
 
 clean-all: clean
 	php/clean

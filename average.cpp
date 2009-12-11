@@ -132,12 +132,8 @@ int main(int argc, char * argv[])
 			return 1;
 		}
 	}
-	fgets(line, sizeof(line), input);
-	while(!feof(input) && !ferror(input))
-	{
+	while(fgets(line, sizeof(line), input))
 		process_line(line);
-		fgets(line, sizeof(line), input);
-	}
 	if(input != stdin)
 		fclose(input);
 	return (print_summary(count) < 0) ? 1 : 0;
