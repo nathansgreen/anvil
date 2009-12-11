@@ -450,7 +450,7 @@ void edtable_perf(void)
 }
 
 #define POPULAR_BLOBS 10
-static int uqdt_perf(dtable * dt, const char * name)
+static int uqdt_perf(dtable * dt, const char * name, size_t count = 2500000)
 {
 	int r;
 	struct timeval start;
@@ -465,7 +465,7 @@ static int uqdt_perf(dtable * dt, const char * name)
 	for(size_t i = 0; i < POPULAR_BLOBS; i++)
 		popular[i] = random_blob(80);
 	gettimeofday(&start, NULL);
-	for(size_t i = 0; i < 2000000; i++)
+	for(size_t i = 0; i < count; i++)
 	{
 		uint32_t key = i * 2;
 		if(!(rand() % 4))
@@ -495,7 +495,7 @@ static int uqdt_perf(dtable * dt, const char * name)
 	gettimeofday(&start, NULL);
 	for(size_t i = 0; i < 1000000; i++)
 	{
-		uint32_t key = (rand() % 2000000) * 2;
+		uint32_t key = (rand() % count) * 2;
 		blob value = dt->find(key);
 	}
 	print_elapsed(&start);
@@ -572,9 +572,9 @@ int kddtable_perf(void)
 			"base" class(dt) simple_dtable
 			"digest_interval" int 2
 		]
-		"divider_0" int 500000
-		"divider_1" int 1000000
-		"divider_2" int 1500000
+		"divider_0" int 1000000
+		"divider_1" int 2000000
+		"divider_2" int 3000000
 	]), &config);
 	EXPECT_NOFAIL("params::parse", r);
 	config.print();
@@ -589,7 +589,7 @@ int kddtable_perf(void)
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	/* the uniq_dtable test is fine here even thought it's not what we're testing */
-	uqdt_perf(dt, "[keydiv] simple");
+	uqdt_perf(dt, "[keydiv] simple", 4000000);
 	dt->destroy();
 	
 	config = params();
@@ -610,7 +610,7 @@ int kddtable_perf(void)
 	EXPECT_NONULL("dtable_factory::load", dt);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
-	uqdt_perf(dt, "simple");
+	uqdt_perf(dt, "simple", 4000000);
 	dt->destroy();
 	
 	return 0;
