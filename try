@@ -81,7 +81,8 @@ odtable
 ussdtable
 bfdtable
 #bfdtable metrics
-#bfdtable oracle
+#oracle
+#oracle bloom
 sidtable
 didtable
 kddtable

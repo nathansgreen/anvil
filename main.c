@@ -624,6 +624,7 @@ struct {
 	{"ldtable", "Test linear dtable functionality.", command_ldtable},
 	{"ussdtable", "Test usstate dtable functionality.", command_ussdtable},
 	{"bfdtable", "Test bloom filter dtable functionality.", command_bfdtable},
+	{"oracle", "Test performance impact of nonexistent values.", command_oracle},
 	{"sidtable", "Test smallint dtable functionality.", command_sidtable},
 	{"didtable", "Test deltaint dtable functionality.", command_didtable},
 	{"kddtable", "Test keydiv dtable functionality.", command_kddtable},
