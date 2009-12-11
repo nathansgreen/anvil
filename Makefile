@@ -121,10 +121,10 @@ main: libanvil.$(SO) $(MAIN_OBJ)
 endif
 
 average: average.o
-	$(CXX) -o $@ $^
+	$(CXX) -o $@ $^ $(LDFLAGS)
 
 includes: includes.o
-	$(CXX) -o $@ $^
+	$(CXX) -o $@ $^ $(LDFLAGS)
 
 includes.dot: includes $(HEADERS)
 	./includes > includes.dot
@@ -139,7 +139,7 @@ io_count.$(SO): io_count.o
 	$(CC) $(SHARED) -o $@ $< -ldl $(LDFLAGS)
 
 medic: medic.o md5.o
-	$(CC) -o $@ $^
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 clean:
 	rm -f config.h config.mak main libanvil.$(SO) libanvil.a *.o stlavlmap/*.o .depend tags
