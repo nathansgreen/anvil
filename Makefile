@@ -8,9 +8,9 @@ LIBRARIES+=sys_journal.cpp toilet.cpp token_stream.cpp stlavlmap/tree.cpp util.c
 
 # dtables
 DTABLES=array_dtable.cpp btree_dtable.cpp bloom_dtable.cpp cache_dtable.cpp deltaint_dtable.cpp
-DTABLES+=exception_dtable.cpp fixed_dtable.cpp journal_dtable.cpp keydiv_dtable.cpp linear_dtable.cpp
-DTABLES+=managed_dtable.cpp memory_dtable.cpp overlay_dtable.cpp simple_dtable.cpp smallint_dtable.cpp
-DTABLES+=temp_journal_dtable.cpp uniq_dtable.cpp usstate_dtable.cpp ustr_dtable.cpp
+DTABLES+=exception_dtable.cpp exist_dtable.cpp fixed_dtable.cpp journal_dtable.cpp keydiv_dtable.cpp
+DTABLES+=linear_dtable.cpp managed_dtable.cpp memory_dtable.cpp overlay_dtable.cpp simple_dtable.cpp
+DTABLES+=smallint_dtable.cpp temp_journal_dtable.cpp uniq_dtable.cpp usstate_dtable.cpp ustr_dtable.cpp
 
 # ctables, stables, and external indices
 MISC_STUFF=column_ctable.cpp simple_ctable.cpp simple_stable.cpp simple_ext_index.cpp
