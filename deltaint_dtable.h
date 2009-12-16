@@ -28,6 +28,8 @@ public:
 		int value = base->set_blob_cmp(cmp);
 		if(value >= 0)
 		{
+			value = reference->set_blob_cmp(cmp);
+			assert(value >= 0);
 			value = dtable::set_blob_cmp(cmp);
 			assert(value >= 0);
 		}

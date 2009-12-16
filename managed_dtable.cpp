@@ -129,7 +129,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
 	/* force array scope to end */
 	{
 		size_t count = header.ddt_count;
-		const dtable * array[count + 1];
+		dtable * array[count + 1];
 		for(size_t i = 0; i < count; i++)
 			array[count - i] = disks[i].disk;
 		array[0] = journal;
@@ -448,7 +448,7 @@ int managed_dtable::combiner::prepare(bool shift_journal)
 		
 		/* force array scope to end */
 		{
-			const dtable * array[mdt->header.ddt_count + 1];
+			dtable * array[mdt->header.ddt_count + 1];
 			for(uint32_t i = 0; i < mdt->header.ddt_count; i++)
 				array[mdt->header.ddt_count - i] = mdt->disks[i].disk;
 			array[0] = mdt->journal;
@@ -469,7 +469,7 @@ int managed_dtable::combiner::prepare(bool shift_journal)
 	
 	if(first)
 	{
-		const dtable * array[first];
+		dtable * array[first];
 		for(size_t i = 0; i < first; i++)
 			array[first - i - 1] = mdt->disks[i].disk;
 		shadow = new overlay_dtable;
@@ -481,7 +481,7 @@ int managed_dtable::combiner::prepare(bool shift_journal)
 	/* force array scope to end */
 	{
 		size_t count = last - first + 1;
-		const dtable * array[count];
+		dtable * array[count];
 		if(last == mdt->disks.size())
 		{
 			array[0] = mdt->journal;
@@ -605,7 +605,7 @@ int managed_dtable::combiner::finish()
 	
 	/* force array scope to end */
 	{
-		const dtable * array[mdt->header.ddt_count + 1];
+		dtable * array[mdt->header.ddt_count + 1];
 		for(uint32_t i = 0; i < mdt->header.ddt_count; i++)
 			array[mdt->header.ddt_count - i] = mdt->disks[i].disk;
 		array[0] = mdt->journal;

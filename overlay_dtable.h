@@ -26,9 +26,11 @@ public:
 	virtual bool present(const dtype & key, bool * found, ATX_OPT) const;
 	virtual blob lookup(const dtype & key, bool * found, ATX_OPT) const;
 	
+	virtual int set_blob_cmp(const blob_comparator * cmp);
+	
 	inline overlay_dtable() : tables(NULL), table_count(0) {}
-	int init(const dtable * dt1, ...);
-	int init(const dtable ** dts, size_t count);
+	int init(dtable * dt1, ...);
+	int init(dtable ** dts, size_t count);
 	/* overlay_dtable has a public destructor (and no factory) */
 	inline virtual ~overlay_dtable()
 	{
@@ -72,7 +74,7 @@ private:
 		bool past_beginning;
 	};
 	
-	const dtable ** tables;
+	dtable ** tables;
 	size_t table_count;
 };
 

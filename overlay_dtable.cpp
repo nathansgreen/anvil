@@ -292,7 +292,18 @@ blob overlay_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 	return blob();
 }
 
-int overlay_dtable::init(const dtable * dt1, ...)
+int overlay_dtable::set_blob_cmp(const blob_comparator * cmp)
+{
+	for(size_t i = 0; i < table_count; i++)
+	{
+		int r = tables[i]->set_blob_cmp(cmp);
+		if(r < 0)
+			return r;
+	}
+	return dtable::set_blob_cmp(cmp);
+}
+
+int overlay_dtable::init(dtable * dt1, ...)
 {
 	va_list ap;
 	size_t count = 1;
@@ -301,6 +312,7 @@ int overlay_dtable::init(const dtable * dt1, ...)
 	if(tables)
 		deinit();
 	ktype = dt1->key_type();
+	cmp_name = dt1->get_cmp_name();
 	va_start(ap, dt1);
 	while((table = va_arg(ap, dtable *)))
 	{
@@ -313,7 +325,7 @@ int overlay_dtable::init(const dtable * dt1, ...)
 	}
 	va_end(ap);
 	
-	tables = new const dtable *[count];
+	tables = new dtable *[count];
 	if(!tables)
 		return -ENOMEM;
 	table_count = count;
@@ -326,18 +338,19 @@ int overlay_dtable::init(const dtable * dt1, ...)
 	return 0;
 }
 
-int overlay_dtable::init(const dtable ** dts, size_t count)
+int overlay_dtable::init(dtable ** dts, size_t count)
 {
 	if(count < 1)
 		return -EINVAL;
 	if(tables)
 		deinit();
 	ktype = dts[0]->key_type();
+	cmp_name = dts[0]->get_cmp_name();
 	for(size_t i = 1; i < count; i++)
 		if(dts[i]->key_type() != ktype)
 			return -EINVAL;
 	
-	tables = new const dtable *[count];
+	tables = new dtable *[count];
 	if(!tables)
 		return -ENOMEM;
 	table_count = count;

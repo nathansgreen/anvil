@@ -20,6 +20,19 @@ public:
 	virtual bool present(const dtype & key, bool * found, ATX_OPT) const;
 	virtual blob lookup(const dtype & key, bool * found, ATX_OPT) const;
 	
+	inline virtual int set_blob_cmp(const blob_comparator * cmp)
+	{
+		int value = base->set_blob_cmp(cmp);
+		if(value >= 0)
+		{
+			value = alt->set_blob_cmp(cmp);
+			assert(value >= 0);
+			value = dtable::set_blob_cmp(cmp);
+			assert(value >= 0);
+		}
+		return value;
+	}
+	
 	static int create(int dfd, const char * file, const params & config, dtable::iter * source, const ktable * shadow = NULL);
 	DECLARE_RO_FACTORY(exception_dtable);
 	
@@ -68,8 +81,8 @@ private:
 	/* we'll define it in the source file */
 	class reject_iter;
 	
-	const dtable * base;
-	const dtable * alt;
+	dtable * base;
+	dtable * alt;
 	blob reject_value;
 };
 
