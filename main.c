@@ -619,7 +619,7 @@ struct {
 	{"tx", "Test transaction functionality.", command_tx},
 	{"info", "Print some information about Anvil.", command_info},
 	{"dtable", "Test dtable functionality.", command_dtable},
-	{"edtable", "Test exception dtable functionality.", command_edtable},
+	{"exdtable", "Test exception dtable functionality.", command_exdtable},
 	{"odtable", "Test overlay dtable performance.", command_odtable},
 	{"ldtable", "Test linear dtable functionality.", command_ldtable},
 	{"ussdtable", "Test usstate dtable functionality.", command_ussdtable},

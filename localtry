@@ -27,8 +27,8 @@ rollover -b -r
 abort
 #abort perf
 #abort perf temp
-edtable
-#edtable perf
+exdtable
+#exdtable perf
 odtable
 ussdtable
 bfdtable

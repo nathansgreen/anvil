@@ -38,7 +38,7 @@ int command_bdbtest(int argc, const char * argv[]);
 /* in main_test.cpp */
 int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
-int command_edtable(int argc, const char * argv[]);
+int command_exdtable(int argc, const char * argv[]);
 int command_ussdtable(int argc, const char * argv[]);
 int command_sidtable(int argc, const char * argv[]);
 int command_didtable(int argc, const char * argv[]);
@@ -66,7 +66,7 @@ int command_iterator(int argc, const char * argv[]);
 /* in main_perf.cpp */
 void abort_perf(bool use_temp);
 void abort_effect(void);
-void edtable_perf(void);
+void exdtable_perf(void);
 int kddtable_perf(void);
 int udtable_perf(void);
 int blob_cmp_perf(blob_comparator * blob_cmp);

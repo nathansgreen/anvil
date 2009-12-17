@@ -122,7 +122,7 @@ int command_dtable(int argc, const char * argv[])
 	return 0;
 }
 
-int command_edtable(int argc, const char * argv[])
+int command_exdtable(int argc, const char * argv[])
 {
 	int r;
 	blob fixed("fixed");
@@ -205,7 +205,7 @@ int command_edtable(int argc, const char * argv[])
 	
 	if(argc > 1 && !strcmp(argv[1], "perf"))
 		/* run the performance test as well */
-		edtable_perf();
+		exdtable_perf();
 	
 	return 0;
 }

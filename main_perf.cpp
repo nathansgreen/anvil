@@ -377,7 +377,7 @@ fail:
 	return -1;
 }
 
-void edtable_perf(void)
+void exdtable_perf(void)
 {
 	int r;
 	params config;
