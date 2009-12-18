@@ -229,7 +229,9 @@ int command_edtable(int argc, const char * argv[])
 		EXPECT_NONULL("dtable_factory::load", dt);
 		iter = dt->iterator();
 		EXPECT_NONULL("iterator", iter);
-		if(!iter->valid())
+		if(!i && iter->valid())
+			EXPECT_NEVER("values in dnebase[0]");
+		if(i && !iter->valid())
 			EXPECT_NEVER("no values in dnebase");
 		while(iter->valid())
 		{

@@ -93,6 +93,8 @@ int exist_dtable::create(int dfd, const char * file, const params & config, dtab
 	if(e_dfd < 0)
 		goto fail_open;
 	
+	/* just to be sure */
+	source->first();
 	{
 		dtable_skip_iter<dne_skip_test> base_source(source);
 		r = base->create(e_dfd, "base", base_config, &base_source, NULL);
@@ -100,10 +102,12 @@ int exist_dtable::create(int dfd, const char * file, const params & config, dtab
 			goto fail_base;
 	}
 	
+	source->first();
 	{
+		full_ktable full_shadow(source);
 		nonshadow_skip_test skip_test(shadow);
 		dtable_skip_iter<nonshadow_skip_test> dnebase_source(source, skip_test);
-		r = dnebase->create(e_dfd, "dnebase", dnebase_config, &dnebase_source, NULL);
+		r = dnebase->create(e_dfd, "dnebase", dnebase_config, &dnebase_source, &full_shadow);
 		if(r < 0)
 			goto fail_dnebase;
 	}

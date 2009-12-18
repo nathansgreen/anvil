@@ -39,6 +39,30 @@ private:
 	/* missing pure virtual methods, but private constructor anyway */
 	inline exist_dtable() {}
 	
+	class full_ktable : public ktable
+	{
+	public:
+		virtual bool present(const dtype & key, bool * found, ATX_OPT) const
+		{
+			*found = true;
+			return true;
+		}
+		template<class T>
+		inline full_ktable(const T * copy)
+		{
+			ktype = copy->key_type();
+			blob_cmp = copy->get_blob_cmp();
+			if(blob_cmp)
+				blob_cmp->retain();
+			cmp_name = copy->get_cmp_name();
+		}
+		inline virtual ~full_ktable()
+		{
+			if(blob_cmp)
+				blob_cmp->release();
+		}
+	};
+	
 	struct nonshadow_skip_test
 	{
 		inline nonshadow_skip_test(const ktable * shadow) : shadow(shadow) {}
