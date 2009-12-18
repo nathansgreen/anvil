@@ -122,6 +122,133 @@ int command_dtable(int argc, const char * argv[])
 	return 0;
 }
 
+int command_edtable(int argc, const char * argv[])
+{
+	sys_journal * sysj = sys_journal::get_global_journal();
+	const size_t size = 10000;
+	const size_t ops = size * 3;
+	params config;
+	dtable * dt;
+	int r;
+	
+	/* TODO: It might be nice to have a dne_dtable that can only store
+	 * nonexistent values. It's not clear that it could support rejection
+	 * though, since the replacements would have to be nonexistent. Even so
+	 * it would work for the dnebase of an exist_dtable. */
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) exist_dtable
+		"base_config" config [
+			"base" class(dt) simple_dtable
+			"dnebase" class(dt) simple_dtable
+		]
+		"digest_interval" int 240
+		"combine_interval" int 1920
+		"combine_count" int 10
+		"autocombine" bool false
+	]), &config);
+	EXPECT_NOFAIL("params::parse", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "exst_test", config, dtype::UINT32);
+	EXPECT_NOFAIL("dtable::create", r);
+	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "exst_test", config, sysj);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	
+	printf("Populating exist_dtable... ");
+	fflush(stdout);
+	for(size_t i = 0; i < ops; i++)
+	{
+		uint32_t key = rand() % size;
+		bool insert = !(rand() & 1);
+		if(insert)
+			r = dt->insert(key, blob(sizeof(key), &key));
+		else
+			r = dt->remove(key);
+		EXPECT_NOFAIL_SILENT_BREAK("insert/remove", r);
+		if(i == ops / 2 || (i > ops / 2 && !(i % (ops / 10))))
+		{
+			r = dt->maintain(true);
+			EXPECT_NOFAIL_SILENT_BREAK("maintain", r);
+		}
+	}
+	r = dt->maintain(true);
+	if(r < 0)
+		EXPECT_NEVER("maintain failure");
+	else
+	printf("done.\n");
+	
+	dt->destroy();
+	
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	for(size_t i = 0; i <= 5; i++)
+	{
+		bool ok;
+		char path[32];
+		istr base, dnebase;
+		dtable::iter * iter;
+		params exist_config, base_config, dnebase_config;
+		
+		ok = config.get("base_config", &exist_config);
+		assert(ok);
+		ok = exist_config.get("base", &base);
+		assert(ok);
+		ok = exist_config.get("dnebase", &dnebase);
+		assert(ok);
+		ok = exist_config.get("base_config", &base_config);
+		assert(ok);
+		ok = exist_config.get("dnebase_config", &dnebase_config);
+		assert(ok);
+		
+		sprintf(path, "exst_test/md_data.%zu/base", i);
+		dt = dtable_factory::load(base, AT_FDCWD, path, base_config, sysj);
+		EXPECT_NONULL("dtable_factory::load", dt);
+		iter = dt->iterator();
+		EXPECT_NONULL("iterator", iter);
+		if(!iter->valid())
+			EXPECT_NEVER("no values in base");
+		while(iter->valid())
+		{
+			if(!iter->value().exists())
+			{
+				EXPECT_NEVER("nonexistent value in base");
+				break;
+			}
+			iter->next();
+		}
+		delete iter;
+		dt->destroy();
+		
+		sprintf(path, "exst_test/md_data.%zu/dnebase", i);
+		dt = dtable_factory::load(dnebase, AT_FDCWD, path, dnebase_config, sysj);
+		EXPECT_NONULL("dtable_factory::load", dt);
+		iter = dt->iterator();
+		EXPECT_NONULL("iterator", iter);
+		if(!iter->valid())
+			EXPECT_NEVER("no values in dnebase");
+		while(iter->valid())
+		{
+			if(iter->value().exists())
+			{
+				EXPECT_NEVER("extant value in dnebase");
+				break;
+			}
+			iter->next();
+		}
+		delete iter;
+		dt->destroy();
+	}
+	
+	util::rm_r(AT_FDCWD, "exst_test");
+	
+	return 0;
+}
+
 int command_exdtable(int argc, const char * argv[])
 {
 	int r;

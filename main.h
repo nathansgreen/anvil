@@ -38,6 +38,7 @@ int command_bdbtest(int argc, const char * argv[]);
 /* in main_test.cpp */
 int command_info(int argc, const char * argv[]);
 int command_dtable(int argc, const char * argv[]);
+int command_edtable(int argc, const char * argv[]);
 int command_exdtable(int argc, const char * argv[]);
 int command_ussdtable(int argc, const char * argv[]);
 int command_sidtable(int argc, const char * argv[]);

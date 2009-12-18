@@ -44,7 +44,7 @@ private:
 		inline nonshadow_skip_test(const ktable * shadow) : shadow(shadow) {}
 		inline bool operator()(const dtable::iter * iter)
 		{
-			return iter->meta().exists() || !shadow->contains(iter->key());
+			return iter->meta().exists() || !shadow || !shadow->contains(iter->key());
 		}
 	private:
 		const ktable * shadow;
