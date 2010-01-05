@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -29,6 +29,8 @@ public:
 	/* wrappers for open() that do lookup() */
 	static ext_index * load(const istr & type, const dtable * dt_source, dtype::ctype pri_key_type, const params & config);
 	static ext_index * load(const istr & type, dtable * dt_source, dtype::ctype pri_key_type, const params & config);
+	static ext_index * load(const dtable * dt_source, dtype::ctype pri_key_type, const params & config);
+	static ext_index * load(dtable * dt_source, dtype::ctype pri_key_type, const params & config);
 };
 
 typedef factory<index_factory_base> index_factory;

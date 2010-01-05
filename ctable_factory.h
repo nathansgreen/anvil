@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -29,10 +29,12 @@ public:
 	
 	virtual ~ctable_factory_base() {}
 	
-	/* wrapper for open() that does lookup() */
+	/* wrappers for open() that do lookup() */
 	static ctable * load(const istr & type, int dfd, const char * name, const params & config, sys_journal * sysj);
-	/* wrapper for create() that does lookup() */
+	static ctable * load(int dfd, const char * name, const params & config, sys_journal * sysj);
+	/* wrappers for create() that do lookup() */
 	static int setup(const istr & type, int dfd, const char * name, const params & config, dtype::ctype key_type);
+	static int setup(int dfd, const char * name, const params & config, dtype::ctype key_type);
 };
 
 typedef factory<ctable_factory_base> ctable_factory;
