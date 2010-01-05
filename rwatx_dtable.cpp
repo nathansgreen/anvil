@@ -60,7 +60,7 @@ bool rwatx_dtable::note_read(const dtype & key, ATX_DEF) const
 		/* this read is new to this transaction, update the global keys map */
 		key_status_map::value_type pair(key, key_status());
 		std::pair<key_status_map::iterator, bool> result = keys.insert(pair);
-		if(!result.second && result.first->second.write_lock)
+		if(!result.second && result.first->second.write_lock && result.first->second.writer != atx)
 		{
 			/* there is already a write-locked entry for this key, conflict */
 			it->second.aborted = true;
@@ -80,11 +80,20 @@ bool rwatx_dtable::note_write(const dtype & key, ATX_DEF)
 	{
 		/* this write is new to this transaction, update the global keys map */
 		key_status_map::value_type pair(key, key_status(atx));
-		if(!keys.insert(pair).second)
+		std::pair<key_status_map::iterator, bool> result = keys.insert(pair);
+		if(!result.second)
 		{
-			/* there is already an entry for this key, conflict */
-			it->second.aborted = true;
-			return false;
+			/* there is already an entry for this key, possible conflict */
+			if(result.first->second.write_lock || result.first->second.readers.size() > 1 || *result.first->second.readers.begin() != atx)
+			{
+				/* a transaction other than this one has a read or write lock, conflict */
+				it->second.aborted = true;
+				return false;
+			}
+			/* we already have an exclusive read lock, upgrade it to a write lock */
+			result.first->second.readers.erase(atx);
+			result.first->second.writer = atx;
+			result.first->second.write_lock = true;
 		}
 	}
 	return true;
@@ -119,7 +128,7 @@ int rwatx_dtable::commit_tx(ATX_DEF)
 	if(it == rwatx.end())
 		return -ENOENT;
 	if(it->second.aborted)
-		return -EINTR;
+		return -EBUSY;
 	r = base->commit_tx(atx);
 	if(r >= 0)
 		remove_tx(it);
@@ -131,6 +140,7 @@ void rwatx_dtable::abort_tx(ATX_DEF)
 	atx_status_map::iterator it = rwatx.find(atx);
 	if(it != rwatx.end())
 		remove_tx(it);
+	base->abort_tx(atx);
 }
 
 void rwatx_dtable::remove_tx(const atx_status_map::iterator & it)
