@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -32,6 +32,7 @@ public:
 	
 	/* cache_dtable is aware of abortable transactions */
 	inline virtual abortable_tx create_tx() { return base->create_tx(); }
+	inline virtual int check_tx(ATX_REQ) const { return base->check_tx(atx); }
 	inline virtual int commit_tx(ATX_REQ) { return base->commit_tx(atx); }
 	inline virtual void abort_tx(ATX_REQ) { return base->abort_tx(atx); }
 	

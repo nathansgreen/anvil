@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -40,6 +40,7 @@ public:
 	
 	/* keydiv_dtable supports abortable transactions */
 	virtual abortable_tx create_tx();
+	virtual int check_tx(ATX_REQ) const;
 	virtual int commit_tx(ATX_REQ);
 	virtual void abort_tx(ATX_REQ);
 	
@@ -108,6 +109,7 @@ private:
 		inline int init(size_t size);
 		inline int populate(const keydiv_dtable * kddt) const;
 		inline abortable_tx get(size_t index, const keydiv_dtable * kddt) const;
+		inline int check_tx(const keydiv_dtable * kddt) const;
 		inline int commit_tx(const keydiv_dtable * kddt);
 		inline void abort_tx(const keydiv_dtable * kddt);
 		inline ~atx_state() { assert(!atx); }

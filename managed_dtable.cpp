@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -302,6 +302,16 @@ abortable_tx managed_dtable::create_tx()
 		state->overlay->set_blob_cmp(blob_cmp);
 	
 	return atx;
+}
+
+int managed_dtable::check_tx(ATX_DEF) const
+{
+	atx_map::const_iterator it = open_atx_map.find(atx);
+	if(it == open_atx_map.end())
+		/* bad abortable transaction ID */
+		return -EINVAL;
+	/* we can always commit if it exists */
+	return 0;
 }
 
 int managed_dtable::commit_tx(ATX_DEF)

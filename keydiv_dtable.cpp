@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -259,6 +259,15 @@ abortable_tx keydiv_dtable::create_tx()
 	return 0;
 }
 
+int keydiv_dtable::check_tx(ATX_DEF) const
+{
+	atx_map::const_iterator it = open_atx_map.find(atx);
+	if(it == open_atx_map.end())
+		/* bad abortable transaction ID */
+		return -EINVAL;
+	return it->second.check_tx(this);
+}
+
 int keydiv_dtable::commit_tx(ATX_DEF)
 {
 	int r;
@@ -266,9 +275,13 @@ int keydiv_dtable::commit_tx(ATX_DEF)
 	if(it == open_atx_map.end())
 		/* bad abortable transaction ID */
 		return -EINVAL;
-	r = it->second.commit_tx(this);
+	/* check it first */
+	r = it->second.check_tx(this);
 	if(r < 0)
 		return r;
+	/* it must commit successfully now */
+	r = it->second.commit_tx(this);
+	assert(r >= 0);
 	open_atx_map.erase(it);
 	return 0;
 }
@@ -311,6 +324,18 @@ abortable_tx keydiv_dtable::atx_state::get(size_t index, const keydiv_dtable * k
 	if(atx[index] == NO_ABORTABLE_TX)
 		atx[index] = kddt->sub[index]->create_tx();
 	return atx[index];
+}
+
+int keydiv_dtable::atx_state::check_tx(const keydiv_dtable * kddt) const
+{
+	for(size_t i = 0; i < kddt->sub.size(); i++)
+		if(atx[i] != NO_ABORTABLE_TX)
+		{
+			int r = kddt->sub[i]->check_tx(atx[i]);
+			if(r < 0)
+				return r;
+		}
+	return 0;
 }
 
 int keydiv_dtable::atx_state::commit_tx(const keydiv_dtable * kddt)

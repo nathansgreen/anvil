@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -50,6 +50,7 @@ public:
 	
 	/* managed_dtable supports abortable transactions */
 	virtual abortable_tx create_tx();
+	virtual int check_tx(ATX_REQ) const;
 	virtual int commit_tx(ATX_REQ);
 	virtual void abort_tx(ATX_REQ);
 	
