@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -10,6 +10,30 @@
 #include "blob_buffer.h"
 #include "params.h"
 #include "util.h"
+
+bool params::set_dt(const istr & name, const istr & class_name)
+{
+	if(!dtable_factory::lookup(class_name))
+		return false;
+	set(name, class_name);
+	return true;
+}
+
+bool params::set_ct(const istr & name, const istr & class_name)
+{
+	if(!ctable_factory::lookup(class_name))
+		return false;
+	set(name, class_name);
+	return true;
+}
+
+bool params::set_idx(const istr & name, const istr & class_name)
+{
+	if(!index_factory::lookup(class_name))
+		return false;
+	set(name, class_name);
+	return true;
+}
 
 bool params::simple_find(const istr & name, const param ** p) const
 {

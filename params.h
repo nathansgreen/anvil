@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -34,6 +34,10 @@ public:
 	}
 	/* cause a compilation error if "class_name" is not the name of a type */
 #define set_class(name, class_name) set(name, (const char *) (const class_name **) #class_name)
+	/* verify that "class_name" is an available factory, like params::parse() */
+	bool set_dt(const istr & name, const istr & class_name);
+	bool set_ct(const istr & name, const istr & class_name);
+	bool set_idx(const istr & name, const istr & class_name);
 	
 	/* these return false on a type mismatch */
 	bool get(const istr & name, bool * value, bool dfl = false) const;

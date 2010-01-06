@@ -73,9 +73,10 @@ rollover
 rollover -b
 rollover -b -r
 abort
-rwatx
 #abort perf
 #abort perf temp
+rwatx
+#rwatx perf
 exdtable
 #exdtable perf
 odtable

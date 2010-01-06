@@ -286,7 +286,130 @@ void abort_effect(void)
 
 void rwatx_perf(void)
 {
-	/* FIXME */
+	int r;
+	dtable * dt;
+	sys_journal * sysj;
+	bool ok, use_rwatx = false;
+	params config, config_rwatx;
+	abortable_tx atx = NO_ABORTABLE_TX;
+	journal_dtable::journal_dtable_warehouse warehouse;
+	temp_journal_dtable::temp_journal_dtable_warehouse temp_warehouse;
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) managed_dtable
+		"base_config" config [
+			"base" class(dt) simple_dtable
+			"digest_interval" int 20
+			"combine_interval" int 160
+			"combine_count" int 12
+		]
+	]), &config);
+	EXPECT_NOFAIL("params::parse", r);
+	config.print();
+	printf("\n");
+	
+	ok = config_rwatx.set_dt("base", "rwatx_dtable");
+	EXPECT_TRUE("set base", ok);
+	config_rwatx.set("base_config", config);
+	config_rwatx.print();
+	printf("\n");
+	
+	do {
+		printf("%s transaction performance test: use_rwatx = %d\n", use_rwatx ? "ACID" : "Abortable", use_rwatx);
+		struct timeval start, end;
+		size_t atx_count = 1;
+		
+		r = tx_start();
+		EXPECT_NOFAIL("tx_start", r);
+		sysj = sys_journal::spawn_init("test_journal", &warehouse, &temp_warehouse, true);
+		EXPECT_NONULL("sysj spawn", sysj);
+		r = dtable_factory::setup(AT_FDCWD, "rwtx_perf", use_rwatx ? config_rwatx : config, dtype::UINT32);
+		EXPECT_NOFAIL("dtable_factory::setup", r);
+		r = tx_end(0);
+		EXPECT_NOFAIL("tx_end", r);
+		
+		r = tx_start();
+		EXPECT_NOFAIL("tx_start", r);
+		dt = dtable_factory::load(AT_FDCWD, "rwtx_perf", use_rwatx ? config_rwatx : config, sysj);
+		EXPECT_NONULL("dtable_factory::load", dt);
+			atx = dt->create_tx();
+			EXPECT_NOTU32("atx", NO_ABORTABLE_TX, atx);
+		r = tx_end(0);
+		EXPECT_NOFAIL("tx_end", r);
+		
+		printf("Start timing! (40000000 inserts to %d rows)\n", DT_ROW_COUNT);
+		gettimeofday(&start, NULL);
+		
+		for(int i = 0; i < 40000000; i++)
+		{
+			uint32_t row = rand() % DT_ROW_COUNT;
+			uint32_t value = rand();
+			if(!(i % 1000))
+			{
+				r = tx_start();
+				EXPECT_NOFAIL_SILENT_BREAK("tx_start", r);
+			}
+			r = dt->insert(row, blob(sizeof(value), &value), false, atx);
+			assert(r >= 0);
+			if((i % 2000000) == 1999999)
+			{
+				print_progress(&start, (i + 1) / 400000);
+				fflush(stdout);
+			}
+			if(!(rand() % 100))
+			{
+				r = dt->commit_tx(atx);
+				EXPECT_NOFAIL_SILENT_BREAK("commit_tx", r);
+				atx = dt->create_tx();
+				if(atx == NO_ABORTABLE_TX)
+				{
+					EXPECT_NEVER("create_tx failure");
+					break;
+				}
+				atx_count++;
+			}
+			if((i % 1000000) == 999999)
+			{
+				r = dt->maintain(true);
+				EXPECT_NOFAIL_SILENT_BREAK("maintain", r);
+			}
+			if((i % 1000000) == 999999)
+			{
+				r = sysj->filter();
+				EXPECT_NOFAIL_SILENT_BREAK("filter", r);
+			}
+			if((i % 1000) == 999)
+			{
+				r = tx_end(0);
+				EXPECT_NOFAIL_SILENT_BREAK("tx_end", r);
+			}
+		}
+		r = tx_start();
+		EXPECT_NOFAIL("tx_start", r);
+		r = dt->commit_tx(atx);
+		EXPECT_NOFAIL("commit_tx", r);
+		r = tx_end(0);
+		EXPECT_NOFAIL("tx_end", r);
+		
+		sync();
+		gettimeofday(&end, NULL);
+		printf("Timing finished! ");
+		print_elapsed(&start, &end, true);
+		printf("Average: %"PRIu64" inserts/second\n", 10000000 * (uint64_t) 1000000 / (end.tv_sec * 1000000 + end.tv_usec));
+		printf("Total %s transactions: %zu\n", use_rwatx ? "ACID" : "abortable", atx_count);
+		
+		r = tx_start();
+		EXPECT_NOFAIL("tx_start", r);
+		dt->destroy();
+		sysj->deinit(true);
+		delete sysj;
+		util::rm_r(AT_FDCWD, "rwtx_perf");
+		EXPECT_SIZET("total", 0, warehouse.size());
+		EXPECT_SIZET("temp total", 0, temp_warehouse.size());
+		r = tx_end(0);
+		EXPECT_NOFAIL("tx_end", r);
+	} while((use_rwatx = !use_rwatx));
 }
 
 static int excp_perf(dtable * table)
