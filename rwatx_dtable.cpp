@@ -150,11 +150,11 @@ void rwatx_dtable::remove_tx(const atx_status_map::iterator & it)
 	for(kit = it->second.reads.begin(); kit != it->second.reads.end(); ++kit)
 	{
 		key_status_map::iterator ksit = keys.find(*kit);
-		if(ksit == keys.end())
+		if(ksit == keys.end() || ksit->second.write_lock)
 			continue;
 		ksit->second.readers.erase(it->first);
 		/* clear the read lock if we were the last reader */
-		if(ksit->second.readers.empty() && !ksit->second.write_lock)
+		if(ksit->second.readers.empty())
 			keys.erase(ksit);
 	}
 	/* remove all the written keys from the global map */

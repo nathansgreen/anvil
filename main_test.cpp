@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -1849,39 +1849,13 @@ int command_rollover(int argc, const char * argv[])
 	return 0;
 }
 
-int command_abort(int argc, const char * argv[])
+static void abort_tests_1(dtable * dt, sys_journal * sysj, const sys_journal::listening_dtable_warehouse & warehouse)
 {
 	int r;
-	dtable * dt;
-	params config;
 	abortable_tx atx;
-	sys_journal * sysj;
-	journal_dtable::journal_dtable_warehouse warehouse;
-	
-	r = params::parse(LITERAL(
-	config [
-		"base" class(dt) simple_dtable
-		"digest_interval" int 2
-		"combine_interval" int 4
-		"combine_count" int 4
-	]), &config);
-	EXPECT_NOFAIL("params::parse", r);
-	config.print();
-	printf("\n");
 	
 	r = tx_start();
 	EXPECT_NOFAIL("tx_start", r);
-	r = dtable_factory::setup("managed_dtable", AT_FDCWD, "abtx_test", config, dtype::UINT32);
-	EXPECT_NOFAIL("dtable::create", r);
-	r = tx_end(0);
-	EXPECT_NOFAIL("tx_end", r);
-	
-	r = tx_start();
-	EXPECT_NOFAIL("tx_start", r);
-	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, true);
-	EXPECT_NONULL("sysj spawn", sysj);
-	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config, sysj);
-	EXPECT_NONULL("dtable_factory::load", dt);
 	r = dt->insert(1u, blob("A"));
 	EXPECT_NOFAIL("dt->insert(1)", r);
 	r = dt->insert(2u, blob("B"));
@@ -1955,26 +1929,74 @@ int command_abort(int argc, const char * argv[])
 	EXPECT_SIZET("total", 0, warehouse.size());
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
-	
-	/* restart everything and make sure it's all still correct */
-	r = tx_start();
-	EXPECT_NOFAIL("tx_start", r);
-	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, false);
-	EXPECT_NONULL("sysj spawn", sysj);
-	dt = dtable_factory::load("managed_dtable", AT_FDCWD, "abtx_test", config, sysj);
-	EXPECT_NONULL("dtable_factory::load", dt);
+}
+
+static void abort_tests_2(dtable * dt, sys_journal * sysj, const sys_journal::listening_dtable_warehouse & warehouse)
+{
+	int r;
 	EXPECT_SIZET("total", 1, warehouse.size());
 	run_iterator(dt);
 	EXPECT_SIZET("key 1 size", 1, dt->find(1u).size());
 	EXPECT_SIZET("key 2 size", 8, dt->find(2u).size());
 	EXPECT_SIZET("key 3 size", 8, dt->find(3u).size());
 	EXPECT_SIZET("key 4 size", 0, dt->find(4u).size());
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
 	dt->destroy();
 	sysj->deinit(true);
 	delete sysj;
 	EXPECT_SIZET("total", 0, warehouse.size());
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
+}
+
+int command_abort(int argc, const char * argv[])
+{
+	int r;
+	dtable * dt;
+	params config;
+	sys_journal * sysj;
+	journal_dtable::journal_dtable_warehouse warehouse;
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) managed_dtable
+		"base_config" config [
+			"base" class(dt) simple_dtable
+			"digest_interval" int 2
+			"combine_interval" int 4
+			"combine_count" int 4
+		]
+	]), &config);
+	EXPECT_NOFAIL("params::parse", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = dtable_factory::setup(AT_FDCWD, "abtx_test", config, dtype::UINT32);
+	EXPECT_NOFAIL("dtable::create", r);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, true);
+	EXPECT_NONULL("sysj spawn", sysj);
+	dt = dtable_factory::load(AT_FDCWD, "abtx_test", config, sysj);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	abort_tests_1(dt, sysj, warehouse);
+	
+	/* restart everything and make sure it's all still correct */
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, false);
+	EXPECT_NONULL("sysj spawn", sysj);
+	dt = dtable_factory::load(AT_FDCWD, "abtx_test", config, sysj);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	abort_tests_2(dt, sysj, warehouse);
+	
 	util::rm_r(AT_FDCWD, "abtx_test");
 	
 	if(argc > 1 && !strcmp(argv[1], "perf"))
@@ -1987,6 +2009,205 @@ int command_abort(int argc, const char * argv[])
 	if(argc > 1 && !strcmp(argv[1], "effect"))
 		/* run the performance effect test as well */
 		abort_effect();
+	
+	return 0;
+}
+
+static void rwatx_tests(dtable * dt, sys_journal * sysj, const sys_journal::listening_dtable_warehouse & warehouse)
+{
+	int r;
+#define MAX_ACTIONS 10
+#define ATX_COUNT 2
+	enum action {
+		READ,    /* read key */
+		WRITE,   /* write key */
+		COMMIT,  /* commit atx */
+		ABORT,   /* abort atx */
+		CHECK,   /* check atx */
+		END_TEST /* end test */
+	};
+	struct test {
+		const char * name;
+		struct step {
+			action id;
+			uint32_t key;
+			int txn;
+			bool expect_ok;
+		} actions[MAX_ACTIONS];
+	} tests[] = {
+		{"commit empty transactions",
+			{{COMMIT, 0, 1, true}, {COMMIT, 0, 2, true}, {END_TEST}}},
+		{"read, then write in same transaction",
+			{{READ, 1, 1, true}, {WRITE, 1, 1, true}, {CHECK, 0, 1, true}, {CHECK, 0, 2, true}, {COMMIT, 0, 1, true}, {COMMIT, 0, 2, true}, {END_TEST}}},
+		{"write, then read in same transaction",
+			{{WRITE, 1, 1, true}, {READ, 1, 1, true}, {CHECK, 0, 1, true}, {CHECK, 0, 2, true}, {COMMIT, 0, 1, true}, {COMMIT, 0, 2, true}, {END_TEST}}},
+		{"read in one transaction, then read in another",
+			{{READ, 1, 1, true}, {READ, 1, 2, true}, {CHECK, 0, 1, true}, {CHECK, 0, 2, true}, {COMMIT, 0, 1, true}, {COMMIT, 0, 2, true}, {END_TEST}}},
+		{"read 1, write 2 in one transaction, then read 1, write 3 in another",
+			{{READ, 1, 1, true}, {WRITE, 2, 1, true}, {READ, 1, 2, true}, {WRITE, 3, 2, true}, {CHECK, 0, 1, true}, {CHECK, 0, 2, true}, {COMMIT, 0, 1, true}, {COMMIT, 0, 2, true}, {END_TEST}}},
+		{"read in one transaction, then write in another",
+			{{READ, 1, 1, true}, {WRITE, 1, 2, false}, {CHECK, 0, 1, true}, {CHECK, 0, 2, false}, {COMMIT, 0, 1, true}, {COMMIT, 0, 2, false}, {END_TEST}}},
+		{"read in one transaction, then read, write in another",
+			{{READ, 1, 1, true}, {READ, 1, 2, true}, {WRITE, 1, 2, false}, {CHECK, 0, 1, true}, {CHECK, 0, 2, false}, {COMMIT, 0, 1, true}, {COMMIT, 0, 2, false}, {END_TEST}}},
+		{"read in one transaction, then read in another, then write in the first",
+			{{READ, 1, 2, true}, {READ, 1, 1, true}, {WRITE, 1, 2, false}, {CHECK, 0, 1, true}, {CHECK, 0, 2, false}, {COMMIT, 0, 1, true}, {COMMIT, 0, 2, false}, {END_TEST}}},
+		{"write in one transaction, then read in another",
+			{{WRITE, 1, 1, true}, {READ, 1, 2, false}, {CHECK, 0, 1, true}, {CHECK, 0, 2, false}, {COMMIT, 0, 1, true}, {COMMIT, 0, 2, false}, {END_TEST}}},
+		{"write in one transaction, then write in another",
+			{{WRITE, 1, 1, true}, {WRITE, 1, 2, false}, {CHECK, 0, 1, true}, {CHECK, 0, 2, false}, {COMMIT, 0, 1, true}, {COMMIT, 0, 2, false}, {END_TEST}}},
+		{"write and commit one transaction, then read in another",
+			{{WRITE, 1, 1, true}, {COMMIT, 0, 1, true}, {READ, 1, 2, true}, {CHECK, 0, 2, true}, {COMMIT, 0, 2, true}, {END_TEST}}},
+		{"write and commit one transaction, then write in another",
+			{{WRITE, 1, 1, true}, {COMMIT, 0, 1, true}, {WRITE, 1, 2, true}, {CHECK, 0, 2, true}, {COMMIT, 0, 2, true}, {END_TEST}}},
+		{"write and abort one transaction, then read in another",
+			{{WRITE, 1, 1, true}, {ABORT, 0, 1, true}, {READ, 1, 2, true}, {CHECK, 0, 2, true}, {COMMIT, 0, 2, true}, {END_TEST}}},
+		{"write and abort one transaction, then write in another",
+			{{WRITE, 1, 1, true}, {ABORT, 0, 1, true}, {WRITE, 1, 2, true}, {CHECK, 0, 2, true}, {COMMIT, 0, 2, true}, {END_TEST}}},
+		{"read and commit one transaction, then write in another",
+			{{READ, 1, 1, true}, {COMMIT, 0, 1, true}, {WRITE, 1, 2, true}, {CHECK, 0, 2, true}, {COMMIT, 0, 2, true}, {END_TEST}}},
+		{"read and abort one transaction, then write in another",
+			{{READ, 1, 1, true}, {ABORT, 0, 1, true}, {WRITE, 1, 2, true}, {CHECK, 0, 2, true}, {COMMIT, 0, 2, true}, {END_TEST}}},
+		{NULL}
+	};
+	EXPECT_SIZET("total", 1, warehouse.size());
+	for(int i = 0; tests[i].name; i++)
+	{
+		abortable_tx atx[ATX_COUNT + 1] = {NO_ABORTABLE_TX};
+		printf("=> start tests[%d]: %s\n", i, tests[i].name);
+		r = tx_start();
+		EXPECT_NOFAIL("tx_start", r);
+		for(int j = 1; j <= ATX_COUNT; j++)
+		{
+			atx[j] = dt->create_tx();
+			EXPECT_NOTU32("atx1", NO_ABORTABLE_TX, atx[j]);
+		}
+		EXPECT_SIZET("total", ATX_COUNT + 1, warehouse.size());
+		for(int j = 0; j < MAX_ACTIONS && tests[i].actions[j].id != END_TEST; j++)
+		{
+			printf("> tests[%d] step %d\n", i, j);
+			assert(tests[i].actions[j].txn <= ATX_COUNT);
+			switch(tests[i].actions[j].id)
+			{
+				case READ:
+					dt->find(tests[i].actions[j].key, atx[tests[i].actions[j].txn]);
+					break;
+				case WRITE:
+					{ blob value(tests[i].name);
+					r = dt->insert(tests[i].actions[j].key, value, false, atx[tests[i].actions[j].txn]); }
+					if(tests[i].actions[j].expect_ok)
+						EXPECT_NOFAIL("insert", r);
+					else
+						EXPECT_FAIL("insert", r);
+					break;
+				case COMMIT:
+					r = dt->commit_tx(atx[tests[i].actions[j].txn]);
+					if(tests[i].actions[j].expect_ok)
+						EXPECT_NOFAIL("commit", r);
+					else
+						EXPECT_FAIL("commit", r);
+					if(r >= 0)
+						atx[tests[i].actions[j].txn] = NO_ABORTABLE_TX;
+					break;
+				case ABORT:
+					dt->abort_tx(atx[tests[i].actions[j].txn]);
+					atx[tests[i].actions[j].txn] = NO_ABORTABLE_TX;
+					break;
+				case CHECK:
+					r = dt->check_tx(atx[tests[i].actions[j].txn]);
+					if(tests[i].actions[j].expect_ok)
+						EXPECT_NOFAIL("check", r);
+					else
+						EXPECT_FAIL("check", r);
+					break;
+				case END_TEST:
+					abort();
+			}
+		}
+		for(int j = 1; j <= ATX_COUNT; j++)
+			if(atx[j] != NO_ABORTABLE_TX)
+				dt->abort_tx(atx[j]);
+		EXPECT_SIZET("total", 1, warehouse.size());
+		r = tx_end(0);
+		EXPECT_NOFAIL("tx_end", r);
+	}
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	dt->destroy();
+	sysj->deinit(true);
+	delete sysj;
+	EXPECT_SIZET("total", 0, warehouse.size());
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+}
+
+int command_rwatx(int argc, const char * argv[])
+{
+	int r;
+	dtable * dt;
+	params config;
+	sys_journal * sysj;
+	journal_dtable::journal_dtable_warehouse warehouse;
+	
+	r = params::parse(LITERAL(
+	config [
+		"base" class(dt) rwatx_dtable
+		"base_config" config [
+			"base" class(dt) managed_dtable
+			"base_config" config [
+				"base" class(dt) simple_dtable
+				"digest_interval" int 2
+				"combine_interval" int 4
+				"combine_count" int 4
+			]
+		]
+	]), &config);
+	EXPECT_NOFAIL("params::parse", r);
+	config.print();
+	printf("\n");
+	
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	r = dtable_factory::setup(AT_FDCWD, "rwtx_test", config, dtype::UINT32);
+	EXPECT_NOFAIL("dtable::create", r);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, true);
+	EXPECT_NONULL("sysj spawn", sysj);
+	dt = dtable_factory::load(AT_FDCWD, "rwtx_test", config, sysj);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	abort_tests_1(dt, sysj, warehouse);
+	
+	/* restart everything and make sure it's all still correct */
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, false);
+	EXPECT_NONULL("sysj spawn", sysj);
+	dt = dtable_factory::load(AT_FDCWD, "rwtx_test", config, sysj);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	abort_tests_2(dt, sysj, warehouse);
+	
+	/* now test some read-write functionality */
+	r = tx_start();
+	EXPECT_NOFAIL("tx_start", r);
+	sysj = sys_journal::spawn_init("test_journal", &warehouse, NULL, false);
+	EXPECT_NONULL("sysj spawn", sysj);
+	dt = dtable_factory::load(AT_FDCWD, "rwtx_test", config, sysj);
+	EXPECT_NONULL("dtable_factory::load", dt);
+	r = tx_end(0);
+	EXPECT_NOFAIL("tx_end", r);
+	
+	rwatx_tests(dt, sysj, warehouse);
+	
+	util::rm_r(AT_FDCWD, "rwtx_test");
+	
+	if(argc > 1 && !strcmp(argv[1], "perf"))
+		/* run the performance test as well */
+		rwatx_perf();
 	
 	return 0;
 }

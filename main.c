@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -636,6 +636,7 @@ struct {
 	{"durability", "Test Anvil durability model.", command_durability},
 	{"rollover", "Test system journal rollover.", command_rollover},
 	{"abort", "Test abortable dtable transactions.", command_abort},
+	{"rwatx", "Test read-write abortable transactions.", command_rwatx},
 	{"stable", "Test stable functionality.", command_stable},
 	{"iterator", "Test iterator functionality.", command_iterator},
 	{"blob_cmp", "Test blob_cmp functionality.", command_blob_cmp},

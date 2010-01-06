@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -15,9 +15,12 @@
 #define EXPECT_NOFAIL(label, result) do { printf(label " = %d\n", result); if(result < 0) PRINT_FAIL; } while(0)
 #define EXPECT_NOFAIL_FORMAT(label, result, args...) do { printf(label " = %d\n", ##args, result); if(result < 0) PRINT_FAIL; } while(0)
 #define EXPECT_NOFAIL_COUNT(label, result, name, value) do { printf(label " = %d, %zu " name "\n", result, value); if(result < 0) PRINT_FAIL; } while(0)
-#define EXPECT_NONULL(label, ptr) do { printf(label " = %p\n", ptr); if(!ptr) PRINT_FAIL; } while(0)
+#define EXPECT_NONULL(label, test) do { void * __value = test; printf(label " = %p\n", __value); if(!__value) PRINT_FAIL; } while(0)
 #define EXPECT_SIZET(label, expect, test) do { size_t __value = test; printf(label " = %zu (expect %zu)\n", __value, (size_t) expect); if(__value != (expect)) PRINT_FAIL; } while(0)
 #define EXPECT_NOTU32(label, expect, test) do { uint32_t __value = test; printf(label " = %u\n", __value); if(__value == (expect)) PRINT_FAIL; } while(0)
+#define EXPECT_BOOL(label, expect, test) do { bool __value = test; printf(label " = %s (expect %s)\n", __value ? "true" : "false", expect ? "true" : "false"); if(!__value != !expect) PRINT_FAIL; } while(0)
+#define EXPECT_TRUE(label, test) EXPECT_BOOL(label, true, test)
+#define EXPECT_FALSE(label, test) EXPECT_BOOL(label, false, test)
 
 #define EXPECT_NOFAIL_SILENT_BREAK(label, result) if(result < 0) { EXPECT_NEVER(label " failure"); break; }
 #define EXPECT_NOFAIL_SILENT_RETURN(label, result, cleanup...) if(result < 0) { EXPECT_NEVER(label " failure"); cleanup; return result; }
@@ -51,6 +54,7 @@ int command_consistency(int argc, const char * argv[]);
 int command_durability(int argc, const char * argv[]);
 int command_rollover(int argc, const char * argv[]);
 int command_abort(int argc, const char * argv[]);
+int command_rwatx(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 
@@ -67,6 +71,7 @@ int command_iterator(int argc, const char * argv[]);
 /* in main_perf.cpp */
 void abort_perf(bool use_temp);
 void abort_effect(void);
+void rwatx_perf(void);
 void exdtable_perf(void);
 int kddtable_perf(void);
 int udtable_perf(void);

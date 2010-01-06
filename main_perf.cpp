@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -282,6 +282,11 @@ void abort_effect(void)
 		r = tx_end(0);
 		EXPECT_NOFAIL("tx_end", r);
 	}
+}
+
+void rwatx_perf(void)
+{
+	/* FIXME */
 }
 
 static int excp_perf(dtable * table)
