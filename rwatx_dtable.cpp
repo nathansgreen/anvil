@@ -52,48 +52,70 @@ int rwatx_dtable::remove(const dtype & key, ATX_DEF)
 
 bool rwatx_dtable::note_read(const dtype & key, ATX_DEF) const
 {
+	std::pair<key_set::iterator, bool> undo_info;
 	atx_status_map::const_iterator it = rwatx.find(atx);
 	if(it == rwatx.end() || it->second.aborted)
 		return false;
-	if(it->second.reads.insert(key).second)
+	if(it->second.writes.find(key) != it->second.writes.end())
+		/* we already have a write lock, no need to read lock */
+		return true;
+	undo_info = it->second.reads.insert(key);
+	if(undo_info.second)
 	{
 		/* this read is new to this transaction, update the global keys map */
 		key_status_map::value_type pair(key, key_status());
 		std::pair<key_status_map::iterator, bool> result = keys.insert(pair);
-		if(!result.second && result.first->second.write_lock && result.first->second.writer != atx)
+		if(!result.second && result.first->second.write_tagged())
 		{
-			/* there is already a write-locked entry for this key, conflict */
+			/* some other transaction has a write lock, conflict */
+			it->second.reads.erase(undo_info.first);
 			it->second.aborted = true;
 			return false;
 		}
-		result.first->second.readers.insert(atx);
+		bool ok = result.first->second.read_tag();
+		assert(ok);
 	}
 	return true;
 }
 
 bool rwatx_dtable::note_write(const dtype & key, ATX_DEF)
 {
+	std::pair<key_set::iterator, bool> undo_info;
 	atx_status_map::iterator it = rwatx.find(atx);
 	if(it == rwatx.end() || it->second.aborted)
 		return false;
-	if(it->second.writes.insert(key).second)
+	undo_info = it->second.writes.insert(key);
+	if(undo_info.second)
 	{
 		/* this write is new to this transaction, update the global keys map */
-		key_status_map::value_type pair(key, key_status(atx));
-		std::pair<key_status_map::iterator, bool> result = keys.insert(pair);
-		if(!result.second)
+		key_set::iterator read = it->second.reads.find(key);
+		if(read != it->second.reads.end())
 		{
-			/* there is already an entry for this key, possible conflict */
-			if(result.first->second.write_lock || result.first->second.readers.size() > 1 || *result.first->second.readers.begin() != atx)
+			/* this write is an upgrade from a previous read */
+			key_status_map::iterator result = keys.find(key);
+			if(!result->second.write_upgrade())
 			{
-				/* a transaction other than this one has a read or write lock, conflict */
+				/* some other transaction has a read lock, conflict */
+				it->second.writes.erase(undo_info.first);
 				it->second.aborted = true;
 				return false;
 			}
-			/* we already have an exclusive read lock, upgrade it to a write lock */
-			result.first->second.readers.erase(atx);
-			result.first->second.writer = atx;
-			result.first->second.write_lock = true;
+			it->second.reads.erase(read);
+		}
+		else
+		{
+			/* this write is completely new to this transaction */
+			key_status_map::value_type pair(key, key_status());
+			std::pair<key_status_map::iterator, bool> result = keys.insert(pair);
+			if(!result.second)
+			{
+				/* some other transaction has a read or write lock, conflict */
+				it->second.writes.erase(undo_info.first);
+				it->second.aborted = true;
+				return false;
+			}
+			bool ok = result.first->second.write_tag();
+			assert(ok);
 		}
 	}
 	return true;
@@ -150,25 +172,17 @@ void rwatx_dtable::remove_tx(const atx_status_map::iterator & it)
 	for(kit = it->second.reads.begin(); kit != it->second.reads.end(); ++kit)
 	{
 		key_status_map::iterator ksit = keys.find(*kit);
-		if(ksit == keys.end() || ksit->second.write_lock)
-			continue;
-		ksit->second.readers.erase(it->first);
-		/* clear the read lock if we were the last reader */
-		if(ksit->second.readers.empty())
+		if(!ksit->second.read_untag())
+			/* clear the read lock if we were the last reader */
 			keys.erase(ksit);
 	}
 	/* remove all the written keys from the global map */
 	for(kit = it->second.writes.begin(); kit != it->second.writes.end(); ++kit)
 	{
 		key_status_map::iterator ksit = keys.find(*kit);
-		if(ksit == keys.end())
-			continue;
-		/* clear the write lock if we actually held it */
-		if(ksit->second.writer == it->first)
-		{
-			assert(ksit->second.write_lock);
-			keys.erase(ksit);
-		}
+		ksit->second.write_untag();
+		/* clear the write lock; by definition it was exclusive */
+		keys.erase(ksit);
 	}
 	rwatx.erase(it);
 }

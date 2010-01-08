@@ -16,6 +16,7 @@
 #include <ext/hash_map>
 #include <ext/hash_set>
 
+#include "rwtag.h"
 #include "dtable_factory.h"
 #include "dtable_wrap_iter.h"
 
@@ -102,14 +103,7 @@ private:
 		abortable_tx atx;
 	};
 	
-	struct key_status
-	{
-		__gnu_cxx::hash_set<abortable_tx> readers;
-		abortable_tx writer;
-		bool write_lock;
-		inline key_status() : writer(NO_ABORTABLE_TX), write_lock(false) {}
-		inline key_status(abortable_tx atx) : writer(atx), write_lock(true) {}
-	};
+	typedef rwtag<int> key_status;
 	typedef __gnu_cxx::hash_map<dtype, key_status, dtype_hashing_comparator, dtype_hashing_comparator> key_status_map;
 	
 	typedef __gnu_cxx::hash_set<dtype, dtype_hashing_comparator, dtype_hashing_comparator> key_set;
