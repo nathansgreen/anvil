@@ -15,6 +15,7 @@
 
 #include <ext/hash_map>
 #include <ext/hash_set>
+#include <ext/pool_allocator.h>
 
 #include "rwtag.h"
 #include "dtable_factory.h"
@@ -106,16 +107,18 @@ private:
 	typedef rwtag<int> key_status;
 	typedef __gnu_cxx::hash_map<dtype, key_status, dtype_hashing_comparator, dtype_hashing_comparator> key_status_map;
 	
-	typedef __gnu_cxx::hash_set<dtype, dtype_hashing_comparator, dtype_hashing_comparator> key_set;
+	typedef __gnu_cxx::__pool_alloc<dtype> key_set_pool_allocator;
+	typedef __gnu_cxx::hash_set<dtype, dtype_hashing_comparator, dtype_hashing_comparator, key_set_pool_allocator> key_set;
 	struct atx_status
 	{
 		mutable key_set reads;
 		key_set writes;
 		mutable bool aborted;
 		inline atx_status(const blob_comparator * const & blob_cmp)
-			: reads(10, blob_cmp, blob_cmp), writes(10, blob_cmp, blob_cmp), aborted(false) {}
+			: reads(64, blob_cmp, blob_cmp), writes(64, blob_cmp, blob_cmp), aborted(false) {}
 	};
-	typedef __gnu_cxx::hash_map<abortable_tx, atx_status> atx_status_map;
+	typedef __gnu_cxx::__pool_alloc<std::pair<abortable_tx, atx_status> > atx_status_map_pool_allocator;
+	typedef __gnu_cxx::hash_map<abortable_tx, atx_status, __gnu_cxx::hash<abortable_tx>, std::equal_to<abortable_tx>, atx_status_map_pool_allocator> atx_status_map;
 	
 	/* these return false on failure, e.g. if a conflict is detected */
 	bool note_read(const dtype & key, ATX_REQ) const;
