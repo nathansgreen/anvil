@@ -411,7 +411,7 @@ int command_tpchtest(int argc, const char * argv[])
 	struct timeval start;
 	ctable::p_iter * iter;
 	size_t columns[16];
-	float revenue = 0;
+	double revenue = 0;
 	size_t runs = 5;
 	
 	if(argc > 1)
@@ -442,20 +442,20 @@ int command_tpchtest(int argc, const char * argv[])
 	 * also pick rows at random, simulating a predicate that happened to
 	 * pick those rows while allowing simple control of how many we get. */
 	
-	/* Well, first we do this quick query to make sure we get the right
-	 * answer (11440193536, with TPC-H scale factor 1); then we do that. */
+	/* Well, first we do this quick query to make sure we get the right answer
+	 * (11475087032.373623, with TPC-H scale factor 1); then we do that. */
 	columns[0] = lineitem->index("l_extendedprice");
 	columns[1] = lineitem->index("l_discount");
 	gettimeofday(&start, NULL);
 	iter = lineitem->iterator(columns, 2);
 	while(iter->valid())
 	{
-		float extendedprice = iter->value(columns[0]).index<float>(0);
-		float discount = iter->value(columns[1]).index<float>(0);
+		double extendedprice = iter->value(columns[0]).index<float>(0);
+		double discount = iter->value(columns[1]).index<float>(0);
 		revenue += extendedprice * discount;
 		iter->next();
 	}
-	EXPECT_FLOAT("revenue", 11440193536., revenue);
+	EXPECT_DOUBLE("revenue", 11475087032.373623, revenue);
 	print_elapsed(&start);
 	delete iter;
 	

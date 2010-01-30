@@ -21,7 +21,7 @@
 
 #define EXPECT_TYPE(label, type, format, expect, test) do { type __value = test; printf(label " = %"format" (expect %"format")\n", __value, (type) expect); if(__value != (expect)) PRINT_FAIL; } while(0)
 #define EXPECT_SIZET(label, expect, test) EXPECT_TYPE(label, size_t, "zu", expect, test)
-#define EXPECT_FLOAT(label, expect, test) EXPECT_TYPE(label, float, "f", expect, test)
+#define EXPECT_DOUBLE(label, expect, test) EXPECT_TYPE(label, double, "lf", expect, test)
 
 #define EXPECT_NOTTYPE(label, type, format, expect, test) do { type __value = test; printf(label " = %"format"\n", __value); if(__value == (expect)) PRINT_FAIL; } while(0)
 #define EXPECT_NOTU32(label, expect, test) EXPECT_NOTTYPE(label, uint32_t, "u", expect, test)
