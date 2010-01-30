@@ -455,7 +455,7 @@ int command_tpchtest(int argc, const char * argv[])
 		revenue += extendedprice * discount;
 		iter->next();
 	}
-	EXPECT_FLOAT("revenue", 11440193536, revenue);
+	EXPECT_FLOAT("revenue", 11440193536., revenue);
 	print_elapsed(&start);
 	delete iter;
 	
