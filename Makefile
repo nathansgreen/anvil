@@ -47,9 +47,9 @@ OBJECTS=$(COBJECTS) $(CPPOBJECTS)
 MAIN_SRC=main.c main_util.cpp main_perf.cpp main_test.cpp tpch.cpp
 MAIN_OBJ=main.o main_util.o main_perf.o main_test.o tpch.o
 
-UTILS=average includes io_count.$(SO) medic
+TOOLS=tools/average tools/derive tools/includes tools/io_count.$(SO) tools/logsplit tools/medic
 
-.PHONY: all clean clean-all count count-all php utils
+.PHONY: all clean clean-all count count-all php tools
 
 -include config.mak
 
@@ -92,13 +92,22 @@ endif
 
 all: config.mak tags main
 
-utils: $(UTILS)
+tools: $(TOOLS)
 
 %.o: %.c
 	$(CC) -c $< -o $@ -O2 $(CFLAGS)
 
 %.o: %.cpp
 	$(CXX) -c $< -o $@ -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CXXFLAGS)
+
+tools/%: tools/%.o
+	$(CXX) -o $@ $^ $(LDFLAGS)
+
+tools/%.$(SO): tools/%.o
+	$(CC) $(SHARED) -o $@ $< -ldl $(LDFLAGS)
+
+tools/medic: tools/medic.o md5.o
+	$(CC) -o $@ $^ $(LDFLAGS)
 
 libanvil.$(SO): libanvil.o $(FSTITCH_LIB)
 	$(CXX) $(SHARED) -o $@ $< -ldl -lpthread $(LDFLAGS)
@@ -121,14 +130,8 @@ main: libanvil.$(SO) $(MAIN_OBJ)
 	$(CXX) -o $@ $(MAIN_OBJ) $(RTP) -L. -lanvil -lreadline -ltermcap $(LDFLAGS)
 endif
 
-average: average.o
-	$(CXX) -o $@ $^ $(LDFLAGS)
-
-includes: includes.o
-	$(CXX) -o $@ $^ $(LDFLAGS)
-
-includes.dot: includes $(HEADERS)
-	./includes > includes.dot
+includes.dot: tools/includes $(HEADERS)
+	tools/includes > includes.dot
 
 includes.eps: includes.dot
 	dot -Tps2 includes.dot > includes.eps || rm includes.eps
@@ -136,15 +139,9 @@ includes.eps: includes.dot
 includes.pdf: includes.eps
 	epstopdf includes.eps
 
-io_count.$(SO): io_count.o
-	$(CC) $(SHARED) -o $@ $< -ldl $(LDFLAGS)
-
-medic: medic.o md5.o
-	$(CC) -o $@ $^ $(LDFLAGS)
-
 clean:
 	rm -f config.h config.mak main libanvil.$(SO) libanvil.a *.o stlavlmap/*.o .depend tags
-	rm -f $(UTILS) includes.dot includes.eps includes.pdf
+	rm -f $(TOOLS) tools/*.o includes.dot includes.eps includes.pdf
 
 clean-all: clean
 	php/clean
@@ -153,7 +150,7 @@ count:
 	wc -l *.[ch] *.cpp | sort -n
 
 count-all:
-	wc -l *.[ch] *.cpp php/*.[ch] invite/*.php | sort -n
+	wc -l *.[ch] *.cpp php/*.[ch] invite/*.php tools/*.[ch] tools/*.cpp | sort -n
 
 php:
 	if [ -f php/Makefile ]; then make -C php; else php/compile; fi

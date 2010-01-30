@@ -1,0 +1,147 @@
+diff --git a/tpch.cpp b/tpch.cpp
+index a871ad3..56e89fc 100644
+--- a/tpch.cpp
++++ b/tpch.cpp
+@@ -153,10 +153,10 @@ static ctable * create_and_open(const tpch_table_info & info)
+ 
+ static void maintain_restart_tx(ctable * table)
+ {
+-	printf("maintain... ");
+-	fflush(stdout);
++	//printf("maintain... ");
++	//fflush(stdout);
+ 	int r = table->maintain(true);
+-	printf("\rmaintain = %d\n", r);
++	printf("maintain = %d\n", r);
+ 	r = tx_end(0);
+ 	if(r < 0)
+ 		printf("tx_end = %d\n", r);
+@@ -297,6 +297,74 @@ static void create_orders()
+ 	printf("tx_end = %d\n", r);
+ }
+ 
++struct measure_info {
++	inline measure_info(size_t start = 0) : running(false), updated(start), last_value(start)
++	{
++		gettimeofday(&last, NULL);
++	}
++	inline void report()
++	{
++		struct timeval old = last;
++		size_t snapshot = updated;
++		gettimeofday(&last, NULL);
++		old.tv_sec = last.tv_sec - old.tv_sec;
++		if(last.tv_usec < old.tv_usec)
++		{
++			old.tv_sec--;
++			old.tv_usec = last.tv_usec + 1000000 - old.tv_usec;
++		}
++		else
++			old.tv_usec = last.tv_usec - old.tv_usec;
++		uint64_t delta = (snapshot - last_value) * (uint64_t) 1000000;
++		last_value = snapshot;
++		uint64_t usecs = old.tv_sec * (uint64_t) 1000000 + old.tv_usec;
++		size_t speed = delta / usecs;
++		printf("%d.%06d %zu.%03zu\n", (int) last.tv_sec, (int) last.tv_usec, speed / 1000, speed % 1000);
++	}
++	inline void update(size_t value)
++	{
++		updated = value;
++	}
++	inline void start()
++	{
++		if(!running)
++		{
++			running = true;
++			pthread_create(&thread, NULL, thread_main, this);
++		}
++	}
++	inline void stop()
++	{
++		if(running)
++		{
++			running = false;
++			pthread_join(thread, NULL);
++			if(updated != last_value)
++				report();
++		}
++	}
++	inline ~measure_info()
++	{
++		stop();
++	}
++private:
++	volatile bool running;
++	volatile size_t updated;
++	size_t last_value;
++	struct timeval last;
++	pthread_t thread;
++	static void * thread_main(void * data)
++	{
++		measure_info * info = (measure_info *) data;
++		while(info->running)
++		{
++			usleep(50000);
++			info->report();
++		}
++		return data;
++	}
++};
++
+ static void create_lineitem()
+ {
+ 	ctable * table = create_and_open(tpch_tables[LINEITEM]);
+@@ -304,6 +372,8 @@ static void create_lineitem()
+ 	printf("tx_start = %d\n", r);
+ 	
+ 	tbl_reader<16> lineitem_tbl("tpch/lineitem.tbl");
++	measure_info info;
++	info.start();
+ 	while(lineitem_tbl.valid())
+ 	{
+ 		uint32_t key = lineitem_tbl.number();
+@@ -343,10 +413,12 @@ static void create_lineitem()
+ 		r = table->insert(key, values, 16, true);
+ 		if(r < 0)
+ 			printf("insert = %d\n", r);
+-		if(!(lineitem_tbl.number() % 500000))
++		info.update(lineitem_tbl.number());
++		if(!(lineitem_tbl.number() % 250000))
+ 			maintain_restart_tx(table);
+ 		lineitem_tbl.next();
+ 	}
++	info.stop();
+ 	
+ 	printf("digest_on_close\n");
+ 	delete table;
+@@ -357,9 +429,11 @@ static void create_lineitem()
+ /* import the part, customer, orders, and lineitem tables */
+ int command_tpchgen(int argc, const char * argv[])
+ {
++	/*
+ 	create_part();
+ 	create_customer();
+ 	create_orders();
++	*/
+ 	create_lineitem();
+ 	return 0;
+ }
+diff --git a/tpch_config.h b/tpch_config.h
+index d555603..bbb3c2c 100644
+--- a/tpch_config.h
++++ b/tpch_config.h
+@@ -395,8 +395,13 @@ static const char * tpch_lineitem_row_config = LITERAL(
+ 		"columns" int 16
+ 		"base" class(dt) managed_dtable
+ 		"base_config" config [
+-			"base" class(dt) linear_dtable
++			"base" class(dt) bloom_dtable
++			"base_config" config [
++				"bloom_k" int 5
++				"base" class(dt) simple_dtable
++			]
+ 			"digest_on_close" bool true
++			"bg_default" bool true
+ 		]
+ 		"column0_name" string "l_orderkey"
+ 		"column1_name" string "l_partkey"

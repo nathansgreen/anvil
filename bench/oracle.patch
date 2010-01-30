@@ -1,0 +1,13 @@
+diff --git a/bloom_dtable.h b/bloom_dtable.h
+index a21755a..0ee6835 100644
+--- a/bloom_dtable.h
++++ b/bloom_dtable.h
+@@ -18,7 +18,7 @@
+ /* The bloom filter dtable must be created with another read-only dtable, and
+  * builds a bloom filter for the keys. Negative lookups are then very fast. */
+ 
+-#define BFDT_PERF_TEST 0
++#define BFDT_PERF_TEST 1
+ 
+ #define BLOOM_DTABLE_MAGIC 0x1138B893
+ #define BLOOM_DTABLE_VERSION 0

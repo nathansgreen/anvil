@@ -1,0 +1,47 @@
+diff --git a/keydiv_dtable.cpp b/keydiv_dtable.cpp
+index 7d45668..899c6b3 100644
+--- a/keydiv_dtable.cpp
++++ b/keydiv_dtable.cpp
+@@ -373,11 +373,42 @@ int keydiv_dtable::map_atx(abortable_tx * atx, size_t index) const
+ 	return 0;
+ }
+ 
++#include "bg_thread.h"
++class maintain_thread
++{
++public:
++	inline maintain_thread() : bt(this, &maintain_thread::maintain) {}
++	void start(dtable * dt)
++	{
++		this->dt = dt;
++		bt.start();
++	}
++	void maintain(bg_token * token)
++	{
++		/* always force */
++		r = dt->maintain(true);
++		printf("(%d) ", r); fflush(stdout);
++	}
++	inline int result() { return r; }
++private:
++	int r;
++	dtable * dt;
++	bg_thread<maintain_thread> bt;
++};
++
+ int keydiv_dtable::maintain(bool force)
+ {
+ 	int r = 0;
+ 	if(!sub.size())
+ 		return -EBUSY;
++	if(force)
++	{
++		maintain_thread threads[sub.size()];
++		for(size_t i = 0; i < sub.size(); i++)
++			threads[i].start(sub[i]);
++		/* thread destructors will wait for them */
++		return 0;
++	}
+ 	for(size_t i = 0; i < sub.size(); i++)
+ 	{
+ 		r = sub[i]->maintain(force);
