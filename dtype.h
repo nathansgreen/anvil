@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -23,6 +23,12 @@ enum dtype_ctype
 	DT_BLOB
 };
 
+/* abortable transaction handle */
+typedef uint32_t abortable_tx;
+#define NO_ABORTABLE_TX ((abortable_tx) 0)
+/* make it easier to add this parameter to many functions */
+#define ATX_DEF abortable_tx atx
+
 #ifdef __cplusplus
 
 #include <ext/hash_map>
@@ -32,8 +38,11 @@ enum dtype_ctype
 #include "magic_test.h"
 #include "blob_comparator.h"
 
-/* all data stored in Anvil is wrapped by this type */
+/* for prototypes, required or optional parameter */
+#define ATX_REQ ATX_DEF
+#define ATX_OPT ATX_REQ = NO_ABORTABLE_TX
 
+/* all data stored in Anvil is wrapped by this type */
 class dtype
 {
 public:

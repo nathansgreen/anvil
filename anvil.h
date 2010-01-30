@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -176,16 +176,27 @@ int anvil_dtable_create_empty(const char * type, int dfd, const char * name, con
 anvil_dtable * anvil_dtable_open(const char * type, int dfd, const char * name, const anvil_params * config);
 void anvil_dtable_kill(anvil_dtable * c);
 
+bool anvil_dtable_contains(const anvil_dtable * c, const anvil_dtype * key);
+bool anvil_dtable_contains_tx(const anvil_dtable * c, const anvil_dtype * key, abortable_tx atx);
 int anvil_dtable_find(const anvil_dtable * c, const anvil_dtype * key, anvil_blob * value);
+int anvil_dtable_find_tx(const anvil_dtable * c, const anvil_dtype * key, anvil_blob * value, abortable_tx atx);
 bool anvil_dtable_writable(const anvil_dtable * c);
 int anvil_dtable_insert(anvil_dtable * c, const anvil_dtype * key, const anvil_blob * value, bool append);
+int anvil_dtable_insert_tx(anvil_dtable * c, const anvil_dtype * key, const anvil_blob * value, bool append, abortable_tx atx);
 int anvil_dtable_remove(anvil_dtable * c, const anvil_dtype * key);
+int anvil_dtable_remove_tx(anvil_dtable * c, const anvil_dtype * key, abortable_tx atx);
 anvil_dtype_type anvil_dtable_key_type(const anvil_dtable * c);
 int anvil_dtable_set_blob_cmp(anvil_dtable * c, const anvil_blobcmp * cmp);
 const char * anvil_dtable_get_cmp_name(const anvil_dtable * c);
 int anvil_dtable_maintain(anvil_dtable * c);
 
+abortable_tx anvil_dtable_create_atx(anvil_dtable * c);
+int anvil_dtable_check_atx(const anvil_dtable * c, abortable_tx atx);
+int anvil_dtable_commit_atx(anvil_dtable * c, abortable_tx atx);
+void anvil_dtable_abort_atx(anvil_dtable * c, abortable_tx atx);
+
 anvil_dtable_key_iter * anvil_dtable_keys(const anvil_dtable * c);
+anvil_dtable_key_iter * anvil_dtable_keys_tx(const anvil_dtable * c, abortable_tx atx);
 bool anvil_dtable_key_iter_valid(const anvil_dtable_key_iter * c);
 bool anvil_dtable_key_iter_next(anvil_dtable_key_iter * c);
 bool anvil_dtable_key_iter_prev(anvil_dtable_key_iter * c);
@@ -197,6 +208,7 @@ bool anvil_dtable_key_iter_seek_test(anvil_dtable_key_iter * c, blob_test test, 
 void anvil_dtable_key_iter_kill(anvil_dtable_key_iter * c);
 
 anvil_dtable_iter * anvil_dtable_iterator(const anvil_dtable * c);
+anvil_dtable_iter * anvil_dtable_iterator_tx(const anvil_dtable * c, abortable_tx atx);
 bool anvil_dtable_iter_valid(const anvil_dtable_iter * c);
 bool anvil_dtable_iter_next(anvil_dtable_iter * c);
 bool anvil_dtable_iter_prev(anvil_dtable_iter * c);

@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -461,11 +461,28 @@ void anvil_dtable_kill(anvil_dtable * c)
 	safer.cpp->destroy();
 }
 
-int anvil_dtable_find(const anvil_dtable * c, const anvil_dtype * key, anvil_blob * value)
+bool anvil_dtable_contains(const anvil_dtable * c, const anvil_dtype * key)
+{
+	return anvil_dtable_contains_tx(c, key, NO_ABORTABLE_TX);
+}
+
+bool anvil_dtable_contains_tx(const anvil_dtable * c, const anvil_dtype * key, abortable_tx atx)
 {
 	anvil_dtable_union_const safer(c);
 	anvil_dtype_union_const key_safer(key);
-	return init_anvil_blob(value, safer->find(*key_safer));
+	return safer->contains(*key_safer, atx);
+}
+
+int anvil_dtable_find(const anvil_dtable * c, const anvil_dtype * key, anvil_blob * value)
+{
+	return anvil_dtable_find_tx(c, key, value, NO_ABORTABLE_TX);
+}
+
+int anvil_dtable_find_tx(const anvil_dtable * c, const anvil_dtype * key, anvil_blob * value, abortable_tx atx)
+{
+	anvil_dtable_union_const safer(c);
+	anvil_dtype_union_const key_safer(key);
+	return init_anvil_blob(value, safer->find(*key_safer, atx));
 }
 
 bool anvil_dtable_writable(const anvil_dtable * c)
@@ -476,17 +493,27 @@ bool anvil_dtable_writable(const anvil_dtable * c)
 
 int anvil_dtable_insert(anvil_dtable * c, const anvil_dtype * key, const anvil_blob * value, bool append)
 {
+	return anvil_dtable_insert_tx(c, key, value, append, NO_ABORTABLE_TX);
+}
+
+int anvil_dtable_insert_tx(anvil_dtable * c, const anvil_dtype * key, const anvil_blob * value, bool append, abortable_tx atx)
+{
 	anvil_dtable_union safer(c);
 	anvil_dtype_union_const key_safer(key);
 	anvil_blob_union_const value_safer(value);
-	return safer->insert(*key_safer, *value_safer, append);
+	return safer->insert(*key_safer, *value_safer, append, atx);
 }
 
 int anvil_dtable_remove(anvil_dtable * c, const anvil_dtype * key)
 {
+	return anvil_dtable_remove_tx(c, key, NO_ABORTABLE_TX);
+}
+
+int anvil_dtable_remove_tx(anvil_dtable * c, const anvil_dtype * key, abortable_tx atx)
+{
 	anvil_dtable_union safer(c);
 	anvil_dtype_union_const key_safer(key);
-	return safer->remove(*key_safer);
+	return safer->remove(*key_safer, atx);
 }
 
 anvil_dtype_type anvil_dtable_key_type(const anvil_dtable * c)
@@ -514,10 +541,39 @@ int anvil_dtable_maintain(anvil_dtable * c)
 	return safer->maintain();
 }
 
-anvil_dtable_key_iter * anvil_dtable_keys(const anvil_dtable * c)
+abortable_tx anvil_dtable_create_atx(anvil_dtable * c)
+{
+	anvil_dtable_union safer(c);
+	return safer->create_tx();
+}
+
+int anvil_dtable_check_atx(const anvil_dtable * c, abortable_tx atx)
 {
 	anvil_dtable_union_const safer(c);
-	dtable::key_iter * iter = safer->iterator();
+	return safer->check_tx(atx);
+}
+
+int anvil_dtable_commit_atx(anvil_dtable * c, abortable_tx atx)
+{
+	anvil_dtable_union safer(c);
+	return safer->commit_tx(atx);
+}
+
+void anvil_dtable_abort_atx(anvil_dtable * c, abortable_tx atx)
+{
+	anvil_dtable_union safer(c);
+	safer->abort_tx(atx);
+}
+
+anvil_dtable_key_iter * anvil_dtable_keys(const anvil_dtable * c)
+{
+	return anvil_dtable_keys_tx(c, NO_ABORTABLE_TX);
+}
+
+anvil_dtable_key_iter * anvil_dtable_keys_tx(const anvil_dtable * c, abortable_tx atx)
+{
+	anvil_dtable_union_const safer(c);
+	dtable::key_iter * iter = safer->iterator(atx);
 	dtable::key_iter * cache = iter ? new dtable_cache_key_iter(iter) : NULL;
 	if(!cache && iter)
 		delete iter;
@@ -581,8 +637,13 @@ void anvil_dtable_key_iter_kill(anvil_dtable_key_iter * c)
 
 anvil_dtable_iter * anvil_dtable_iterator(const anvil_dtable * c)
 {
+	return anvil_dtable_iterator_tx(c, NO_ABORTABLE_TX);
+}
+
+anvil_dtable_iter * anvil_dtable_iterator_tx(const anvil_dtable * c, abortable_tx atx)
+{
 	anvil_dtable_union_const safer(c);
-	return anvil_dtable_iter_union(wrap_and_claim<dtable_cache_iter>(safer->iterator()));
+	return anvil_dtable_iter_union(wrap_and_claim<dtable_cache_iter>(safer->iterator(atx)));
 }
 
 bool anvil_dtable_iter_valid(const anvil_dtable_iter * c)

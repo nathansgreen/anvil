@@ -18,15 +18,6 @@
 #include "callback.h"
 #include "blob_comparator.h"
 
-/* abortable transaction handle */
-typedef uint32_t abortable_tx;
-#define NO_ABORTABLE_TX ((abortable_tx) 0)
-/* make it easier to add this parameter to many functions */
-#define ATX_DEF abortable_tx atx
-/* for prototypes, required or optional parameter */
-#define ATX_REQ ATX_DEF
-#define ATX_OPT ATX_REQ = NO_ABORTABLE_TX
-
 /* key tables (used for shadow checks) */
 class ktable
 {
