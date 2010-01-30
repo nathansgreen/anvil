@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -18,7 +18,7 @@
 class rofile;
 
 /* The linear dtable is like the simple dtable in that it can store values of
- * any size, but like the array dtable in that the keys must be contiguous
+ * any size, but like the array dtable in that the keys should be contiguous
  * integers. It can store holes and nonexistent values without special help,
  * unlike the array dtable, since it does not store *only* the values. */
 
