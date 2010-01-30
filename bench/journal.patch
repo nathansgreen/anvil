@@ -1,0 +1,73 @@
+diff --git a/main.c b/main.c
+index 16eaefc..52c5d11 100644
+--- a/main.c
++++ b/main.c
+@@ -622,6 +622,7 @@ struct {
+ 	{"edtable", "Test exist dtable functionality.", command_edtable},
+ 	{"exdtable", "Test exception dtable functionality.", command_exdtable},
+ 	{"odtable", "Test overlay dtable performance.", command_odtable},
++	{"jdtable", "Test journal dtable performance.", command_jdtable},
+ 	{"ldtable", "Test linear dtable functionality.", command_ldtable},
+ 	{"ussdtable", "Test usstate dtable functionality.", command_ussdtable},
+ 	{"bfdtable", "Test bloom filter dtable functionality.", command_bfdtable},
+diff --git a/main.h b/main.h
+index d722aa2..080e1d6 100644
+--- a/main.h
++++ b/main.h
+@@ -39,6 +39,7 @@ extern "C" {
+ 
+ /* in main_perf.cpp */
+ int command_odtable(int argc, const char * argv[]);
++int command_jdtable(int argc, const char * argv[]);
+ int command_ldtable(int argc, const char * argv[]);
+ int command_bfdtable(int argc, const char * argv[]);
+ int command_oracle(int argc, const char * argv[]);
+diff --git a/main_perf.cpp b/main_perf.cpp
+index 7c83a52..00d169f 100644
+--- a/main_perf.cpp
++++ b/main_perf.cpp
+@@ -861,6 +861,44 @@ int command_odtable(int argc, const char * argv[])
+ 	return 0;
+ }
+ 
++int command_jdtable(int argc, const char * argv[])
++{
++	struct timeval start, end;
++	int modulus = (argc > 1) ? atoi(argv[1]) : 0;
++	sys_journal * sysj = sys_journal::get_global_journal();
++	
++	printf("Create 10000000 journal dtables... ");
++	fflush(stdout);
++	gettimeofday(&start, NULL);
++	tx_start();
++	for(int i = 0; i < 10000000; i++)
++	{
++		journal_dtable * jdt = journal_dtable::warehouse.obtain(sys_journal::get_unique_id(), dtype::UINT32, sysj);
++		overlay_dtable * odt = new overlay_dtable;
++		dtable * dt = jdt;
++		odt->init(&dt, 1);
++		delete odt;
++		/* also destroys it */
++		jdt->discard();
++		if(modulus && !(i % modulus) && i)
++		{
++			tx_end(0);
++			tx_start();
++		}
++	}
++	tx_end(0);
++	gettimeofday(&end, NULL);
++	end.tv_sec -= start.tv_sec;
++	if(end.tv_usec < start.tv_usec)
++	{
++		end.tv_usec += 1000000;
++		end.tv_sec--;
++	}
++	end.tv_usec -= start.tv_usec;
++	printf("%d.%06d seconds.\n", (int) end.tv_sec, (int) end.tv_usec);
++	return 0;
++}
++
+ int command_ldtable(int argc, const char * argv[])
+ {
+ 	/* we just compare simple dtable with linear dtable using the exception

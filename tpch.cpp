@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -10,6 +10,7 @@
 #include <inttypes.h>
 #include <sys/time.h>
 
+#include "main.h"
 #include "tpch.h"
 #include "openat.h"
 #include "transaction.h"
@@ -75,8 +76,7 @@ private:
 	const char * column[max_columns];
 };
 
-/* FIXME: we should use linear_dtable where appropriate in these configurations */
-/* FIXME: an ASCII dtable would be nice too, ignoring the high bit of each byte (difficulty: how to calculate decoded size?) */
+/* FIXME: an ASCII dtable would be nice, ignoring the high bit of each byte (difficulty: how to calculate decoded size?) */
 #include "tpch_config.h"
 
 struct tpch_table_info {
@@ -408,10 +408,22 @@ int command_tpchopen(int argc, const char * argv[])
 int command_tpchtest(int argc, const char * argv[])
 {
 	ctable * lineitem = open_in_tx(tpch_tables[LINEITEM]);
-	struct timeval start, end;
+	struct timeval start;
 	ctable::p_iter * iter;
 	size_t columns[16];
-	float revenue = 0;
+	double revenue = 0;
+	size_t runs = 5;
+	
+	if(argc > 1)
+	{
+		runs = atoi(argv[1]);
+		if(runs < 1)
+		{
+			printf("Invalid run count: %s\n", argv[1]);
+			return 0;
+		}
+	}
+	printf("Running each column count %zu times.\n", runs);
 	
 	/* This is TPC-H query #6:
 	 * 
@@ -430,28 +442,21 @@ int command_tpchtest(int argc, const char * argv[])
 	 * also pick rows at random, simulating a predicate that happened to
 	 * pick those rows while allowing simple control of how many we get. */
 	
-	/* Well, first we do this quick query to make sure we get the right
-	 * answer (11440193536, with TPC-H scale factor 1); then we do that. */
+	/* Well, first we do this quick query to make sure we get the right answer
+	 * (11475087032.373623, with TPC-H scale factor 1); then we do that. */
 	columns[0] = lineitem->index("l_extendedprice");
 	columns[1] = lineitem->index("l_discount");
 	gettimeofday(&start, NULL);
 	iter = lineitem->iterator(columns, 2);
 	while(iter->valid())
 	{
-		float extendedprice = iter->value(columns[0]).index<float>(0);
-		float discount = iter->value(columns[1]).index<float>(0);
+		double extendedprice = iter->value(columns[0]).index<float>(0);
+		double discount = iter->value(columns[1]).index<float>(0);
 		revenue += extendedprice * discount;
 		iter->next();
 	}
-	gettimeofday(&end, NULL);
-	end.tv_sec -= start.tv_sec;
-	if(end.tv_usec < start.tv_usec)
-	{
-		end.tv_usec += 1000000;
-		end.tv_sec--;
-	}
-	end.tv_usec -= start.tv_usec;
-	printf("revenue = %f, %d.%06d seconds\n", revenue, (int) end.tv_sec, (int) end.tv_usec);
+	EXPECT_DOUBLE("revenue", 11475087032.373623, revenue);
+	print_elapsed(&start);
 	delete iter;
 	
 	/* OK, now run some of those tests */
@@ -462,8 +467,9 @@ int command_tpchtest(int argc, const char * argv[])
 	for(size_t i = 0; i < 16; i++)
 		columns[i] = lineitem->index(column_order[i]);
 	for(size_t n = 1; n <= 16; n++)
-		/* for each n, repeat 5 times */
-		for(size_t t = 0; t < 5; t++)
+	{
+		struct timeval sum = {0, 0}, end;
+		for(size_t t = 0; t < runs; t++)
 		{
 			printf("\n%zu columns, take %zu:", n, t + 1);
 			for(size_t i = 0; i < n; i++)
@@ -488,17 +494,16 @@ int command_tpchtest(int argc, const char * argv[])
 				iter->next();
 			}
 			gettimeofday(&end, NULL);
-			end.tv_sec -= start.tv_sec;
-			if(end.tv_usec < start.tv_usec)
-			{
-				end.tv_usec += 1000000;
-				end.tv_sec--;
-			}
-			end.tv_usec -= start.tv_usec;
-			printf("%d.%06d seconds\n", (int) end.tv_sec, (int) end.tv_usec);
+			timeval_subtract(&end, &start);
+			timeval_add(&sum, &end);
+			print_timeval(&end, true, true);
 			
 			delete iter;
 		}
+		printf("\n%zu column average: ", n);
+		timeval_divide(&sum, runs, true);
+		print_timeval(&sum, true, true);
+	}
 	
 	delete lineitem;
 	return 0;

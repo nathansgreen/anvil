@@ -5,6 +5,11 @@ if [ -d mnt -a -w mnt ]
 then
 	DIR=mnt/test.mnt
 else
+	if [ "$1" = "--bench" ]
+	then
+		echo "Cannot use dedicated disk and --bench given. Aborting."
+		exit 1
+	fi
 	DIR=test.local
 fi
 

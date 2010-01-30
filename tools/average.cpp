@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -60,7 +60,7 @@ static void process_line(char * line)
 		length--;
 	if(!length)
 		return;
-	usec += atoi(&line[length + 1]) * 1000000;
+	usec += 1000000 * (uint64_t) atoi(&line[length + 1]);
 	line[length] = 0;
 	messages.push_back(line);
 	times.push_back(usec);

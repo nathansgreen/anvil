@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -216,7 +216,7 @@ static const char * tpch_lineitem_column_config = LITERAL(
 		"columns" int 16
 		"base" class(dt) managed_dtable
 		"base_config" config [
-			"base" class(dt) simple_dtable
+			"base" class(dt) linear_dtable
 			"digest_on_close" bool true
 		]
 		"column0_name" string "l_orderkey"
@@ -395,7 +395,7 @@ static const char * tpch_lineitem_row_config = LITERAL(
 		"columns" int 16
 		"base" class(dt) managed_dtable
 		"base_config" config [
-			"base" class(dt) simple_dtable
+			"base" class(dt) linear_dtable
 			"digest_on_close" bool true
 		]
 		"column0_name" string "l_orderkey"

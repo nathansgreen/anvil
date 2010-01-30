@@ -11,13 +11,21 @@
 
 #define PRINT_FAIL printf("\a\e[1m\e[31m    **** ERROR ****  (%s:%d)\e[0m\n", __FILE__, __LINE__)
 #define EXPECT_NEVER(label, args...) do { printf(label "\n", ##args); PRINT_FAIL; } while(0)
+
 #define EXPECT_FAIL(label, result) do { printf(label " = %d (expect failure)\n", result); if(result >= 0) PRINT_FAIL; } while(0)
 #define EXPECT_NOFAIL(label, result) do { printf(label " = %d\n", result); if(result < 0) PRINT_FAIL; } while(0)
 #define EXPECT_NOFAIL_FORMAT(label, result, args...) do { printf(label " = %d\n", ##args, result); if(result < 0) PRINT_FAIL; } while(0)
 #define EXPECT_NOFAIL_COUNT(label, result, name, value) do { printf(label " = %d, %zu " name "\n", result, value); if(result < 0) PRINT_FAIL; } while(0)
+
 #define EXPECT_NONULL(label, test) do { void * __value = test; printf(label " = %p\n", __value); if(!__value) PRINT_FAIL; } while(0)
-#define EXPECT_SIZET(label, expect, test) do { size_t __value = test; printf(label " = %zu (expect %zu)\n", __value, (size_t) expect); if(__value != (expect)) PRINT_FAIL; } while(0)
-#define EXPECT_NOTU32(label, expect, test) do { uint32_t __value = test; printf(label " = %u\n", __value); if(__value == (expect)) PRINT_FAIL; } while(0)
+
+#define EXPECT_TYPE(label, type, format, expect, test) do { type __value = test; printf(label " = %"format" (expect %"format")\n", __value, (type) expect); if(__value != (expect)) PRINT_FAIL; } while(0)
+#define EXPECT_SIZET(label, expect, test) EXPECT_TYPE(label, size_t, "zu", expect, test)
+#define EXPECT_DOUBLE(label, expect, test) EXPECT_TYPE(label, double, "lf", expect, test)
+
+#define EXPECT_NOTTYPE(label, type, format, expect, test) do { type __value = test; printf(label " = %"format"\n", __value); if(__value == (expect)) PRINT_FAIL; } while(0)
+#define EXPECT_NOTU32(label, expect, test) EXPECT_NOTTYPE(label, uint32_t, "u", expect, test)
+
 #define EXPECT_BOOL(label, expect, test) do { bool __value = test; printf(label " = %s (expect %s)\n", __value ? "true" : "false", expect ? "true" : "false"); if(!__value != !expect) PRINT_FAIL; } while(0)
 #define EXPECT_TRUE(label, test) EXPECT_BOOL(label, true, test)
 #define EXPECT_FALSE(label, test) EXPECT_BOOL(label, false, test)

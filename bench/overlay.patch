@@ -1,0 +1,13 @@
+diff --git a/main_perf.cpp b/main_perf.cpp
+index 7c83a52..8827619 100644
+--- a/main_perf.cpp
++++ b/main_perf.cpp
+@@ -752,7 +752,7 @@ static int ovdt_perf(dtable * table)
+ 	printf("Random lookups... ");
+ 	fflush(stdout);
+ 	gettimeofday(&start, NULL);
+-	for(int i = 0; i < 2000000; i++)
++	for(int i = 0; i < 32000000; i++)
+ 	{
+ 		uint32_t key = rand() % 4000000;
+ 		blob value = table->find(key);

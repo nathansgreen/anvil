@@ -1,0 +1,50 @@
+diff --git a/tpch.cpp b/tpch.cpp
+index a871ad3..82ba7a6 100644
+--- a/tpch.cpp
++++ b/tpch.cpp
+@@ -343,7 +343,13 @@ static void create_lineitem()
+ 		r = table->insert(key, values, 16, true);
+ 		if(r < 0)
+ 			printf("insert = %d\n", r);
+-		if(!(lineitem_tbl.number() % 500000))
++		if(!(lineitem_tbl.number() % 10000))
++		{
++			struct timeval now;
++			gettimeofday(&now, NULL);
++			printf("%d.%06d %zu\n", (int) now.tv_sec, (int) now.tv_usec, lineitem_tbl.number());
++		}
++		if(!(lineitem_tbl.number() % 250000))
+ 			maintain_restart_tx(table);
+ 		lineitem_tbl.next();
+ 	}
+@@ -357,9 +363,11 @@ static void create_lineitem()
+ /* import the part, customer, orders, and lineitem tables */
+ int command_tpchgen(int argc, const char * argv[])
+ {
++	/*
+ 	create_part();
+ 	create_customer();
+ 	create_orders();
++	*/
+ 	create_lineitem();
+ 	return 0;
+ }
+diff --git a/tpch_config.h b/tpch_config.h
+index d555603..bbb3c2c 100644
+--- a/tpch_config.h
++++ b/tpch_config.h
+@@ -395,8 +395,13 @@ static const char * tpch_lineitem_row_config = LITERAL(
+ 		"columns" int 16
+ 		"base" class(dt) managed_dtable
+ 		"base_config" config [
+-			"base" class(dt) linear_dtable
++			"base" class(dt) bloom_dtable
++			"base_config" config [
++				"bloom_k" int 5
++				"base" class(dt) simple_dtable
++			]
+ 			"digest_on_close" bool true
++			"bg_default" bool true
+ 		]
+ 		"column0_name" string "l_orderkey"
+ 		"column1_name" string "l_partkey"

@@ -1,0 +1,75 @@
+diff --git a/managed_dtable.cpp b/managed_dtable.cpp
+index eb5b838..ecd72e4 100644
+--- a/managed_dtable.cpp
++++ b/managed_dtable.cpp
+@@ -835,6 +835,7 @@ int managed_dtable::maintain(bool force, bool background)
+ 	return r;
+ }
+ 
++bool mdt_force_combine = false;
+ template<class T>
+ int managed_dtable::maintain(bool force, T * token)
+ {
+@@ -858,6 +859,8 @@ int managed_dtable::maintain(bool force, T * token)
+ 	{
+ 		/* how long until the next digest? */
+ 		time_t delay = header.digested + header.digest_interval - now;
++		if(mdt_force_combine)
++			delay = header.combined + header.combine_interval - now;
+ 		if(delay > 0)
+ 		{
+ 			/* push history backward by that amount */
+@@ -900,7 +903,7 @@ int managed_dtable::maintain(bool force, T * token)
+ 			}
+ 		}
+ 	}
+-	if(header.combined + header.combine_interval <= now && !autocombine)
++	if(header.combined + header.combine_interval <= now && (force || !autocombine))
+ 	{
+ 		time_t old = header.combined;
+ 		header.combined += header.combine_interval;
+diff --git a/tpch.cpp b/tpch.cpp
+index a871ad3..d68e486 100644
+--- a/tpch.cpp
++++ b/tpch.cpp
+@@ -357,9 +357,11 @@ static void create_lineitem()
+ /* import the part, customer, orders, and lineitem tables */
+ int command_tpchgen(int argc, const char * argv[])
+ {
++	/*
+ 	create_part();
+ 	create_customer();
+ 	create_orders();
++	*/
+ 	create_lineitem();
+ 	return 0;
+ }
+@@ -388,16 +390,28 @@ static ctable * open_in_tx(const tpch_table_info & info, bool print_config = fal
+ 	return table;
+ }
+ 
++extern bool mdt_force_combine;
+ int command_tpchopen(int argc, const char * argv[])
+ {
++	/*
+ 	ctable * part = open_in_tx(tpch_tables[PART]);
+ 	ctable * customer = open_in_tx(tpch_tables[CUSTOMER]);
+ 	ctable * orders = open_in_tx(tpch_tables[ORDERS]);
++	*/
+ 	ctable * lineitem = open_in_tx(tpch_tables[LINEITEM]);
++	int r = tx_start();
++	printf("tx_start = %d\n", r);
++	mdt_force_combine = true;
++	lineitem->maintain(true);
++	mdt_force_combine = false;
++	r = tx_end(0);
++	printf("tx_end = %d\n", r);
+ 	delete lineitem;
++	/*
+ 	delete orders;
+ 	delete customer;
+ 	delete part;
++	*/
+ 	return 0;
+ }
+ 

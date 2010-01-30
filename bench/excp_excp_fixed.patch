@@ -1,0 +1,52 @@
+diff --git a/main_perf.cpp b/main_perf.cpp
+index 7c83a52..79bca7e 100644
+--- a/main_perf.cpp
++++ b/main_perf.cpp
+@@ -516,10 +516,7 @@ void exdtable_perf(void)
+ 	config [
+ 		"base" class(dt) exception_dtable
+ 		"base_config" config [
+-			"base" class(dt) btree_dtable
+-			"base_config" config [
+-				"base" class(dt) fixed_dtable
+-			]
++			"base" class(dt) fixed_dtable
+ 			"alt" class(dt) simple_dtable
+ 			"reject_value" string "_____"
+ 		]
+@@ -545,6 +542,7 @@ void exdtable_perf(void)
+ 	excp_perf(mdt);
+ 	mdt->destroy();
+ 	
++#if 0
+ 	/* should we also run with exception_dtable but simple_dtable underneath, to
+ 	 * isolate the overhead without the performance benefits of array_dtable? */
+ 	config = params();
+@@ -575,6 +573,7 @@ void exdtable_perf(void)
+ 	EXPECT_NOFAIL("mdt->init", r);
+ 	excp_perf(mdt);
+ 	mdt->destroy();
++#endif
+ }
+ 
+ #define POPULAR_BLOBS 10
+diff --git a/main_test.cpp b/main_test.cpp
+index 9b7b3ff..3042581 100644
+--- a/main_test.cpp
++++ b/main_test.cpp
+@@ -253,6 +253,7 @@ int command_edtable(int argc, const char * argv[])
+ 
+ int command_exdtable(int argc, const char * argv[])
+ {
++#if 0
+ 	int r;
+ 	blob fixed("fixed");
+ 	blob exception("exception");
+@@ -331,6 +332,7 @@ int command_exdtable(int argc, const char * argv[])
+ 	r = tx_end(0);
+ 	EXPECT_NOFAIL("tx_end", r);
+ 	mdt->destroy();
++#endif
+ 	
+ 	if(argc > 1 && !strcmp(argv[1], "perf"))
+ 		/* run the performance test as well */

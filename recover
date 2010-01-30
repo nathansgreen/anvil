@@ -4,7 +4,7 @@
 #export VALGRIND="valgrind --trace-children=yes --leak-check=full"
 
 # Uncomment to do IO counting
-#export IO_COUNT='LD_PRELOAD=$WD/io_count.so'
+#export IO_COUNT='LD_PRELOAD=$WD/tools/io_count.so'
 
 # Uncomment to enable patchgroup traces during recovery
 #PG_TRACE="PATCHGROUP_TRACE=sysj.pgt"

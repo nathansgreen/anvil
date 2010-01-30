@@ -1,0 +1,31 @@
+diff --git a/main_perf.cpp b/main_perf.cpp
+index 7c83a52..9fb1b0c 100644
+--- a/main_perf.cpp
++++ b/main_perf.cpp
+@@ -925,7 +925,7 @@ static int bfdt_perf(dtable * table)
+ 	printf("Extant lookups... ");
+ 	fflush(stdout);
+ 	gettimeofday(&start, NULL);
+-	for(int i = 0; i < 200000; i++)
++	for(int i = 0; i < 1000000; i++)
+ 	{
+ 		uint32_t key = rand() % 4000000;
+ 		blob value = table->find(key * 2);
+@@ -940,7 +940,7 @@ static int bfdt_perf(dtable * table)
+ 	printf("Nonexistent lookups... ");
+ 	fflush(stdout);
+ 	gettimeofday(&start, NULL);
+-	for(int i = 0; i < 200000; i++)
++	for(int i = 0; i < 1000000; i++)
+ 	{
+ 		uint32_t key = rand() % 4000000;
+ 		blob value = table->find(key * 2 + 1);
+@@ -955,7 +955,7 @@ static int bfdt_perf(dtable * table)
+ 	printf("Mixed lookups... ");
+ 	fflush(stdout);
+ 	gettimeofday(&start, NULL);
+-	for(int i = 0; i < 200000; i++)
++	for(int i = 0; i < 1000000; i++)
+ 	{
+ 		uint32_t key = rand() % 8000000;
+ 		blob value = table->find(key);

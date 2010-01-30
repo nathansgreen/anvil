@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -273,7 +273,7 @@ blob linear_dtable::lookup(const dtype & key, bool * found, ATX_DEF) const
 	if(key.u32 < min_key || min_key + array_size <= key.u32)
 	{
 		*found = false;
-		return false;
+		return blob();
 	}
 	index = key.u32 - min_key;
 	return get_value(index, found);
