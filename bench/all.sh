@@ -28,15 +28,18 @@ fi
 
 HOSTNAME="`hostname`"
 
-i=0
-while [ $i -lt ${#TESTS_N[*]} ]
-do
-	echo "Starting test: ${TESTS_N[$i]}" | mail -s "$HOSTNAME: $0 status update" $USER
-	# When we get to this test, do only 2 runs instead of the default
-	[ "${TESTS_N[$i]}" = "excp_excp_array_x1k" ] && N=2
-	run_test_N "${TESTS_N[$i]}" "${CMDS_N[$i]}"
-	i=$((i + 1))
-done
+if [ "$1" != "--one" ]
+then
+	i=0
+	while [ $i -lt ${#TESTS_N[*]} ]
+	do
+		echo "Starting test: ${TESTS_N[$i]}" | mail -s "$HOSTNAME: $0 status update" $USER
+		# When we get to this test, do only 2 runs instead of the default
+		[ "${TESTS_N[$i]}" = "excp_excp_array_x1k" ] && N=2
+		run_test_N "${TESTS_N[$i]}" "${CMDS_N[$i]}"
+		i=$((i + 1))
+	done
+fi
 
 i=0
 while [ $i -lt ${#TESTS_1[*]} ]

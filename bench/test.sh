@@ -1,6 +1,6 @@
 #!/bin/bash
 
-N=8
+[ "$N" ] || N=8
 
 NL="`echo; echo N`"; NL="${NL%N}"
 
