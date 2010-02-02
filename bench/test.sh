@@ -10,7 +10,7 @@ function set_up_test()
 	echo "========== $1 ($2) =========="
 	PATCH="bench/$1.patch"
 	patch -p1 < $PATCH
-	make || exit $?
+	make -j2 || exit $?
 }
 
 function finish_test()
