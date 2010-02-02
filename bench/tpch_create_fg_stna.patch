@@ -1,0 +1,113 @@
+diff --git a/atomic.h b/atomic.h
+index 5107cc2..0e50b01 100644
+--- a/atomic.h
++++ b/atomic.h
+@@ -37,25 +37,29 @@ public:
+ 	/* returns the old value */
+ 	inline T add(T delta)
+ 	{
+-		return __sync_fetch_and_add(&value, delta);
++		T old = value;
++		value += delta;
++		return old;
+ 	}
+ 	
+ 	/* returns the new value */
+ 	inline T sub(T delta)
+ 	{
+-		return __sync_sub_and_fetch(&value, delta);
++		return value -= delta;
+ 	}
+ 	
+ 	inline T get() const
+ 	{
+ 		/* is there a better way? */
+-		return __sync_add_and_fetch(&value, 0);
++		return value;
+ 	}
+ 	
+ 	/* returns the old value */
+ 	inline T zero()
+ 	{
+-		return __sync_fetch_and_and(&value, 0);
++		T old = value;
++		value = 0;
++		return old;
+ 	}
+ 	
+ 	inline void set(T value)
+diff --git a/managed_dtable.cpp b/managed_dtable.cpp
+index eb5b838..168fe15 100644
+--- a/managed_dtable.cpp
++++ b/managed_dtable.cpp
+@@ -137,7 +137,7 @@ int managed_dtable::init(int dfd, const char * name, const params & config, sys_
+ 		overlay->init(array, count + 1);
+ 	}
+ 	
+-	digest_thread.start();
++	//digest_thread.start();
+ 	
+ 	return 0;
+ 	
+@@ -160,10 +160,10 @@ void managed_dtable::deinit()
+ 	if(bg_digesting)
+ 		background_join();
+ 	assert(!bg_digesting);
+-	digest_thread.request_stop();
++	//digest_thread.request_stop();
+ 	/* send a STOP message to the queue */
+-	digest_queue.send(digest_msg());
+-	digest_thread.wait_for_stop();
++	//digest_queue.send(digest_msg());
++	//digest_thread.wait_for_stop();
+ 	if(!doomed_dtables.empty())
+ 	{
+ 		/* FIXME: handle doomed dtables */
+diff --git a/tpch.cpp b/tpch.cpp
+index a871ad3..82ba7a6 100644
+--- a/tpch.cpp
++++ b/tpch.cpp
+@@ -343,7 +343,13 @@ static void create_lineitem()
+ 		r = table->insert(key, values, 16, true);
+ 		if(r < 0)
+ 			printf("insert = %d\n", r);
+-		if(!(lineitem_tbl.number() % 500000))
++		if(!(lineitem_tbl.number() % 10000))
++		{
++			struct timeval now;
++			gettimeofday(&now, NULL);
++			printf("%d.%06d %zu\n", (int) now.tv_sec, (int) now.tv_usec, lineitem_tbl.number());
++		}
++		if(!(lineitem_tbl.number() % 250000))
+ 			maintain_restart_tx(table);
+ 		lineitem_tbl.next();
+ 	}
+@@ -357,9 +363,11 @@ static void create_lineitem()
+ /* import the part, customer, orders, and lineitem tables */
+ int command_tpchgen(int argc, const char * argv[])
+ {
++	/*
+ 	create_part();
+ 	create_customer();
+ 	create_orders();
++	*/
+ 	create_lineitem();
+ 	return 0;
+ }
+diff --git a/tpch_config.h b/tpch_config.h
+index d555603..20427fa 100644
+--- a/tpch_config.h
++++ b/tpch_config.h
+@@ -395,7 +395,11 @@ static const char * tpch_lineitem_row_config = LITERAL(
+ 		"columns" int 16
+ 		"base" class(dt) managed_dtable
+ 		"base_config" config [
+-			"base" class(dt) linear_dtable
++			"base" class(dt) bloom_dtable
++			"base_config" config [
++				"bloom_k" int 5
++				"base" class(dt) simple_dtable
++			]
+ 			"digest_on_close" bool true
+ 		]
+ 		"column0_name" string "l_orderkey"
