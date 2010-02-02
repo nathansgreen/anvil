@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -28,10 +28,9 @@ index_blob::index_blob(size_t count, const blob & x)
 		uint32_t size = base.index<uint32_t>(i);
 		if(size)
 		{
-			if(--size)
-				indices[i].value = blob(size, &base[offset]);
-			else
-				indices[i].value = blob::empty;
+			indices[i].delayed = true;
+			indices[i]._size = --size;
+			indices[i]._offset = offset;
 			offset += size;
 		}
 		else
@@ -47,7 +46,7 @@ index_blob::index_blob(const index_blob & x)
 	{
 		indices = new sub[count];
 		for(size_t i = 0; i < count; i++)
-			indices[i].value = x.indices[i].value;
+			indices[i] = x.indices[i];
 	}
 	else
 		indices = NULL;
@@ -67,7 +66,7 @@ index_blob & index_blob::operator=(const index_blob & x)
 	{
 		indices = new sub[count];
 		for(size_t i = 0; i < count; i++)
-			indices[i].value = x.indices[i].value;
+			indices[i] = x.indices[i];
 	}
 	else
 		indices = NULL;
@@ -88,6 +87,7 @@ blob index_blob::flatten() const
 		{
 			if(indices[i].modified)
 			{
+				assert(!indices[i].delayed);
 				buffer.overwrite(offset, indices[i].value);
 				indices[i].modified = false;
 			}
@@ -105,13 +105,14 @@ blob index_blob::flatten() const
 		for(size_t i = 0; i < count; i++)
 		{
 			/* we use 0 for "does not exist" so other sizes are incremented by 1 */
-			uint32_t size = indices[i].value.exists() ? indices[i].value.size() + 1 : 0;
+			uint32_t size = indices[i].exists() ? indices[i].size() + 1 : 0;
 			indices[i].modified = false;
 			buffer << size;
 		}
 		offset = count * sizeof(uint32_t);
 		for(size_t i = 0; i < count; i++)
-			buffer.append(indices[i].value);
+			/* use get(i) rather than indices[i].value in case they are delayed */
+			buffer.append(get(i));
 		modified = false;
 		resized = false;
 		base = buffer;

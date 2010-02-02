@@ -1,4 +1,4 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
@@ -25,18 +25,27 @@ public:
 	inline blob get(size_t index) const
 	{
 		assert(index < count);
+		if(indices[index].delayed)
+		{
+			if(indices[index]._size)
+				indices[index].value = blob(indices[index]._size, &base[indices[index]._offset]);
+			else
+				indices[index].value = blob::empty;
+			indices[index].delayed = false;
+		}
 		return indices[index].value;
 	}
 	
 	inline int set(size_t index, const blob & value)
 	{
 		assert(index < count);
-		if(value.size() != indices[index].value.size() ||
-		   value.exists() != indices[index].value.exists())
+		if(value.size() != indices[index].size() ||
+		   value.exists() != indices[index].exists())
 			resized = true;
 		modified = true;
 		indices[index].value = value;
 		indices[index].modified = true;
+		indices[index].delayed = false;
 		return 0;
 	}
 	
@@ -52,8 +61,12 @@ private:
 	struct sub
 	{
 		blob value;
-		bool modified;
-		inline sub() : modified(false) {}
+		bool modified, delayed;
+		/* if delayed is true, then these are where the blob can be found */
+		size_t _size, _offset;
+		inline sub() : modified(false), delayed(false) {}
+		inline size_t size() { return delayed ? _size : value.size(); }
+		inline bool exists() { return delayed ? true : value.exists(); }
 	};
 	
 	mutable blob base;
