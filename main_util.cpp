@@ -1,11 +1,17 @@
-/* This file is part of Anvil. Anvil is copyright 2007-2009 The Regents
+/* This file is part of Anvil. Anvil is copyright 2007-2010 The Regents
  * of the University of California. It is distributed under the terms of
  * version 2 of the GNU GPL. See the file LICENSE for details. */
 
+#define _XOPEN_SOURCE 600
+#include <fcntl.h>
 #include <ctype.h>
+#include <stdio.h>
 #include <stdarg.h>
+#include <dirent.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #include "main.h"
 #include "blob_buffer.h"
@@ -279,4 +285,57 @@ blob random_blob(size_t size)
 		buffer << byte;
 	}
 	return buffer;
+}
+
+int drop_cache(const char * path)
+{
+	struct stat st;
+	int r = stat(path, &st);
+	if(r < 0)
+	{
+		perror(path);
+		return r;
+	}
+	if(S_ISDIR(st.st_mode))
+	{
+		struct dirent * entry;
+		DIR * dir = opendir(path);
+		if(!dir)
+		{
+			perror(path);
+			return -1;
+		}
+		while((entry = readdir(dir)))
+		{
+			char * full = NULL;
+			if(!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+				continue;
+			r = asprintf(&full, "%s/%s", path, entry->d_name);
+			if(r < 0)
+			{
+				perror(entry->d_name);
+				continue;
+			}
+			drop_cache(full);
+			free(full);
+		}
+		closedir(dir);
+	}
+	else
+	{
+		int fd = open(path, O_RDONLY);
+		if(fd < 0)
+		{
+			perror(path);
+			return fd;
+		}
+		r = posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+		if(r < 0)
+		{
+			perror(path);
+			return r;
+		}
+		close(fd);
+	}
+	return 0;
 }

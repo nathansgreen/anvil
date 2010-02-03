@@ -66,6 +66,9 @@ int command_rwatx(int argc, const char * argv[]);
 int command_stable(int argc, const char * argv[]);
 int command_iterator(int argc, const char * argv[]);
 
+/* in main_util.cpp */
+int drop_cache(const char * path);
+
 #ifdef __cplusplus
 }
 

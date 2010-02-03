@@ -478,6 +478,7 @@ int command_tpchtest(int argc, const char * argv[])
 			
 			/* reopen it to clear any application-level caches */
 			delete lineitem;
+			drop_cache(tpch_tables[LINEITEM].name);
 			lineitem = open_in_tx(tpch_tables[LINEITEM]);
 			iter = lineitem->iterator(columns, n);
 			
