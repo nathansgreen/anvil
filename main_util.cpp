@@ -289,6 +289,7 @@ blob random_blob(size_t size)
 
 int drop_cache(const char * path)
 {
+#ifdef __linux__
 	struct stat st;
 	int r = stat(path, &st);
 	if(r < 0)
@@ -338,4 +339,8 @@ int drop_cache(const char * path)
 		close(fd);
 	}
 	return 0;
+#else
+	printf("%s(): not supported\n", __FUNCTION__);
+	return -ENOSYS;
+#endif
 }
