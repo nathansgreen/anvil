@@ -578,7 +578,7 @@ void exdtable_perf(void)
 }
 
 #define POPULAR_BLOBS 10
-static int uqdt_perf(dtable * dt, const char * name, size_t count = 2500000)
+static int uqdt_perf(dtable * dt, const char * name, const char * drop_path, size_t count = 2500000)
 {
 	int r;
 	struct timeval start;
@@ -616,8 +616,18 @@ static int uqdt_perf(dtable * dt, const char * name, size_t count = 2500000)
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	
+	if(drop_path)
+	{
+		printf("Dropping caches.\n");
+		drop_cache(drop_path);
+	}
 	time_iterator(dt, 3);
 	
+	if(drop_path)
+	{
+		printf("Dropping caches.\n");
+		drop_cache(drop_path);
+	}
 	printf("Random lookups... ");
 	fflush(stdout);
 	gettimeofday(&start, NULL);
@@ -659,7 +669,7 @@ int udtable_perf(void)
 	EXPECT_NONULL("dtable_factory::load", dt);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
-	uqdt_perf(dt, "unique");
+	uqdt_perf(dt, "unique", "uqdt_perf");
 	dt->destroy();
 	
 	config = params();
@@ -680,7 +690,7 @@ int udtable_perf(void)
 	EXPECT_NONULL("dtable_factory::load", dt);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
-	uqdt_perf(dt, "reference");
+	uqdt_perf(dt, "reference", "urdt_perf");
 	dt->destroy();
 	
 	return 0;
@@ -717,7 +727,7 @@ int kddtable_perf(void)
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
 	/* the uniq_dtable test is fine here even thought it's not what we're testing */
-	uqdt_perf(dt, "[keydiv] simple", 4000000);
+	uqdt_perf(dt, "[keydiv] simple", NULL, 4000000);
 	dt->destroy();
 	
 	config = params();
@@ -738,7 +748,7 @@ int kddtable_perf(void)
 	EXPECT_NONULL("dtable_factory::load", dt);
 	r = tx_end(0);
 	EXPECT_NOFAIL("tx_end", r);
-	uqdt_perf(dt, "simple", 4000000);
+	uqdt_perf(dt, "simple", NULL, 4000000);
 	dt->destroy();
 	
 	return 0;
