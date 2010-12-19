@@ -95,10 +95,10 @@ all: config.mak tags main
 tools: $(TOOLS)
 
 %.o: %.c
-	$(CC) -c $< -o $@ -O2 $(CFLAGS)
+	$(CC) -MMD -c $< -o $@ -O2 $(CFLAGS)
 
 %.o: %.cpp
-	$(CXX) -c $< -o $@ -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CXXFLAGS)
+	$(CXX) -MMD -c $< -o $@ -O2 $(CFLAGS) -fno-exceptions -fno-rtti $(CXXFLAGS)
 
 tools/%: tools/%.o
 	$(CXX) -o $@ $^ $(LDFLAGS)
@@ -140,8 +140,8 @@ includes.pdf: includes.eps
 	epstopdf includes.eps
 
 clean:
-	rm -f config.h config.mak main libanvil.$(SO) libanvil.a *.o stlavlmap/*.o .depend tags
-	rm -f $(TOOLS) tools/*.o includes.dot includes.eps includes.pdf
+	rm -f config.h config.mak main libanvil.$(SO) libanvil.a *.o *.d stlavlmap/*.o stlavlmap/*.d
+	rm -f tags $(TOOLS) tools/*.o tools/*.d includes.dot includes.eps includes.pdf
 
 clean-all: clean
 	php/clean
@@ -160,12 +160,7 @@ config.h: config.mak
 config.mak: configure
 	./configure --reconfigure
 
-.depend: $(SOURCES) $(MAIN_SRC) $(HEADERS) config.h
-	$(CXX) -MM $(PCFLAGS) $(PCXXFLAGS) *.c *.cpp > .depend
-
 tags: $(SOURCES) $(MAIN_SRC) $(HEADERS) config.h
 	if ctags --version | grep -q Exuberant; then ctags -R; else touch tags; fi
 
-ifneq ($(MAKECMDGOALS),clean)
--include .depend
-endif
+include $(wildcard *.d)

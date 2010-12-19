@@ -1,4 +1,3 @@
-.depend
 .fdb_history
 bench/lineitem-col.tar.gz
 bench/lineitem-row.tar.gz
@@ -26,4 +25,5 @@ tools/io_count.so
 tools/logsplit
 tools/medic
 tpch
+*.d
 *.o
